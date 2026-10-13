@@ -39,9 +39,14 @@ C:\ECONTACT\              EContact's folder (or another one):
   file selector (pick any file in the folder), or use `C:\ECONTACT`.
 
 **Memory.** The accessory takes its memory once, at boot: 1.5 MB on a
-Falcon or TT, 320 KB on an ST (several hundred contacts), never more than
-half of what's free; 4 MB from TT/Fast RAM where there is some.
-`HEAPKB=` in ECONTACT.INF sets another amount, in kilobytes.
+Falcon or TT (4 MB from TT/Fast RAM where there is some), half of what's
+free on an ST: about 250 KB on a 1 MB ST (some 490 contacts), 750 KB on
+2 MB (1,500), 1.8 MB on 4 MB (3,700). `HEAPKB=` in ECONTACT.INF sets
+another amount, in kilobytes; a contact takes about half a kilobyte, and
+a sync wants a fifth of the memory free besides. If contacts don't fit,
+the window says how many aren't shown and an alert says what to set:
+
+![Contacts that don't fit](memory-full.png)
 
 ## Accounts
 

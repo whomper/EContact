@@ -146,6 +146,42 @@ Show contacts' photos turns them off. The account's password is sent only
 to the account's own server (or iCloud's photo servers), never to a link
 elsewhere.
 
+## How many contacts
+
+Measured in Hatari on an 8 MHz Mega ST under EmuTOS, with `ECONTST.ACC`
+and cards like iCloud's (a name, a company, one or two emails, two phones,
+some with an address, birthday or note):
+
+| ST | EContact's memory | Contacts | Start-up |
+|----|-------------------|----------|----------|
+| 1 MB | 250 KB | about 490 | 10 s for 490 |
+| 2 MB | 750 KB | about 1,500 | about 30 s |
+| 4 MB | 1.8 MB | about 3,700 | 45 s for 2,500 |
+
+(1 MB and the 4 MB start-up measured; the rest worked out from the size
+of a contact.)
+
+- **About half a kilobyte a contact** in memory (photos stay on disk). The
+  accessory takes half of the memory free at boot, leaving the other half
+  to the programs you run; `HEAPKB=` in `ECONTACT.INF` sets another amount.
+  A sync needs some room besides (the answers it reads, a few to an
+  eighth of the memory at a time), so keep a fifth of it free.
+- With more in the address book than fit, a few less show: each card in
+  the cache keeps about 125 bytes in memory either way (1,000 on a 1 MB
+  ST: 300 shown).
+- **Contacts that don't fit are never left out quietly**: the window says
+  "N not shown" and an alert gives the `HEAPKB=` to set. `CONTACTS.TXT` is
+  then left as it was, so EMail and ECal keep everyone.
+- **Start-up reads parsed contacts** from `CACHE\BOOKnnnn.IDX`: a card is
+  parsed (about 85 ms on an 8 MHz ST) only the first time, and after it
+  changes; the rest take about 18 ms each. The first start of a new
+  version parses everything once (2,500 contacts: 4 minutes on an ST).
+- **Syncing a big address book** reads the server's list of cards as it
+  arrives when memory is small, keeping only what needs fetching.
+- STinG takes 100 KB or more of its own: with it, a 1 MB ST holds about
+  400 contacts. A 512 KB ST can't run EContact (the accessory alone is
+  400 KB: 196 KB of program, 157 KB of buffers, its stack).
+
 ## How it reaches the servers
 
 Contacts servers want HTTPS. EContact uses ECal's code and ECal's way:
@@ -218,7 +254,8 @@ tests/    unit tests, CardDAV integration tests, Hatari screenshots
 
 ```
 make test       # the core: vCards from iCloud, 4.0, 2.1, labels, birthdays,
-                # groups, writing back without losing anything (171 checks, photos too)
+                # groups, writing back without losing anything, the parsed
+                # cache (214 checks, photos too)
 make itest      # card-cli against a real CardDAV server (Radicale): sync, add,
                 # change, groups both ways, import, export, delete, the
                 # people list EMail and ECal read, photos and their cache,

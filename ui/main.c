@@ -147,6 +147,7 @@ void set_hebrew_kbd(short on)
 /* Contacts that didn't fit in memory are said, once for each count:
    never just a shorter list */
 static long acc_heap_bytes;	/* the accessory's fixed memory; 0 for the program */
+static long acc_avail;		/* what was free when it took it */
 static int warned_lost;
 
 static void memory_check(void)
@@ -159,10 +160,17 @@ static void memory_check(void)
 	if (lost == warned_lost)
 		return;
 	warned_lost = lost;
-	if (is_acc && acc_heap_bytes)
+	if (is_acc && acc_heap_bytes) {
 		/* about half a KB each, and room to sync them */
-		alert(1, "[1][%d contact%s can't be shown: EContact's memory is full. Give it more with HEAPKB=%ld in %s and restart the Atari.][ OK ]",
-		      lost, lost == 1 ? "" : "s", (acc_heap_bytes + (long)lost * 640L) / 1024L * 5L / 4L + 32L, inf_file);
+		long need = (acc_heap_bytes + (long)lost * 640L) / 1024L * 5L / 4L + 32L;
+		long most = (acc_avail - 160L * 1024L) / 1024L;	/* leaving some for TOS and a program */
+		if (need <= most)
+			alert(1, "[1][%d contact%s can't be shown: EContact's memory is full. Give it more with HEAPKB=%ld in %s and restart the Atari.][ OK ]",
+			      lost, lost == 1 ? "" : "s", need, inf_file);
+		else
+			alert(1, "[1][%d contact%s can't be shown: there isn't memory for all. The most EContact can have: HEAPKB=%ld in %s.][ OK ]",
+			      lost, lost == 1 ? "" : "s", most > acc_heap_bytes / 1024L ? most : acc_heap_bytes / 1024L, inf_file);
+	}
 	else
 		alert(1, "[1][%d contact%s can't be shown: there isn't enough free memory. Quit other programs and start EContact again.][ OK ]",
 		      lost, lost == 1 ? "" : "s");
@@ -797,6 +805,7 @@ static void acc_heap(void)
 	if ((long)p > 0) {
 		heap_add(p, (size_t)want);
 		acc_heap_bytes = want;
+		acc_avail = avail;
 		answer_budget(want);
 	}
 }
