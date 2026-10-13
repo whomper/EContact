@@ -96,6 +96,12 @@ void card_photo_tick(void)
 			tried_book = c->book;
 		}
 	}
+	if (r == PH_FAILED) {
+		/* the initials stay: the status line says why */
+		char m[120];
+		snprintf(m, sizeof(m), "The photo can't be shown: %s.", photo_why_text(photo_why));
+		status(m);
+	}
 	if (r == PH_OK) {
 		cur = *img;
 		cur_ok = 1;

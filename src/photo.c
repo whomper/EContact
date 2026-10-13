@@ -13,6 +13,8 @@
 #include "plat.h"
 #include "util.h"
 #include "tjpgd.h"
+#include "jpegdc.h"
+#include "conn.h"
 
 static char pdir[200];
 
@@ -315,29 +317,56 @@ static int out_fn(JDEC *jd, void *bitmap, JRECT *r)
 	return 1;
 }
 
-int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, PHOTOIMG *out)
+int photo_why;
+char photo_why_detail[100];
+
+static void why(int w, const char *detail)
 {
-	JDEC jd;
-	DEC d;
-	void *pool;
-	long W, H, x0, y0, x1, y1, side;
-	int scale = 0, i, ok = 0;
-	memset(&d, 0, sizeof(d));
-	d.p = jpg;
-	d.left = len;
-	pool = malloc(POOL);
-	d.sum = calloc(PHOTO_N * PHOTO_N * 4, sizeof(unsigned short));
-	if (!pool || !d.sum)
-		goto done;
-	if (jd_prepare(&jd, in_fn, pool, POOL, &d) != JDR_OK)
-		goto done;		/* progressive, or not a JPEG */
-	W = jd.width;
-	H = jd.height;
-	/* the part to show: Apple's crop (its y counts from the bottom), else all */
-	x0 = 0;
-	y0 = 0;
-	x1 = W;
-	y1 = H;
+	photo_why = w;
+	str_copy(photo_why_detail, detail ? detail : "", sizeof(photo_why_detail));
+}
+
+const char *photo_why_text(int w)
+{
+	switch (w) {
+	case PW_OK: return "made";
+	case PW_PNG: return "a PNG picture";
+	case PW_HEIC: return "an HEIC picture";
+	case PW_GIF: return "a GIF picture";
+	case PW_WEBP: return "a WebP picture";
+	case PW_OTHER: return "not a picture EContact knows";
+	case PW_JPEG_KIND: return "a kind of JPEG EContact can't read";
+	case PW_DAMAGED: return "damaged";
+	case PW_MEMORY: return "too big for the memory";
+	case PW_REFUSED: return "refused by the server";
+	case PW_NO_ANSWER: return "no answer from the server";
+	case PW_NO_CARD: return "its card couldn't be fetched";
+	}
+	return "not made";
+}
+
+/* what kind of picture the bytes are */
+int photo_kind(const unsigned char *d, long n)
+{
+	if (n >= 3 && d[0] == 0xFF && d[1] == 0xD8)
+		return PW_OK;
+	if (n >= 4 && d[0] == 0x89 && d[1] == 'P' && d[2] == 'N' && d[3] == 'G')
+		return PW_PNG;
+	if (n >= 12 && !memcmp(d + 4, "ftyp", 4) && (!memcmp(d + 8, "hei", 3) || !memcmp(d + 8, "mif1", 4) ||
+						    !memcmp(d + 8, "msf1", 4) || !memcmp(d + 8, "avif", 4)))
+		return PW_HEIC;
+	if (n >= 4 && !memcmp(d, "GIF8", 4))
+		return PW_GIF;
+	if (n >= 12 && !memcmp(d, "RIFF", 4) && !memcmp(d + 8, "WEBP", 4))
+		return PW_WEBP;
+	return PW_OTHER;
+}
+
+/* the part to show: Apple's crop (its y counts from the bottom), else
+   all; then a square in the middle of it */
+static void square_of(long W, long H, const PHOTOREF *ref, long *sx, long *sy, long *sside)
+{
+	long x0 = 0, y0 = 0, x1 = W, y1 = H, side;
 	if (ref && ref->has_crop) {
 		long cx0 = ref->crop[0], cy0 = H - ref->crop[1] - ref->crop[3];
 		long cx1 = cx0 + ref->crop[2], cy1 = cy0 + ref->crop[3];
@@ -356,32 +385,38 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 			y1 = cy1;
 		}
 	}
-	/* a square in the middle of it */
 	side = x1 - x0 < y1 - y0 ? x1 - x0 : y1 - y0;
-	x0 += (x1 - x0 - side) / 2;
-	y0 += (y1 - y0 - side) / 2;
-	/* as small as it can be decoded with at least half of PHOTO_N across:
-	   1/8 takes only each block's average (no IDCT at all), the quickest
-	   by far on a 68000, and a photo from a phone is big enough for it */
-	while (scale < 3 && (side >> (scale + 1)) >= PHOTO_N / 2)
-		scale++;
-	d.sx0 = x0 >> scale;
-	d.sy0 = y0 >> scale;
-	d.side = side >> scale;
-	if (d.side < 1)
-		goto done;
-	d.t0 = malloc(d.side * 2 * sizeof(short));
-	if (!d.t0)
-		goto done;
-	d.t1 = d.t0 + d.side;
-	for (i = 0; i < d.side; i++) {
-		d.t0[i] = (short)((long)i * PHOTO_N / d.side);
-		d.t1[i] = (short)((((long)i + 1) * PHOTO_N - 1) / d.side);
+	*sx = x0 + (x1 - x0 - side) / 2;
+	*sy = y0 + (y1 - y0 - side) / 2;
+	*sside = side;
+}
+
+/* the cells each row or column of the square goes into */
+static int cells_for(DEC *d, long sx0, long sy0, long side)
+{
+	int i;
+	d->sx0 = sx0;
+	d->sy0 = sy0;
+	d->side = side;
+	if (side < 1)
+		return 0;
+	free(d->t0);
+	d->t0 = malloc(side * 2 * sizeof(short));
+	if (!d->t0)
+		return 0;
+	d->t1 = d->t0 + side;
+	for (i = 0; i < side; i++) {
+		d->t0[i] = (short)((long)i * PHOTO_N / side);
+		d->t1[i] = (short)((((long)i + 1) * PHOTO_N - 1) / side);
 	}
-	if (jd_decomp(&jd, out_fn, (uint8_t)scale) != JDR_OK)
-		goto done;
+	return 1;
+}
+
+static void cells_out(DEC *d, PHOTOIMG *out)
+{
+	int i;
 	for (i = 0; i < PHOTO_N * PHOTO_N; i++) {
-		unsigned short *s = d.sum + i * 4;
+		unsigned short *s = d->sum + i * 4;
 		unsigned r = 0, g = 0, b = 0;
 		if (s[3]) {
 			r = s[0] / s[3];
@@ -391,6 +426,94 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 		/* 6-bit averages to 5-6-5 */
 		out->px[i] = (unsigned short)(((r >> 1) << 11) | (g << 5) | (b >> 1));
 	}
+}
+
+/* what TJpgDec won't read, from the blocks' averages (jpegdc.c) */
+static int decode_dc(const unsigned char *jpg, long len, const PHOTOREF *ref, DEC *d, PHOTOIMG *out)
+{
+	int w, h, wy, bx, by;
+	long x0, y0, side;
+	JDC *j = jdc_open(jpg, len, &w, &h, &wy);
+	if (!j) {
+		why(wy == JW_MEMORY ? PW_MEMORY : wy == JW_UNSUPPORTED ? PW_JPEG_KIND : PW_DAMAGED,
+		    wy == JW_UNSUPPORTED ? "lossless, arithmetic-coded or 12-bit" : "");
+		return 0;
+	}
+	square_of(w, h, ref, &x0, &y0, &side);
+	if (!cells_for(d, x0 >> 3, y0 >> 3, side >> 3 ? side >> 3 : 1) || !jdc_read(j)) {
+		why(jdc_why(j) == JW_MEMORY || !d->t0 ? PW_MEMORY : PW_DAMAGED, "");
+		jdc_free(j);
+		return 0;
+	}
+	for (by = 0; by < d->side; by++) {
+		short ty;
+		for (bx = 0; bx < d->side; bx++) {
+			int r, g, b;
+			short tx;
+			jdc_rgb(j, (int)(d->sx0 + bx), (int)(d->sy0 + by), &r, &g, &b);
+			for (ty = d->t0[by]; ty <= d->t1[by]; ty++)
+				for (tx = d->t0[bx]; tx <= d->t1[bx]; tx++) {
+					unsigned short *s = d->sum + ((ty << 6) + tx) * 4;
+					s[0] += r >> 2;
+					s[1] += g >> 2;
+					s[2] += b >> 2;
+					s[3]++;
+				}
+		}
+	}
+	jdc_free(j);
+	cells_out(d, out);
+	return 1;
+}
+
+int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, PHOTOIMG *out)
+{
+	JDEC jd;
+	DEC d;
+	void *pool;
+	long x0, y0, side;
+	int scale = 0, ok = 0, rc;
+	why(PW_OK, 0);
+	memset(&d, 0, sizeof(d));
+	d.p = jpg;
+	d.left = len;
+	if (photo_kind(jpg, len) != PW_OK) {
+		why(photo_kind(jpg, len), 0);
+		return 0;
+	}
+	pool = malloc(POOL);
+	d.sum = calloc(PHOTO_N * PHOTO_N * 4, sizeof(unsigned short));
+	if (!pool || !d.sum) {
+		why(PW_MEMORY, 0);
+		goto done;
+	}
+	rc = jd_prepare(&jd, in_fn, pool, POOL, &d);
+	if (rc != JDR_OK) {
+		/* progressive, SOF1, another sampling, CMYK...: the averages */
+		free(pool);
+		pool = 0;
+		ok = decode_dc(jpg, len, ref, &d, out);
+		goto done;
+	}
+	square_of(jd.width, jd.height, ref, &x0, &y0, &side);
+	/* as small as it can be decoded with at least half of PHOTO_N across:
+	   1/8 takes only each block's average (no IDCT at all), the quickest
+	   by far on a 68000, and a photo from a phone is big enough for it */
+	while (scale < 3 && (side >> (scale + 1)) >= PHOTO_N / 2)
+		scale++;
+	if (!cells_for(&d, x0 >> scale, y0 >> scale, side >> scale)) {
+		why(PW_MEMORY, 0);
+		goto done;
+	}
+	if (jd_decomp(&jd, out_fn, (uint8_t)scale) != JDR_OK) {
+		/* damaged as TJpgDec sees it: the averages may still be read */
+		free(pool);
+		pool = 0;
+		memset(d.sum, 0, PHOTO_N * PHOTO_N * 4 * sizeof(unsigned short));
+		ok = decode_dc(jpg, len, ref, &d, out);
+		goto done;
+	}
+	cells_out(&d, out);
 	ok = 1;
 done:
 	free(pool);
@@ -401,8 +524,11 @@ done:
 
 /* ---------------- the cache ---------------- */
 
+/* pictures that failed are tried again when the decoder is newer */
+#define PHOTO_DECODER 2
+
 typedef struct {
-	int valid, failed, link;
+	int valid, failed, link, why, dec;
 	char uid[100];
 	short book;
 	unsigned long key;
@@ -477,6 +603,10 @@ static int read_hdr(const char *path, PHDR *h)
 				h->link = atoi(eq);
 			else if (!strcmp(p, "STATE"))
 				h->failed = !strcmp(eq, "FAIL");
+			else if (!strcmp(p, "WHY"))
+				h->why = atoi(eq);
+			else if (!strcmp(p, "DEC"))
+				h->dec = atoi(eq);
 		}
 		p = nl ? nl + 1 : 0;
 	}
@@ -509,8 +639,9 @@ static int write_cache(const char *path, const CONTACT *c, int link, const char 
 	char head[600];
 	int f, i, n, ok;
 	n = snprintf(head, sizeof(head), "ECPHOTO 1\nUID=%.98s\nBOOK=%d\nKEY=%08lX\nCETAG=%.98s\nIETAG=%.98s\n"
-		     "ILMOD=%.38s\nLINK=%d\nSTATE=%s\n\n", uid_of(c), books[c->book].id, c->photo_key, card_etag(c),
-		     ietag ? ietag : "", ilmod ? ilmod : "", link, img ? "OK" : "FAIL");
+		     "ILMOD=%.38s\nLINK=%d\nSTATE=%s\nWHY=%d\nDEC=%d\n\n", uid_of(c), books[c->book].id, c->photo_key,
+		     card_etag(c), ietag ? ietag : "", ilmod ? ilmod : "", link, img ? "OK" : "FAIL", img ? 0 : photo_why,
+		     PHOTO_DECODER);
 	f = pf_open(path, PF_WRITE);
 	if (f < 0)
 		return 0;
@@ -531,7 +662,8 @@ static int write_cache(const char *path, const CONTACT *c, int link, const char 
 /* the cache file is this contact's, with this photo */
 static int hdr_matches(const PHDR *h, const CONTACT *c)
 {
-	return h->valid && h->key == c->photo_key && !strcmp(h->uid, uid_of(c)) && h->book == books[c->book].id;
+	return h->valid && h->key == c->photo_key && !strcmp(h->uid, uid_of(c)) && h->book == books[c->book].id &&
+	       !(h->failed && h->dec < PHOTO_DECODER);
 }
 
 int photo_ready(const CONTACT *c)
@@ -581,12 +713,45 @@ static int fetch(const CONTACT *c, const char *uri, const PHDR *old, SBUF *body,
 		snprintf(hdr + strlen(hdr), sizeof(hdr) - strlen(hdr), "If-Modified-Since: %s\r\n", old->ilmod);
 	rq.headers = hdr;
 	rq.maxbody = 1500000L;
-	if (!http_request(&rq, rs, body, err, sizeof(err)))
+	if (!http_request(&rq, rs, body, err, sizeof(err))) {
+		why(PW_NO_ANSWER, err);
 		return -1;
+	}
 	return rs->status;
 }
 
+static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *cached);
+
+/* With Write a log on, each photo that can't be shown, and why */
+static void log_failure(const CONTACT *c, int r, int cached)
+{
+	char name[80], line[300];
+	if (r == PH_OK || r == PH_NONE)
+		return;
+	vcard_display_name(c, 0, name, sizeof(name));
+	snprintf(line, sizeof(line), "%s: %s%s%s%s", name,
+		 r == PH_NEEDS_NET && photo_why == PW_OK ? "needs the network" : photo_why_text(photo_why),
+		 photo_why_detail[0] ? ", " : "", photo_why_detail, cached ? " (as the last time)" : "");
+	conn_log("Photo", " -- ", line, (long)strlen(line));
+}
+
 int photo_get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how)
+{
+	char uid[100];
+	int cached = 0, r, bi = c->book;
+	str_copy(uid, c->uid ? c->uid : "", sizeof(uid));
+	why(PW_OK, 0);
+	r = get(c, out, may_fetch, how, &cached);
+	if (r != PH_OK && r != PH_NONE) {
+		/* c may have gone (fetched whole): found again to be named */
+		const CONTACT *now = uid[0] ? contact_by_uid(uid, bi) : c;
+		if (now)
+			log_failure(now, r, cached);
+	}
+	return r;
+}
+
+static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *cached)
 {
 	char path[220], *raw;
 	PHDR h;
@@ -602,10 +767,14 @@ int photo_get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how)
 		if (!may_fetch)
 			return PH_NEEDS_NET;
 		c = contact_complete(c);
-		if (!c)
+		if (!c) {
+			why(PW_NO_CARD, ab_err);
 			return PH_NEEDS_NET;
-		if (c->photo_key == VC_KEY_UNKNOWN)
-			return PH_FAILED;	/* still without: too big for memory */
+		}
+		if (c->photo_key == VC_KEY_UNKNOWN) {
+			why(PW_MEMORY, "the card is too big to fetch whole");
+			return PH_FAILED;
+		}
 		completed = 1;
 	}
 	photo_path(c, path, sizeof(path));
@@ -619,8 +788,11 @@ int photo_get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how)
 	if (have && hdr_matches(&h, c)) {
 		int changed = h.link && strcmp(h.cetag, card_etag(c));
 		if (!changed || !may_fetch) {
-			if (h.failed)
+			*cached = 1;
+			if (h.failed) {
+				why(h.why, 0);
 				return PH_FAILED;
+			}
 			return load_px(path, &h, out) ? PH_OK : PH_FAILED;
 		}
 		/* the card changed and the photo is a link: has the picture? */
@@ -628,16 +800,19 @@ int photo_get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how)
 		h.valid = 0;		/* another photo: start again */
 	}
 	raw = contact_raw(c, &len);
-	if (!raw)
+	if (!raw) {
+		why(PW_MEMORY, "the card couldn't be read from the cache");
 		return PH_FAILED;
+	}
 	if (!photo_ref(raw, len, &ref)) {
 		free(raw);
+		why(PW_OTHER, "the PHOTO line isn't data or a web link");
 		write_cache(path, c, 0, 0, 0, 0);
 		return PH_FAILED;
 	}
 	free(raw);
 	if (ref.kind == PR_DATA) {
-		if (ref.fmt == PF_JPEG && photo_decode_jpeg(ref.data, ref.len, &ref, out)) {
+		if (photo_decode_jpeg(ref.data, ref.len, &ref, out)) {
 			write_cache(path, c, 0, 0, 0, out);
 			r = PH_OK;
 		} else {
@@ -665,21 +840,28 @@ int photo_get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how)
 				*how = PHH_CHECKED;
 			r = PH_OK;
 		} else if (st == 200) {
-			if (fmt_of(rs.ctype, (unsigned char *)body.s, body.len) == PF_JPEG &&
-			    photo_decode_jpeg((unsigned char *)body.s, body.len, &ref, out)) {
+			if (photo_decode_jpeg((unsigned char *)body.s, body.len, &ref, out)) {
 				write_cache(path, c, 1, rs.etag, rs.lastmod, out);
 				r = PH_OK;
 			} else {
+				if (photo_why != PW_OK && !photo_why_detail[0])
+					snprintf(photo_why_detail, sizeof(photo_why_detail), "%.40s, %ld bytes", rs.ctype, body.len);
 				write_cache(path, c, 1, rs.etag, rs.lastmod, 0);
 			}
 			if (how)
 				*how = PHH_FETCHED;
 		} else if (st > 0) {
 			/* refused, gone: not asked again until the card changes */
+			char d[100];
+			URL u;
+			snprintf(d, sizeof(d), "HTTP %d from %.60s", st, url_parse(ref.uri, &u) ? u.host : "?");
+			why(PW_REFUSED, d);
 			write_cache(path, c, 1, 0, 0, 0);
 		} else if (old && load_px(path, &h, out)) {
 			r = PH_OK;		/* no answer: the picture we have */
 		} else {
+			if (photo_why != PW_NO_ANSWER)
+				why(PW_NO_ANSWER, 0);
 			r = PH_NEEDS_NET;
 		}
 		sb_free(&body);
@@ -798,6 +980,8 @@ static int name_in(const PRUNE *p, const char *path)
 
 #define PS_CHUNK 8	/* cards fetched whole at a time */
 
+int photo_sync_why[PW_N];
+
 int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 {
 	PTARGET *t;
@@ -805,6 +989,7 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 	PHOTOIMG *img;
 	int nt = 0, i, done = 0, made = 0, bad = 0, stop = 0, net = !opt.offline;
 	*failed = 0;
+	memset(photo_sync_why, 0, sizeof(photo_sync_why));
 	if (!pdir[0])
 		return 0;
 	memset(&have, 0, sizeof(have));
@@ -873,12 +1058,16 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 			}
 			if (c && c->photo_key && c->photo_key != VC_KEY_UNKNOWN) {
 				r = photo_get(c, img, net, &how);
-				if (r == PH_OK)
+				if (r == PH_OK) {
 					made++;
-				else if (r != PH_NONE)
+				} else if (r != PH_NONE) {
 					bad++;
+					photo_sync_why[photo_why > 0 && photo_why < PW_N ? photo_why :
+						       r == PH_NEEDS_NET ? PW_NO_ANSWER : PW_DAMAGED]++;
+				}
 			} else if (c && c->photo_key) {
 				bad++;		/* still without its photo */
+				photo_sync_why[PW_NO_CARD]++;
 			}
 			done++;
 		}
@@ -887,6 +1076,18 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 	if (made >= 0) {
 		cb(ud, done, nt, 0);
 		*failed = bad;
+	}
+	{
+		/* in the log: what was done, and the reasons */
+		char line[300];
+		int k, n;
+		n = snprintf(line, sizeof(line), "Sync Contact Photos: %d to do, %d made, %d not", nt, made < 0 ? 0 : made,
+			     bad);
+		for (k = 1; k < PW_N; k++)
+			if (photo_sync_why[k] && n < (int)sizeof(line) - 40)
+				n += snprintf(line + n, sizeof(line) - n, "; %d %s", photo_sync_why[k], photo_why_text(k));
+		conn_log("Photo", " -- ", line, (long)strlen(line));
+		conn_log_flush();
 	}
 	for (i = 0; i < nt; i++)
 		free(t[i].href);

@@ -390,8 +390,36 @@ static void test_photos(void)
 	CHECK(quarters_ok(&im));
 	CHECK(photo_decode_jpeg(jpg_gray, sizeof(jpg_gray), 0, &im));
 	CHECK(near(&im, 30, 30, 128, 128, 128));
-	CHECK(!photo_decode_jpeg(jpg_prog, sizeof(jpg_prog), 0, &im));
+	/* what TJpgDec won't take: from the blocks' averages */
+	CHECK(photo_decode_jpeg(jpg_prog, sizeof(jpg_prog), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(jpg_prog_small, sizeof(jpg_prog_small), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(jpg_prog_wide, sizeof(jpg_prog_wide), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(jpg_440, sizeof(jpg_440), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(jpg_cmyk, sizeof(jpg_cmyk), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(jpg_prog_restart, sizeof(jpg_prog_restart), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(jpg_prog_gray, sizeof(jpg_prog_gray), 0, &im));
+	{
+		/* grey: the quarters' brightness, red darker than yellow */
+		unsigned short tl = im.px[8 * PHOTO_N + 8], br = im.px[55 * PHOTO_N + 55];
+		CHECK((tl >> 11) == ((tl >> 6) & 31) && (tl & 31) == (tl >> 11));
+		CHECK((tl >> 11) < (br >> 11));
+	}
+	/* and why not, when not */
+	CHECK(!photo_decode_jpeg(png_quarters, sizeof(png_quarters), 0, &im));
+	CHECK_EQ(photo_why, PW_PNG);
 	CHECK(!photo_decode_jpeg((const unsigned char *)"not a picture", 13, 0, &im));
+	CHECK_EQ(photo_why, PW_OTHER);
+	{
+		/* cut short: damaged, not a crash */
+		CHECK(!photo_decode_jpeg(jpg_prog, 300, 0, &im) || 1);
+		CHECK(!photo_decode_jpeg(jpg_cmyk, 200, 0, &im) || 1);
+	}
 	/* Apple's crop, its y from the bottom: the bottom right quarter */
 	ref.has_crop = 1;
 	ref.crop[0] = 256;

@@ -52,8 +52,17 @@ enum { PF_JPEG, PF_PNG, PF_OTHER };
 int  photo_ref(char *raw, long len, PHOTOREF *ref);
 
 /* a JPEG into a picture: the crop (or the middle square) scaled down;
-   0 if it can't be decoded (progressive JPEGs, broken files) */
+   0 if it can't be decoded (photo_why says why). TJpgDec reads it, or,
+   for the kinds it won't (progressive, SOF1, CMYK...), jpegdc.c */
 int  photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, PHOTOIMG *out);
+
+/* why the last photo_get or photo_decode_jpeg made no picture */
+enum { PW_OK, PW_PNG, PW_HEIC, PW_GIF, PW_WEBP, PW_OTHER, PW_JPEG_KIND, PW_DAMAGED, PW_MEMORY,
+       PW_REFUSED, PW_NO_ANSWER, PW_NO_CARD, PW_N };
+extern int photo_why;
+extern char photo_why_detail[100];	/* "HTTP 401", the host...: for the log */
+const char *photo_why_text(int why);
+int  photo_kind(const unsigned char *d, long n);	/* PW_OK for a JPEG */
 
 /* where the pictures are kept (store_init sets it: CACHE\PHOTOS) */
 void photo_dir(const char *dir);
@@ -73,6 +82,8 @@ int  photo_ready(const CONTACT *c);
    server couldn't be reached; *failed: how many couldn't be */
 typedef int (*PHOTO_CB)(void *ud, int done, int total, const char *name);
 int  photo_sync_all(PHOTO_CB cb, void *ud, int *failed);
+/* the last photo_sync_all's failures, by reason (PW_...) */
+extern int photo_sync_why[];
 /* the pictures of contacts that are gone, or have no photo any more */
 int  photo_prune(void);
 /* the cache file of c (for the tests) */

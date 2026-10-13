@@ -20,7 +20,13 @@
   (see its README.txt): keep them if it is ever updated. Code that runs on
   an ST must not let GCC merge byte reads into word reads at odd addresses,
   and 32-bit `*` and `/` are software routines there: keep them out of
-  per-pixel loops (photo.c, draw.c's draw_photo).
+  per-pixel loops (photo.c, draw.c's draw_photo). src/jpegdc.c reads two
+  bytes through a volatile pointer for the same reason (rd16): check the
+  sample formats in Hatari on an ST after touching it.
+- Photo failures say why (photo_why, PW_...): the status line, the alert
+  after Sync Contact Photos, a line each in the log. A failure is kept in
+  the .PIC with the decoder's number (PHOTO_DECODER): raise it when the
+  decoders read more, so old failures are tried again.
 - The photo cache's rules (photo.h) are tested by `make itest`: a change to
   them needs the tests to say so.
 - Syncing fetches cards without their photos (abook.c, CardDAV partial

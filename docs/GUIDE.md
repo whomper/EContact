@@ -140,8 +140,13 @@ so do the pictures of deleted contacts.
 On a Falcon or TT in 16 or 256 colours the photo is dithered to the
 screen's colours; on an ST it is black and white. Settings > General >
 **Show contacts' photos** turns them off (the initials show instead).
-EContact shows JPEG photos, which is what iPhones and Macs write; the rare
-PNG or progressive JPEG shows the initials.
+EContact shows JPEG photos of every kind (baseline and progressive,
+CMYK too), which is what iPhones, Macs and most other places write. A
+photo it can't show (a PNG, an iPhone's HEIC, a damaged one) keeps the
+initials, and the status line says why when the card is opened. At the
+end of Sync Contact Photos an alert says how many weren't made and the
+main reasons; with **Write a log** on, ECONTACT.LOG has a line for each
+one (its name and why) and a summary.
 
 ## Changing a card
 

@@ -121,7 +121,12 @@ Photos are most of an address book: 500 contacts with photos are about
 A photo is decoded with ChaN's TJpgDec
 ([third_party/tjpgd](third_party/tjpgd)) at 1/2, 1/4 or 1/8 of its size
 (1/8 needs no IDCT, which is what makes it quick on a 68000), cropped to a
-square and averaged into a 64x64 colour picture. That picture is kept in
+square and averaged into a 64x64 colour picture. The JPEGs TJpgDec won't
+take (progressive ones, the "extended" SOF1, 4:4:0 sampling, unusual
+table layouts, CMYK) are read by `src/jpegdc.c` from each 8x8 block's
+average alone: a progressive JPEG's first scan has them all, so the rest
+of the file isn't read. PNG and HEIC aren't shown; the reason for each
+photo that isn't is in the status line, the closing alert and the log. That picture is kept in
 `CACHE\PHOTOS\Pxxxxxxx.PIC` (8 KB) and dithered for the screen when shown.
 
 Keeping it right:
@@ -257,7 +262,7 @@ tests/    unit tests, CardDAV integration tests, Hatari screenshots
 ```
 make test       # the core: vCards from iCloud, 4.0, 2.1, labels, birthdays,
                 # groups, writing back without losing anything, the parsed
-                # cache (214 checks, photos too)
+                # cache (233 checks, photos of every kind of JPEG too)
 make itest      # card-cli against a real CardDAV server (Radicale): sync, add,
                 # change, groups both ways, import, export, delete, the
                 # people list EMail and ECal read, photos and their cache,

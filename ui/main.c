@@ -582,9 +582,23 @@ void cmd_sync_photos(void)
 		      made, made == 1 ? "" : "s");
 	else if (!made && !failed)
 		alert(1, "[1][Every contact's photo is here already.][ OK ]");
-	else if (failed)
-		alert(1, "[1][%d photo%s made. %d couldn't be (not JPEG pictures, or damaged).][ OK ]", made,
-		      made == 1 ? "" : "s", failed);
+	else if (failed) {
+		/* the two reasons most of them had; the log has each one */
+		char why[120];
+		int k, first = 0, second = 0;
+		for (k = 1; k < PW_N; k++)
+			if (photo_sync_why[k] > photo_sync_why[first])
+				first = k;
+		for (k = 1; k < PW_N; k++)
+			if (k != first && photo_sync_why[k] > photo_sync_why[second])
+				second = k;
+		snprintf(why, sizeof(why), "%d %s", photo_sync_why[first], photo_why_text(first));
+		if (second && photo_sync_why[second])
+			snprintf(why + strlen(why), sizeof(why) - strlen(why), ", %d %s", photo_sync_why[second],
+				 photo_why_text(second));
+		alert(1, "[1][%d photo%s made, %d not: %s.%s][ OK ]", made, made == 1 ? "" : "s", failed, why,
+		      opt.log ? " Each one is in the log." : " Write a log (in the menu) for each one.");
+	}
 	else
 		alert(1, "[1][%d photo%s made.][ OK ]", made, made == 1 ? "" : "s");
 	updated_status();

@@ -377,6 +377,8 @@ int main(int argc, char **argv)
 			return 1;
 		r = photo_get(c, &im, !(argc >= 5 && !strcmp(argv[4], "offline")), &how);
 		printf("%s %s", st[r], hw[how]);
+		if (r == PH_FAILED)
+			printf(" (%s)", photo_why_text(photo_why));
 		if (r == PH_OK) {
 			static const int at[4][2] = { { 8, 8 }, { 55, 8 }, { 8, 55 }, { 55, 55 } };
 			static const char *const nm[4] = { "TL", "TR", "BL", "BR" };
