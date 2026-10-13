@@ -207,6 +207,24 @@ im = Image.open(sys.argv[1]); im.save(sys.argv[2], 'JPEG', quality=85, progressi
   sed -i 's/^DEC=.*/DEC=1/' "$PF"
   R=$($CLI "$D" photo "Pat Png")
   expect "an older decoder's failure tried again" "failed decoded" "$R"
+  # as iCloud keeps a photo in the card: a long crop parameter, data:,
+  # and the fold falling in the middle of "data:image/jpeg"
+  python3 - "$W/q.jpg" "$W/icloud.vcf" <<'PY'
+import base64, sys
+d = base64.b64encode(open(sys.argv[1], "rb").read()).decode()
+line = "PHOTO;X-ABCROP-RECTANGLE=ABClipRect_1&0&0&240&240&2gkd5u82KlA9jUBbH5vD7Q==;VALUE=uri:data:image/jpeg;base64," + d
+k = line.index("data:") + 3
+parts = [line[:k]] + [line[i:i + 74] for i in range(k, len(line), 74)]
+card = "BEGIN:VCARD\r\nVERSION:3.0\r\nN:Icloud;Pat;;;\r\nFN:Pat Icloud\r\n" + "\r\n ".join(parts) + \
+       "\r\nUID:ICLOUD-1\r\nEND:VCARD\r\n"
+open(sys.argv[2], "w", newline="").write(card)
+PY
+  # (into a local book: Radicale mangles a data: photo, cutting it at the comma)
+  L=$W/local-icloud
+  $CLI "$L" local Cards >/dev/null
+  $CLI "$L" import Cards "$W/icloud.vcf" >/dev/null
+  R=$(CARD_VERBOSE=1 $CLI "$L" photo "Pat Icloud" 2>/dev/null)
+  expect "iCloud's way, folded in \"data:\"" "ok decoded TL=red TR=green BL=blue BR=yellow" "$R"
   "${CURL[@]}" -X DELETE "$BASE/alice/friends/prog.vcf" >/dev/null
   "${CURL[@]}" -X DELETE "$BASE/alice/friends/png.vcf" >/dev/null
   $CLI "$D" sync

@@ -616,6 +616,65 @@ static void test_pack(void)
 	}
 }
 
+
+/* iCloud's photo in the card: a long crop parameter, then data:, the
+   line folded every 75 bytes. Wherever the fold falls (in the
+   parameters, in "data:image/jpeg"), the photo is found */
+static void test_photo_folds(void)
+{
+	long bl, k;
+	char *b64 = base64_encode((const char *)jpg_square, sizeof(jpg_square), 0, &bl);
+	int bad = 0;
+	for (k = 8; k < 150 && b64; k++) {
+		SBUF line, card;
+		PHOTOREF ref;
+		PHOTOIMG im;
+		long i, col = 0, next = k;
+		sb_init(&line);
+		sb_init(&card);
+		sb_printf(&line, "PHOTO;X-ABCROP-RECTANGLE=ABClipRect_1&0&256&256&256&2gkd5u82KlA9jUBbH5vD7Q==;VALUE=uri:"
+			  "data:image/jpeg;base64,");
+		sb_add(&line, b64, bl);
+		sb_adds(&card, "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Folded\r\n");
+		for (i = 0; i < line.len; i++) {
+			if (col == next) {
+				sb_adds(&card, "\r\n ");
+				col = 0;
+				next = 74;
+			}
+			sb_addc(&card, line.s[i]);
+			col++;
+		}
+		sb_adds(&card, "\r\nUID:fold-1\r\nEND:VCARD\r\n");
+		if (!photo_ref(card.s, card.len, &ref) || ref.kind != PR_DATA || !ref.has_crop ||
+		    !photo_decode_jpeg(ref.data, ref.len, &ref, &im) || !near(&im, 30, 30, 230, 30, 30))
+			bad++;
+		free(ref.data);
+		sb_free(&line);
+		sb_free(&card);
+	}
+	CHECK_EQ(bad, 0);
+	free(b64);
+	/* base64 with no ENCODING given, and 2.1's bare BASE64 */
+	{
+		static const char *const forms[] = { "PHOTO;TYPE=JPEG:", "PHOTO;JPEG;BASE64:" };
+		int f;
+		for (f = 0; f < 2; f++) {
+			SBUF c;
+			PHOTOREF ref;
+			b64 = base64_encode((const char *)jpg_small, sizeof(jpg_small), 0, &bl);
+			sb_init(&c);
+			sb_printf(&c, "BEGIN:VCARD\r\nVERSION:%s\r\nFN:B\r\n%s", f ? "2.1" : "3.0", forms[f]);
+			sb_add(&c, b64, bl);
+			sb_adds(&c, "\r\n\r\nEND:VCARD\r\n");
+			CHECK(photo_ref(c.s, c.len, &ref) && ref.kind == PR_DATA && ref.len == (long)sizeof(jpg_small));
+			free(ref.data);
+			sb_free(&c);
+			free(b64);
+		}
+	}
+}
+
 int main(void)
 {
 	test_parse_icloud();
@@ -627,6 +686,7 @@ int main(void)
 	test_urls();
 	test_photos();
 	test_photo_split();
+	test_photo_folds();
 	test_pack();
 	printf("%d checks, %d failed\n", checks, fails);
 	return fails != 0;

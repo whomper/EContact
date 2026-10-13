@@ -146,21 +146,9 @@ int photo_ref(char *raw, long len, PHOTOREF *ref)
 	}
 	if (!line)
 		return 0;
-	/* the parameters (they don't fold in practice) and the value */
-	for (colon = line + 5; colon < end && *colon != ':' && *colon != '\n'; colon++)
-		;
-	if (colon >= end || *colon != ':')
-		return 0;
-	{
-		long pn = colon - (line + 5);
-		if (pn > (long)sizeof(params) - 1)
-			pn = sizeof(params) - 1;
-		memcpy(params, line + 5, pn);
-		params[pn] = 0;
-	}
 	/* the logical line ends at a line that doesn't start with a space
 	   (2.1's base64 goes on to a blank line) */
-	for (vend = colon + 1; vend < end; vend++) {
+	for (vend = line; vend < end; vend++) {
 		if (*vend != '\n')
 			continue;
 		if (vend + 1 < end && (vend[1] == ' ' || vend[1] == '\t'))
@@ -173,6 +161,40 @@ int photo_ref(char *raw, long len, PHOTOREF *ref)
 				continue;	/* no ':' in it: more of the base64 */
 		}
 		break;
+	}
+	/* Unfolded where it lies: a line is folded every 75 bytes, wherever
+	   that falls, and iCloud's long crop parameter puts the fold in the
+	   middle of the parameters or of "data:image/jpeg" (2.1's base64
+	   lines, which don't start with a space, stay: they are skipped) */
+	{
+		char *r = line, *w = line;
+		while (r < vend) {
+			if (r[0] == '\r' && r + 2 < end && r[1] == '\n' && (r[2] == ' ' || r[2] == '\t')) {
+				r += 3;
+				continue;
+			}
+			if (r[0] == '\n' && r + 1 < end && (r[1] == ' ' || r[1] == '\t')) {
+				r += 2;
+				continue;
+			}
+			*w++ = *r++;
+		}
+		vend = w;
+	}
+	str_copy(ref->head, line, vend - line + 1 < (long)sizeof(ref->head) ? (int)(vend - line + 1) : (int)sizeof(ref->head));
+	/* the parameters and the value */
+	for (colon = line + 5; colon < vend && *colon != ':'; colon++)
+		if (*colon == '"')
+			for (colon++; colon < vend && *colon != '"'; colon++)
+				;	/* a quoted value may have a ':' */
+	if (colon >= vend || *colon != ':')
+		return 0;
+	{
+		long pn = colon - (line + 5);
+		if (pn > (long)sizeof(params) - 1)
+			pn = sizeof(params) - 1;
+		memcpy(params, line + 5, pn);
+		params[pn] = 0;
 	}
 	{
 		char crop[120];
@@ -215,6 +237,14 @@ int photo_ref(char *raw, long len, PHOTOREF *ref)
 			vn -= comma + 1 - vs;
 			vs = comma + 1;
 			enc[0] = 'b';
+		}
+		/* 2.1's bare BASE64, or no ENCODING at all with base64 that is
+		   plainly a JPEG or a PNG */
+		if (!enc[0]) {
+			const char *b = str_istr(params, ";BASE64");
+			if ((b && (b[7] == ';' || !b[7])) ||
+			    (vn > 8 && (!strncmp(vs, "/9j/", 4) || !strncmp(vs, "iVBORw0K", 8))))
+				enc[0] = 'b';
 		}
 		if (enc[0] == 'b' || enc[0] == 'B') {
 			ref->len = b64_in_place(vs, vn);
@@ -525,7 +555,7 @@ done:
 /* ---------------- the cache ---------------- */
 
 /* pictures that failed are tried again when the decoder is newer */
-#define PHOTO_DECODER 2
+#define PHOTO_DECODER 3
 
 typedef struct {
 	int valid, failed, link, why, dec;
@@ -806,7 +836,11 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 	}
 	if (!photo_ref(raw, len, &ref)) {
 		free(raw);
-		why(PW_OTHER, "the PHOTO line isn't data or a web link");
+		{
+			char d[100];
+			snprintf(d, sizeof(d), "the PHOTO line isn't data or a web link: %.60s", ref.head);
+			why(PW_OTHER, d);
+		}
 		write_cache(path, c, 0, 0, 0, 0);
 		return PH_FAILED;
 	}

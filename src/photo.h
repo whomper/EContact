@@ -44,6 +44,7 @@ typedef struct {
 	int fmt;		/* PF_JPEG, PF_PNG, PF_OTHER (from TYPE= or the bytes) */
 	long crop[4];		/* Apple's: x, y from the bottom, width, height */
 	int has_crop;
+	char head[72];		/* the line's beginning, unfolded (for the log) */
 } PHOTOREF;
 enum { PF_JPEG, PF_PNG, PF_OTHER };
 
