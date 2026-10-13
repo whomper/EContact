@@ -20,6 +20,8 @@
 #include "plat.h"
 #include "util.h"
 
+int vcard_nomem;
+
 const char *const vc_tel_labels[] = { "mobile", "iPhone", "home", "work", "main", "home fax", "work fax",
 				      "pager", "other", 0 };
 const char *const vc_email_labels[] = { "home", "work", "school", "iCloud", "other", 0 };
@@ -32,27 +34,48 @@ typedef struct {
 	char group[24];
 	char name[40];		/* upper case */
 	char types[80];		/* TYPE values, lower case, comma-separated */
-	char *value;		/* Atari text, still escaped */
-	char *raw;		/* the whole unfolded line as it was (for copying) */
+	char *value;		/* Atari text, still escaped (in VLINES.pool) */
+	char *raw;		/* the whole unfolded line as it was, for copying (in pool; NULL if not kept) */
+	long voff, roff;	/* their places in pool while it grows */
 	int omit_year;		/* X-APPLE-OMIT-YEAR */
 	int binary;		/* base64: a photo or a key */
 } VLINE;
 
+/* The lines and their text in two blocks, not two mallocs a line: on
+   the Atari each malloc and free walks the list of free pieces, and a
+   few thousand small ones left between the contacts make reading a big
+   address book slower with every card */
 typedef struct {
 	VLINE *l;
 	int n, max;
+	SBUF pool;
 } VLINES;
 
 static void lines_free(VLINES *v)
 {
-	int i;
-	for (i = 0; i < v->n; i++) {
-		free(v->l[i].value);
-		free(v->l[i].raw);
-	}
 	free(v->l);
+	sb_free(&v->pool);
 	v->l = 0;
 	v->n = v->max = 0;
+}
+
+/* the pool has stopped growing: the lines can point into it */
+static void lines_point(VLINES *v)
+{
+	int i;
+	for (i = 0; i < v->n; i++) {
+		v->l[i].value = v->pool.s + v->l[i].voff;
+		v->l[i].raw = v->l[i].roff >= 0 ? v->pool.s + v->l[i].roff : 0;
+	}
+}
+
+/* vcard_parse's, kept from card to card (unless a card made them big) */
+static void lines_reset(VLINES *v)
+{
+	if (v->max > 64 || v->pool.cap > 8192)
+		lines_free(v);
+	v->n = 0;
+	sb_reset(&v->pool);
 }
 
 /* one physical line: [p, *eol), next at *next */
@@ -197,7 +220,8 @@ static const char *read_lines(const char *text, const char *end, VLINES *v, int 
 		if (!strcmp(l.name, "BEGIN")) {
 			if (!strncasecmp(colon + 1, "VCARD", 5)) {
 				began = 1;
-				lines_free(v);
+				v->n = 0;
+				sb_reset(&v->pool);
 			}
 			continue;
 		}
@@ -205,6 +229,7 @@ static const char *read_lines(const char *text, const char *end, VLINES *v, int 
 			continue;
 		if (!strcmp(l.name, "END")) {
 			sb_free(&line);
+			lines_point(v);
 			return p;
 		}
 		/* quoted-printable (2.1): a line ending in '=' goes on in the next */
@@ -221,41 +246,52 @@ static const char *read_lines(const char *text, const char *end, VLINES *v, int 
 				if (*colon == '"')
 					quoted = !quoted;
 		}
-		l.raw = keep_raw ? str_ndup(line.s, line.len) : 0;
+		l.roff = -1;
+		if (keep_raw) {
+			l.roff = v->pool.len;
+			if (!sb_add(&v->pool, line.s, line.len + 1))
+				l.roff = -2;
+		}
 		if (l.binary || !strcmp(l.name, "PHOTO") || !strcmp(l.name, "LOGO") || !strcmp(l.name, "KEY") ||
 		    !strcmp(l.name, "SOUND")) {
 			l.binary = 1;
-			l.value = strdup("");
+			l.voff = v->pool.len;
+			if (!sb_addc(&v->pool, 0))
+				l.voff = -2;
 		} else {
 			const char *val = colon + 1;
 			long vn = line.s + line.len - val;
-			char *dec = 0;
+			char *dec = 0, *at;
 			long dn;
 			if (qp && (dec = qp_decode(val, vn, 0, &dn)) != 0) {
 				val = dec;
 				vn = dn;
 			}
-			l.value = cs_to_atari(val, vn, cs, &dn);
+			at = cs_to_atari(val, vn, cs, &dn);
 			free(dec);
+			l.voff = v->pool.len;
+			if (!at || !sb_add(&v->pool, at, dn + 1))
+				l.voff = -2;
+			free(at);
 		}
-		if ((keep_raw && !l.raw) || !l.value) {
-			free(l.raw);
-			free(l.value);
+		if (l.roff == -2 || l.voff == -2) {
+			vcard_nomem = 1;
 			continue;
 		}
 		if (v->n >= v->max) {
 			VLINE *nl;
-			v->max = v->max ? v->max * 2 : 32;
-			nl = realloc(v->l, v->max * sizeof(VLINE));
+			int max = v->max ? v->max * 2 : 32;
+			nl = realloc(v->l, max * sizeof(VLINE));
 			if (!nl) {
-				free(l.raw);
-				free(l.value);
+				vcard_nomem = 1;
 				break;
 			}
 			v->l = nl;
+			v->max = max;
 		}
 		v->l[v->n++] = l;
 	}
+	lines_point(v);
 	sb_free(&line);
 	return began ? end : 0;
 }
@@ -372,11 +408,17 @@ typedef struct {
 	SBUF pool;
 	long f[14];		/* the string fields, as offsets (-1: none) */
 	ITOFF *it[4];		/* email, tel, adr, url */
-	int nit[4];
+	int nit[4], cap[4];
 	long *mem;
-	int nmem;
+	int nmem, capmem;
 	int failed;
 } BLD;
+
+/* The usual labels are kept once, here, not in every contact: an
+   offset of LAB_SHARED - k in ITOFF.lab is shared_labels[k] */
+static const char *const shared_labels[] = { "mobile", "iPhone", "home", "work", "main", "home fax",
+	"work fax", "pager", "other", "school", "iCloud", "homepage", 0 };
+#define LAB_SHARED (-2L)
 
 enum { F_UID, F_FN, F_FAMILY, F_GIVEN, F_MIDDLE, F_PREFIX, F_SUFFIX, F_NICK, F_ORG, F_DEPT, F_TITLE,
        F_BDAY, F_NOTE, F_CATS };
@@ -401,16 +443,29 @@ static void bfield(BLD *b, int f, const char *s)
 static void bitem(BLD *b, int k, const char *label, const char *value)
 {
 	ITOFF *n;
+	int j;
 	if (!value || !*value || b->nit[k] >= 255)
 		return;
-	n = realloc(b->it[k], (b->nit[k] + 1) * sizeof(ITOFF));
-	if (!n) {
-		b->failed = 1;
-		return;
+	if (b->nit[k] >= b->cap[k]) {
+		int cap = b->cap[k] ? b->cap[k] * 2 : 8;
+		n = realloc(b->it[k], cap * sizeof(ITOFF));
+		if (!n) {
+			b->failed = 1;
+			return;
+		}
+		b->it[k] = n;
+		b->cap[k] = cap;
 	}
-	b->it[k] = n;
-	n[b->nit[k]].lab = bstr(b, label);
-	n[b->nit[k]].val = bstr(b, value);
+	n = &b->it[k][b->nit[k]];
+	n->lab = -1;
+	for (j = 0; label && shared_labels[j]; j++)
+		if (!strcmp(label, shared_labels[j])) {
+			n->lab = LAB_SHARED - j;
+			break;
+		}
+	if (n->lab == -1)
+		n->lab = bstr(b, label);
+	n->val = bstr(b, value);
 	b->nit[k]++;
 }
 
@@ -419,12 +474,16 @@ static void bmember(BLD *b, const char *uid)
 	long *n;
 	if (!*uid || b->nmem >= 4000)
 		return;
-	n = realloc(b->mem, (b->nmem + 1) * sizeof(long));
-	if (!n) {
-		b->failed = 1;
-		return;
+	if (b->nmem >= b->capmem) {
+		int cap = b->capmem ? b->capmem * 2 : 16;
+		n = realloc(b->mem, cap * sizeof(long));
+		if (!n) {
+			b->failed = 1;
+			return;
+		}
+		b->mem = n;
+		b->capmem = cap;
 	}
-	b->mem = n;
 	b->mem[b->nmem++] = bstr(b, uid);
 }
 
@@ -452,6 +511,7 @@ static CONTACT *assemble(BLD *b, unsigned char company, unsigned char group, uns
 	if (!c)
 		return 0;
 	memset(c, 0, sizeof(*c));
+	c->bsize = size;
 	it = (VCITEM *)(c + 1);
 	mem = (const char **)(it + items);
 	pool = (char *)(mem + b->nmem);
@@ -465,7 +525,8 @@ static CONTACT *assemble(BLD *b, unsigned char company, unsigned char group, uns
 	for (k = 0; k < 4; k++) {
 		VCITEM *start = it + off;
 		for (i = 0; i < b->nit[k]; i++) {
-			start[i].label = b->it[k][i].lab >= 0 ? pool + b->it[k][i].lab : "";
+			long lab = b->it[k][i].lab;
+			start[i].label = lab >= 0 ? pool + lab : lab <= LAB_SHARED ? shared_labels[LAB_SHARED - lab] : "";
 			start[i].value = pool + b->it[k][i].val;
 		}
 		switch (k) {
@@ -524,23 +585,46 @@ static void adr_lines(char *v, char *out, int size)
 		n += snprintf(out + n, size > n ? size - n : 0, "\n%s", part[i] ? part[i] : "");
 }
 
+/* the builder's room kept from card to card, as the lines' are: what
+   is left in memory of a card is its CONTACT, and nothing between them */
+static void bld_reset(BLD *b)
+{
+	int k;
+	if (b->pool.cap > 8192)
+		sb_free(&b->pool);
+	sb_reset(&b->pool);
+	for (k = 0; k < 4; k++) {
+		if (b->cap[k] > 64) {
+			free(b->it[k]);
+			b->it[k] = 0;
+			b->cap[k] = 0;
+		}
+		b->nit[k] = 0;
+	}
+	if (b->capmem > 256) {
+		free(b->mem);
+		b->mem = 0;
+		b->capmem = 0;
+	}
+	b->nmem = 0;
+	b->failed = 0;
+	for (k = 0; k < 14; k++)
+		b->f[k] = -1;
+}
+
 CONTACT *vcard_parse(const char *text, long len)
 {
-	VLINES v;
-	BLD b;
+	static VLINES v;
+	static BLD b;
 	CONTACT *c = 0;
 	int i, k;
 	unsigned char company = 0, group = 0, photo = 0;
 	unsigned long photo_key = 0, marked = 0;
-	memset(&v, 0, sizeof(v));
-	if (!read_lines(text, text + len, &v, 0) && !v.n) {
-		lines_free(&v);
+	lines_reset(&v);
+	bld_reset(&b);
+	vcard_nomem = 0;
+	if (!read_lines(text, text + len, &v, 0) && !v.n)
 		return 0;
-	}
-	memset(&b, 0, sizeof(b));
-	sb_init(&b.pool);
-	for (i = 0; i < 14; i++)
-		b.f[i] = -1;
 	for (i = 0; i < v.n; i++) {
 		VLINE *l = &v.l[i];
 		const char *n = l->name;
@@ -655,13 +739,138 @@ CONTACT *vcard_parse(const char *text, long len)
 		photo_key = vcard_photo_span(text, len, &s, &e) && !vcard_photo_empty(text + s, e - s) ?
 			    vcard_photo_key(text + s, e - s) : VC_KEY_UNKNOWN;
 	}
-	if (!b.failed && (c = assemble(&b, company, group, photo)) != 0)
-		c->photo_key = photo_key;
-	sb_free(&b.pool);
-	for (k = 0; k < 4; k++)
-		free(b.it[k]);
-	free(b.mem);
-	lines_free(&v);
+	if (b.failed)
+		vcard_nomem = 1;
+	if (!vcard_nomem) {
+		c = assemble(&b, company, group, photo);
+		if (c)
+			c->photo_key = photo_key;
+		else
+			vcard_nomem = 1;
+	}
+	return c;
+}
+
+/* ---------------- packed ---------------- */
+
+/* where a CONTACT's pointers are: its 14 strings, the four item lists
+   and the members; then each item's label and value, and each member */
+#define PK_NULL   (-1L)
+#define PK_EMPTY  (-2L)			/* "" outside the block */
+#define PK_SHARED (-16L)		/* shared_labels[PK_SHARED - v] */
+
+static long pk_off(const char *base, long size, const void *p)
+{
+	const char *q = p;
+	int k;
+	if (!q)
+		return PK_NULL;
+	if (q >= base && q < base + size)
+		return (long)(q - base);
+	for (k = 0; shared_labels[k]; k++)
+		if (q == shared_labels[k])
+			return PK_SHARED - k;
+	if (!*q)
+		return PK_EMPTY;
+	return -1000;			/* somewhere else: can't be packed */
+}
+
+static int pk_ptr(const char *base, long size, const void **slot)
+{
+	long v = pk_off(base, size, *slot);
+	if (v == -1000)
+		return 0;
+	*(long *)slot = v;
+	return 1;
+}
+
+static int un_ptr(char *base, long size, const void **slot, long minoff)
+{
+	long v = *(long *)slot;
+	int nshared;
+	if (v == PK_NULL) {
+		*slot = 0;
+		return 1;
+	}
+	if (v == PK_EMPTY) {
+		*slot = "";
+		return 1;
+	}
+	for (nshared = 0; shared_labels[nshared]; nshared++)
+		;
+	if (v <= PK_SHARED && PK_SHARED - v < nshared) {
+		*slot = shared_labels[PK_SHARED - v];
+		return 1;
+	}
+	if (v < minoff || v >= size)
+		return 0;
+	*slot = base + v;
+	return 1;
+}
+
+static long n_items(const CONTACT *c)
+{
+	return (long)c->nemail + c->ntel + c->nadr + c->nurl;
+}
+
+int vcard_pack(const CONTACT *c, char *out)
+{
+	CONTACT *p = (CONTACT *)out;
+	const char *base = (const char *)c;
+	long size = c->bsize, i, items = n_items(c);
+	const void **f;
+	VCITEM *it;
+	memcpy(out, c, size);
+	/* the items and members first: their pointers are read from the copy */
+	it = (VCITEM *)(out + ((const char *)(c + 1) - base));
+	for (i = 0; i < items; i++)
+		if (!pk_ptr(base, size, (const void **)&it[i].label) || !pk_ptr(base, size, (const void **)&it[i].value))
+			return 0;
+	for (i = 0; i < c->nmember; i++)
+		if (!pk_ptr(base, size, (const void **)(out + ((const char *)&c->member[i] - base))))
+			return 0;
+	f = (const void **)&p->uid;
+	for (i = 0; i < 14; i++)
+		if (!pk_ptr(base, size, &f[i]))
+			return 0;
+	return pk_ptr(base, size, (const void **)&p->email) && pk_ptr(base, size, (const void **)&p->tel) &&
+	       pk_ptr(base, size, (const void **)&p->adr) && pk_ptr(base, size, (const void **)&p->url) &&
+	       pk_ptr(base, size, (const void **)&p->member);
+}
+
+CONTACT *vcard_unpack(char *blk, long len)
+{
+	CONTACT *c = (CONTACT *)blk;
+	const void **f;
+	long i, items, min = (long)sizeof(CONTACT);
+	if (len < (long)sizeof(CONTACT) || c->bsize != len)
+		return 0;
+	f = (const void **)&c->uid;
+	for (i = 0; i < 14; i++)
+		if (!un_ptr(blk, len, &f[i], min))
+			return 0;
+	if (!un_ptr(blk, len + 1, (const void **)&c->email, min) || !un_ptr(blk, len + 1, (const void **)&c->tel, min) ||
+	    !un_ptr(blk, len + 1, (const void **)&c->adr, min) || !un_ptr(blk, len + 1, (const void **)&c->url, min) ||
+	    !un_ptr(blk, len + 1, (const void **)&c->member, min))
+		return 0;
+	items = n_items(c);
+	/* the lists where assemble() puts them, and inside the block */
+	if ((char *)c->email != (char *)(c + 1) || (char *)(c->email + items) > blk + len ||
+	    (char *)(c->member + c->nmember) > blk + len)
+		return 0;
+	for (i = 0; i < items; i++) {
+		VCITEM *it = &c->email[i];
+		if (!un_ptr(blk, len, (const void **)&it->label, min) || !un_ptr(blk, len, (const void **)&it->value, min) ||
+		    !it->value)
+			return 0;
+	}
+	for (i = 0; i < c->nmember; i++)
+		if (!un_ptr(blk, len, (const void **)&c->member[i], min) || !c->member[i])
+			return 0;
+	/* the strings end inside the block */
+	if (blk[len - 1])
+		return 0;
+	c->mark = 0;
 	return c;
 }
 

@@ -439,23 +439,83 @@ long atol(const char *s) { return strtol(s, 0, 10); }
 int abs(int v) { return v < 0 ? -v : v; }
 long labs(long v) { return v < 0 ? -v : v; }
 
-/* shell sort: small, no recursion, fine for a few thousand headers */
-void qsort(void *b, size_t n, size_t size, int (*cmp)(const void *, const void *))
+/* heap sort: no recursion, no extra memory, and n log n even for the
+   list of thousands of contacts sorted again after every change (the
+   shell sort it replaces went quadratic there). Pointers (the usual
+   case) are swapped as longs */
+static void swap_el(char *x, char *y, size_t size)
 {
-	char *base_ = b, tmp[64];
-	size_t gap, i, j, k;
-	for (gap = n / 2; gap > 0; gap /= 2) {
-		for (i = gap; i < n; i++) {
-			for (j = i; j >= gap && cmp(base_ + (j - gap) * size, base_ + j * size) > 0; j -= gap) {
-				char *x = base_ + (j - gap) * size, *y = base_ + j * size;
-				for (k = 0; k < size; k += sizeof(tmp)) {
-					size_t c = size - k < sizeof(tmp) ? size - k : sizeof(tmp);
-					memcpy(tmp, x + k, c);
-					memcpy(x + k, y + k, c);
-					memcpy(y + k, tmp, c);
-				}
-			}
+	if (size == sizeof(long) && !(((unsigned long)x | (unsigned long)y) & 1)) {
+		long t = *(long *)x;
+		*(long *)x = *(long *)y;
+		*(long *)y = t;
+	} else {
+		while (size--) {
+			char t = *x;
+			*x++ = *y;
+			*y++ = t;
 		}
+	}
+}
+
+static void sift(char *b, size_t root, size_t n, size_t size, int (*cmp)(const void *, const void *))
+{
+	for (;;) {
+		size_t child = 2 * root + 1;
+		if (child >= n)
+			return;
+		if (child + 1 < n && cmp(b + child * size, b + (child + 1) * size) < 0)
+			child++;
+		if (cmp(b + root * size, b + child * size) >= 0)
+			return;
+		swap_el(b + root * size, b + child * size, size);
+		root = child;
+	}
+}
+
+/* the same for arrays of pointers, indexed without a multiply (a 68000
+   multiplies 32-bit numbers in software) */
+static void sift_ptr(void **a, size_t root, size_t n, int (*cmp)(const void *, const void *))
+{
+	for (;;) {
+		size_t child = 2 * root + 1;
+		void *t;
+		if (child >= n)
+			return;
+		if (child + 1 < n && cmp(&a[child], &a[child + 1]) < 0)
+			child++;
+		if (cmp(&a[root], &a[child]) >= 0)
+			return;
+		t = a[root];
+		a[root] = a[child];
+		a[child] = t;
+		root = child;
+	}
+}
+
+void qsort(void *base_, size_t n, size_t size, int (*cmp)(const void *, const void *))
+{
+	char *b = base_;
+	size_t i;
+	if (n < 2)
+		return;
+	if (size == sizeof(void *) && !((unsigned long)b & 1)) {
+		void **a = base_, *t;
+		for (i = n / 2; i-- > 0;)
+			sift_ptr(a, i, n, cmp);
+		for (i = n - 1; i > 0; i--) {
+			t = a[0];
+			a[0] = a[i];
+			a[i] = t;
+			sift_ptr(a, 0, i, cmp);
+		}
+		return;
+	}
+	for (i = n / 2; i-- > 0;)
+		sift(b, i, n, size, cmp);
+	for (i = n - 1; i > 0; i--) {
+		swap_el(b, b + i * size, size);
+		sift(b, 0, i, size, cmp);
 	}
 }
 

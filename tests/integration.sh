@@ -392,6 +392,54 @@ else
   echo "  (skipped: needs Pillow)"
 fi
 
+echo "many contacts, little memory: the server's list read as it comes"
+"${CURL[@]}" -X MKCOL "$BASE/alice/many/" -H "Content-Type: application/xml" --data-binary @- >/dev/null <<XML
+<?xml version="1.0" encoding="utf-8"?>
+<D:mkcol xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav"><D:set><D:prop>
+<D:resourcetype><D:collection/><C:addressbook/></D:resourcetype><D:displayname>Many</D:displayname>
+</D:prop></D:set></D:mkcol>
+XML
+python3 - "$BASE/alice/many/" <<'PY'
+import base64, sys, urllib.request
+base = sys.argv[1]
+auth = "Basic " + base64.b64encode(b"alice:wonderland").decode()
+for i in range(300):
+    card = ("BEGIN:VCARD\r\nVERSION:3.0\r\nN:Member%03d;Club;;;\r\nFN:Club Member%03d\r\n"
+            "EMAIL:m%03d@example.org\r\nUID:MANY-%03d\r\nEND:VCARD\r\n" % (i, i, i, i))
+    rq = urllib.request.Request(base + "m%03d-with-a-long-name-like-icloud-ones.vcf" % i, data=card.encode(),
+                                method="PUT", headers={"Content-Type": "text/vcard", "Authorization": auth})
+    urllib.request.urlopen(rq).read()
+PY
+M=$W/many
+CARD_BUDGET=20000 CARD_LOG=$W/many.log $CLI "$M" carddav Many "$BASE/" alice wonderland
+R=$($CLI "$M" books)
+expect "all 300, the list read in pieces" "Many (Many) 300 contacts" "$R"
+"${CURL[@]}" -X DELETE "$BASE/alice/many/m007-with-a-long-name-like-icloud-ones.vcf" >/dev/null
+"${CURL[@]}" -X PUT "$BASE/alice/many/m100-with-a-long-name-like-icloud-ones.vcf" -H "Content-Type: text/vcard" \
+  --data-binary $'BEGIN:VCARD\r\nVERSION:3.0\r\nN:Changed;Club;;;\r\nFN:Club Changed\r\nUID:MANY-100\r\nEND:VCARD\r\n' >/dev/null
+CARD_BUDGET=20000 $CLI "$M" sync
+R=$($CLI "$M" books)
+expect "one gone" "Many (Many) 299 contacts" "$R"
+R=$($CLI "$M" list)
+expect "one changed" "Club Changed" "$R"
+absent "the gone one" "Club Member007" "$R"
+expect "the others kept" "Club Member299" "$R"
+
+echo "the parsed cache (BOOKnnnn.IDX)"
+MID=$(sed -n 's/^ID=//p' "$M/ECONTACT.INF" | tr -d '\r' | tail -1)
+IDX=$M/CACHE/BOOK$(printf %04d "$MID").IDX
+if [ -s "$IDX" ]; then ok "kept"; else bad "no $IDX"; fi
+BEFORE=$($CLI "$M" list | md5sum)
+# another version's: its header says so, and it isn't used
+python3 -c "import sys; d=bytearray(open(sys.argv[1],'rb').read()); d[20:24]=b'0.0X'; open(sys.argv[1],'wb').write(d)" "$IDX"
+R=$($CLI "$M" list | md5sum)
+if [ "$R" = "$BEFORE" ]; then ok "another version's: the same contacts"; else bad "another version's cache changed the list"; fi
+# cut short, as by a crash while it was written
+head -c 5000 "$IDX" > "$IDX.x" && mv "$IDX.x" "$IDX"
+R=$($CLI "$M" list | md5sum)
+if [ "$R" = "$BEFORE" ]; then ok "cut short: the same"; else bad "cut cache changed the list"; fi
+if [ "$(stat -c %s "$IDX")" -gt 1000 ]; then ok "and written again"; else bad "not written again"; fi
+
 echo "On My Atari"
 $CLI "$D" local Notes
 $CLI "$D" add Notes Local Person local@example.com

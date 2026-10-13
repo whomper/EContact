@@ -524,6 +524,70 @@ static void test_photo_split(void)
 	CHECK(!vcard_photo_span(marked, (long)strlen(marked), &s, &e));
 }
 
+
+/* a contact packed for the parsed cache and back: the same in every field */
+static void test_pack(void)
+{
+	static const char card[] = "BEGIN:VCARD\r\nVERSION:3.0\r\nN:Levi;Dana;Ruth;Dr.;\r\nFN:Dana Levi\r\n"
+		"ORG:Acme;Research\r\nTITLE:Engineer\r\nitem1.EMAIL;type=INTERNET:dana@example.org\r\n"
+		"item1.X-ABLabel:_$!<Other>!$_\r\nEMAIL;type=HOME:d@home.example\r\nTEL;type=CELL:+972 50 111 2222\r\n"
+		"item2.TEL:+1 555 0100\r\nitem2.X-ABLabel:Boat\r\nADR;type=WORK:;;1 Main St;Haifa;;31000;Israel\r\n"
+		"BDAY:1980-05-17\r\nNOTE:Likes tea\r\nCATEGORIES:Friends,Work\r\nUID:DANA-1\r\nEND:VCARD\r\n";
+	static const char group[] = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Club\r\nX-ADDRESSBOOKSERVER-KIND:group\r\n"
+		"X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:A-1\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:B-2\r\nUID:G-1\r\nEND:VCARD\r\n";
+	const char *cards[2] = { card, group };
+	int k, i;
+	for (k = 0; k < 2; k++) {
+		CONTACT *c = vcard_parse(cards[k], (long)strlen(cards[k])), *d;
+		char *buf;
+		CHECK(c != 0);
+		if (!c)
+			continue;
+		buf = malloc(c->bsize);
+		CHECK(vcard_pack(c, buf));
+		/* the packed bytes hold no pointer into the original */
+		d = vcard_unpack(buf, c->bsize);
+		CHECK(d != 0);
+		if (d) {
+			CHECK_STR(d->fn, c->fn);
+			CHECK_STR(d->uid, c->uid);
+			CHECK(!c->family || !strcmp(d->family, c->family));
+			CHECK(!c->org || !strcmp(d->org, c->org));
+			CHECK(!c->note || !strcmp(d->note, c->note));
+			CHECK(!c->cats || !strcmp(d->cats, c->cats));
+			CHECK_EQ(d->nemail, c->nemail);
+			CHECK_EQ(d->ntel, c->ntel);
+			CHECK_EQ(d->nadr, c->nadr);
+			CHECK_EQ(d->nmember, c->nmember);
+			for (i = 0; i < c->nemail; i++) {
+				CHECK_STR(d->email[i].value, c->email[i].value);
+				CHECK_STR(d->email[i].label, c->email[i].label);
+			}
+			for (i = 0; i < c->ntel; i++) {
+				CHECK_STR(d->tel[i].value, c->tel[i].value);
+				CHECK_STR(d->tel[i].label, c->tel[i].label);
+			}
+			for (i = 0; i < c->nadr; i++)
+				CHECK_STR(d->adr[i].value, c->adr[i].value);
+			for (i = 0; i < c->nmember; i++)
+				CHECK_STR(d->member[i], c->member[i]);
+			CHECK((char *)d->fn >= buf && (char *)d->fn < buf + c->bsize);
+			CHECK_EQ(d->group, c->group);
+		}
+		/* damaged bytes are refused, not followed */
+		{
+			char *bad = malloc(c->bsize);
+			if (vcard_pack(c, bad)) {
+				*(long *)&((CONTACT *)bad)->fn = c->bsize + 100;
+				CHECK(vcard_unpack(bad, c->bsize) == 0);
+			}
+			free(bad);
+		}
+		free(buf);
+		free(c);
+	}
+}
+
 int main(void)
 {
 	test_parse_icloud();
@@ -535,6 +599,7 @@ int main(void)
 	test_urls();
 	test_photos();
 	test_photo_split();
+	test_pack();
 	printf("%d checks, %d failed\n", checks, fails);
 	return fails != 0;
 }

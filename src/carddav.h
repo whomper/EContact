@@ -16,11 +16,6 @@ typedef struct {
 } DAVBOOK;
 
 typedef struct {
-	char *href;		/* as the server wrote it (a path, usually) */
-	char *etag;
-} DAVITEM;
-
-typedef struct {
 	const char *user, *pass;
 } DAVAUTH;
 
@@ -34,9 +29,12 @@ int carddav_discover(const char *base, const DAVAUTH *a, DAVBOOK **books, int *n
 /* the address book's ctag now; "" when the server doesn't give one */
 int carddav_ctag(const char *url, const DAVAUTH *a, char *ctag, int size, char *err, int errlen);
 
-/* hrefs and etags of every contact in it */
-int carddav_list(const char *url, const DAVAUTH *a, DAVITEM **items, int *n, char *err, int errlen);
-void carddav_free_items(DAVITEM *items, int n);
+/* the href (as the server wrote it, a path usually) and etag of every
+   contact in it, to cb one by one (0 from cb stops: the call fails).
+   Under 200 KB of carddav_budget the answer is read as it comes, so the
+   list of thousands of contacts never is in memory whole */
+typedef int (*DAV_ITEM_CB)(void *ud, const char *href, const char *etag);
+int carddav_list(const char *url, const DAVAUTH *a, DAV_ITEM_CB cb, void *ud, char *err, int errlen);
 
 /* fetch contacts by href, as many at a time as fit in carddav_budget;
    cb gets each (UTF-8 text). partial: without their photos and the lines

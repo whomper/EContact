@@ -16,16 +16,21 @@
 enum { AK_CARDDAV, AK_LOCAL };
 
 typedef struct {
-	char *href, *etag;	/* where the server keeps it */
+	char *href, *etag;	/* where the server keeps it (one malloc: etag follows href);
+				   href without BOOK.hpre when rel: res_href() gives it whole */
 	long off, len;		/* its vCard in the cache file (the photo replaced by a stand-in) */
 	long poff, plen;	/* its PHOTO line in the photo file; plen 0: none there */
 	unsigned short hh;	/* a hash of href, to find it quickly */
+	short next;		/* the next with the same hash's low bits (BOOK.head) */
 	char partial;		/* fetched without its photo and the lines EContact doesn't show */
+	char rel;		/* href is the part after hpre */
+	char done;		/* read already (from the parsed cache) */
+	unsigned long th;	/* a hash of its text in the cache file: its entry in BOOKnnnn.IDX */
 	char dead;		/* replaced or deleted by a record further on in the file */
 } RESOURCE;
 
 typedef struct {
-	short id;		/* cache files BOOKnnnn.DAT and .PHO */
+	short id;		/* cache files BOOKnnnn.DAT, .PHO and .IDX */
 	short acct;
 	short ver;		/* of its cache file, as read */
 	char name[64];		/* Atari text */
@@ -35,8 +40,12 @@ typedef struct {
 	CTIME synced;		/* the Atari's clock; 0 = never */
 	RESOURCE *res;
 	int nres, maxres;
+	short *head;		/* RES_BUCKETS chains of res by href hash */
+	char hpre[120];		/* what every href starts with (the book's path), kept once */
+	short hprelen;
 	int ndead;		/* superseded records in the cache file (rewritten when many) */
 	int count;		/* contacts in it (not groups) */
+	int lost;		/* in the cache but not read: no memory for them */
 } BOOK;
 
 typedef struct {
@@ -97,6 +106,8 @@ extern unsigned long people_serial;
 void store_init(const char *dir, const char *inf);
 void store_save_settings(void);
 void book_load_all(void);
+/* contacts in the caches that couldn't be read for lack of memory */
+int  contacts_lost(void);
 void book_load(BOOK *b);
 CTIME now_local(void);
 

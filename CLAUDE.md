@@ -29,3 +29,10 @@
 - Anything that reads the list again frees the CONTACTs (people_serial
   counts up): fetching a card whole for its photo does, so the UI calls
   after_change() and finds the chosen one again by UID.
+- Memory on an ST is the limit (README "How many contacts"). Reading a
+  card leaves nothing in memory but its CONTACT (vcard_parse keeps its
+  scratch from card to card): small mallocs left between contacts make
+  every later malloc and free on the Atari slower. `BOOKnnnn.IDX` keeps
+  parsed contacts (vcard_pack); a change to CONTACT's layout changes
+  VC_PACK_ID, and a new version reparses anyway. Contacts that don't fit
+  are counted (contacts_lost) and the user is told, never left out quietly.

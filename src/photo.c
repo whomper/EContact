@@ -415,7 +415,7 @@ static const char *uid_of(const CONTACT *c)
 	if (c->uid && *c->uid)
 		return c->uid;
 	if (c->book >= 0 && c->book < nbooks && c->res >= 0 && c->res < books[c->book].nres)
-		return books[c->book].res[c->res].href;
+		return contact_href(c);
 	return "";
 }
 

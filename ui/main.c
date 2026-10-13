@@ -144,12 +144,37 @@ void set_hebrew_kbd(short on)
 		updated_status();
 }
 
+/* Contacts that didn't fit in memory are said, once for each count:
+   never just a shorter list */
+static long acc_heap_bytes;	/* the accessory's fixed memory; 0 for the program */
+static int warned_lost;
+
+static void memory_check(void)
+{
+	int lost = contacts_lost();
+	if (lost <= 0 || !data_ready) {
+		warned_lost = lost > 0 ? warned_lost : 0;
+		return;
+	}
+	if (lost == warned_lost)
+		return;
+	warned_lost = lost;
+	if (is_acc && acc_heap_bytes)
+		/* about half a KB each, and room to sync them */
+		alert(1, "[1][%d contact%s can't be shown: EContact's memory is full. Give it more with HEAPKB=%ld in %s and restart the Atari.][ OK ]",
+		      lost, lost == 1 ? "" : "s", (acc_heap_bytes + (long)lost * 640L) / 1024L * 5L / 4L + 32L, inf_file);
+	else
+		alert(1, "[1][%d contact%s can't be shown: there isn't enough free memory. Quit other programs and start EContact again.][ OK ]",
+		      lost, lost == 1 ? "" : "s");
+}
+
 void after_change(void)
 {
 	list_invalidate();
 	win_redraw(0);
 	if (data_ready)
 		updated_status();
+	memory_check();
 }
 
 /* ---------------- Falcon mode ---------------- */
@@ -191,6 +216,8 @@ static void updated_status(void)
 		snprintf(what, sizeof(what), "%d of %d contacts", nlisted, n);
 	else
 		snprintf(what, sizeof(what), "%d contact%s", n, n == 1 ? "" : "s");
+	if (contacts_lost() > 0)
+		snprintf(what + strlen(what), sizeof(what) - strlen(what), ", %d not shown", contacts_lost());
 	if (opt.offline)
 		snprintf(s, sizeof(s), "%s   Working offline", what);
 	else if (!naccts)
@@ -728,7 +755,10 @@ static void acc_heap(void)
 	char inf[200];
 	long avail = (long)Malloc(-1L), alt = (long)Mxalloc(-1L, 1), want, h, n;
 	void *p;
-	want = tls_available && get_cookie(0x5F435055L) >= 30 ? 1536L * 1024 : 320L * 1024;
+	/* a Falcon or TT: 1.5 MB (more in TT RAM). An ST: half of what is
+	   free (below), the other half left to the programs run after: about
+	   250 KB on a 1 MB ST, 750 KB on 2 MB, 1.8 MB on 4 MB */
+	want = tls_available && get_cookie(0x5F435055L) >= 30 ? 1536L * 1024 : 2048L * 1024;
 	if (alt == -32 || alt < 0)
 		alt = 0;
 	if (alt >= 256L * 1024) {
@@ -766,6 +796,7 @@ static void acc_heap(void)
 		p = Malloc(want);
 	if ((long)p > 0) {
 		heap_add(p, (size_t)want);
+		acc_heap_bytes = want;
 		answer_budget(want);
 	}
 }

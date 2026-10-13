@@ -341,58 +341,107 @@ int carddav_ctag(const char *url, const DAVAUTH *a, char *ctag, int size, char *
 /* ---------------- contacts ---------------- */
 
 typedef struct {
-	DAVITEM *items;
-	int n, max;
-} ITEMS;
+	DAV_ITEM_CB cb;
+	void *ud;
+	int stop;
+	SBUF pend;		/* streaming: what came since the last whole <response> */
+} LISTING;
 
 static void got_item(DAVRESP *r, void *ud)
 {
-	ITEMS *l = ud;
-	if (!r->etag[0] || !r->href[0] || r->is_coll || r->is_book)
+	LISTING *l = ud;
+	if (l->stop || !r->etag[0] || !r->href[0] || r->is_coll || r->is_book)
 		return;			/* the collection itself */
 	if (r->ctype[0] && !str_istr(r->ctype, "vcard") && !str_istr(r->ctype, "directory"))
 		return;			/* something else kept in the book */
-	if (l->n >= l->max) {
-		DAVITEM *ni;
-		l->max = l->max ? l->max * 2 : 32;
-		ni = realloc(l->items, l->max * sizeof(DAVITEM));
-		if (!ni)
-			return;
-		l->items = ni;
-	}
-	l->items[l->n].href = strdup(r->href);
-	l->items[l->n].etag = strdup(r->etag);
-	if (l->items[l->n].href && l->items[l->n].etag)
-		l->n++;
+	if (!l->cb(l->ud, r->href, r->etag))
+		l->stop = 1;
 }
 
-void carddav_free_items(DAVITEM *items, int n)
+/* the end of the last whole </response> (any prefix) in s, 0 if none */
+static long last_response_end(const char *s, long n)
 {
-	int i;
-	for (i = 0; i < n; i++) {
-		free(items[i].href);
-		free(items[i].etag);
+	long i;
+	for (i = n - 9; i >= 2; i--) {
+		long k;
+		if (s[i] != 'r' || memcmp(s + i, "response>", 9))
+			continue;
+		k = i;
+		if (s[k - 1] == ':')
+			for (k--; k > 0 && s[k - 1] != '/' && s[k - 1] != '<'; k--)
+				;
+		if (k >= 2 && s[k - 1] == '/' && s[k - 2] == '<')
+			return i + 9;
 	}
-	free(items);
+	return 0;
 }
 
-int carddav_list(const char *url, const DAVAUTH *a, DAVITEM **items, int *n, char *err, int errlen)
+/* the answer as it arrives: each whole <response> read at once, the
+   rest kept for the next piece. Memory: one piece, not the answer */
+static int list_sink(void *ud, const char *d, long n)
+{
+	LISTING *l = ud;
+	long end;
+	if (!sb_add(&l->pend, d, n))
+		return 0;
+	end = last_response_end(l->pend.s, l->pend.len);
+	if (end > 0) {
+		parse_multistatus(l->pend.s, end, got_item, l);
+		memmove(l->pend.s, l->pend.s + end, l->pend.len - end);
+		l->pend.len -= end;
+		l->pend.s[l->pend.len] = 0;
+	}
+	return !l->stop && l->pend.len < 65536L;
+}
+
+#define LIST_STREAM_BELOW 200000L	/* carddav_budget under which the list is streamed */
+
+int carddav_list(const char *url, const DAVAUTH *a, DAV_ITEM_CB cb, void *ud, char *err, int errlen)
 {
 	static const char q[] = "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
 		"<d:propfind " NS "><d:prop><d:getetag/><d:getcontenttype/><d:resourcetype/></d:prop></d:propfind>";
 	HTTPRESP rs;
 	SBUF out;
-	ITEMS l;
+	LISTING l;
 	int ok;
 	memset(&l, 0, sizeof(l));
+	l.cb = cb;
+	l.ud = ud;
 	sb_init(&out);
-	ok = dav("PROPFIND", url, a, 1, q, &rs, &out, err, errlen);
-	if (ok)
-		parse_multistatus(out.s, out.len, got_item, &l);
+	if (carddav_budget >= LIST_STREAM_BELOW) {
+		/* memory enough: all of it at once, compressed on the way */
+		ok = dav("PROPFIND", url, a, 1, q, &rs, &out, err, errlen);
+		if (ok)
+			parse_multistatus(out.s, out.len, got_item, &l);
+	} else {
+		HTTPREQ rq;
+		char hdr[40];
+		memset(&rq, 0, sizeof(rq));
+		rq.method = "PROPFIND";
+		rq.url = url;
+		rq.user = a ? a->user : 0;
+		rq.pass = a ? a->pass : 0;
+		rq.body = q;
+		rq.bodylen = (long)strlen(q);
+		rq.ctype = "application/xml; charset=utf-8";
+		snprintf(hdr, sizeof(hdr), "Depth: 1\r\n");
+		rq.headers = hdr;
+		rq.sink = list_sink;
+		rq.ud = &l;
+		sb_init(&l.pend);
+		ok = http_request(&rq, &rs, &out, err, errlen);
+		if (ok && rs.status != 207 && rs.status != 200) {
+			snprintf(err, errlen, "%s (HTTP %d)", carddav_status_text(rs.status), rs.status);
+			ok = 0;
+		}
+		if (ok && l.pend.len && !l.stop)
+			parse_multistatus(l.pend.s, l.pend.len, got_item, &l);
+		if (!ok && (l.stop || l.pend.len >= 65536L))
+			str_copy(err, "not enough memory for the list of contacts", errlen);
+		sb_free(&l.pend);
+	}
 	sb_free(&out);
-	*items = l.items;
-	*n = l.n;
-	return ok;
+	return ok && !l.stop;
 }
 
 typedef struct {

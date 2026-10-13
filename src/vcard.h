@@ -44,11 +44,25 @@ typedef struct CONTACT {
 					   VC_KEY_UNKNOWN: it has one, not yet downloaded */
 	short book, res;		/* where it is kept (abook.c) */
 	char sortkey[24];		/* upper case, for sorting and the letter headings */
+	long bsize;			/* the one block it is, in bytes */
 } CONTACT;
 
 /* parse one vCard (UTF-8, or what its CHARSET= says); NULL if it isn't
    one. The result is one malloc: free() it */
 CONTACT *vcard_parse(const char *text, long len);
+/* the last vcard_parse ran out of memory (rather than finding no card):
+   a card is never made with lines left out */
+extern int vcard_nomem;
+/* A parsed contact as bytes, for the cache of parsed cards (abook.c):
+   vcard_pack copies c into out (c->bsize bytes) with its pointers made
+   offsets; 0 if one can't be (it isn't). vcard_unpack turns such bytes,
+   read into a malloc'ed block of len bytes, back into the CONTACT in
+   place; NULL if they don't add up. Only for the same build: the cache
+   says which (VC_PACK_ID) */
+int vcard_pack(const CONTACT *c, char *out);
+CONTACT *vcard_unpack(char *blk, long len);
+#define VC_PACK_ID ((long)sizeof(CONTACT) * 256 + (long)sizeof(void *) * 16 + 1)
+
 /* every vCard in a file of several (an export, an import): cb for each;
    returns how many */
 int vcard_parse_all(const char *text, long len, int (*cb)(CONTACT *c, void *ud), void *ud);
