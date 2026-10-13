@@ -696,11 +696,19 @@ static void inf_folder(const char *inf, char *out, int size)
 
 static void find_workdir(void)
 {
-	char path[160];
+	char path[160], old[200];
 	short drv = (short)Dgetdrv(), boot = boot_drive();
 	snprintf(inf_file, sizeof(inf_file), "%c:\\ECONTACT.INF", 'A' + boot);
 	if (is_acc) {
 		inf_folder(inf_file, workdir, sizeof(workdir));
+		if (!pf_exists(inf_file)) {
+			/* settings in the folder instead (copied there, or written
+			   by card-cli): taken to the root at the first opening */
+			snprintf(workdir, sizeof(workdir), "%c:\\ECONTACT", 'A' + boot);
+			path_join(old, sizeof(old), workdir, "ECONTACT.INF");
+			if (!pf_exists(old))
+				workdir[0] = 0;
+		}
 		if (workdir[0] && !pf_exists(workdir))
 			workdir[0] = 0;		/* gone: ask at the first opening */
 		return;
@@ -712,6 +720,21 @@ static void find_workdir(void)
 		workdir[strlen(workdir) - 1] = 0;
 }
 
+/* settings kept in the folder, and none in the root: copied there, the
+   first time (as ECal does) */
+static void move_inf(void)
+{
+	char old[200], *t;
+	long len;
+	if (pf_exists(inf_file) || !workdir[0])
+		return;
+	path_join(old, sizeof(old), workdir, "ECONTACT.INF");
+	if (!strcasecmp(old, inf_file) || !(t = pf_load(old, &len)))
+		return;
+	pf_save(inf_file, t, len);
+	free(t);
+}
+
 /* the accessory without its folder: the user shows it where it is */
 static void locate_folder(void)
 {
@@ -721,7 +744,7 @@ static void locate_folder(void)
 	for (;;) {
 		short k = why[0] ? alert(1, "[2][EContact's folder is not at|%s.|Show me where it is?][Locate...|%c:\\ECONTACT]",
 					 why, 'A' + boot)
-				 : alert(1, "[2][Where is EContact's folder, with|its address books, keys and|certificates?][Locate...|%c:\\ECONTACT]",
+				 : alert(1, "[2][Where is EContact's folder,|with its address books, keys|and certificates?][Locate...|%c:\\ECONTACT]",
 					 'A' + boot);
 		char *e;
 		if (k != 1)
@@ -817,6 +840,7 @@ static void load_settings(void)
 {
 	if (!workdir[0])
 		locate_folder();
+	move_inf();
 	store_init(workdir, inf_file);
 	if (strcasecmp(opt.folder, workdir))
 		store_save_settings();	/* FOLDER= as it is now */

@@ -215,7 +215,9 @@ In the [`binary`](binary) folder:
    `ECONTACT.ACC` or not) into the root of your boot drive, e.g. `C:\`.
    For Falcon mode, make a folder `C:\ECONTACT` and put `CACERT.PEM` and
    `ROOTS.DAT` in it (EContact keeps its own files there too). The folder
-   can be anywhere: `C:\ECONTACT.INF` says where in `FOLDER=`.
+   can be anywhere: the settings, `C:\ECONTACT.INF`, say where in
+   `FOLDER=`; start `ECONTACT.PRG` from the folder once, or show the
+   accessory where it is when it asks.
 2. For an ST, set up ECal's gateway on a Raspberry Pi
    (`sudo gateway/install.sh` in ECal), or use the one you have.
 3. Reboot, choose **Contacts** in the Desk menu, and add your iCloud
@@ -263,4 +265,6 @@ make itest      # card-cli against a real CardDAV server (Radicale): sync, add,
                 # memory, and converting 1.9's cache
 GATEWAY=../ECal/gateway/ecalgate.py make itest    # the same through the Pi gateway
 tests/hatari/docs_shots.py WORK etos512us.img     # the screenshots, in Hatari
+tests/hatari/placement.py WORK etos512us.img      # where the accessory and the program
+                                                  # find their settings and folder
 ```

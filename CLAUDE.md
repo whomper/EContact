@@ -9,6 +9,9 @@
   there); `integration/*.patch` are the changes to those two. When either
   changes, regenerate the patch from a checkout of that repository's `main`
   (`git diff -- . ':!VERSION' ':!binary'`) and check it applies and builds.
+- Where the accessory and the program find ECONTACT.INF and the folder
+  follows ECal (ui/main.c: find_workdir, move_inf, locate_folder);
+  `tests/hatari/placement.py WORK etos512us.img` checks it.
 - The UI is checked in Hatari: `tests/hatari/docs_shots.py WORK etos512us.img`
   takes the screenshots in docs/ (EmuTOS 512k, sourceforge.net/projects/emutos).
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);

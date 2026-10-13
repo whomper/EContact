@@ -30,23 +30,38 @@ C:\ECONTACT\              EContact's folder (or another one):
     ECONTACT.LOG          with Write a log on
 ```
 
-- **`ECONTACT.PRG`** is the same program, to start from the desktop; it
-  ends when its window closes. It uses the folder it was started from and
-  writes that into `FOLDER=`, so starting it once from your folder is all
-  the accessory needs to find it.
-- **The accessory** reads `FOLDER=` when it starts. If the folder isn't
-  there, the first time you open Contacts it asks: **Locate...** opens the
-  file selector (pick any file in the folder), or use `C:\ECONTACT`.
+- **`ECONTACT.PRG`** is the same program, to start from the desktop or a
+  shell; it ends when its window closes. It uses the folder it was
+  started from as EContact's folder and writes that into `FOLDER=`, so
+  starting it once from your folder is all it takes for the accessory to
+  find it too. The accessory and the program share the settings and the
+  folder: use either, or both (not both at the same moment).
+- **The accessory** reads `FOLDER=` when it starts. If it's empty, or
+  the folder isn't there any more, the first time you open Contacts it
+  asks where the folder is: **Locate...** opens the file selector (pick
+  any file in the folder), or use `C:\ECONTACT`. The answer is kept in
+  `FOLDER=`.
+- Settings kept in the folder instead (`C:\ECONTACT\ECONTACT.INF`, or
+  `ECONTACT.INF` next to the program) are copied to the root the first
+  time, when there are none there.
 
 **Memory.** The accessory takes its memory once, at boot: 1.5 MB on a
 Falcon or TT (4 MB from TT/Fast RAM where there is some), half of what's
 free on an ST: about 250 KB on a 1 MB ST (some 490 contacts), 750 KB on
 2 MB (1,500), 1.8 MB on 4 MB (3,700). `HEAPKB=` in ECONTACT.INF sets
-another amount, in kilobytes; a contact takes about half a kilobyte, and
+another amount, in kilobytes (`ECONTACT.PRG` takes what it needs from
+all that is free); a contact takes about half a kilobyte, and
 a sync wants a fifth of the memory free besides. If contacts don't fit,
 the window says how many aren't shown and an alert says what to set:
 
 ![Contacts that don't fit](memory-full.png)
+
+**TT RAM.** On a TT, or a Falcon with an accelerator's Fast RAM, TOS
+loads EContact into TT RAM, and its memory comes from there too, leaving
+ST RAM to the programs that need it. The accessory then takes 4 MB (still
+at most half of what's free). The About box says "TT RAM" when EContact
+runs there, and with **Write a log** on, the log's first line says where
+the program and its memory are.
 
 ## Accounts
 
@@ -220,6 +235,14 @@ every email address with its name, and the groups. With the patches in
   window.
 
 See [INTEGRATION.md](INTEGRATION.md) for how the programs talk.
+
+## ECONTACT.INF
+
+The settings file explains itself, like ECal's and EMail's: a note
+before each setting, `1` for on and `0` for off. It can be edited with
+any text editor while EContact isn't running (keys in any case, a note
+after a value with ` ;`). A password typed in there in plain text is
+encrypted with ECONTACT.KEY the next time EContact starts.
 
 ## Keys
 

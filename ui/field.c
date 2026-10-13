@@ -865,6 +865,8 @@ short alert(short def, const char *fmt, ...)
 			char c = *msg++;
 			line[n++] = c == '[' ? '(' : c == ']' ? ')' : c;
 		}
+		if (!n)
+			line[n++] = ' ';	/* an empty line: EmuTOS takes "||" for a '|' */
 		line[n] = 0;
 		if (bidi_has_rtl(line, n)) {
 			bidi_visual(line, n, bidi_is_rtl(line, n), vis);
