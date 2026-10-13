@@ -179,14 +179,19 @@ static const char *read_lines(const char *text, const char *end, VLINES *v, int 
 		const char *next = phys_line(p, end, &eol), *colon, *q, *nm;
 		VLINE l;
 		int qp = 0, cs = CS_UTF8, quoted = 0;
+		int room;
 		sb_reset(&line);
-		sb_add(&line, p, eol - p);
+		room = sb_add(&line, p, eol - p);
 		p = next;
 		/* folded: the next line starts with a space or a tab */
 		while (p < end && (*p == ' ' || *p == '\t')) {
 			next = phys_line(p, end, &eol);
-			sb_add(&line, p + 1, eol - p - 1);
+			room = sb_add(&line, p + 1, eol - p - 1) && room;
 			p = next;
+		}
+		if (!room) {
+			vcard_nomem = 1;	/* not even the line: the card isn't made */
+			break;
 		}
 		if (!line.len)
 			continue;
@@ -237,7 +242,8 @@ static const char *read_lines(const char *text, const char *end, VLINES *v, int 
 			while (line.len && line.s[line.len - 1] == '=' && p < end) {
 				next = phys_line(p, end, &eol);
 				line.len--;
-				sb_add(&line, p, eol - p);
+				if (!sb_add(&line, p, eol - p))
+					vcard_nomem = 1;
 				p = next;
 			}
 			sb_addc(&line, 0);
@@ -784,10 +790,15 @@ static int pk_ptr(const char *base, long size, const void **slot)
 	return 1;
 }
 
+#define N_SHARED ((long)(sizeof(shared_labels) / sizeof(shared_labels[0])) - 1)
+
 static int un_ptr(char *base, long size, const void **slot, long minoff)
 {
 	long v = *(long *)slot;
-	int nshared;
+	if (v >= minoff && v < size) {
+		*slot = base + v;		/* the usual case first */
+		return 1;
+	}
 	if (v == PK_NULL) {
 		*slot = 0;
 		return 1;
@@ -796,9 +807,7 @@ static int un_ptr(char *base, long size, const void **slot, long minoff)
 		*slot = "";
 		return 1;
 	}
-	for (nshared = 0; shared_labels[nshared]; nshared++)
-		;
-	if (v <= PK_SHARED && PK_SHARED - v < nshared) {
+	if (v <= PK_SHARED && PK_SHARED - v < N_SHARED) {
 		*slot = shared_labels[PK_SHARED - v];
 		return 1;
 	}

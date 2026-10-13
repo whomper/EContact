@@ -323,7 +323,12 @@ static int cmp_people(const void *a, const void *b)
 
 static void people_sort(void)
 {
-	if (npeople > 1)
+	int i;
+	/* read from the parsed cache, one book's people come in order */
+	for (i = 1; i < npeople; i++)
+		if (cmp_people(&people[i - 1], &people[i]) > 0)
+			break;
+	if (i < npeople)
 		qsort(people, npeople, sizeof(CONTACT *), cmp_people);
 }
 
@@ -1100,11 +1105,15 @@ void book_load(BOOK *b)
 void book_load_all(void)
 {
 	int i;
+	char path[200];
 	for (i = 0; i < nbooks; i++) {
 		status("Reading %s...", books[i].name);
 		load_one(&books[i]);
 	}
-	people_changed(1);
+	/* CONTACTS.TXT was written when the contacts last changed: at the
+	   start only when it isn't there, and never with some left out */
+	path_join(path, sizeof(path), opt.workdir, "CONTACTS.TXT");
+	people_changed(!pf_exists(path) && !contacts_lost());
 	status_clear();
 }
 
@@ -2446,7 +2455,9 @@ void people_export(void)
 	SBUF b;
 	char path[200], name[160];
 	int i, j, k;
-	if (!opt.workdir[0])
+	/* with contacts left out for lack of memory, EMail and ECal keep the
+	   whole list they have */
+	if (!opt.workdir[0] || contacts_lost())
 		return;
 	sb_init(&b);
 	sb_adds(&b, "; EContact's people, for EMail and ECal. Written by EContact whenever the\r\n"
