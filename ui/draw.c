@@ -6,7 +6,9 @@
  * EMail's draw.c).
  */
 #include <string.h>
+#include <stdlib.h>
 #include "ui.h"
+#include "../src/photo.h"
 #include "../src/bidi.h"
 
 static short next_text_color = 1;
@@ -609,5 +611,205 @@ void disc(short cx, short cy, short rx, short ry, short color)
 		r.w = (short)(2 * s + 1);
 		r.h = 1;
 		fill(&r, color);
+	}
+}
+
+/* ---------------- photos ----------------
+ * A contact's picture (PHOTO_N x PHOTO_N, RGB 5-6-5) in an ellipse:
+ * dithered (Floyd-Steinberg) to the colours the screen has, black and
+ * white with fewer than 16, then one transparent copy of a one-plane
+ * mask per colour used: no device formats to know, and white (the card
+ * behind it) is left as it is. The dithered picture is kept while the
+ * same one is shown, so a redraw is only the copies. */
+
+#define PH_MAXW 160
+#define PH_MAXH 128
+
+static unsigned char ph_lut[4096];	/* RGB 4-4-4 -> pen */
+static unsigned char ph_rgb[256][3];
+static short ph_npal = -1;
+static long ph_palsum;
+
+static void photo_palette(void)
+{
+	/* (255 marks what isn't drawn: the last of 256 colours isn't used) */
+	short n = ncolors >= 16 ? (ncolors > 255 ? 255 : ncolors) : 2, i, rgb[3];
+	long sum = n;
+	for (i = 0; i < n; i++) {
+		if (ncolors >= 16) {
+			vq_color(vdi_h, i, rgb);
+		} else {
+			rgb[0] = rgb[1] = rgb[2] = i ? 0 : 1000;	/* white, black */
+		}
+		ph_rgb[i][0] = (unsigned char)(rgb[0] * 255L / 1000);
+		ph_rgb[i][1] = (unsigned char)(rgb[1] * 255L / 1000);
+		ph_rgb[i][2] = (unsigned char)(rgb[2] * 255L / 1000);
+		sum = sum * 31 + ph_rgb[i][0] * 7 + ph_rgb[i][1] * 3 + ph_rgb[i][2];
+	}
+	if (n == ph_npal && sum == ph_palsum)
+		return;
+	ph_npal = n;
+	ph_palsum = sum;
+	if (n == 2)
+		return;			/* black and white: no table, a threshold */
+	/* the nearest pen for each of 4096 colours, once */
+	for (i = 0; i < 4096; i++) {
+		long r = ((i >> 8) & 15) * 17, g = ((i >> 4) & 15) * 17, b = (i & 15) * 17, best = 0x7fffffffL;
+		short k, pick = 0;
+		for (k = 0; k < n; k++) {
+			long dr = r - ph_rgb[k][0], dg = g - ph_rgb[k][1], db = b - ph_rgb[k][2];
+			long d = dr * dr * 3 + dg * dg * 4 + db * db * 2;
+			if (d < best) {
+				best = d;
+				pick = k;
+			}
+		}
+		ph_lut[i] = (unsigned char)pick;
+	}
+}
+
+void draw_photo(const unsigned short *px, int serial, short cx, short cy, short rx, short ry, const GRECT *clip)
+{
+	static unsigned char *pens;
+	static short pw, ph, pserial = -1, pnpal;
+	static unsigned char used[256];
+	short W, H, x, y, k, wpl;
+	GRECT vis;
+	if (rx > PH_MAXW / 2)
+		rx = PH_MAXW / 2;
+	if (ry > PH_MAXH / 2)
+		ry = PH_MAXH / 2;
+	W = 2 * rx + 1;
+	H = 2 * ry + 1;
+	photo_palette();
+	if (!pens)
+		pens = malloc(PH_MAXW * PH_MAXH + 4);
+	if (!pens)
+		return;
+	if (serial != pserial || W != pw || H != ph || pnpal != ph_npal) {
+		/* dithered again: errors carried to the right and the next row.
+		   Shifts and adds only: a 68000 multiplies and divides 32-bit
+		   numbers in software */
+		static short err[2][PH_MAXW + 2][3];
+		static short half[PH_MAXH];	/* the ellipse's half width on each row */
+		static unsigned char row[PH_MAXW];	/* the source column of each x */
+		int grey = ph_npal == 2, nq = grey ? 1 : 3;	/* black and white: one channel */
+		memset(err, 0, sizeof(err));
+		memset(used, 0, sizeof(used));
+		for (y = 0; y < H; y++) {
+			/* rx * sqrt(1 - ((y - ry) / ry)^2), once a row */
+			long t = ((long)ry * ry - (long)(y - ry) * (y - ry)) * ((long)rx * rx) / ((long)ry * ry), sq = 0, bit = 1L << 20;
+			while (bit > t)
+				bit >>= 2;
+			while (bit) {
+				if (t >= sq + bit) {
+					t -= sq + bit;
+					sq = (sq >> 1) + bit;
+				} else {
+					sq >>= 1;
+				}
+				bit >>= 2;
+			}
+			half[y] = (short)sq;
+		}
+		for (x = 0; x < W; x++)
+			row[x] = (unsigned char)((long)x * PHOTO_N / W);
+		for (y = 0; y < H; y++) {
+			short (*e0)[3] = err[y & 1], (*e1)[3] = err[(y + 1) & 1];
+			const unsigned short *src = px + ((long)y * PHOTO_N / H) * PHOTO_N;
+			unsigned char *out = pens + (long)y * W;
+			short lo = rx - half[y], hi = rx + half[y];
+			memset(e1, 0, sizeof(err[0]));
+			for (x = 0; x < W; x++) {
+				unsigned short p = src[row[x]];
+				short c[3], q, pen;
+				c[0] = (short)((p >> 8) & 0xF8);
+				c[1] = (short)((p >> 3) & 0xFC);
+				c[2] = (short)((p << 3) & 0xF8);
+				if (grey)	/* (r + 2g + b) / 4: shifts, no multiplying */
+					c[0] = c[1] = c[2] = (short)((c[0] + (c[1] << 1) + c[2]) >> 2);
+				for (q = 0; q < nq; q++) {
+					short v = c[q] + (e0[x + 1][q] >> 4);
+					c[q] = v < 0 ? 0 : v > 255 ? 255 : v;
+				}
+				pen = grey ? (c[0] < 128) : ph_lut[((c[0] >> 4) << 8) | ((c[1] >> 4) << 4) | (c[2] >> 4)];
+				/* outside the ellipse: not drawn (255) */
+				if (x < lo || x > hi) {
+					out[x] = 255;
+				} else {
+					out[x] = (unsigned char)pen;
+					used[pen] = 1;
+				}
+				for (q = 0; q < nq; q++) {
+					short e = c[q] - ph_rgb[pen][q];
+					e0[x + 2][q] += (e << 3) - e;		/* 7/16 to the right */
+					e1[x][q] += (e << 1) + e;		/* 3/16 below left */
+					e1[x + 1][q] += (e << 2) + e;		/* 5/16 below */
+					e1[x + 2][q] += e;			/* 1/16 below right */
+				}
+			}
+		}
+		pserial = (short)serial;
+		pw = W;
+		ph = H;
+		pnpal = ph_npal;
+	}
+	/* where it shows: the VDI's raster copy may not clip, so by hand */
+	vis.x = cx - rx;
+	vis.y = cy - ry;
+	vis.w = W;
+	vis.h = H;
+	if (!rect_and(&vis, clip))
+		return;
+	wpl = (W + 15) / 16;
+	for (k = 1; k < ph_npal; k++) {		/* pen 0 is the white under it */
+		short y0, strip = (short)(1024 / (wpl * 2));
+		if (!used[k])
+			continue;
+		for (y0 = vis.y - (cy - ry); y0 < vis.y - (cy - ry) + vis.h; y0 += strip) {
+			short y1 = y0 + strip, any = 0, pxy[8], colors[2];
+			unsigned short *bits = st_ram((long)wpl * 2 * strip);
+			MFDB src, dst;
+			if (!bits)
+				return;
+			if (y1 > vis.y - (cy - ry) + vis.h)
+				y1 = vis.y - (cy - ry) + vis.h;
+			memset(bits, 0, (size_t)wpl * 2 * (y1 - y0));
+			for (y = y0; y < y1; y++) {
+				const unsigned char *in = pens + (long)y * W;
+				unsigned short *o = bits + (long)(y - y0) * wpl, m = 0x8000;
+				for (x = 0; x < W; x++) {
+					if (in[x] == k) {
+						*o |= m;
+						any = 1;
+					}
+					m >>= 1;
+					if (!m) {
+						m = 0x8000;
+						o++;
+					}
+				}
+			}
+			if (!any)
+				continue;
+			memset(&src, 0, sizeof(src));
+			memset(&dst, 0, sizeof(dst));
+			src.fd_addr = bits;
+			src.fd_w = wpl * 16;
+			src.fd_h = y1 - y0;
+			src.fd_wdwidth = wpl;
+			src.fd_nplanes = 1;
+			pxy[0] = vis.x - (cx - rx);
+			pxy[1] = 0;
+			pxy[2] = pxy[0] + vis.w - 1;
+			pxy[3] = y1 - y0 - 1;
+			pxy[4] = vis.x;
+			pxy[5] = cy - ry + y0;
+			pxy[6] = vis.x + vis.w - 1;
+			pxy[7] = cy - ry + y1 - 1;
+			colors[0] = k;
+			colors[1] = 0;
+			vrt_cpyfm(vdi_h, 2, pxy, &src, &dst, colors);	/* transparent */
+		}
 	}
 }

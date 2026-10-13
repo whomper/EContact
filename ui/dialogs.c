@@ -297,8 +297,10 @@ static void settings(short first)
 	put(&f[F5], FT_CHECK, 0, VX, row, 32, "Start with the Hebrew keyboard");
 	f[F5].val = opt.hebrew;
 	row++;
-	put(&f[L6], FT_LABEL, 0, CX, row, 0, "");
-	put(&f[F6], FT_LABEL, FF_LTR, VX, row, 0, "");
+	row++;
+	put(&f[L6], FT_LABEL, 0, CX, row, 0, "Photos:");
+	put(&f[F6], FT_CHECK, 0, VX, row, 32, "Show contacts' photos");
+	f[F6].val = opt.photos;
 	for (i = L1; i <= F6; i++)
 		f[i].page = S_GENERAL;
 
@@ -371,6 +373,7 @@ static void settings(short first)
 	if (book_id[f[F3].val] >= 0)
 		opt.default_book = book_id[f[F3].val];
 	opt.hebfont = f[F4].val;
+	opt.photos = f[F6].val;
 	opt.hebrew = f[F5].val;
 	set_hebrew_kbd(opt.hebrew);
 	opt.refresh = refresh_min[f[F11].val];

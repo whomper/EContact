@@ -55,6 +55,9 @@ short mark_w(void);
 void draw_mark(short x, short y, short size, int which, short color, const GRECT *clip);
 void *st_ram(long n);
 void disc(short cx, short cy, short rx, short ry, short color);	/* a filled ellipse */
+/* a contact's picture (PHOTO_N square, RGB 5-6-5) in an ellipse; serial
+   changes when the picture does (the dithering is kept until then) */
+void draw_photo(const unsigned short *px, int serial, short cx, short cy, short rx, short ry, const GRECT *clip);
 
 #define NCOLORS 12	/* red orange yellow green blue purple brown grey pink teal navy dark green */
 typedef struct {
@@ -119,6 +122,11 @@ void contact_menu(short mx, short my, CONTACT *c);	/* right-click on a contact *
 void card_draw(GRECT *clip);
 int  card_click(short mx, short my, short clicks, short button);
 int  card_instant(short mx, short my);
+/* the chosen contact's photo is read a moment after the choice (arrow
+   keys going down the list don't wait for each one) */
+int  card_photo_pending(void);	/* one is waiting */
+void card_photo_tick(void);	/* from the event loop: reads it when it's time */
+void card_photo_recheck(void);	/* after a refresh: photos may have changed */
 
 /* ---- the sidebar (sidebar.c) ---- */
 void side_draw(GRECT *clip);

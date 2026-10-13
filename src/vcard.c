@@ -530,6 +530,7 @@ CONTACT *vcard_parse(const char *text, long len)
 	CONTACT *c = 0;
 	int i, k;
 	unsigned char company = 0, group = 0, photo = 0;
+	unsigned long photo_key = 0;
 	memset(&v, 0, sizeof(v));
 	if (!read_lines(text, text + len, &v) && !v.n) {
 		lines_free(&v);
@@ -637,11 +638,18 @@ CONTACT *vcard_parse(const char *text, long len)
 			unescape(l->value, 0);
 			bmember(&b, member_uid(str_trim(l->value)));
 		} else if (!strcmp(n, "PHOTO")) {
+			/* the fingerprint of the whole line: another photo, another key */
+			const char *q;
 			photo = 1;
+			photo_key = 2166136261UL;
+			for (q = l->raw; *q; q++)
+				photo_key = ((photo_key ^ (unsigned char)*q) * 16777619UL) & 0xffffffffUL;
+			if (!photo_key)
+				photo_key = 1;
 		}
 	}
-	if (!b.failed)
-		c = assemble(&b, company, group, photo);
+	if (!b.failed && (c = assemble(&b, company, group, photo)) != 0)
+		c->photo_key = photo_key;
 	sb_free(&b.pool);
 	for (k = 0; k < 4; k++)
 		free(b.it[k]);

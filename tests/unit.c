@@ -10,6 +10,8 @@
 #include "http.h"
 #include "charset.h"
 #include "util.h"
+#include "photo.h"
+#include "photo_vec.h"
 
 static int fails, checks;
 
@@ -328,6 +330,148 @@ static void test_urls(void)
 	CHECK_STR(s, "https://p42-contacts.icloud.com/123/carddavhome/card/");
 }
 
+/* ---- photos ---- */
+
+/* the colour of a pixel, 8 bits each */
+static void rgb_at(const PHOTOIMG *im, int x, int y, int *r, int *g, int *b)
+{
+	unsigned short p = im->px[y * PHOTO_N + x];
+	*r = (p >> 11) << 3;
+	*g = ((p >> 5) & 63) << 2;
+	*b = (p & 31) << 3;
+}
+
+static int near(const PHOTOIMG *im, int x, int y, int r, int g, int b)
+{
+	int pr, pg, pb;
+	rgb_at(im, x, y, &pr, &pg, &pb);
+	return abs(pr - r) < 40 && abs(pg - g) < 40 && abs(pb - b) < 40;
+}
+
+/* the four quarters where they belong: red, green / blue, yellow */
+static int quarters_ok(const PHOTOIMG *im)
+{
+	return near(im, 8, 8, 230, 30, 30) && near(im, 55, 8, 30, 200, 40) && near(im, 8, 55, 30, 40, 220) &&
+	       near(im, 55, 55, 240, 220, 20);
+}
+
+/* a vCard with the JPEG in it, as the Mac writes it: base64, folded */
+static char *card_with(const unsigned char *jpg, long n, const char *params, int v4)
+{
+	long bl;
+	char *b = base64_encode((const char *)jpg, n, 0, &bl);
+	SBUF s;
+	long i;
+	sb_init(&s);
+	sb_adds(&s, "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Pic\r\n");
+	sb_printf(&s, v4 ? "PHOTO%s:data:image/jpeg;base64," : "PHOTO%s:", params);
+	for (i = 0; i < bl; i += 60) {
+		if (i)
+			sb_adds(&s, "\r\n ");
+		sb_add(&s, b + i, bl - i < 60 ? bl - i : 60);
+	}
+	sb_adds(&s, "\r\nUID:pic-1\r\nEND:VCARD\r\n");
+	free(b);
+	return sb_steal(&s);
+}
+
+static void test_photos(void)
+{
+	PHOTOIMG im;
+	PHOTOREF ref;
+	char *card;
+	CONTACT *c, *c2;
+	memset(&ref, 0, sizeof(ref));
+	CHECK(photo_decode_jpeg(jpg_wide, sizeof(jpg_wide), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(jpg_square, sizeof(jpg_square), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(jpg_small, sizeof(jpg_small), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(jpg_gray, sizeof(jpg_gray), 0, &im));
+	CHECK(near(&im, 30, 30, 128, 128, 128));
+	CHECK(!photo_decode_jpeg(jpg_prog, sizeof(jpg_prog), 0, &im));
+	CHECK(!photo_decode_jpeg((const unsigned char *)"not a picture", 13, 0, &im));
+	/* Apple's crop, its y from the bottom: the bottom right quarter */
+	ref.has_crop = 1;
+	ref.crop[0] = 256;
+	ref.crop[1] = 0;
+	ref.crop[2] = 256;
+	ref.crop[3] = 256;
+	CHECK(photo_decode_jpeg(jpg_square, sizeof(jpg_square), &ref, &im));
+	CHECK(near(&im, 4, 4, 240, 220, 20) && near(&im, 60, 60, 240, 220, 20));
+
+	/* the PHOTO line: 3.0 as the Mac writes it, with Apple's crop */
+	card = card_with(jpg_square, sizeof(jpg_square),
+			 ";X-ABCROP-RECTANGLE=ABClipRect_1&0&256&256&256&Rk9P;ENCODING=b;TYPE=JPEG", 0);
+	c = vcard_parse(card, (long)strlen(card));
+	CHECK(c && c->photo && c->photo_key);
+	CHECK(photo_ref(card, (long)strlen(card), &ref));
+	CHECK_EQ(ref.kind, PR_DATA);
+	CHECK_EQ(ref.fmt, PF_JPEG);
+	CHECK_EQ(ref.len, (long)sizeof(jpg_square));
+	CHECK(ref.data && !memcmp(ref.data, jpg_square, sizeof(jpg_square)));
+	CHECK(ref.has_crop && ref.crop[0] == 0 && ref.crop[1] == 256 && ref.crop[2] == 256);
+	CHECK(photo_decode_jpeg(ref.data, ref.len, &ref, &im));
+	CHECK(near(&im, 30, 30, 230, 30, 30));		/* the top left quarter */
+	free(ref.data);
+	free(card);
+	/* another photo, another fingerprint; the same one, the same */
+	card = card_with(jpg_wide, sizeof(jpg_wide), ";ENCODING=b;TYPE=JPEG", 0);
+	c2 = vcard_parse(card, (long)strlen(card));
+	CHECK(c2 && c2->photo_key && c2->photo_key != c->photo_key);
+	free(c2);
+	c2 = vcard_parse(card, (long)strlen(card));
+	{
+		CONTACT *c3 = vcard_parse(card, (long)strlen(card));
+		CHECK(c3 && c2 && c3->photo_key == c2->photo_key);
+		free(c3);
+	}
+	free(c2);
+	free(c);
+	free(card);
+	/* 4.0's data: address */
+	card = card_with(jpg_small, sizeof(jpg_small), "", 1);
+	CHECK(photo_ref(card, (long)strlen(card), &ref) && ref.kind == PR_DATA && ref.len == (long)sizeof(jpg_small));
+	free(ref.data);
+	free(card);
+	/* links */
+	{
+		static const char a[] = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:L\r\nPHOTO;VALUE=uri:https://p42-contacts.icloud.com/\r\n"
+					" 1234/wbs/abcdef\r\nEND:VCARD\r\n";
+		static const char b[] = "BEGIN:VCARD\nVERSION:4.0\nFN:L\nPHOTO;MEDIATYPE=image/png:http://x.example/me.png\nEND:VCARD\n";
+		static const char n[] = "BEGIN:VCARD\nVERSION:3.0\nFN:No\nEND:VCARD\n";
+		char t[300];
+		strcpy(t, a);
+		CHECK(photo_ref(t, (long)strlen(t), &ref) && ref.kind == PR_URI);
+		CHECK_STR(ref.uri, "https://p42-contacts.icloud.com/1234/wbs/abcdef");
+		strcpy(t, b);
+		CHECK(photo_ref(t, (long)strlen(t), &ref) && ref.kind == PR_URI);
+		CHECK_STR(ref.uri, "http://x.example/me.png");
+		strcpy(t, n);
+		CHECK(!photo_ref(t, (long)strlen(t), &ref));
+		c = vcard_parse(n, (long)strlen(n));
+		CHECK(c && !c->photo_key);
+		free(c);
+	}
+	/* 2.1: base64 lines without the space, to a blank line */
+	{
+		long bl;
+		char *b64 = base64_encode((const char *)jpg_small, sizeof(jpg_small), 76, &bl);
+		SBUF s;
+		sb_init(&s);
+		/* (sb_printf keeps to 512 characters: the base64 goes in whole) */
+		sb_adds(&s, "BEGIN:VCARD\r\nVERSION:2.1\r\nN:Old;Phone\r\nPHOTO;JPEG;ENCODING=BASE64:\r\n");
+		sb_adds(&s, b64);
+		sb_adds(&s, "\r\n\r\nTEL;CELL:123\r\nEND:VCARD\r\n");
+		CHECK(photo_ref(s.s, s.len, &ref) && ref.kind == PR_DATA && ref.len == (long)sizeof(jpg_small) &&
+		      ref.fmt == PF_JPEG);
+		free(ref.data);
+		sb_free(&s);
+		free(b64);
+	}
+}
+
 int main(void)
 {
 	test_parse_icloud();
@@ -337,6 +481,7 @@ int main(void)
 	test_many();
 	test_bday();
 	test_urls();
+	test_photos();
 	printf("%d checks, %d failed\n", checks, fails);
 	return fails != 0;
 }

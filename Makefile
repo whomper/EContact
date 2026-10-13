@@ -21,7 +21,7 @@ CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -fno-pic -fno-pie -fno-tree-loop-distribute-patterns -fno-store-merging \
            -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
            -DCAL_TOS -nostdinc -isystem $(GCCINC) -Iatari/include -Isrc -Iatari \
-           -Ithird_party/bearssl/inc
+           -Ithird_party/bearssl/inc -Ithird_party/tjpgd
 LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,atari/link.ld \
            -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments
 
@@ -36,15 +36,15 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
 BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
 HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
-CORE    := util charset conn tls bidi secret futil ctime xml inflate http vcard carddav abook
+CORE    := util charset conn tls bidi secret futil ctime xml inflate http vcard carddav abook photo
 ATARI   := libc tos plat_tos net_tos sting gem dsprsa
 UI      := main win draw popup dsp sidebar list card editor dialogs field about font
 
 OBJDIR  := build
-OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o \
+OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI)))
 OBJS    := $(OBJS0) $(OBJDIR)/version.o
-HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h dsp/*.h)
+HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h dsp/*.h third_party/tjpgd/*.h)
 
 # what goes onto the Atari: binary/
 BIN     := binary
@@ -54,7 +54,7 @@ all: $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/ECONTST.ACC $(BIN)/ROOTS.DAT
 # the ST edition: no TLS of its own (it uses the Pi gateway), 150 KB
 # smaller; only BearSSL's MD5 (for Digest logins), as 68000 code
 STBSSL  := hash/md5 codec/dec32le codec/enc32le
-STOBJS  := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o \
+STOBJS  := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out tls,$(CORE)) $(ATARI) $(UI) tls_none)) \
            $(addprefix $(OBJDIR)/st/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/version.o
 
@@ -95,6 +95,10 @@ $(OBJDIR)/%.o: atari/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 $(OBJDIR)/%.o: ui/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
+# ChaN's JPEG decoder for the photos: 68000 code, for speed
+$(OBJDIR)/tjpgd.o: third_party/tjpgd/tjpgd.c third_party/tjpgd/tjpgd.h third_party/tjpgd/tjpgdcnf.h | $(OBJDIR)
+	$(CC) $(subst -Os,-O2,$(CFLAGS)) -w -c -o $@ $<
+
 $(OBJDIR)/crt0.o: atari/crt0.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
 $(OBJDIR)/sting_s.o: atari/sting.S | $(OBJDIR)
@@ -116,8 +120,8 @@ $(OBJDIR)/version.o: $(OBJDIR)/version.c
 # ---- host build: the same contacts core, for tests and card-cli ----
 HOSTCC     ?= cc
 HOSTCFLAGS := -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
-              -Wno-format-truncation -Isrc -fsanitize=address,undefined
-HOSTSRC    := $(addprefix src/,$(addsuffix .c,$(CORE))) tests/host/plat_posix.c tests/host/version_host.c
+              -Wno-format-truncation -Isrc -Ithird_party/tjpgd -fsanitize=address,undefined
+HOSTSRC    := $(addprefix src/,$(addsuffix .c,$(CORE))) third_party/tjpgd/tjpgd.c tests/host/plat_posix.c tests/host/version_host.c
 HOSTLIB    := $(OBJDIR)/libbearssl-host.a
 
 $(OBJDIR)/hbssl/%.o: $(BSSL)/src/%.c

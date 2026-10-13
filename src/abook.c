@@ -16,6 +16,7 @@
 #include <stdarg.h>
 #include "abook.h"
 #include "carddav.h"
+#include "photo.h"
 #include "http.h"
 #include "conn.h"
 #include "secret.h"
@@ -76,6 +77,7 @@ static void defaults(void)
 	opt.font_id = 1;
 	opt.sidebar = 1;
 	opt.sync_open = 1;
+	opt.photos = 1;
 	opt.default_book = -1;
 }
 
@@ -85,7 +87,7 @@ static void set_opt(const char *k, const char *v)
 #define I(name) if (!strcasecmp(k, #name)) { opt.name = (short)atoi(v); return; }
 	S(gate) S(folder) S(me)
 	I(falcon) I(dsp) I(log) I(font_id) I(font_pt) I(hebfont) I(win_x) I(win_y) I(win_w) I(win_h)
-	I(sidebar) I(sort_first) I(last_first) I(refresh) I(sync_open) I(offline) I(hebrew) I(heapkb) I(default_book)
+	I(sidebar) I(sort_first) I(last_first) I(refresh) I(sync_open) I(photos) I(offline) I(hebrew) I(heapkb) I(default_book)
 	if (!strcasecmp(k, "gateport")) {
 		opt.gateport = (unsigned short)atoi(v);
 		return;
@@ -152,6 +154,11 @@ void store_init(const char *dir, const char *inf)
 		path_join(inf_path, sizeof(inf_path), dir, "ECONTACT.INF");
 	path_join(cache_dir, sizeof(cache_dir), dir, "CACHE");
 	pf_mkdir(cache_dir);
+	{
+		char pd[220];
+		path_join(pd, sizeof(pd), cache_dir, "PHOTOS");
+		photo_dir(pd);
+	}
 	path_join(key, sizeof(key), dir, "ECONTACT.KEY");
 	secret_init(key);
 	text = pf_load(inf_path, &len);
@@ -246,6 +253,7 @@ void store_save_settings(void)
 	I("LOG", log, "write the conversation with the servers to ECONTACT.LOG (passwords left out)")
 	I("REFRESH", refresh, "minutes between refreshes of all address books; 0: only by hand")
 	I("SYNC_OPEN", sync_open, "refresh when the window opens")
+	I("PHOTOS", photos, "show contacts' photos (kept small in CACHE\\PHOTOS)")
 	I("SORT_FIRST", sort_first, "sort by first name; 0: by last name")
 	I("LAST_FIRST", last_first, "show names as Last, First; 0: First Last")
 	I("DEFAULT_BOOK", default_book, "new contacts go into this address book (its ID below); -1: the first")

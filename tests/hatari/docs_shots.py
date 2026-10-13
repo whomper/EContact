@@ -67,8 +67,9 @@ def program(work, tos, machine, shots):
 
 
 def falcon_shots(r):
+    time.sleep(4)                        # the first card's photo
     r.click(200, 204)                    # Maya Carter
-    time.sleep(1.5)
+    time.sleep(5)                        # her photo, decoded the first time
     r.shot("window")
     r.ctrl("e")
     time.sleep(2)
@@ -79,7 +80,7 @@ def falcon_shots(r):
     r.key(K["ESC"])
     time.sleep(1)
     r.click(80, 166)                     # the Atari Club group
-    time.sleep(1.5)
+    time.sleep(5)
     r.shot("group")
     r.click(80, 101)                     # All Contacts
     time.sleep(1)
@@ -97,7 +98,7 @@ def falcon_shots(r):
 
 
 def st_shots(r):
-    time.sleep(2)
+    time.sleep(8)                        # an 8 MHz ST decodes the photo
     r.shot("st-mono")
 
 

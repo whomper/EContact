@@ -55,6 +55,7 @@ typedef struct {
 	short last_first;	/* show "Last, First" (else "First Last") */
 	short refresh;		/* minutes between automatic refreshes; 0 = by hand */
 	short sync_open;	/* refresh when the window opens */
+	short photos;		/* show contacts' photos */
 	short offline;		/* Work offline: no connections */
 	short hebrew;		/* start with the Hebrew keyboard */
 	short heapkb;		/* the accessory's memory, KB; 0: chosen */

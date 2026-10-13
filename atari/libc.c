@@ -51,6 +51,21 @@ void *memmove(void *d, const void *s, size_t n)
 void *memset(void *d, int c, size_t n)
 {
 	u8 *dp = d;
+	/* long words from an even address: a 68000 can */
+	if ((u32)dp & 1 && n) {
+		*dp++ = (u8)c;
+		n--;
+	}
+	if (n >= 8) {
+		u32 v = (u8)c;
+		v |= v << 8;
+		v |= v << 16;
+		while (n >= 4) {
+			*(u32 *)dp = v;
+			dp += 4;
+			n -= 4;
+		}
+	}
 	while (n--)
 		*dp++ = (u8)c;
 	return d;

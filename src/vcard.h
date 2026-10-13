@@ -38,8 +38,9 @@ typedef struct CONTACT {
 	unsigned short nmember;
 	unsigned char company;		/* shown as a company (X-ABShowAs:COMPANY) */
 	unsigned char group;		/* a group card (iCloud's way of keeping groups) */
-	unsigned char photo;		/* has a picture (kept, not shown) */
+	unsigned char photo;		/* has a picture (photo.c shows it) */
 	unsigned char mark;		/* for the caller */
+	unsigned long photo_key;	/* the fingerprint of its PHOTO line; 0: none */
 	short book, res;		/* where it is kept (abook.c) */
 	char sortkey[24];		/* upper case, for sorting and the letter headings */
 } CONTACT;

@@ -23,6 +23,10 @@
  *   card-cli DIR import BOOK FILE
  *   card-cli DIR export FILE
  *   card-cli DIR people                       CONTACTS.TXT, as EMail and ECal read it
+ *   card-cli DIR photo NAME [offline]         the picture: how it came, and its colours
+ *   card-cli DIR photo-ppm NAME FILE          the picture as a PPM file, to look at
+ *   card-cli DIR photo-file NAME              its cache file, and whether it is there
+ *   card-cli DIR prune                        pictures of contacts gone or changed out
  * BOOK is an address book's name; names are UTF-8 on the command line
  * and in the output.
  */
@@ -30,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "abook.h"
+#include "photo.h"
 #include "charset.h"
 #include "conn.h"
 #include "tls.h"
@@ -338,6 +343,57 @@ int main(int argc, char **argv)
 				l[n++] = people[i];
 		ok = contacts_export(l, n, argv[3]);
 		free(l);
+	} else if (!strcmp(cmd, "photo") && argc >= 4) {
+		/* "ok decoded TL=230,30,30 TR=... BL=... BR=..." */
+		static const char *const st[] = { "none", "ok", "failed", "needs-net" };
+		static const char *const hw[] = { "cache", "decoded", "fetched", "checked" };
+		CONTACT *c = find(argv[3]);
+		PHOTOIMG im;
+		int how = 0, r;
+		if (!c)
+			return 1;
+		r = photo_get(c, &im, !(argc >= 5 && !strcmp(argv[4], "offline")), &how);
+		printf("%s %s", st[r], hw[how]);
+		if (r == PH_OK) {
+			static const int at[4][2] = { { 8, 8 }, { 55, 8 }, { 8, 55 }, { 55, 55 } };
+			static const char *const nm[4] = { "TL", "TR", "BL", "BR" };
+			int k;
+			for (k = 0; k < 4; k++) {
+				unsigned short p = im.px[at[k][1] * PHOTO_N + at[k][0]];
+				int r = (p >> 11) << 3, g = ((p >> 5) & 63) << 2, b = (p & 31) << 3;
+				/* the colour by name: JPEG moves the numbers a little */
+				const char *name = r > 150 && g > 150 && b < 100 ? "yellow" : r > 150 && g < 100 && b < 100 ? "red" :
+						   g > 150 && r < 100 && b < 100 ? "green" : b > 150 && r < 100 && g < 100 ? "blue" :
+						   abs(r - g) < 40 && abs(g - b) < 40 ? "grey" : "other";
+				printf(" %s=%s", nm[k], name);
+				(void)r;
+			}
+		}
+		printf("\n");
+	} else if (!strcmp(cmd, "photo-ppm") && argc >= 5) {
+		CONTACT *c = find(argv[3]);
+		PHOTOIMG im;
+		FILE *f;
+		int i;
+		if (!c || photo_get(c, &im, 1, 0) != PH_OK || !(f = fopen(argv[4], "wb")))
+			return 1;
+		fprintf(f, "P6 %d %d 255\n", PHOTO_N, PHOTO_N);
+		for (i = 0; i < PHOTO_N * PHOTO_N; i++) {
+			unsigned short p = im.px[i];
+			fputc((p >> 11) << 3, f);
+			fputc(((p >> 5) & 63) << 2, f);
+			fputc((p & 31) << 3, f);
+		}
+		fclose(f);
+	} else if (!strcmp(cmd, "photo-file") && argc >= 4) {
+		CONTACT *c = find(argv[3]);
+		char path[300];
+		if (!c)
+			return 1;
+		photo_path(c, path, sizeof(path));
+		printf("%s %s\n", path, pf_exists(path) ? "there" : "missing");
+	} else if (!strcmp(cmd, "prune")) {
+		printf("%d removed\n", photo_prune());
 	} else if (!strcmp(cmd, "people")) {
 		char path[300], *t;
 		long len;

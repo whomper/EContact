@@ -222,6 +222,7 @@ static void refresh(int force, int quiet)
 	busy(0);
 	last_refresh = pf_ms();
 	after_change();
+	card_photo_recheck();		/* new photos, changed ones, gone ones */
 	if (r < 0) {
 		status(ab_err);
 		if (!quiet)
@@ -820,7 +821,7 @@ int main(void)
 
 	while (!quit_now) {
 		short flags = MU_MESAG | MU_TIMER, which;
-		unsigned long wait = sync_pending ? 150 : 1000;
+		unsigned long wait = sync_pending ? 150 : card_photo_pending() ? 100 : 1000;
 		if (win_h > 0)
 			flags |= MU_KEYBD | MU_BUTTON;
 		which = evnt_multi_(flags, is_acc ? 0x102 : 0x101, 3, 0, wait, msg, &ev);
@@ -875,6 +876,8 @@ int main(void)
 		}
 		if ((which & MU_TIMER) && settings_dirty && pf_ms() - settings_at >= 3000UL)
 			settings_flush();
+		if ((which & MU_TIMER) && win_h > 0)
+			card_photo_tick();
 		if ((which & MU_TIMER) && sync_pending && win_h > 0) {
 			sync_pending = 0;
 			refresh(0, 0);

@@ -146,6 +146,107 @@ R=$($CLI "$D" list)
 absent "and on the server" "Erez Yaary" "$R"
 expect "the others still there" "Dana Levi" "$R"
 
+echo "photos: decoded once, kept, and made again when they change"
+if python3 -c "import PIL" 2>/dev/null; then
+  # a JPEG of four quarters (TL TR / BL BR), or one colour
+  mkjpg() { python3 - "$@" <<'PY'
+import sys
+from PIL import Image
+out, spec = sys.argv[1], sys.argv[2:]
+cols = [tuple(int(v) for v in c.split(",")) for c in spec]
+im = Image.new("RGB", (240, 240))
+px = im.load()
+for y in range(240):
+    for x in range(240):
+        px[x, y] = cols[0] if len(cols) == 1 else cols[(y >= 120) * 2 + (x >= 120)]
+im.save(out, "JPEG", quality=90)
+PY
+  }
+  putcard() { # putcard FILE.vcf UID NAME PHOTO-LINE [EXTRA]
+    printf 'BEGIN:VCARD\r\nVERSION:3.0\r\nN:%s;Pat;;;\r\nFN:Pat %s\r\n%s\r\n%bUID:%s\r\nEND:VCARD\r\n' \
+      "$3" "$3" "$4" "${5:-}" "$2" > "$W/$1"
+    "${CURL[@]}" -X PUT "$BASE/alice/friends/$1" -H "Content-Type: text/vcard" --data-binary @"$W/$1" >/dev/null
+  }
+  b64() { python3 -c "import base64,sys;d=base64.b64encode(open(sys.argv[1],'rb').read()).decode();print('\r\n '.join(d[i:i+74] for i in range(0,len(d),74)))" "$1"; }
+  mkjpg "$W/q.jpg" 230,30,30 30,200,40 30,40,220 240,220,20
+  mkjpg "$W/blue.jpg" 20,40,230
+  putcard pat.vcf PAT-1 Photo "PHOTO;ENCODING=b;TYPE=JPEG:$(b64 "$W/q.jpg")"
+  $CLI "$D" sync
+  R=$($CLI "$D" photo "Pat Photo")
+  expect "decoded the first time" "ok decoded" "$R"
+  expect "the quarters in place" "TL=red TR=green BL=blue BR=yellow" "$R"
+  R=$($CLI "$D" photo "Pat Photo")
+  expect "from the cache after" "ok cache" "$R"
+  $CLI "$D" set "Pat Photo" title "Photographer"
+  R=$($CLI "$D" photo "Pat Photo")
+  expect "a change to another field keeps the picture" "ok cache" "$R"
+  R=$("${CURL[@]}" "$BASE/alice/friends/pat.vcf")
+  expect "and the photo stays on the card" "PHOTO;ENCODING=b;TYPE=JPEG:/9j/" "$R"
+  # a new photo, made on the iPhone
+  putcard pat.vcf PAT-1 Photo "PHOTO;ENCODING=b;TYPE=JPEG:$(b64 "$W/blue.jpg")"
+  $CLI "$D" sync
+  R=$($CLI "$D" photo "Pat Photo")
+  expect "a changed photo is decoded again" "ok decoded" "$R"
+  expect "the new one" "TL=blue TR=blue BL=blue BR=blue" "$R"
+  # the photo taken off the card
+  putcard pat.vcf PAT-1 Photo "NOTE:no photo now"
+  $CLI "$D" sync
+  R=$($CLI "$D" photo "Pat Photo")
+  expect "no photo any more" "none" "$R"
+  R=$($CLI "$D" photo-file "Pat Photo")
+  expect "and its picture gone" "missing" "$R"
+
+  # a photo by link, as iCloud gives them
+  PICPORT=$((PORT + 4))
+  mkdir -p "$W/pics"
+  cp "$W/q.jpg" "$W/pics/pic.jpg"
+  python3 tests/host/picserver.py "$PICPORT" "$W/pics" 2> "$W/pics.log" &
+  PIDS+=($!)
+  for i in $(seq 50); do curl -s -o /dev/null "http://127.0.0.1:$PICPORT/pic.jpg" && break; sleep 0.2; done
+  : > "$W/pics.log"
+  LINK="PHOTO;VALUE=uri:http://127.0.0.1:$PICPORT/pic.jpg"
+  putcard link.vcf LINK-1 Link "$LINK"
+  $CLI "$D" sync
+  R=$($CLI "$D" photo "Pat Link" offline)
+  expect "offline: needs the network" "needs-net" "$R"
+  R=$($CLI "$D" photo "Pat Link")
+  expect "fetched" "ok fetched" "$R"
+  expect "and decoded" "TL=red TR=green BL=blue BR=yellow" "$R"
+  R=$($CLI "$D" photo "Pat Link")
+  expect "then from the cache, without asking" "ok cache" "$R"
+  expect "one request so far" "1" "$(grep -ac GET "$W/pics.log")"
+  expect "no password to another server" "GET /pic.jpg 200 noauth" "$(tr -d '\0' < "$W/pics.log")"
+  # the card changes, the picture doesn't: asked with If-None-Match
+  putcard link.vcf LINK-1 Link "$LINK" "TITLE:Model\r\n"
+  $CLI "$D" sync
+  R=$($CLI "$D" photo "Pat Link")
+  expect "the card changed: checked, 304" "ok checked" "$R"
+  expect "the server said 304" "GET /pic.jpg 304" "$(tr -d '\0' < "$W/pics.log")"
+  R=$($CLI "$D" photo "Pat Link")
+  expect "then the cache again" "ok cache" "$R"
+  # the same link, a new picture behind it
+  cp "$W/blue.jpg" "$W/pics/pic.jpg"
+  putcard link.vcf LINK-1 Link "$LINK" "TITLE:Model 2\r\n"
+  $CLI "$D" sync
+  R=$($CLI "$D" photo "Pat Link")
+  expect "a new picture at the same link is fetched" "ok fetched" "$R"
+  expect "and shown" "TL=blue TR=blue" "$R"
+  # offline, a changed card still shows the picture it has
+  putcard link.vcf LINK-1 Link "$LINK" "TITLE:Model 3\r\n"
+  $CLI "$D" sync
+  R=$($CLI "$D" photo "Pat Link" offline)
+  expect "offline: the picture it has" "ok cache" "$R"
+  # a contact deleted elsewhere: its picture pruned
+  F=$($CLI "$D" photo-file "Pat Link" | cut -d' ' -f1)
+  "${CURL[@]}" -X DELETE "$BASE/alice/friends/link.vcf" >/dev/null
+  $CLI "$D" sync
+  R=$($CLI "$D" prune)
+  expect "pruned" "1 removed" "$R"
+  if [ -e "$F" ]; then bad "the picture file is still there"; else ok "the picture file is gone"; fi
+else
+  echo "  (skipped: needs Pillow)"
+fi
+
 echo "On My Atari"
 $CLI "$D" local Notes
 $CLI "$D" add Notes Local Person local@example.com

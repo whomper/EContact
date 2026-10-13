@@ -4,6 +4,7 @@
 
 - Contacts for the Atari ST, STE, TT and Falcon that look and work like the Mac's Contacts
 - iCloud and other CardDAV address books (Fastmail, Nextcloud, Radicale, Synology...), two-way sync; On My Atari address books
+- Contacts' photos, from the card or from iCloud's links, dithered to whatever screen you have
 - Groups, as iCloud keeps them (group cards) and as Nextcloud does (categories)
 - The address book of [EMail](https://github.com/whomper/EMAIL) and [ECal](https://github.com/whomper/ECal): pick people to write to and to invite
 - Desk accessory or program; Falcon mode (TLS 1.2 on the Falcon, RSA on the DSP) or any Atari through the Raspberry Pi gateway
@@ -21,17 +22,25 @@ person's card on the right.
 - **The list**, sorted by last name under letter headings, the first name
   plain and the last name bold, the chosen one in a blue bar, as on the
   Mac. Settings sorts by first name or shows "Last, First".
-- **The card**: a round picture with the initials, the name, the job and
-  company, then every phone, email, web page and address with its label in
-  grey ("mobile", "iPhone", "home", "work", "home fax", or your own), the
-  birthday and the note. Click a value to copy it, or to write to an
-  address in EMail; the **mail** button does the same.
+- **The card**: the contact's photo in a circle (or the initials in grey
+  when there is none), the name, the job and company, then every phone,
+  email, web page and address with its label in grey ("mobile", "iPhone",
+  "home", "work", "home fax", or your own), the birthday and the note.
+  Click a value to copy it, or to write to an address in EMail; the
+  **mail** button does the same.
+- **Photos**: the JPEG in the card (as the Mac and iPhone write it) or
+  behind a link (as iCloud often gives it), cropped as you cropped it on
+  the iPhone, dithered to the screen's own colours on a Falcon or TT and
+  to black and white on an ST. Decoded once (a second or two on a Falcon,
+  about four on an 8 MHz ST, as measured in Hatari) and kept in
+  `CACHE\PHOTOS`; a photo changed
+  on the iPhone is noticed and decoded again (see below).
 - **Search** as you type: names, companies, emails, phone numbers (with or
   without spaces and dashes), addresses and notes.
 - **Editing**: + and Edit at the bottom of the card, as on the Mac. The
   card's parts are sections of one dialog (Name, Phone, Email, Address,
   More) so it fits an ST's screen; labels come from a pop-up or Custom...
-  What EContact doesn't edit (the photo, related names, social profiles,
+  What EContact doesn't edit (the photo itself, related names, social profiles,
   Apple's own fields) is kept as it was.
 - **Groups**: All Contacts, each account, its groups. New Group, Add to
   Group, Remove from Group, rename, delete; Send Email to Group gives EMail
@@ -75,6 +84,34 @@ The changes to EMail and ECal are in [integration/](integration) as
 patches, with [docs/INTEGRATION.md](docs/INTEGRATION.md) describing how
 the three talk (a file, `CONTACTS.TXT`, and two GEM messages), so other
 programs can use EContact too.
+
+## Photos and their cache
+
+A card's `PHOTO` is decoded with ChaN's TJpgDec
+([third_party/tjpgd](third_party/tjpgd)) at 1/2, 1/4 or 1/8 of its size
+(1/8 needs no IDCT, which is what makes it quick on a 68000), cropped to a
+square and averaged into a 64x64 colour picture. That picture is kept in
+`CACHE\PHOTOS\Pxxxxxxx.PIC` (8 KB) and dithered for the screen when shown.
+
+Keeping it right:
+
+- every cached picture records a fingerprint of the card's whole `PHOTO`
+  line. When the photo is changed anywhere (the iPhone, the Mac,
+  icloud.com), the line changes, the fingerprint no longer matches, and the
+  picture is made again the next time the card is shown;
+- a photo given as a link can change while the link stays the same. So the
+  cache also records the card's ETag and the picture's: when the card has
+  changed, the picture is asked for again with `If-None-Match`, and a
+  "304 Not Modified" keeps the cached one, a new picture replaces it;
+- a photo taken off a card takes its picture with it, and after each
+  refresh the pictures of contacts that are gone are removed.
+
+Pictures are read a quarter of a second after a contact is chosen, so the
+arrow keys go down the list without waiting; the initials show until the
+photo is there. Offline, a cached photo still shows. Settings > General >
+Show contacts' photos turns them off. The account's password is sent only
+to the account's own server (or iCloud's photo servers), never to a link
+elsewhere.
 
 ## How it reaches the servers
 
@@ -148,7 +185,7 @@ tests/    unit tests, CardDAV integration tests, Hatari screenshots
 
 ```
 make test       # the core: vCards from iCloud, 4.0, 2.1, labels, birthdays,
-                # groups, writing back without losing anything (122 checks)
+                # groups, writing back without losing anything (153 checks, photos too)
 make itest      # card-cli against a real CardDAV server (Radicale): sync, add,
                 # change, groups both ways, import, export, delete, and the
                 # people list EMail and ECal read

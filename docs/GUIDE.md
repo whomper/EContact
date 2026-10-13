@@ -88,6 +88,26 @@ settings or delete it from this Atari (nothing is deleted on the server).
 
 ![A group](group.png) ![Searching](search.png)
 
+## Photos
+
+A contact's photo shows in the circle at the top of the card, as on the
+Mac, cropped the way it was cropped on the iPhone. Photos come with the
+cards: in the card itself, or as a link to iCloud's photo server, which
+EContact fetches with your account. The first time a card is shown its
+photo is decoded (the busy bee and "Getting the photo..."; a second or
+two on a Falcon, about four seconds on an 8 MHz ST) and kept in
+`CACHE\PHOTOS`; after that it shows at once, offline too.
+
+When someone's photo changes on another device, EContact sees it after the
+next refresh and decodes the new one; a photo taken off a card goes, and
+so do the pictures of deleted contacts.
+
+On a Falcon or TT in 16 or 256 colours the photo is dithered to the
+screen's colours; on an ST it is black and white. Settings > General >
+**Show contacts' photos** turns them off (the initials show instead).
+EContact shows JPEG photos, which is what iPhones and Macs write; the rare
+PNG or progressive JPEG shows the initials.
+
 ## Changing a card
 
 **Edit** (or a double-click, Return, ^E) opens the card's sections:
@@ -103,7 +123,7 @@ settings or delete it from this Atari (nothing is deleted on the server).
   without the year), web pages, and the note.
 
 **Done** saves to the server at once; **Delete** deletes the card (on the
-server too). What EContact doesn't show (the photo, related names,
+server too). What EContact doesn't edit (the photo, related names,
 social profiles, instant messaging, the iPhone's own fields) stays on the
 card as it was. If the card was changed on another device in the
 meantime, the server refuses the save: refresh (^R) and edit again.
@@ -145,7 +165,8 @@ Right-click your own card > **Make This My Card**. The list marks it
 
 - **General**: sort by last or first name, show names as "First Last" or
   "Last, First", which address book new contacts go into, where the font
-  has its Hebrew letters, and starting with the Hebrew keyboard.
+  has its Hebrew letters, starting with the Hebrew keyboard, and showing
+  photos.
 - **Refresh**: refresh all every 15 minutes, hour or day, or only by hand
   (^R, the Refresh button); and when the window opens.
 - **Connection**: Falcon mode and the DSP, the Pi gateway, and the log.

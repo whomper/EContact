@@ -7,11 +7,95 @@
  *
  * A click on a value offers what goes with it: write an email in EMail,
  * or copy it to the clipboard.
+ *
+ * The photo, when the card has one, takes the place of the initials. It
+ * is read (src/photo.c) a moment after a contact is chosen, from the
+ * event loop, so going down the list with the arrow keys doesn't wait
+ * for each picture; the initials show until it's there.
  */
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "ui.h"
+#include "../src/photo.h"
+#include "../src/plat.h"
+
+/* the photo shown, whose it is, and the last one tried */
+static PHOTOIMG cur;
+static int cur_ok, cur_serial;
+static char cur_uid[100], tried_uid[100];
+static short cur_book = -1, tried_book = -1;
+static unsigned long cur_key, tried_key;
+static int want;
+static unsigned long want_at;
+static GRECT r_avatar;
+
+static int same(const CONTACT *c, const char *uid, short book, unsigned long key)
+{
+	return c->book == book && c->photo_key == key && !strcmp(c->uid ? c->uid : "", uid);
+}
+
+static void ask_for(const CONTACT *c)
+{
+	if (!opt.photos || !c->photo_key || same(c, tried_uid, tried_book, tried_key))
+		return;
+	if (!want) {
+		want = 1;
+		want_at = pf_ms();
+	}
+}
+
+int card_photo_pending(void)
+{
+	return want;
+}
+
+void card_photo_recheck(void)
+{
+	/* a refresh may have brought new photos, or new pictures behind links */
+	tried_uid[0] = 0;
+	tried_book = -1;
+	photo_prune();
+	if (sel_contact())
+		ask_for(sel_contact());
+}
+
+void card_photo_tick(void)
+{
+	CONTACT *c;
+	PHOTOIMG *img;
+	int how, r, quick;
+	if (!want || pf_ms() - want_at < 250UL)
+		return;
+	want = 0;
+	c = sel_contact();
+	if (!c || !c->photo_key || !opt.photos)
+		return;
+	str_copy(tried_uid, c->uid ? c->uid : "", sizeof(tried_uid));
+	tried_book = c->book;
+	tried_key = c->photo_key;
+	quick = photo_ready(c);
+	if (!quick) {
+		busy(1);
+		status(opt.offline ? "Reading the photo..." : "Getting the photo...");
+	}
+	img = malloc(sizeof(PHOTOIMG));
+	r = img ? photo_get(c, img, !opt.offline, &how) : PH_FAILED;
+	if (!quick) {
+		busy(0);
+		status_updated();
+	}
+	if (r == PH_OK) {
+		cur = *img;
+		cur_ok = 1;
+		cur_serial++;
+		str_copy(cur_uid, tried_uid, sizeof(cur_uid));
+		cur_book = tried_book;
+		cur_key = tried_key;
+		win_redraw(&r_avatar);
+	}
+	free(img);
+}
 
 /* the values on the card, for clicks */
 enum { HV_TEL, HV_EMAIL, HV_URL, HV_ADR, HV_BDAY, HV_NOTE, HV_MAILBTN };
@@ -68,12 +152,23 @@ static void value_at(short x, short y, const char *s, short cols, short flags)
 	text_at(x, y, s, n, cols, flags | (line_rtl(s, n) ? TX_RIGHT : TX_LTR));
 }
 
-/* the round picture: grey with white initials, as the Mac's */
-static void avatar(const CONTACT *c, short cx, short cy, short ry)
+/* the round picture: the photo, or grey with white initials, as the Mac's */
+static void avatar(const CONTACT *c, short cx, short cy, short ry, const GRECT *clip)
 {
 	char ini[4];
 	short rx = (short)((long)ry * 2 * cw / ch), n;
 	short col = ncolors >= 16 ? text_grey(1) : 1;
+	r_avatar.x = cx - rx;
+	r_avatar.y = cy - ry;
+	r_avatar.w = 2 * rx + 1;
+	r_avatar.h = 2 * ry + 1;
+	if (opt.photos && cur_ok && same(c, cur_uid, cur_book, cur_key)) {
+		draw_photo(cur.px, cur_serial, cx, cy, rx, ry, clip);
+		/* a refresh may have changed the picture behind a link */
+		ask_for(c);
+		return;
+	}
+	ask_for(c);
 	disc(cx, cy, rx, ry, col);
 	if (ncolors >= 4 && ncolors < 16) {
 		/* four colours: no grey, a ring keeps it light */
@@ -121,7 +216,7 @@ void card_draw(GRECT *clip)
 		ry = ch >= 16 ? 2 * ch : 3 * ch;
 		if (ry * 2 > r_card.h / 3)
 			ry = r_card.h / 6;
-		avatar(c, x0 + (short)((long)ry * 2 * cw / ch), y + ry, ry);
+		avatar(c, x0 + (short)((long)ry * 2 * cw / ch), y + ry, ry, &r);
 		{
 			short nx = x0 + (short)((long)ry * 4 * cw / ch) + 2 * cw, ncols = (r_card.x + r_card.w - nx) / cw - 1;
 			short ny = y + ry - ch - ch / 2;
