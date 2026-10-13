@@ -10,6 +10,9 @@
  *   a link:       PHOTO;VALUE=uri:https://p42-contacts.icloud.com/...
  * and Apple adds the part of it to show: X-ABCROP-RECTANGLE.
  *
+ * A card synced without its photo (abook.c) has photo_key VC_KEY_UNKNOWN:
+ * photo_get fetches the whole card first.
+ *
  * Keeping the cache right: every cached picture records the fingerprint
  * of the PHOTO line it came from (CONTACT.photo_key, a hash of the whole
  * line). A card whose photo was changed, on the iPhone or anywhere, has
@@ -18,7 +21,7 @@
  * cache also records the card's ETag and the picture's own, and when the
  * card has changed the picture is asked for again with If-None-Match (a
  * "304 Not Modified" keeps the cached one). photo_prune() removes the
- * pictures of contacts that are gone or whose photo changed.
+ * pictures of contacts that are gone or have no photo any more.
  */
 #ifndef PHOTO_H
 #define PHOTO_H
@@ -62,7 +65,15 @@ enum { PHH_CACHE, PHH_DECODED, PHH_FETCHED, PHH_CHECKED };
 int  photo_get(const CONTACT *c, PHOTOIMG *out, int fetch, int *how);
 /* 1 if photo_get would answer from the cache without any work */
 int  photo_ready(const CONTACT *c);
-/* the pictures of contacts that are gone, or whose photo changed */
+/* Sync Contact Photos: every photo not in the cache yet, fetched (the
+   cards that came without theirs first, a few at a time) and made into
+   a picture. cb is called before each one with its name (NULL: fetching
+   cards); 0 from it stops, keeping what is done, so the next time goes
+   on from there. Returns how many were made, -1 with ab_err when the
+   server couldn't be reached; *failed: how many couldn't be */
+typedef int (*PHOTO_CB)(void *ud, int done, int total, const char *name);
+int  photo_sync_all(PHOTO_CB cb, void *ud, int *failed);
+/* the pictures of contacts that are gone, or have no photo any more */
 int  photo_prune(void);
 /* the cache file of c (for the tests) */
 void photo_path(const CONTACT *c, char *out, int size);

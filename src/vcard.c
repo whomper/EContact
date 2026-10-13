@@ -145,7 +145,8 @@ static void parse_params(VLINE *l, const char *p, const char *end, int *qp, int 
 
 /* every content line of one vCard, from BEGIN to END; returns where
    the next one starts, or NULL when there is none */
-static const char *read_lines(const char *text, const char *end, VLINES *v)
+/* keep_raw: each line as it was too, for writing it back (vcard_write) */
+static const char *read_lines(const char *text, const char *end, VLINES *v, int keep_raw)
 {
 	const char *p = text, *eol;
 	SBUF line;
@@ -220,7 +221,7 @@ static const char *read_lines(const char *text, const char *end, VLINES *v)
 				if (*colon == '"')
 					quoted = !quoted;
 		}
-		l.raw = str_ndup(line.s, line.len);
+		l.raw = keep_raw ? str_ndup(line.s, line.len) : 0;
 		if (l.binary || !strcmp(l.name, "PHOTO") || !strcmp(l.name, "LOGO") || !strcmp(l.name, "KEY") ||
 		    !strcmp(l.name, "SOUND")) {
 			l.binary = 1;
@@ -237,7 +238,7 @@ static const char *read_lines(const char *text, const char *end, VLINES *v)
 			l.value = cs_to_atari(val, vn, cs, &dn);
 			free(dec);
 		}
-		if (!l.raw || !l.value) {
+		if ((keep_raw && !l.raw) || !l.value) {
 			free(l.raw);
 			free(l.value);
 			continue;
@@ -530,9 +531,9 @@ CONTACT *vcard_parse(const char *text, long len)
 	CONTACT *c = 0;
 	int i, k;
 	unsigned char company = 0, group = 0, photo = 0;
-	unsigned long photo_key = 0;
+	unsigned long photo_key = 0, marked = 0;
 	memset(&v, 0, sizeof(v));
-	if (!read_lines(text, text + len, &v) && !v.n) {
+	if (!read_lines(text, text + len, &v, 0) && !v.n) {
 		lines_free(&v);
 		return 0;
 	}
@@ -638,15 +639,21 @@ CONTACT *vcard_parse(const char *text, long len)
 			unescape(l->value, 0);
 			bmember(&b, member_uid(str_trim(l->value)));
 		} else if (!strcmp(n, "PHOTO")) {
-			/* the fingerprint of the whole line: another photo, another key */
-			const char *q;
+			photo = 1;		/* its fingerprint below, from the text as it came */
+		} else if (!strcmp(n, VC_PHOTO_MARK)) {
+			/* the cache's stand-in for a photo kept elsewhere (abook.c) */
 			photo = 1;
-			photo_key = 2166136261UL;
-			for (q = l->raw; *q; q++)
-				photo_key = ((photo_key ^ (unsigned char)*q) * 16777619UL) & 0xffffffffUL;
-			if (!photo_key)
-				photo_key = 1;
+			marked = l->value[0] == '?' ? VC_KEY_UNKNOWN : strtoul(l->value, 0, 16);
+			if (!marked)
+				marked = VC_KEY_UNKNOWN;
 		}
+	}
+	if (marked)
+		photo_key = marked;
+	else if (photo) {
+		long s, e;
+		photo_key = vcard_photo_span(text, len, &s, &e) && !vcard_photo_empty(text + s, e - s) ?
+			    vcard_photo_key(text + s, e - s) : VC_KEY_UNKNOWN;
 	}
 	if (!b.failed && (c = assemble(&b, company, group, photo)) != 0)
 		c->photo_key = photo_key;
@@ -1101,6 +1108,99 @@ static void put_uid(SBUF *out, SBUF *line, const char *uid)
 	put_line(out, line);
 }
 
+/* ---------------- the photo line ---------------- */
+
+static int line_is(const char *p, const char *end, const char *name)
+{
+	/* NAME or group.NAME at p, followed by ';' or ':' */
+	int n = (int)strlen(name);
+	const char *q = p;
+	while (q < end && *q != ':' && *q != ';' && *q != '\n' && *q != '.')
+		q++;
+	if (q < end && *q == '.')
+		p = q + 1;
+	return end - p > n && !strncasecmp(p, name, n) && (p[n] == ':' || p[n] == ';');
+}
+
+int vcard_photo_span(const char *raw, long len, long *start, long *stop)
+{
+	const char *p = raw, *end = raw + len, *line = 0, *q;
+	int v21 = 0;
+	while (p < end) {
+		if (line_is(p, end, "PHOTO")) {
+			line = p;
+			break;
+		}
+		if (end - p > 9 && !strncasecmp(p, "VERSION:2", 9))
+			v21 = 1;
+		q = memchr(p, '\n', end - p);
+		if (!q)
+			break;
+		p = q + 1;
+	}
+	if (!line)
+		return 0;
+	/* the logical line ends at a line that doesn't start with a space;
+	   2.1's base64 goes on, unindented, to a line with a ':' in it */
+	for (q = line; q < end; q++) {
+		const char *n2;
+		q = memchr(q, '\n', end - q);
+		if (!q) {
+			q = end;
+			break;
+		}
+		if (q + 1 >= end || q[1] == ' ' || q[1] == '\t')
+			continue;
+		if (v21 && q[1] != '\r' && q[1] != '\n') {
+			for (n2 = q + 1; n2 < end && *n2 != '\n' && *n2 != ':'; n2++)
+				;
+			if (n2 >= end || *n2 == '\n')
+				continue;	/* no ':' in it: more of the base64 */
+		}
+		q++;
+		break;
+	}
+	if (q > end)
+		q = end;
+	*start = line - raw;
+	*stop = q - raw;
+	return 1;
+}
+
+int vcard_photo_empty(const char *s, long n)
+{
+	const char *c = memchr(s, ':', n);
+	if (!c)
+		return 1;
+	for (c++; c < s + n; c++)
+		if (*c != ' ' && *c != '\t' && *c != '\r' && *c != '\n')
+			return 0;
+	return 1;
+}
+
+/* Shifts and exclusive-ors only: a 68000 multiplies 32-bit numbers in
+   software, and a photo is tens of thousands of letters. Line breaks
+   and the spaces that fold lines don't count, so the same photo folded
+   another way keeps its key. */
+unsigned long vcard_photo_key(const char *s, long n)
+{
+	const unsigned char *p = (const unsigned char *)s, *e = p + n;
+	unsigned long h = 0x2F6B3C1DUL, sum = 0, cnt = 0;
+	while (p < e) {
+		unsigned char ch = *p++;
+		if (ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t')
+			continue;
+		h = ((h << 5) | (h >> 27)) ^ ch;
+		sum += ch;
+		cnt++;
+	}
+	h ^= ((sum & 0xFFFFUL) << 16) ^ (cnt & 0xFFFFUL);
+	h &= 0xFFFFFFFFUL;
+	if (h <= VC_KEY_UNKNOWN)
+		h += 2;
+	return h;
+}
+
 void vcard_new_uid(char *out, int size)
 {
 	unsigned char r[16];
@@ -1135,7 +1235,7 @@ int vcard_write(const CEDIT *e, const char *uid, const char *old, long oldlen, S
 	char fn[300], uidbuf[64];
 	memset(&v, 0, sizeof(v));
 	if (old && oldlen)
-		read_lines(old, old + oldlen, &v);
+		read_lines(old, old + oldlen, &v, 1);
 	keep = calloc(v.n + 1, 1);
 	if (!keep) {
 		lines_free(&v);
@@ -1304,7 +1404,7 @@ int vcard_write_group(const char *name, const char *uid, const char **members, i
 	char uidbuf[64];
 	memset(&v, 0, sizeof(v));
 	if (old && oldlen)
-		read_lines(old, old + oldlen, &v);
+		read_lines(old, old + oldlen, &v, 1);
 	for (i = 0; i < v.n; i++)
 		if (!strcmp(v.l[i].name, "VERSION") && !strncmp(v.l[i].value, "4.0", 3))
 			v4 = 1;
@@ -1359,7 +1459,7 @@ int vcard_set_categories(const char *old, long oldlen, const char *cats, SBUF *o
 	unsigned char *keep;
 	int has_uid = 0;
 	memset(&v, 0, sizeof(v));
-	read_lines(old, old + oldlen, &v);
+	read_lines(old, old + oldlen, &v, 1);
 	if (!v.n || !(keep = calloc(v.n + 1, 1))) {
 		lines_free(&v);
 		return 0;

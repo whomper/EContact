@@ -31,10 +31,13 @@ person's card on the right.
 - **Photos**: the JPEG in the card (as the Mac and iPhone write it) or
   behind a link (as iCloud often gives it), cropped as you cropped it on
   the iPhone, dithered to the screen's own colours on a Falcon or TT and
-  to black and white on an ST. Decoded once (a second or two on a Falcon,
-  about four on an 8 MHz ST, as measured in Hatari) and kept in
-  `CACHE\PHOTOS`; a photo changed
-  on the iPhone is noticed and decoded again (see below).
+  to black and white on an ST. Syncing leaves them on the server: a photo
+  is fetched when its card is opened, or all of them at once with **Sync
+  Contact Photos...** (a progress bar, the time left, Cancel, and it goes
+  on where it stopped). Decoded once (a second or two on a Falcon, about
+  four on an 8 MHz ST, as measured in Hatari) and kept in
+  `CACHE\PHOTOS`; a photo changed on the iPhone is noticed and decoded
+  again (see below).
 - **Search** as you type: names, companies, emails, phone numbers (with or
   without spaces and dashes), addresses and notes.
 - **Editing**: + and Edit at the bottom of the card, as on the Mac. The
@@ -87,7 +90,35 @@ programs can use EContact too.
 
 ## Photos and their cache
 
-A card's `PHOTO` is decoded with ChaN's TJpgDec
+Photos are most of an address book: 500 contacts with photos are about
+12 MB of vCards, half a megabyte without them. So:
+
+- **Syncing leaves the photos on the server.** Cards are asked for with
+  CardDAV's partial retrieval (RFC 6352 8.4): only the properties EContact
+  shows, and `PHOTO` without its value, which says there is a photo but
+  not what. The card is kept as fetched in part. A server that ignores the
+  request (Radicale does) sends whole cards, and their photos are kept as
+  they come; one that refuses it gets the plain request.
+- **A photo is fetched when its card is opened**: the whole card, in one
+  request. **Sync Contact Photos...** in the menu does it for everyone,
+  a few cards a request, with a progress box (who, how many, the time
+  left, Cancel). Stopped half way, it goes on from there the next time.
+- **Before a card fetched in part is changed** (edited, put in a group)
+  it is fetched whole, and the change is made to that, so nothing the
+  server has (the photo, related names, social profiles) is lost.
+- **Answers are asked for in sizes that fit in memory**: as many cards at
+  a time as fit in an eighth of the memory (the first answer tells how big
+  they are), halved when one is too big anyway; a card too big even alone
+  comes without its photo.
+- **The cache keeps photos apart**: `CACHE\BOOKnnnn.DAT` has the cards with
+  a stand-in for each photo (`X-ECONTACT-PHOTO:` and the photo's
+  fingerprint), `BOOKnnnn.PHO` the photos. Start-up reads only the cards:
+  in Hatari, 500 contacts with photos open in 5 seconds on a Falcon (it was
+  3½ minutes with the photos in the cards) and 32 on an 8 MHz ST. EContact
+  1.9's cache is converted once, the first time it is read (72 seconds for
+  those 500 on a Falcon). The stand-in never leaves the Atari.
+
+A photo is decoded with ChaN's TJpgDec
 ([third_party/tjpgd](third_party/tjpgd)) at 1/2, 1/4 or 1/8 of its size
 (1/8 needs no IDCT, which is what makes it quick on a 68000), cropped to a
 square and averaged into a 64x64 colour picture. That picture is kept in
@@ -96,9 +127,11 @@ square and averaged into a 64x64 colour picture. That picture is kept in
 Keeping it right:
 
 - every cached picture records a fingerprint of the card's whole `PHOTO`
-  line. When the photo is changed anywhere (the iPhone, the Mac,
-  icloud.com), the line changes, the fingerprint no longer matches, and the
-  picture is made again the next time the card is shown;
+  line (shifts and exclusive-ors: a 68000 multiplies in software). When the
+  photo is changed anywhere (the iPhone, the Mac, icloud.com), the line
+  changes, the fingerprint no longer matches, and the picture is made
+  again the next time the card is shown. A card that was fetched whole and
+  has changed is fetched whole again when syncing, so its new photo is seen;
 - a photo given as a link can change while the link stays the same. So the
   cache also records the card's ETag and the picture's: when the card has
   changed, the picture is asked for again with `If-None-Match`, and a
@@ -185,10 +218,12 @@ tests/    unit tests, CardDAV integration tests, Hatari screenshots
 
 ```
 make test       # the core: vCards from iCloud, 4.0, 2.1, labels, birthdays,
-                # groups, writing back without losing anything (153 checks, photos too)
+                # groups, writing back without losing anything (171 checks, photos too)
 make itest      # card-cli against a real CardDAV server (Radicale): sync, add,
-                # change, groups both ways, import, export, delete, and the
-                # people list EMail and ECal read
+                # change, groups both ways, import, export, delete, the
+                # people list EMail and ECal read, photos and their cache,
+                # partial retrieval (tests/host/partialproxy.py), little
+                # memory, and converting 1.9's cache
 GATEWAY=../ECal/gateway/ecalgate.py make itest    # the same through the Pi gateway
 tests/hatari/docs_shots.py WORK etos512us.img     # the screenshots, in Hatari
 ```

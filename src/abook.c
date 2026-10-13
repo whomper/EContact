@@ -3,11 +3,19 @@
  * CardDAV servers, saving changes, groups, and CONTACTS.TXT for EMail
  * and ECal. Built like ECal's calstore.c.
  *
- * Each address book has a cache file in CACHE\ next to the settings:
+ * Each address book has cache files in CACHE\ next to the settings:
  *   BOOKnnnn.DAT  every contact's vCard as the server sent it, with its
- *                 href and etag
+ *                 href and etag, but for its photo
+ *   BOOKnnnn.PHO  the photos (PHOTO lines), apart: the cards are read at
+ *                 every start, the photos only when one is shown
  * so the contacts open at once, offline too, and a contact can be
  * written back without losing what this program doesn't understand.
+ *
+ * Syncing asks the server for the cards without their photos (CardDAV's
+ * partial retrieval): 500 contacts with photos are 12 MB, without them
+ * half a megabyte. A photo is fetched, with the rest of its card, when
+ * the card is shown, or for all of them by Sync Contact Photos. A server
+ * that sends the photos anyway has them kept as they come.
  */
 #include <stdlib.h>
 #include <string.h>
@@ -35,6 +43,7 @@ int store_lost_passwords;
 int store_plain_passwords;		/* ECONTACT.INF has a password not yet encrypted */
 CONTACT **people;
 int npeople;
+unsigned long people_serial;
 static int maxpeople;
 GROUP *groups;
 int ngroups;
@@ -335,6 +344,7 @@ static int people_add(CONTACT *c)
 static void people_drop(int bi, int r)
 {
 	int i, n = 0;
+	people_serial++;
 	for (i = 0; i < npeople; i++) {
 		if (people[i]->book == bi && (r < 0 || people[i]->res == r))
 			free(people[i]);
@@ -368,6 +378,7 @@ static void count_books(void)
 /* sorted again, groups and counts again, and EMail's and ECal's list */
 static void people_changed(int export)
 {
+	people_serial++;
 	people_sort();
 	count_books();
 	groups_collect();
@@ -414,6 +425,8 @@ void book_delete(int i)
 	int k;
 	BOOK *b = &books[i];
 	cache_path(b, "DAT", p, sizeof(p));
+	pf_remove(p);
+	cache_path(b, "PHO", p, sizeof(p));
 	pf_remove(p);
 	people_drop(i, -1);
 	book_free(b);
@@ -595,19 +608,35 @@ static int fr_bytes(FR *f, char *out, long n)
 	return 1;
 }
 
+#define CACHE_VER 2
+
+static unsigned short href_hash(const char *s)
+{
+	unsigned short h = 0;
+	while (*s)
+		h = (unsigned short)(((h << 3) | (h >> 13)) ^ (unsigned char)*s++);
+	return h;
+}
+
 static int live_res(BOOK *b, const char *href)
 {
+	unsigned short hh = href_hash(href);
 	int i;
 	for (i = 0; i < b->nres; i++)
-		if (!b->res[i].dead && !strcmp(b->res[i].href, href))
+		if (b->res[i].hh == hh && !b->res[i].dead && !strcmp(b->res[i].href, href))
 			return i;
 	return -1;
 }
 
-static void kill_res(BOOK *b, int r)
+static void dead_res(BOOK *b, int r)
 {
 	b->res[r].dead = 1;
 	b->ndead++;
+}
+
+static void kill_res(BOOK *b, int r)
+{
+	dead_res(b, r);
 	people_drop((int)(b - books), r);
 }
 
@@ -625,7 +654,8 @@ static void add_contact(BOOK *b, int r, const char *raw, long len)
 		free(c);
 }
 
-static int res_add(BOOK *b, const char *etag, const char *href, long off, long len)
+static int res_add(BOOK *b, const char *etag, const char *href, long off, long len, long poff, long plen,
+		   int partial)
 {
 	RESOURCE *r;
 	if (b->nres >= b->maxres) {
@@ -640,11 +670,27 @@ static int res_add(BOOK *b, const char *etag, const char *href, long off, long l
 	r = &b->res[b->nres];
 	r->etag = strdup(etag ? etag : "");
 	r->href = strdup(href);
+	r->hh = href_hash(href);
 	r->off = off;
 	r->len = len;
+	r->poff = poff;
+	r->plen = plen;
+	r->partial = (char)(partial != 0);
 	r->dead = 0;
 	return b->nres++;
 }
+
+/* Each record in BOOKnnnn.DAT is a line
+     R etag<tab>href<tab>length<tab>W or P<tab>photo offset<tab>photo length
+   then the card, its PHOTO line replaced by a stand-in (see vcard.h):
+   the PHOTO line itself is in BOOKnnnn.PHO at that offset. P: the card
+   was fetched in part (without its photo and the lines EContact doesn't
+   show) and is fetched whole before it is changed. "X href" lines say a
+   card is gone. EContact 1.9's cache ("CARDCACHE 1": photos in the cards,
+   no last three fields) is written anew the first time it is read. */
+static int parse_old;
+static int cache_rewrite(BOOK *b, int drop, const char *href, const char *etag, const char *raw, long len,
+			 int partial);
 
 static void load_one(BOOK *b)
 {
@@ -652,58 +698,94 @@ static void load_one(BOOK *b)
 	static FR f;		/* 16 KB: not on the accessory's stack */
 	people_drop((int)(b - books), -1);
 	book_free(b);
+	b->ver = 0;
 	cache_path(b, "DAT", path, sizeof(path));
 	memset(&f, 0, sizeof(f));
 	f.h = pf_open(path, PF_READ);
 	if (f.h < 0)
 		return;
-	if (!fr_line(&f, line, sizeof(line)) || strncmp(line, "CARDCACHE 1", 11)) {
+	if (!fr_line(&f, line, sizeof(line)) || strncmp(line, "CARDCACHE ", 10) ||
+	    (b->ver = (short)atoi(line + 10)) < 1 || b->ver > CACHE_VER) {
+		b->ver = 0;
 		pf_close(f.h);
 		return;
 	}
+	/* first the records alone: a card changed since the file was written
+	   is in it twice, and only the later copy is read */
 	while (fr_line(&f, line, sizeof(line))) {
-		char *tab1, *tab2, *raw;
-		long len;
-		int r;
+		char *fld[6], *p;
+		long len, poff = -1, plen = 0;
+		int k, partial = 0, old;
 		if (line[0] == 'X' && line[1] == ' ') {
 			/* a contact deleted since the file was written */
-			int old = live_res(b, line + 2);
+			old = live_res(b, line + 2);
 			if (old >= 0)
-				kill_res(b, old);
+				dead_res(b, old);
 			continue;
 		}
 		if (line[0] != 'R' || line[1] != ' ')
 			break;
-		tab1 = strchr(line + 2, '\t');
-		tab2 = tab1 ? strchr(tab1 + 1, '\t') : 0;
-		if (!tab2)
-			break;
-		*tab1 = *tab2 = 0;
-		len = atol(tab2 + 1);
-		{
-			/* a newer copy of a contact, appended when it was changed */
-			int old = live_res(b, tab1 + 1);
-			if (old >= 0)
-				kill_res(b, old);
+		for (k = 0, p = line + 2; k < 6 && p; k++) {
+			fld[k] = p;
+			p = strchr(p, '\t');
+			if (p)
+				*p++ = 0;
 		}
-		r = res_add(b, line + 2, tab1 + 1, f.off, len);
-		if (r < 0)
+		if (k < 3)
 			break;
-		raw = len < 262144L ? malloc(len + 1) : 0;
-		if (raw) {
-			if (!fr_bytes(&f, raw, len)) {
+		len = atol(fld[2]);
+		if (k == 6) {
+			partial = fld[3][0] == 'P';
+			poff = atol(fld[4]);
+			plen = atol(fld[5]);
+		}
+		old = live_res(b, fld[1]);
+		if (old >= 0)
+			dead_res(b, old);	/* a newer copy, appended when it changed */
+		if (res_add(b, fld[0], fld[1], f.off, len, poff, plen, partial) < 0 || !fr_bytes(&f, 0, len + 1))
+			break;
+	}
+	/* then the cards (the old kind are only listed here: read after they
+	   are written anew) */
+	if ((b->ver == CACHE_VER || parse_old) && pf_seek(f.h, 0) == 0) {
+		int r;
+		char *raw = 0;
+		long max = 0;
+		f.pos = f.len = 0;
+		f.off = 0;
+		for (r = 0; r < b->nres; r++) {
+			RESOURCE *rs = &b->res[r];
+			if (rs->dead || rs->len >= 262144L)
+				continue;
+			if (rs->len + 1 > max) {
 				free(raw);
-				break;
+				max = rs->len + 1 > 4096 ? rs->len + 1 : 4096;
+				raw = malloc(max);
+				if (!raw) {
+					max = 0;
+					continue;
+				}
 			}
-			raw[len] = 0;
-			add_contact(b, r, raw, len);
-			free(raw);
-		} else if (!fr_bytes(&f, 0, len)) {
-			break;
+			/* forward to it, past the copies that aren't read */
+			if (rs->off < f.off || !fr_bytes(&f, 0, rs->off - f.off))
+				break;
+			if (!fr_bytes(&f, raw, rs->len))
+				break;
+			raw[rs->len] = 0;
+			add_contact(b, r, raw, rs->len);
 		}
-		fr_bytes(&f, 0, 1);		/* the newline after it */
+		free(raw);
 	}
 	pf_close(f.h);
+	if (b->ver != CACHE_VER && !parse_old) {
+		status("Converting %s...", b->name);
+		if (!cache_rewrite(b, -1, 0, 0, 0, 0, 0)) {
+			/* the disk is full: read as it is, written anew another time */
+			parse_old = 1;
+			load_one(b);
+			parse_old = 0;
+		}
+	}
 }
 
 void book_load(BOOK *b)
@@ -723,11 +805,50 @@ void book_load_all(void)
 	status_clear();
 }
 
-/* writing a new cache file: header, then resources one by one */
+/* A card into the files: its PHOTO line to the end of the photo file
+   (at poff), a stand-in in its place. *at and *n: where the card starts
+   in what was written to h, and its length; *plen: the photo's */
+static int rec_write(int h, int ph, long poff, const char *href, const char *etag, const char *raw, long len,
+		     int *partial, long *at, long *n, long *plen)
+{
+	long s = 0, e = 0;
+	char mark[40], head[700];
+	int ml = 0, hl;
+	*plen = 0;
+	if (vcard_photo_span(raw, len, &s, &e)) {
+		if (vcard_photo_empty(raw + s, e - s)) {
+			/* a card without its photo is never written back as it is */
+			ml = snprintf(mark, sizeof(mark), "%s:?\r\n", VC_PHOTO_MARK);
+			*partial = 1;
+		} else {
+			ml = snprintf(mark, sizeof(mark), "%s:%08lX\r\n", VC_PHOTO_MARK, vcard_photo_key(raw + s, e - s));
+			*plen = e - s;
+		}
+	}
+	*n = ml ? s + ml + (len - e) : len;
+	hl = snprintf(head, sizeof(head), "R %s\t%s\t%ld\t%c\t%ld\t%ld\n", etag ? etag : "", href, *n,
+		      *partial ? 'P' : 'W', *plen ? poff : -1L, *plen);
+	*at = hl;
+	if (*plen && (ph < 0 || pf_write(ph, raw + s, *plen) != *plen))
+		return 0;
+	if (pf_write(h, head, hl) != hl)
+		return 0;
+	if (ml) {
+		if (pf_write(h, raw, s) != s || pf_write(h, mark, ml) != ml || pf_write(h, raw + e, len - e) != len - e)
+			return 0;
+	} else if (pf_write(h, raw, len) != len) {
+		return 0;
+	}
+	return pf_write(h, "\n", 1) == 1;
+}
+
+/* writing new cache files: header, then resources one by one */
 typedef struct {
 	BOOK *b;
-	int h, old;		/* new file, old one (for copying) */
-	char tmp[200];
+	int h, ph;		/* the new files */
+	int old, oldp;		/* the old ones, for copying */
+	long plen;		/* the new photo file so far */
+	char tmp[200], ptmp[200];
 	int failed;
 } CW;
 
@@ -737,56 +858,100 @@ static int cw_open(CW *w, BOOK *b)
 	memset(w, 0, sizeof(*w));
 	w->b = b;
 	cache_path(b, "TMP", w->tmp, sizeof(w->tmp));
+	cache_path(b, "PHT", w->ptmp, sizeof(w->ptmp));
 	w->h = pf_open(w->tmp, PF_WRITE);
-	if (w->h < 0) {
+	w->ph = w->h >= 0 ? pf_open(w->ptmp, PF_WRITE) : -1;
+	if (w->ph < 0) {
+		if (w->h >= 0) {
+			pf_close(w->h);
+			pf_remove(w->tmp);
+		}
 		snprintf(ab_err, sizeof(ab_err), "can't write the address book's cache (disk full or locked?)");
 		return 0;
 	}
 	cache_path(b, "DAT", path, sizeof(path));
 	w->old = pf_open(path, PF_READ);
-	pf_write(w->h, "CARDCACHE 1\n", 12);
+	cache_path(b, "PHO", path, sizeof(path));
+	w->oldp = pf_open(path, PF_READ);
+	pf_write(w->h, "CARDCACHE 2\n", 12);
 	return 1;
 }
 
-static void cw_add(CW *w, const char *href, const char *etag, const char *raw, long len)
+static void cw_add(CW *w, const char *href, const char *etag, const char *raw, long len, int partial)
 {
-	char head[700];
-	int n = snprintf(head, sizeof(head), "R %s\t%s\t%ld\n", etag ? etag : "", href, len);
-	if (pf_write(w->h, head, n) != n || pf_write(w->h, raw, len) != len || pf_write(w->h, "\n", 1) != 1)
+	long at, n, plen;
+	if (!rec_write(w->h, w->ph, w->plen, href, etag, raw, len, &partial, &at, &n, &plen))
 		w->failed = 1;
+	w->plen += plen;
+}
+
+static int read_at(int h, long off, char *buf, long n)
+{
+	return h >= 0 && pf_seek(h, off) == off && pf_read(h, buf, n) == n;
 }
 
 static void cw_copy(CW *w, const RESOURCE *r)
 {
-	char *raw;
+	char *raw, *pho = 0, head[700];
+	int hl;
 	if (w->old < 0 || !(raw = malloc(r->len + 1)))
 		return;
-	if (pf_seek(w->old, r->off) == r->off && pf_read(w->old, raw, r->len) == r->len)
-		cw_add(w, r->href, r->etag, raw, r->len);
-	else
+	if (!read_at(w->old, r->off, raw, r->len)) {
 		w->failed = 1;
+	} else if (w->b->ver != CACHE_VER) {
+		cw_add(w, r->href, r->etag, raw, r->len, 0);	/* the old kind: its photo comes out */
+	} else if (r->plen > 0 && (!(pho = malloc(r->plen)) || !read_at(w->oldp, r->poff, pho, r->plen))) {
+		/* the photo can't be read: the card stays, as one to fetch again */
+		hl = snprintf(head, sizeof(head), "R \t%s\t%ld\tP\t-1\t0\n", r->href, r->len);
+		if (pf_write(w->h, head, hl) != hl || pf_write(w->h, raw, r->len) != r->len || pf_write(w->h, "\n", 1) != 1)
+			w->failed = 1;
+	} else {
+		/* as it is: the card with its stand-in, the photo moved along */
+		hl = snprintf(head, sizeof(head), "R %s\t%s\t%ld\t%c\t%ld\t%ld\n", r->etag, r->href, r->len,
+			      r->partial ? 'P' : 'W', r->plen > 0 ? w->plen : -1L, r->plen > 0 ? r->plen : 0L);
+		if ((r->plen > 0 && pf_write(w->ph, pho, r->plen) != r->plen) || pf_write(w->h, head, hl) != hl ||
+		    pf_write(w->h, raw, r->len) != r->len || pf_write(w->h, "\n", 1) != 1)
+			w->failed = 1;
+		if (r->plen > 0)
+			w->plen += r->plen;
+	}
+	free(pho);
 	free(raw);
+}
+
+static void cw_close_old(CW *w)
+{
+	if (w->old >= 0)
+		pf_close(w->old);
+	if (w->oldp >= 0)
+		pf_close(w->oldp);
+	pf_close(w->h);
+	pf_close(w->ph);
 }
 
 static void cw_abandon(CW *w)
 {
-	if (w->old >= 0)
-		pf_close(w->old);
-	pf_close(w->h);
+	cw_close_old(w);
 	pf_remove(w->tmp);
+	pf_remove(w->ptmp);
 }
 
 static int cw_close(CW *w)
 {
 	char path[200];
-	if (w->old >= 0)
-		pf_close(w->old);
-	pf_close(w->h);
+	cw_close_old(w);
 	if (w->failed) {
 		pf_remove(w->tmp);
+		pf_remove(w->ptmp);
 		snprintf(ab_err, sizeof(ab_err), "couldn't write the address book's cache (disk full?)");
 		return 0;
 	}
+	cache_path(w->b, "PHO", path, sizeof(path));
+	pf_remove(path);
+	if (w->plen)
+		pf_rename(w->ptmp, path);
+	else
+		pf_remove(w->ptmp);
 	cache_path(w->b, "DAT", path, sizeof(path));
 	pf_remove(path);
 	pf_rename(w->tmp, path);
@@ -794,7 +959,8 @@ static int cw_close(CW *w)
 }
 
 /* the whole cache written again, without the superseded copies */
-static int cache_rewrite(BOOK *b, int drop, const char *href, const char *etag, const char *raw, long len)
+static int cache_rewrite(BOOK *b, int drop, const char *href, const char *etag, const char *raw, long len,
+			 int partial)
 {
 	CW w;
 	int i;
@@ -804,82 +970,185 @@ static int cache_rewrite(BOOK *b, int drop, const char *href, const char *etag, 
 		if (i != drop && !b->res[i].dead && !(href && !strcmp(b->res[i].href, href)))
 			cw_copy(&w, &b->res[i]);
 	if (href)
-		cw_add(&w, href, etag, raw, len);
+		cw_add(&w, href, etag, raw, len, partial);
 	if (!cw_close(&w))
 		return 0;
 	book_load(b);
 	return 1;
 }
 
+/* adding to the end of the files: a changed contact, or the whole copies
+   of ones fetched in part. Only those are read again */
+typedef struct {
+	BOOK *b;
+	int h, ph;
+	long size, psize;
+	int ok;
+} AW;
+
+static int aw_open(AW *w, BOOK *b)
+{
+	char path[200];
+	memset(w, 0, sizeof(*w));
+	w->b = b;
+	w->ph = -1;
+	cache_path(b, "DAT", path, sizeof(path));
+	w->size = pf_size(path);
+	/* written anew when more than half of it is superseded copies */
+	if (w->size <= 0 || b->ver != CACHE_VER || (b->ndead >= 32 && 2 * b->ndead > b->nres))
+		return 0;
+	w->h = pf_open(path, PF_APPEND);
+	if (w->h < 0)
+		return 0;
+	cache_path(b, "PHO", path, sizeof(path));
+	w->psize = pf_size(path);
+	if (w->psize < 0)
+		w->psize = 0;
+	w->ph = pf_open(path, PF_APPEND);
+	w->ok = 1;
+	return 1;
+}
+
+static void aw_drop(AW *w, int r)
+{
+	char head[700];
+	int n = snprintf(head, sizeof(head), "X %s\n", w->b->res[r].href);
+	if (w->ok && pf_write(w->h, head, n) != n)
+		w->ok = 0;
+	w->size += n;
+	kill_res(w->b, r);
+}
+
+static int aw_add(AW *w, const char *href, const char *etag, const char *raw, long len, int partial)
+{
+	long at, n, plen;
+	int old, r;
+	if (!w->ok)
+		return 0;
+	old = live_res(w->b, href);
+	if (old >= 0)
+		kill_res(w->b, old);
+	if (!rec_write(w->h, w->ph, w->psize, href, etag, raw, len, &partial, &at, &n, &plen)) {
+		w->ok = 0;
+		return 0;
+	}
+	r = res_add(w->b, etag, href, w->size + at, n, plen ? w->psize : -1L, plen, partial);
+	w->size += at + n + 1;
+	w->psize += plen;
+	if (r >= 0)
+		add_contact(w->b, r, raw, len);
+	return 1;
+}
+
+/* 0: the disk refused the end of a file: the caller writes it all again */
+static int aw_close(AW *w)
+{
+	pf_close(w->h);
+	if (w->ph >= 0)
+		pf_close(w->ph);
+	if (!w->psize) {
+		char path[200];
+		cache_path(w->b, "PHO", path, sizeof(path));
+		pf_remove(path);
+	}
+	return w->ok;
+}
+
 /* One contact changed (or gone): the new copy is added to the end of the
    cache file, and only that contact is read again. When superseded
    copies pile up the file is written anew. */
-static int cache_change(BOOK *b, int drop, const char *href, const char *etag, const char *raw, long len)
+static int cache_change(BOOK *b, int drop, const char *href, const char *etag, const char *raw, long len,
+			int partial)
 {
-	char path[200], head[700];
-	long size;
-	int h, n, ok = 1;
-	cache_path(b, "DAT", path, sizeof(path));
-	size = pf_size(path);
-	if (size <= 0 || b->ndead >= 32)
-		return cache_rewrite(b, drop, href, etag, raw, len);
-	h = pf_open(path, PF_APPEND);
-	if (h < 0)
-		return cache_rewrite(b, drop, href, etag, raw, len);
+	AW w;
+	if (!aw_open(&w, b))
+		return cache_rewrite(b, drop, href, etag, raw, len, partial);
 	/* the old copy goes */
-	if (drop >= 0 && !b->res[drop].dead && (!href || strcmp(b->res[drop].href, href))) {
-		n = snprintf(head, sizeof(head), "X %s\n", b->res[drop].href);
-		ok = pf_write(h, head, n) == n;
-		size += n;
-		kill_res(b, drop);
-	}
-	if (ok && href) {
-		int old = live_res(b, href), r;
-		if (old >= 0)
-			kill_res(b, old);
-		n = snprintf(head, sizeof(head), "R %s\t%s\t%ld\n", etag ? etag : "", href, len);
-		ok = pf_write(h, head, n) == n && pf_write(h, raw, len) == len && pf_write(h, "\n", 1) == 1;
-		r = res_add(b, etag, href, size + n, len);
-		if (r >= 0)
-			add_contact(b, r, raw, len);
-	}
-	pf_close(h);
-	if (!ok) {
-		/* the disk refused the end of the file: write it all again */
+	if (drop >= 0 && !b->res[drop].dead && (!href || strcmp(b->res[drop].href, href)))
+		aw_drop(&w, drop);
+	if (href)
+		aw_add(&w, href, etag, raw, len, partial);
+	if (!aw_close(&w)) {
 		load_one(b);
-		return cache_rewrite(b, -1, 0, 0, 0, 0);
+		return cache_rewrite(b, -1, 0, 0, 0, 0, 0);
 	}
 	people_changed(1);
 	return 1;
 }
 
+static RESOURCE *res_of(const CONTACT *c)
+{
+	if (!c || c->book < 0 || c->book >= nbooks || c->res < 0 || c->res >= books[c->book].nres)
+		return 0;
+	return &books[c->book].res[c->res];
+}
+
+int contact_partial(const CONTACT *c)
+{
+	RESOURCE *r = res_of(c);
+	return r && r->partial;
+}
+
+const char *contact_href(const CONTACT *c)
+{
+	RESOURCE *r = res_of(c);
+	return r ? r->href : "";
+}
+
 char *contact_raw(const CONTACT *c, long *len)
 {
-	char path[200], *raw;
+	char path[200], *raw, *m, *me, *out;
 	int h;
-	RESOURCE *r;
+	RESOURCE *r = res_of(c);
 	BOOK *b;
-	if (!c || c->book < 0 || c->book >= nbooks)
+	long ml = (long)strlen(VC_PHOTO_MARK), n;
+	if (!r)
 		return 0;
 	b = &books[c->book];
-	if (c->res < 0 || c->res >= b->nres)
-		return 0;
-	r = &b->res[c->res];
 	cache_path(b, "DAT", path, sizeof(path));
 	h = pf_open(path, PF_READ);
 	if (h < 0)
 		return 0;
 	raw = malloc(r->len + 1);
-	if (raw && (pf_seek(h, r->off) != r->off || pf_read(h, raw, r->len) != r->len)) {
+	if (raw && !read_at(h, r->off, raw, r->len)) {
 		free(raw);
 		raw = 0;
 	}
 	pf_close(h);
-	if (raw) {
-		raw[r->len] = 0;
-		if (len)
-			*len = r->len;
+	if (!raw)
+		return 0;
+	raw[r->len] = 0;
+	n = r->len;
+	/* the stand-in: the photo back in its place, or the line out */
+	for (m = raw; (m = strstr(m, VC_PHOTO_MARK)) != 0; m += ml)
+		if ((m == raw || m[-1] == '\n') && m[ml] == ':')
+			break;
+	if (m) {
+		me = strchr(m, '\n');
+		me = me ? me + 1 : raw + n;
+		out = malloc(n - (me - m) + r->plen + 1);
+		if (!out) {
+			free(raw);
+			return 0;
+		}
+		memcpy(out, raw, m - raw);
+		n = m - raw;
+		if (r->plen > 0) {
+			cache_path(b, "PHO", path, sizeof(path));
+			h = pf_open(path, PF_READ);
+			if (read_at(h, r->poff, out + n, r->plen))
+				n += r->plen;
+			if (h >= 0)
+				pf_close(h);
+		}
+		memcpy(out + n, me, r->len - (me - raw));
+		n += r->len - (me - raw);
+		out[n] = 0;
+		free(raw);
+		raw = out;
 	}
+	if (len)
+		*len = n;
 	return raw;
 }
 
@@ -906,11 +1175,22 @@ static int same_etag(const char *a, const char *b)
 	return la == lb && !strncmp(a, b, la) && la > 0;
 }
 
-static int mget_cb(void *ud, const char *href, const char *etag, const char *data, long len)
+typedef struct {
+	CW *w;
+	AW *aw;
+	BOOK *b;
+	int n, of;
+} MG;
+
+static int mget_cb(void *ud, const char *href, const char *etag, const char *data, long len, int partial)
 {
-	CW *w = ud;
-	cw_add(w, href, etag, data, len);
-	return !w->failed;
+	MG *m = ud;
+	if (++m->n % 10 == 0 && m->of > 1)
+		status("%s: %d of %d...", m->b->name, m->n, m->of);
+	if (m->aw)
+		return aw_add(m->aw, href, etag, data, len, partial);
+	cw_add(m->w, href, etag, data, len, partial);
+	return !m->w->failed;
 }
 
 int sync_book(BOOK *b, int force)
@@ -919,8 +1199,9 @@ int sync_book(BOOK *b, int force)
 	DAVITEM *items;
 	char ctag[100], **need;
 	unsigned char *keep;
-	int n, i, j, nneed = 0, nkept, r = 0;
+	int n, i, nneed = 0, nwhole = 0, nkept, r = 0, j, skipped;
 	CW w;
+	MG m;
 	ACCOUNT *a = &accts[b->acct];
 	if (a->kind == AK_LOCAL)
 		return 0;
@@ -931,7 +1212,7 @@ int sync_book(BOOK *b, int force)
 		r = -1;
 		goto out;
 	}
-	if (!force && ctag[0] && !strcmp(ctag, b->ctag) && b->synced)
+	if (!force && ctag[0] && !strcmp(ctag, b->ctag) && b->synced && b->ver)
 		goto out;
 	status("%s: what has changed...", b->name);
 	if (!carddav_list(b->url, &au, &items, &n, ab_err, sizeof(ab_err))) {
@@ -948,15 +1229,15 @@ int sync_book(BOOK *b, int force)
 		r = -1;
 		goto out;
 	}
+	/* new ones (and ones we have in part) are fetched without their
+	   photos, at the front of need; changed ones we have whole are
+	   fetched whole, at the back, so a changed photo is seen */
 	for (i = 0; i < n; i++) {
-		int found = -1;
-		for (j = 0; j < b->nres; j++)
-			if (!b->res[j].dead && !strcmp(b->res[j].href, items[i].href)) {
-				found = j;
-				break;
-			}
+		int found = live_res(b, items[i].href);
 		if (found >= 0 && same_etag(b->res[found].etag, items[i].etag))
 			keep[found] = 1;
+		else if (found >= 0 && !b->res[found].partial)
+			need[n - 1 - nwhole++] = items[i].href;
 		else
 			need[nneed++] = items[i].href;
 	}
@@ -972,7 +1253,7 @@ int sync_book(BOOK *b, int force)
 			cw_copy(&w, &b->res[j]);
 			nkept++;
 		}
-	if (!nneed && nkept == b->nres - b->ndead) {
+	if (!nneed && !nwhole && nkept == b->nres - b->ndead && b->ver == CACHE_VER) {
 		/* the ctag moved (our own changes, say) but nothing is new */
 		cw_abandon(&w);
 		free(keep);
@@ -982,11 +1263,19 @@ int sync_book(BOOK *b, int force)
 		b->synced = now_local();
 		goto out;
 	}
-	if (nneed) {
-		status("%s: fetching %d contact%s...", b->name, nneed, nneed == 1 ? "" : "s");
-		if (!carddav_multiget(b->url, &au, need, nneed, mget_cb, &w, ab_err, sizeof(ab_err)))
-			w.failed = 2;
-	}
+	memset(&m, 0, sizeof(m));
+	m.w = &w;
+	m.b = b;
+	m.of = nneed + nwhole;
+	if (m.of)
+		status("%s: fetching %d contact%s...", b->name, m.of, m.of == 1 ? "" : "s");
+	if (nneed && !carddav_multiget(b->url, &au, need, nneed, 1, mget_cb, &m, ab_err, sizeof(ab_err)))
+		w.failed = 2;
+	skipped = nneed ? carddav_skipped : 0;
+	if (nwhole && !w.failed &&
+	    !carddav_multiget(b->url, &au, need + n - nwhole, nwhole, 0, mget_cb, &m, ab_err, sizeof(ab_err)))
+		w.failed = 2;
+	skipped += nwhole ? carddav_skipped : 0;
 	free(keep);
 	free(need);
 	carddav_free_items(items, n);
@@ -999,7 +1288,8 @@ int sync_book(BOOK *b, int force)
 		r = -1;
 		goto out;
 	}
-	str_copy(b->ctag, ctag, sizeof(b->ctag));
+	/* a card too big to fetch: the ctag not taken, so it is tried again */
+	str_copy(b->ctag, skipped ? "" : ctag, sizeof(b->ctag));
 	b->synced = now_local();
 	status("%s: reading...", b->name);
 	book_load(b);
@@ -1008,6 +1298,79 @@ out:
 	if (r < 0)
 		str_copy(a->err, ab_err, sizeof(a->err));
 	return r;
+}
+
+int book_fetch_whole(BOOK *b, char **hrefs, int n)
+{
+	AW w;
+	MG m;
+	DAVAUTH au;
+	int ok;
+	ACCOUNT *a = &accts[b->acct];
+	ab_err[0] = 0;
+	if (a->kind != AK_CARDDAV)
+		return 0;
+	if (opt.offline) {
+		str_copy(ab_err, "EContact is working offline", sizeof(ab_err));
+		return -1;
+	}
+	if (!aw_open(&w, b)) {
+		/* written anew first (superseded copies, or the old kind) */
+		if (!cache_rewrite(b, -1, 0, 0, 0, 0, 0) || !aw_open(&w, b)) {
+			if (!ab_err[0])
+				str_copy(ab_err, "can't write the address book's cache", sizeof(ab_err));
+			return -1;
+		}
+	}
+	au = auth_of(b->acct);
+	memset(&m, 0, sizeof(m));
+	m.aw = &w;
+	m.b = b;
+	ok = carddav_multiget(b->url, &au, hrefs, n, 0, mget_cb, &m, ab_err, sizeof(ab_err));
+	if (!aw_close(&w)) {
+		load_one(b);
+		cache_rewrite(b, -1, 0, 0, 0, 0, 0);
+		people_changed(1);
+		str_copy(ab_err, "couldn't write the address book's cache (disk full?)", sizeof(ab_err));
+		return -1;
+	}
+	people_changed(0);		/* the same people, the same emails: CONTACTS.TXT stays */
+	return ok || m.n ? m.n : -1;
+}
+
+CONTACT *contact_by_href(int bi, const char *href)
+{
+	int r = live_res(&books[bi], href), i;
+	if (r < 0)
+		return 0;
+	for (i = 0; i < npeople; i++)
+		if (people[i]->book == bi && people[i]->res == r)
+			return people[i];
+	return 0;
+}
+
+CONTACT *contact_complete(const CONTACT *c)
+{
+	char href[400];
+	int bi;
+	RESOURCE *r = res_of(c);
+	if (!r) {
+		str_copy(ab_err, "that contact is gone", sizeof(ab_err));
+		return 0;
+	}
+	bi = c->book;
+	if (!r->partial)
+		return (CONTACT *)c;
+	str_copy(href, r->href, sizeof(href));
+	{
+		char *one = href;
+		if (book_fetch_whole(&books[bi], &one, 1) <= 0) {
+			if (!ab_err[0])
+				str_copy(ab_err, "the server didn't send the contact", sizeof(ab_err));
+			return 0;
+		}
+	}
+	return contact_by_href(bi, href);
 }
 
 int sync_account(int a, int force)
@@ -1070,9 +1433,51 @@ int sync_all(int force)
 
 /* ---------------- changing contacts ---------------- */
 
+/* The whole card, to change: one fetched in part is fetched whole first
+   (not kept: the change is stored over it), so nothing the server has is
+   lost. etag: the one to change it under. NULL with ab_err */
+static char *contact_text(const CONTACT *c, long *len, char *etag, int esize)
+{
+	RESOURCE *r = res_of(c);
+	BOOK *b;
+	char *raw;
+	if (!r) {
+		str_copy(ab_err, "can't read the contact from the cache", sizeof(ab_err));
+		return 0;
+	}
+	b = &books[c->book];
+	str_copy(etag, r->etag, esize);
+	if (r->partial && accts[b->acct].kind == AK_CARDDAV) {
+		DAVAUTH au = auth_of(b->acct);
+		SBUF fresh;
+		char e2[100];
+		if (opt.offline) {
+			str_copy(ab_err, "EContact is working offline: switch it off in the menu to save changes", sizeof(ab_err));
+			return 0;
+		}
+		status("Fetching the whole card...");
+		sb_init(&fresh);
+		if (!carddav_get(b->url, r->href, &au, &fresh, e2, sizeof(e2), ab_err, sizeof(ab_err)) || !fresh.len) {
+			sb_free(&fresh);
+			if (!ab_err[0])
+				str_copy(ab_err, "the server didn't send the contact", sizeof(ab_err));
+			return 0;
+		}
+		if (e2[0])
+			str_copy(etag, e2, esize);
+		*len = fresh.len;
+		return fresh.s;
+	}
+	raw = contact_raw(c, len);
+	if (!raw)
+		str_copy(ab_err, "can't read the contact from the cache", sizeof(ab_err));
+	return raw;
+}
+
 /* a vCard to the server (not for On My Atari) and into the cache. res:
-   the resource it replaces, -1 for a new one at href */
-static int store_card(BOOK *b, int res, const char *href, const char *text, long len)
+   the resource it replaces, -1 for a new one at href; if_match: its etag
+   (NULL: the cache's) */
+static int store_card(BOOK *b, int res, const char *href, const char *if_match, const char *text, long len)
 {
 	ACCOUNT *a = &accts[b->acct];
 	char etag[100] = "";
@@ -1085,7 +1490,7 @@ static int store_card(BOOK *b, int res, const char *href, const char *text, long
 	}
 	if (a->kind == AK_CARDDAV) {
 		DAVAUTH au = auth_of(b->acct);
-		const char *old_etag = res >= 0 ? b->res[res].etag : 0;
+		const char *old_etag = if_match ? if_match : res >= 0 ? b->res[res].etag : 0;
 		if (opt.offline) {
 			str_copy(ab_err, "EContact is working offline: switch it off in the menu to save changes", sizeof(ab_err));
 			return 0;
@@ -1107,7 +1512,7 @@ static int store_card(BOOK *b, int res, const char *href, const char *text, long
 		}
 		status_clear();
 	}
-	ok = cache_change(b, res, href, etag, text, len);
+	ok = cache_change(b, res, href, etag, text, len, 0);
 	sb_free(&fresh);
 	return ok;
 }
@@ -1127,13 +1532,15 @@ static void new_href(const char *uid, char *out, int size)
 CONTACT *contact_save(const CEDIT *e, CONTACT *old, int bi)
 {
 	SBUF out;
-	char *raw = 0, uid[64], href[80];
+	char *raw = 0, uid[64], href[80], etag[100] = "";
 	long len = 0;
 	BOOK *b;
 	int res = -1, ok;
 	if (old) {
 		bi = old->book;
-		raw = contact_raw(old, &len);
+		raw = contact_text(old, &len, etag, sizeof(etag));
+		if (!raw)
+			return 0;
 		str_copy(uid, old->uid ? old->uid : "", sizeof(uid));
 		res = old->res;
 	} else {
@@ -1160,7 +1567,7 @@ CONTACT *contact_save(const CEDIT *e, CONTACT *old, int bi)
 			new_href(uid, href, sizeof(href));
 		else if (h && strlen(h) < sizeof(href))
 			str_copy(href, h, sizeof(href));
-		ok = (res < 0 || h) && store_card(b, res, h ? h : href, out.s, out.len);
+		ok = (res < 0 || h) && store_card(b, res, h ? h : href, etag[0] ? etag : 0, out.s, out.len);
 		if (h && strlen(h) >= sizeof(href))
 			href[0] = 0;	/* too long to find it by: by UID only */
 		free(h);
@@ -1223,7 +1630,7 @@ int contact_delete(CONTACT *c)
 		}
 		status_clear();
 	}
-	return cache_change(b, res, 0, 0, 0, 0);
+	return cache_change(b, res, 0, 0, 0, 0, 0);
 }
 
 static int contains(const char *h, const char *n)
@@ -1379,14 +1786,16 @@ int group_count(const GROUP *g)
 static int write_group(GROUP *g, const char *name, const char **mem, int n)
 {
 	SBUF out;
-	char *raw;
+	char *raw, etag[100];
 	long len = 0;
 	BOOK *b = &books[g->book];
 	int ok;
-	raw = contact_raw(g->card, &len);
+	raw = contact_text(g->card, &len, etag, sizeof(etag));
+	if (!raw)
+		return 0;
 	sb_init(&out);
 	ok = vcard_write_group(name, g->card->uid, mem, n, raw, len, &out) &&
-	     store_card(b, g->card->res, b->res[g->card->res].href, out.s, out.len);
+	     store_card(b, g->card->res, b->res[g->card->res].href, etag, out.s, out.len);
 	sb_free(&out);
 	free(raw);
 	return ok;
@@ -1396,19 +1805,17 @@ static int write_group(GROUP *g, const char *name, const char **mem, int n)
 static int write_cats(CONTACT *c, const char *cats)
 {
 	SBUF out;
-	char *raw;
+	char *raw, etag[100];
 	long len = 0;
 	BOOK *b = &books[c->book];
 	int ok;
 	char href[400];
-	raw = contact_raw(c, &len);
-	if (!raw) {
-		str_copy(ab_err, "can't read the contact from the cache", sizeof(ab_err));
+	raw = contact_text(c, &len, etag, sizeof(etag));
+	if (!raw)
 		return 0;
-	}
 	sb_init(&out);
 	str_copy(href, b->res[c->res].href, sizeof(href));
-	ok = vcard_set_categories(raw, len, cats, &out) && store_card(b, c->res, href, out.s, out.len);
+	ok = vcard_set_categories(raw, len, cats, &out) && store_card(b, c->res, href, etag, out.s, out.len);
 	sb_free(&out);
 	free(raw);
 	return ok;
@@ -1517,7 +1924,7 @@ int group_new(int bi, const char *name)
 	vcard_new_uid(uid, sizeof(uid));
 	new_href(uid, href, sizeof(href));
 	sb_init(&out);
-	ok = vcard_write_group(name, uid, 0, 0, 0, 0, &out) && store_card(&books[bi], -1, href, out.s, out.len);
+	ok = vcard_write_group(name, uid, 0, 0, 0, 0, &out) && store_card(&books[bi], -1, href, 0, out.s, out.len);
 	sb_free(&out);
 	if (!ok)
 		return -1;
@@ -1622,7 +2029,7 @@ int contacts_import(int bi, const char *path, int *count)
 		if (ok) {
 			new_href(uid, href, sizeof(href));
 			status("Importing %d...", n + 1);
-			ok = store_card(&books[bi], -1, href, out.s, out.len);
+			ok = store_card(&books[bi], -1, href, 0, out.s, out.len);
 			if (!ok) {
 				sb_free(&out);
 				break;
@@ -1646,15 +2053,22 @@ int contacts_export(CONTACT **list, int n, const char *path)
 	}
 	for (i = 0; i < n && ok; i++) {
 		long len;
-		char *raw = contact_raw(list[i], &len);
+		char *raw, etag[100];
+		/* whole: what was fetched in part is fetched again, when it can be */
+		raw = contact_partial(list[i]) && !opt.offline ? contact_text(list[i], &len, etag, sizeof(etag)) : 0;
+		if (!raw)
+			raw = contact_raw(list[i], &len);
 		if (!raw)
 			continue;
+		if (n > 1)
+			status("Exporting %d of %d...", i + 1, n);
 		ok = pf_write(h, raw, len) == len;
 		if (ok && len && raw[len - 1] != '\n')
 			ok = pf_write(h, "\r\n", 2) == 2;
 		free(raw);
 	}
 	pf_close(h);
+	status_clear();
 	if (!ok)
 		str_copy(ab_err, "couldn't write the file (disk full?)", sizeof(ab_err));
 	return ok;

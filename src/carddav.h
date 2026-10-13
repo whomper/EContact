@@ -38,10 +38,17 @@ int carddav_ctag(const char *url, const DAVAUTH *a, char *ctag, int size, char *
 int carddav_list(const char *url, const DAVAUTH *a, DAVITEM **items, int *n, char *err, int errlen);
 void carddav_free_items(DAVITEM *items, int n);
 
-/* fetch contacts by href, a few at a time; cb gets each (UTF-8 text) */
-typedef int (*DAV_CB)(void *ud, const char *href, const char *etag, const char *data, long len);
-int carddav_multiget(const char *url, const DAVAUTH *a, char **hrefs, int n,
+/* fetch contacts by href, as many at a time as fit in carddav_budget;
+   cb gets each (UTF-8 text). partial: without their photos and the lines
+   EContact doesn't show, where the server can (cb's partial says if it
+   did) */
+typedef int (*DAV_CB)(void *ud, const char *href, const char *etag, const char *data, long len, int partial);
+int carddav_multiget(const char *url, const DAVAUTH *a, char **hrefs, int n, int partial,
 		     DAV_CB cb, void *ud, char *err, int errlen);
+/* bytes of answer asked for at a time (the UI sets it from the memory) */
+extern long carddav_budget;
+/* cards the last carddav_multiget left out: too big for the memory */
+extern int carddav_skipped;
 
 /* store a vCard at href (relative to the address book): etag NULL for
    a new one (fails if it exists), else only if unchanged since. The

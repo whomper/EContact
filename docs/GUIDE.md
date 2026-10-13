@@ -91,12 +91,27 @@ settings or delete it from this Atari (nothing is deleted on the server).
 ## Photos
 
 A contact's photo shows in the circle at the top of the card, as on the
-Mac, cropped the way it was cropped on the iPhone. Photos come with the
-cards: in the card itself, or as a link to iCloud's photo server, which
-EContact fetches with your account. The first time a card is shown its
-photo is decoded (the busy bee and "Getting the photo..."; a second or
-two on a Falcon, about four seconds on an 8 MHz ST) and kept in
-`CACHE\PHOTOS`; after that it shows at once, offline too.
+Mac, cropped the way it was cropped on the iPhone. Photos are in the cards
+themselves, or a link to iCloud's photo server, which EContact fetches
+with your account.
+
+Syncing doesn't download them: they are most of an address book (500
+contacts with photos are about 12 MB), and an ST's memory and a gateway's
+link are small. The first time a card with a photo is shown, the photo is
+fetched and decoded (the busy bee and "Getting the photo..."; a second or
+two on a Falcon, about four seconds on an 8 MHz ST, and the time to
+download it) and kept in `CACHE\PHOTOS`; after that it shows at once,
+offline too.
+
+To have them all, choose **Sync Contact Photos...** in the menu (the
+button at the right of the toolbar). A box shows who is being done, how
+many are left and about how long it will take. **Cancel** (or Esc) stops
+after the one being done; what is done is kept, and choosing it again goes
+on from there. Offline, it makes the pictures of the photos already
+downloaded. Some servers send the photos while syncing anyway: those are
+kept as they come, and Sync Contact Photos only has to decode them.
+
+![Sync Contact Photos](photo-sync.png)
 
 When someone's photo changes on another device, EContact sees it after the
 next refresh and decodes the new one; a photo taken off a card goes, and
@@ -154,7 +169,9 @@ show and work the same way here; new groups are made as group cards.
   file with one or many cards, from a phone, Outlook, Google or another
   Mac. Old 2.1 cards are written as 3.0, which iCloud wants.
 - **Export vCards...**: the chosen card, or all the list shows (an
-  address book, a group, or what a search found).
+  address book, a group, or what a search found). Cards whose photos
+  weren't downloaded yet are fetched whole for it; offline they are
+  exported as they are kept, without their photos.
 
 ## My Card
 

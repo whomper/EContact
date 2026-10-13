@@ -139,6 +139,10 @@ static void parse_multistatus(const char *xml, long n, RESP_FN fn, void *ud)
 	sb_free(&r.data);
 }
 
+long carddav_budget = 400000L;
+int carddav_skipped;
+static long dav_max = 1500000L;
+
 static int dav(const char *method, const char *url, const DAVAUTH *a, int depth, const char *body,
 	       HTTPRESP *rs, SBUF *out, char *err, int errlen)
 {
@@ -158,7 +162,7 @@ static int dav(const char *method, const char *url, const DAVAUTH *a, int depth,
 		snprintf(hdr, sizeof(hdr), "Depth: %d\r\n", depth);
 		rq.headers = hdr;
 	}
-	rq.maxbody = 1500000L;
+	rq.maxbody = dav_max;
 	if (!http_request(&rq, rs, out, err, errlen))
 		return 0;
 	if (rs->status != 207 && rs->status != 200) {
@@ -394,8 +398,47 @@ int carddav_list(const char *url, const DAVAUTH *a, DAVITEM **items, int *n, cha
 typedef struct {
 	DAV_CB cb;
 	void *ud;
-	int stop, got;
+	int stop, got, asked_part;
 } MGET;
+
+/* What EContact shows, asked for alone (RFC 6352 8.4, partial
+   retrieval): the PHOTO says that there is one but not what. A card
+   with any other line came whole: the server ignored the request. */
+static const char *const shown_props[] = {
+	"VERSION", "UID", "FN", "N", "NICKNAME", "ORG", "TITLE", "NOTE", "CATEGORIES", "BDAY", "EMAIL", "TEL",
+	"ADR", "URL", "X-ABLABEL", "X-ABSHOWAS", "X-ADDRESSBOOKSERVER-KIND", "KIND", "X-ADDRESSBOOKSERVER-MEMBER",
+	"MEMBER", 0
+};
+
+static int only_shown(const char *d, long n)
+{
+	const char *p = d, *e = d + n;
+	while (p < e) {
+		const char *q = p, *nm = p;
+		int k, len;
+		while (q < e && *q != ':' && *q != ';' && *q != '\n' && *q != '.')
+			q++;
+		if (q < e && *q == '.') {
+			nm = q + 1;
+			for (q = nm; q < e && *q != ':' && *q != ';' && *q != '\n'; q++)
+				;
+		}
+		len = (int)(q - nm);
+		if (q < e && *q != '\n' && *p != ' ' && *p != '\t' && len > 0) {
+			int known = (len == 5 && !strncasecmp(nm, "BEGIN", 5)) || (len == 3 && !strncasecmp(nm, "END", 3)) ||
+				    (len == 5 && !strncasecmp(nm, "PHOTO", 5));
+			for (k = 0; !known && shown_props[k]; k++)
+				known = (int)strlen(shown_props[k]) == len && !strncasecmp(nm, shown_props[k], len);
+			if (!known)
+				return 0;
+		}
+		q = memchr(p, '\n', e - p);
+		if (!q)
+			break;
+		p = q + 1;
+	}
+	return 1;
+}
 
 static void got_data(DAVRESP *r, void *ud)
 {
@@ -403,42 +446,110 @@ static void got_data(DAVRESP *r, void *ud)
 	if (m->stop || !r->data.len)
 		return;
 	m->got++;
-	if (!m->cb(m->ud, r->href, r->etag, r->data.s, r->data.len))
+	if (!m->cb(m->ud, r->href, r->etag, r->data.s, r->data.len, m->asked_part && only_shown(r->data.s, r->data.len)))
 		m->stop = 1;
 }
 
-int carddav_multiget(const char *url, const DAVAUTH *a, char **hrefs, int n,
+static void mget_query(SBUF *q, char **hrefs, int n, int partial)
+{
+	int k;
+	sb_adds(q, "<?xml version=\"1.0\" encoding=\"utf-8\"?><card:addressbook-multiget " NS "><d:prop><d:getetag/>");
+	if (partial) {
+		sb_adds(q, "<card:address-data>");
+		for (k = 0; shown_props[k]; k++)
+			sb_printf(q, "<card:prop name=\"%s\"/>", shown_props[k]);
+		sb_adds(q, "<card:prop name=\"PHOTO\" novalue=\"yes\"/></card:address-data>");
+	} else {
+		sb_adds(q, "<card:address-data/>");
+	}
+	sb_adds(q, "</d:prop>");
+	for (k = 0; k < n; k++) {
+		char esc[600];
+		xml_escape(hrefs[k], esc, sizeof(esc));
+		sb_printf(q, "<d:href>%s</d:href>", esc);
+	}
+	sb_adds(q, "</card:addressbook-multiget>");
+}
+
+/* As many at a time as fit in carddav_budget: the first answer says how
+   big the cards are, and the next asks for as many as fit. An answer too
+   big for memory is asked for again in halves; one card too big for it
+   alone comes without its photo. A server that refuses partial
+   retrieval gets the plain request. */
+int carddav_multiget(const char *url, const DAVAUTH *a, char **hrefs, int n, int partial,
 		     DAV_CB cb, void *ud, char *err, int errlen)
 {
-	int i, ok = 1;
+	int i = 0, ok = 1, per, one_part = 0;
 	SBUF q, out;
+	long saved = dav_max;
+	carddav_skipped = 0;
+	per = partial ? 40 : (int)(carddav_budget / 40000L);
+	if (per < 1)
+		per = 1;
+	if (per > 40)
+		per = 40;
+	dav_max = carddav_budget * 3;
+	if (dav_max < 65536L)
+		dav_max = 65536L;
 	sb_init(&out);
-	/* forty at a time: an answer stays well under the memory an ST has */
-	for (i = 0; i < n && ok; i += 40) {
+	while (i < n) {
 		HTTPRESP rs;
 		MGET m;
-		int k;
+		int cnt = n - i < per ? n - i : per, part = partial || one_part;
+		memset(&rs, 0, sizeof(rs));
 		sb_init(&q);
-		sb_adds(&q, "<?xml version=\"1.0\" encoding=\"utf-8\"?><card:addressbook-multiget " NS
-			"><d:prop><d:getetag/><card:address-data/></d:prop>");
-		for (k = i; k < n && k < i + 40; k++) {
-			char esc[600];
-			xml_escape(hrefs[k], esc, sizeof(esc));
-			sb_printf(&q, "<d:href>%s</d:href>", esc);
-		}
-		sb_adds(&q, "</card:addressbook-multiget>");
-		ok = dav("REPORT", url, a, 1, q.s, &rs, &out, err, errlen);
+		mget_query(&q, hrefs + i, cnt, part);
+		ok = q.s && dav("REPORT", url, a, 1, q.s, &rs, &out, err, errlen);
 		sb_free(&q);
-		if (!ok)
+		if (!ok) {
+			if (rs.toobig && cnt > 1) {
+				per = cnt / 2;		/* smaller, and again */
+				continue;
+			}
+			if (one_part || (rs.toobig && part)) {
+				/* too big even without its photo, or the server won't
+				   send it so: left out, asked for again next time */
+				one_part = 0;
+				i += cnt;
+				carddav_skipped += cnt;
+				ok = 1;
+				continue;
+			}
+			if (rs.toobig) {
+				one_part = 1;		/* this one without its photo */
+				continue;
+			}
+			if (part && rs.status >= 400 && rs.status != 401 && rs.status != 404) {
+				partial = 0;		/* the server won't: the whole cards */
+				per = (int)(carddav_budget / 40000L);
+				if (per < 1)
+					per = 1;
+				if (per > 40)
+					per = 40;
+				continue;
+			}
 			break;
+		}
 		memset(&m, 0, sizeof(m));
 		m.cb = cb;
 		m.ud = ud;
+		m.asked_part = part;
 		parse_multistatus(out.s, out.len, got_data, &m);
 		if (m.stop)
 			break;
+		if (m.got && !one_part) {
+			long each = out.len / m.got + 1;
+			per = (int)(carddav_budget / each);
+			if (per < 1)
+				per = 1;
+			if (per > 40)
+				per = 40;
+		}
+		one_part = 0;
+		i += cnt;
 	}
 	sb_free(&out);
+	dav_max = saved;
 	return ok;
 }
 

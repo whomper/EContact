@@ -40,7 +40,8 @@ typedef struct CONTACT {
 	unsigned char group;		/* a group card (iCloud's way of keeping groups) */
 	unsigned char photo;		/* has a picture (photo.c shows it) */
 	unsigned char mark;		/* for the caller */
-	unsigned long photo_key;	/* the fingerprint of its PHOTO line; 0: none */
+	unsigned long photo_key;	/* the fingerprint of its PHOTO line; 0: none,
+					   VC_KEY_UNKNOWN: it has one, not yet downloaded */
 	short book, res;		/* where it is kept (abook.c) */
 	char sortkey[24];		/* upper case, for sorting and the letter headings */
 } CONTACT;
@@ -94,6 +95,23 @@ int vcard_write_group(const char *name, const char *uid, const char **members, i
 /* a contact's CATEGORIES changed (Nextcloud-style groups): the old text
    with the new list (Atari text, comma-separated) */
 int vcard_set_categories(const char *old, long oldlen, const char *cats, SBUF *out);
+/* ---- the photo ----
+ * The cache (abook.c) keeps photos apart from the cards, so reading the
+ * cards at start-up doesn't read the photos: in the card, the PHOTO line
+ * is replaced by a stand-in with the photo's fingerprint,
+ *   X-ECONTACT-PHOTO:1A2B3C4D     the photo is in the photo file
+ *   X-ECONTACT-PHOTO:?            the card has one, not downloaded yet
+ * The stand-in never leaves the Atari. */
+#define VC_PHOTO_MARK "X-ECONTACT-PHOTO"
+#define VC_KEY_UNKNOWN 1UL
+/* the PHOTO line, with its folded (or 2.1) continuation lines: from
+   *start up to the start of the next line *stop. 0 if there is none */
+int vcard_photo_span(const char *raw, long len, long *start, long *stop);
+/* the photo's fingerprint (never 0 or VC_KEY_UNKNOWN) */
+unsigned long vcard_photo_key(const char *line, long n);
+/* the line has no value: the server was asked for it without one */
+int vcard_photo_empty(const char *line, long n);
+
 /* a new UID: random hex in the form Apple uses */
 void vcard_new_uid(char *out, int size);
 

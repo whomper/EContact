@@ -1043,3 +1043,160 @@ int dlg_ask(const char *title, const char *label, char *buf, short len)
 	r = dlg_run(&d);
 	return r == 3;
 }
+
+/* ---------------- progress ----------------
+ * A box for long work (Sync Contact Photos): what is being done, a bar,
+ * the time left, and Cancel. The work calls prog_update between steps;
+ * a click on Cancel or Esc is seen then (the mouse is the box's while it
+ * is up, so a click during a step waits for the next). */
+
+enum { PG_LINE1, PG_LINE2, PG_CANCEL, PG_N };
+static FIELD pg_f[PG_N];
+static DLG pg_d;
+static char pg_l1[60], pg_l2[60];
+static GRECT pg_bar, pg_outer;
+static short pg_outer_rh, pg_outer_pad, pg_open;
+static DLG *pg_outer_dlg;
+static long pg_shown = -1;
+
+static void prog_bar(long done, long total)
+{
+	GRECT in = pg_bar, part;
+	long w;
+	clip_on(&box);
+	graf_mouse(M_OFF, 0);
+	frame(&pg_bar, 1);
+	in.x++;
+	in.y++;
+	in.w -= 2;
+	in.h -= 2;
+	w = total > 0 ? (long)in.w * (done > total ? total : done) / total : 0;
+	part = in;
+	part.w = (short)w;
+	if (part.w > 0)
+		fill(&part, sel_color());
+	part.x = in.x + (short)w;
+	part.w = in.w - (short)w;
+	if (part.w > 0)
+		fill(&part, 0);
+	graf_mouse(M_ON, 0);
+}
+
+void prog_open(const char *title)
+{
+	short w = 46;
+	memset(pg_f, 0, sizeof(pg_f));
+	memset(&pg_d, 0, sizeof(pg_d));
+	pg_l1[0] = pg_l2[0] = 0;
+	pg_f[PG_LINE1].type = FT_LABEL;
+	pg_f[PG_LINE1].x = 0;
+	pg_f[PG_LINE1].y = 2;
+	pg_f[PG_LINE1].w = w;
+	pg_f[PG_LINE1].label = pg_l1;
+	pg_f[PG_LINE2].type = FT_LABEL;
+	pg_f[PG_LINE2].x = 0;
+	pg_f[PG_LINE2].y = 4;
+	pg_f[PG_LINE2].w = w - 12;
+	pg_f[PG_LINE2].label = pg_l2;
+	pg_f[PG_CANCEL].type = FT_BUTTON;
+	pg_f[PG_CANCEL].flags = FF_CANCEL;
+	pg_f[PG_CANCEL].x = w - 10;
+	pg_f[PG_CANCEL].y = 4;
+	pg_f[PG_CANCEL].w = 10;
+	pg_f[PG_CANCEL].label = "Cancel";
+	pg_d.title = title;
+	pg_d.w = w;
+	pg_d.h = 5;
+	pg_d.f = pg_f;
+	pg_d.n = PG_N;
+	pg_d.focus = -1;
+	pg_outer = box;
+	pg_outer_rh = rh;
+	pg_outer_pad = pad;
+	pg_outer_dlg = cur_dlg;
+	font_sys_push();
+	cur_dlg = &pg_d;
+	pad = cw + 2;
+	rh = ch + 6;
+	box.w = w * cw + 2 * pad;
+	box.h = pg_d.h * rh + 2 * pad;
+	box.x = desk_x + (desk_w - box.w) / 2;
+	box.y = desk_y + (desk_h - box.h) / 2;
+	pg_bar.x = box.x + pad;
+	pg_bar.y = box.y + pad + 3 * rh;
+	pg_bar.w = w * cw;
+	pg_bar.h = ch;
+	depth++;
+	pg_open = 1;
+	pg_shown = -1;
+	wind_update(BEG_UPDATE);
+	wind_update(3);
+	form_dial(FMD_START, box.x, box.y, box.w + 2, box.h + 2);
+	graf_mouse(ARROW, 0);
+	draw_all(&pg_d);
+	prog_bar(0, 1);
+}
+
+int prog_update(long done, long total, const char *line1, const char *line2)
+{
+	short m[8], mx, my, mb, ks;
+	AEVENT e;
+	int go = 1;
+	if (!pg_open)
+		return 1;
+	if (line1 && strcmp(line1, pg_l1)) {
+		str_copy(pg_l1, line1, sizeof(pg_l1));
+		dlg_redraw_field(&pg_d, PG_LINE1);
+	}
+	if (line2 && strcmp(line2, pg_l2)) {
+		str_copy(pg_l2, line2, sizeof(pg_l2));
+		dlg_redraw_field(&pg_d, PG_LINE2);
+	}
+	if (total > 0 && done * 1000 / total != pg_shown) {
+		pg_shown = done * 1000 / total;
+		prog_bar(done, total);
+	}
+	/* Cancel or Esc since the last step; nothing waited for */
+	for (;;) {
+		evnt_multi_(MU_KEYBD | MU_BUTTON | MU_TIMER, 1, 1, 1, 0, m, &e);
+		if (e.which & MU_KEYBD) {
+			if (KEY_SCAN(e.kreturn) == 0x01 || KEY_SCAN(e.kreturn) == 0x61)	/* Esc, Undo */
+				go = 0;
+			continue;
+		}
+		if (e.which & MU_BUTTON) {
+			if (field_at(&pg_d, e.mx, e.my) == PG_CANCEL) {
+				press_effect(&pg_d, PG_CANCEL);
+				go = 0;
+			}
+			do {
+				graf_mkstate(&mx, &my, &mb, &ks);
+			} while (mb & 3);
+			continue;
+		}
+		break;
+	}
+	if (!go) {
+		str_copy(pg_l2, "Stopping...", sizeof(pg_l2));
+		dlg_redraw_field(&pg_d, PG_LINE2);
+	}
+	return go;
+}
+
+void prog_close(void)
+{
+	if (!pg_open)
+		return;
+	pg_open = 0;
+	clip_off();
+	form_dial(FMD_FINISH, box.x, box.y, box.w + 2, box.h + 2);
+	wind_update(2);
+	wind_update(END_UPDATE);
+	box = pg_outer;
+	rh = pg_outer_rh;
+	pad = pg_outer_pad;
+	cur_dlg = pg_outer_dlg;
+	font_sys_pop();
+	if (--depth == 0 && dlg_after)
+		dlg_after();
+}

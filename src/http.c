@@ -323,11 +323,11 @@ static int body_add(BODY *b, const char *d, long n)
 		}
 		return 1;
 	}
-	if (b->body->len + n > b->max) {
+	if (b->body->len + n > b->max || !sb_add(b->body, d, n)) {
 		b->failed = 2;
 		return 0;
 	}
-	return sb_add(b->body, d, n);
+	return 1;
 }
 
 /* where the answer is read into, up to 16 KB at a time: a quarter of the
@@ -461,6 +461,7 @@ static int exchange(const HTTPREQ *rq, const URL *u, const char *auth, HTTPRESP 
 	} else if (h->clen >= 0) {
 		if (!b.to_sink && body && h->clen <= b.max && !sb_reserve(body, h->clen)) {
 			str_copy(err, "not enough memory for the server's answer", errlen);
+			rs->toobig = 1;
 			goto fail;
 		}
 		if (!read_n(c, &b, h->clen, rs))
@@ -517,8 +518,10 @@ static int exchange(const HTTPREQ *rq, const URL *u, const char *auth, HTTPRESP 
 	return ok;
 
 body_err:
-	if (b.failed == 2)
+	if (b.failed == 2) {
 		snprintf(err, errlen, "the answer from %s is too big for this Atari's memory", u->host);
+		rs->toobig = 1;
+	}
 	else if (b.failed == 1)
 		snprintf(err, errlen, "couldn't save what %s sent (disk full?)", u->host);
 	else

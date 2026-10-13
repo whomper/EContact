@@ -44,6 +44,7 @@ typedef struct {
 	char lastmod[40];
 	char final_url[512];		/* after redirects */
 	long length;			/* body bytes received */
+	int toobig;			/* the answer didn't fit in memory (maxbody) */
 } HTTPRESP;
 
 typedef struct {

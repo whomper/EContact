@@ -472,6 +472,58 @@ static void test_photos(void)
 	}
 }
 
+
+/* the photo apart from the card: where its line is, its fingerprint,
+   and the cache's stand-in */
+static void test_photo_split(void)
+{
+	static const char folded[] = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:F\r\nPHOTO;ENCODING=b;TYPE=JPEG:/9j/4AAQ\r\n"
+				     " SkZJRgABAQ\r\n AAAQABAAD\r\nEMAIL:f@x.org\r\nEND:VCARD\r\n";
+	static const char refolded[] = "BEGIN:VCARD\nVERSION:3.0\nFN:F\nitem1.PHOTO;ENCODING=b;TYPE=JPEG:/9j/4AAQSkZJ\n"
+				       "  RgABAQAAAQ\n ABAAD\nEMAIL:f@x.org\nEND:VCARD\n";
+	static const char other[] = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:F\r\nPHOTO;ENCODING=b;TYPE=JPEG:/9j/4AAQ\r\n"
+				    " SkZJRgABAQ\r\n AAAQABAAE\r\nEMAIL:f@x.org\r\nEND:VCARD\r\n";
+	static const char v21[] = "BEGIN:VCARD\r\nVERSION:2.1\r\nN:A;B\r\nPHOTO;JPEG;ENCODING=BASE64:\r\n"
+				  "/9j/4AAQSkZJRgAB\r\nAQAAAQABAAD\r\n\r\nEMAIL:b@x.org\r\nEND:VCARD\r\n";
+	static const char novalue[] = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:N\r\nPHOTO;ENCODING=b;TYPE=JPEG:\r\nEND:VCARD\r\n";
+	static const char marked[] = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:M\r\nX-ECONTACT-PHOTO:1A2B3C4D\r\nEND:VCARD\r\n";
+	static const char unknown[] = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:U\r\nX-ECONTACT-PHOTO:?\r\nEND:VCARD\r\n";
+	long s, e, s2, e2;
+	CONTACT *c;
+	CHECK(vcard_photo_span(folded, (long)strlen(folded), &s, &e));
+	CHECK(!strncmp(folded + s, "PHOTO;", 6) && !strncmp(folded + e, "EMAIL:", 6));
+	CHECK(!vcard_photo_empty(folded + s, e - s));
+	/* folded another way, the same photo */
+	CHECK(vcard_photo_span(refolded, (long)strlen(refolded), &s2, &e2));
+	CHECK(!strncmp(refolded + s2, "item1.PHOTO", 11) && !strncmp(refolded + e2, "EMAIL:", 6));
+	CHECK(vcard_photo_key(folded + s, e - s) == vcard_photo_key(refolded + s2 + 6, e2 - s2 - 6));
+	/* one letter different, another key */
+	CHECK(vcard_photo_span(other, (long)strlen(other), &s2, &e2));
+	CHECK(vcard_photo_key(folded + s, e - s) != vcard_photo_key(other + s2, e2 - s2));
+	/* the parser's key is the same as the cache's */
+	c = vcard_parse(folded, (long)strlen(folded));
+	CHECK(c && c->photo_key == vcard_photo_key(folded + s, e - s));
+	CHECK(c && c->photo_key > VC_KEY_UNKNOWN);
+	free(c);
+	/* 2.1's base64 runs on to the blank line */
+	CHECK(vcard_photo_span(v21, (long)strlen(v21), &s, &e));
+	CHECK(!strncmp(v21 + e, "\r\nEMAIL", 7) || !strncmp(v21 + e, "EMAIL", 5));
+	/* asked for without its value */
+	CHECK(vcard_photo_span(novalue, (long)strlen(novalue), &s, &e));
+	CHECK(vcard_photo_empty(novalue + s, e - s));
+	c = vcard_parse(novalue, (long)strlen(novalue));
+	CHECK(c && c->photo && c->photo_key == VC_KEY_UNKNOWN);
+	free(c);
+	/* the stand-ins */
+	c = vcard_parse(marked, (long)strlen(marked));
+	CHECK(c && c->photo && c->photo_key == 0x1A2B3C4DUL);
+	free(c);
+	c = vcard_parse(unknown, (long)strlen(unknown));
+	CHECK(c && c->photo && c->photo_key == VC_KEY_UNKNOWN);
+	free(c);
+	CHECK(!vcard_photo_span(marked, (long)strlen(marked), &s, &e));
+}
+
 int main(void)
 {
 	test_parse_icloud();
@@ -482,6 +534,7 @@ int main(void)
 	test_bday();
 	test_urls();
 	test_photos();
+	test_photo_split();
 	printf("%d checks, %d failed\n", checks, fails);
 	return fails != 0;
 }

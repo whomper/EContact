@@ -95,6 +95,14 @@ def falcon_shots(r):
     time.sleep(1.5)
     r.shot("context-menu")
     r.key(K["ESC"])
+    time.sleep(1)
+    r.click(600, 73)                     # the menu
+    time.sleep(1.5)
+    r.click(500, 201)                    # Sync Contact Photos...
+    time.sleep(3.5)
+    r.shot("photo-sync")
+    time.sleep(20)
+    r.key(K["RETURN"])                   # "6 photos made."
 
 
 def st_shots(r):

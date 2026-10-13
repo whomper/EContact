@@ -172,6 +172,11 @@ extern void (*dlg_after)(void);
 short alert(short def, const char *fmt, ...);
 short dlg_pick(const char *title, const char *const *items, short n, short sel);
 int   dlg_ask(const char *title, const char *label, char *buf, short len);
+/* a box for long work: a line of what is done, a bar, a second line (the
+   time left) and Cancel. prog_update returns 0 once Cancel was chosen */
+void  prog_open(const char *title);
+int   prog_update(long done, long total, const char *line1, const char *line2);
+void  prog_close(void);
 
 /* ---- the dialogs (dialogs.c, editor.c) ---- */
 int  editor_open(CONTACT *c);		/* 1 if saved */
@@ -203,6 +208,7 @@ void cmd_delete_selected(void);
 void cmd_new_contact(void);
 void cmd_import(int book);
 void cmd_export(void);
+void cmd_sync_photos(void);
 void cmd_new_group(int book);
 void cmd_mail(const char *addr);	/* a message to addr in EMail */
 void cmd_mail_to(const CONTACT *c, const char *email);	/* to "Name <email>" */

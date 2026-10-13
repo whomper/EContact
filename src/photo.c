@@ -592,11 +592,22 @@ int photo_get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how)
 	PHDR h;
 	PHOTOREF ref;
 	long len;
-	int have, r = PH_FAILED;
+	int have, r = PH_FAILED, completed = 0;
 	if (how)
 		*how = PHH_CACHE;
 	if (!pdir[0] || c->book < 0 || c->book >= nbooks)
 		return PH_NONE;
+	if (c->photo_key == VC_KEY_UNKNOWN) {
+		/* the card came without its photo: now the whole card (c goes) */
+		if (!may_fetch)
+			return PH_NEEDS_NET;
+		c = contact_complete(c);
+		if (!c)
+			return PH_NEEDS_NET;
+		if (c->photo_key == VC_KEY_UNKNOWN)
+			return PH_FAILED;	/* still without: too big for memory */
+		completed = 1;
+	}
 	photo_path(c, path, sizeof(path));
 	have = read_hdr(path, &h);
 	if (!c->photo_key) {
@@ -633,7 +644,7 @@ int photo_get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how)
 			write_cache(path, c, 0, 0, 0, 0);	/* not again until it changes */
 		}
 		if (how)
-			*how = PHH_DECODED;
+			*how = completed ? PHH_FETCHED : PHH_DECODED;
 		free(ref.data);
 		return r;
 	}
@@ -703,29 +714,183 @@ static int list_one(const char *name, long size, void *ud)
 	return 0;
 }
 
+static int cmp_names(const void *a, const void *b)
+{
+	return strcasecmp((const char *)a, (const char *)b);
+}
+
+/* By name alone, no file opened (an ST takes a while over 500): a
+   picture whose contact is gone, or has no photo, goes. One whose photo
+   changed has the same name and is written over when it is next made. */
 int photo_prune(void)
 {
 	PRUNE p;
-	int k, removed = 0;
+	char (*want)[14];
+	int k, i, nw = 0, removed = 0;
 	if (!pdir[0])
 		return 0;
 	memset(&p, 0, sizeof(p));
 	pf_list(pdir, list_one, &p);
+	if (!p.n)
+		return 0;
+	want = malloc((npeople + 1) * sizeof(*want));
+	if (!want) {
+		free(p.names);
+		return 0;
+	}
+	for (i = 0; i < npeople; i++) {
+		const CONTACT *c = people[i];
+		char path[220], *n;
+		if (!c->photo_key || c->book < 0 || c->book >= nbooks)
+			continue;
+		photo_path(c, path, sizeof(path));
+		n = strrchr(path, PF_SEP);
+		str_copy(want[nw++], n ? n + 1 : path, 14);
+	}
+	qsort(want, nw, sizeof(*want), cmp_names);
 	for (k = 0; k < p.n; k++) {
 		char path[220];
-		PHDR h;
-		int i, keep = 0;
+		int lo = 0, hi = nw - 1, found = 0;
+		while (lo <= hi && !found) {
+			int mid = (lo + hi) / 2, d = strcasecmp(p.names[k], want[mid]);
+			if (!d)
+				found = 1;
+			else if (d < 0)
+				hi = mid - 1;
+			else
+				lo = mid + 1;
+		}
+		if (found)
+			continue;
 		path_join(path, sizeof(path), pdir, p.names[k]);
-		if (read_hdr(path, &h))
-			for (i = 0; i < npeople && !keep; i++) {
-				const CONTACT *c = people[i];
-				if (c->book >= 0 && c->book < nbooks && books[c->book].id == h.book &&
-				    c->photo_key == h.key && !strcmp(uid_of(c), h.uid))
-					keep = 1;
-			}
-		if (!keep && pf_remove(path) == 0)
+		if (pf_remove(path) == 0)
 			removed++;
 	}
+	free(want);
 	free(p.names);
 	return removed;
+}
+
+/* ---------------- Sync Contact Photos ---------------- */
+
+typedef struct {
+	short book;
+	int order;
+	char *href;
+} PTARGET;
+
+static int cmp_targets(const void *a, const void *b)
+{
+	const PTARGET *x = a, *y = b;
+	return x->book != y->book ? x->book - y->book : x->order - y->order;
+}
+
+static int name_in(const PRUNE *p, const char *path)
+{
+	const char *n = strrchr(path, PF_SEP);
+	int k;
+	n = n ? n + 1 : path;
+	for (k = 0; k < p->n; k++)
+		if (!strcasecmp(p->names[k], n))
+			return 1;
+	return 0;
+}
+
+#define PS_CHUNK 8	/* cards fetched whole at a time */
+
+int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
+{
+	PTARGET *t;
+	PRUNE have;
+	PHOTOIMG *img;
+	int nt = 0, i, done = 0, made = 0, bad = 0, stop = 0, net = !opt.offline;
+	*failed = 0;
+	if (!pdir[0])
+		return 0;
+	memset(&have, 0, sizeof(have));
+	pf_list(pdir, list_one, &have);
+	t = malloc((npeople + 1) * sizeof(PTARGET));
+	img = malloc(sizeof(PHOTOIMG));
+	if (!t || !img) {
+		free(t);
+		free(img);
+		free(have.names);
+		str_copy(ab_err, "out of memory", sizeof(ab_err));
+		return -1;
+	}
+	/* who still needs one: a card without its photo, or one whose
+	   picture isn't made (a header read only where there is a file) */
+	for (i = 0; i < npeople; i++) {
+		const CONTACT *c = people[i];
+		char path[220];
+		if (!c->photo_key || c->book < 0 || c->book >= nbooks)
+			continue;
+		if (c->photo_key == VC_KEY_UNKNOWN) {
+			if (!net)
+				continue;
+		} else {
+			photo_path(c, path, sizeof(path));
+			if (name_in(&have, path) && photo_ready(c))
+				continue;
+		}
+		t[nt].book = c->book;
+		t[nt].order = i;
+		t[nt].href = strdup(contact_href(c));
+		if (t[nt].href)
+			nt++;
+	}
+	free(have.names);
+	qsort(t, nt, sizeof(PTARGET), cmp_targets);
+	for (i = 0; i < nt && !stop;) {
+		int k, j, bi = t[i].book, nh = 0;
+		char *hrefs[PS_CHUNK];
+		/* the next few of one book: those without their photo fetched together */
+		for (k = i; k < nt && k < i + PS_CHUNK && t[k].book == bi; k++) {
+			CONTACT *c = contact_by_href(bi, t[k].href);
+			if (c && c->photo_key == VC_KEY_UNKNOWN)
+				hrefs[nh++] = t[k].href;
+		}
+		if (nh) {
+			if (!cb(ud, done, nt, 0))
+				break;
+			if (book_fetch_whole(&books[bi], hrefs, nh) < 0) {
+				/* no answer: the rest another time */
+				*failed = bad + nt - done;
+				made = -1;
+				break;
+			}
+		}
+		for (j = i; j < k; j++) {
+			CONTACT *c = contact_by_href(bi, t[j].href);
+			char name[80];
+			int how, r;
+			name[0] = 0;
+			if (c)
+				vcard_display_name(c, 0, name, sizeof(name));
+			if (!cb(ud, done, nt, name)) {
+				stop = 1;
+				break;
+			}
+			if (c && c->photo_key && c->photo_key != VC_KEY_UNKNOWN) {
+				r = photo_get(c, img, net, &how);
+				if (r == PH_OK)
+					made++;
+				else if (r != PH_NONE)
+					bad++;
+			} else if (c && c->photo_key) {
+				bad++;		/* still without its photo */
+			}
+			done++;
+		}
+		i = k;
+	}
+	if (made >= 0) {
+		cb(ud, done, nt, 0);
+		*failed = bad;
+	}
+	for (i = 0; i < nt; i++)
+		free(t[i].href);
+	free(t);
+	free(img);
+	return made;
 }

@@ -25,6 +25,8 @@
 #include "../src/util.h"
 #include "../src/bidi.h"
 #include "../src/version.h"
+#include "../src/photo.h"
+#include "../src/carddav.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 short gl_wchar, gl_hchar, ap_id, is_acc, ncolors, hebrew_kbd, quit_now;
@@ -477,9 +479,85 @@ void cmd_mail(const char *addr)
 	status("Sent to EMail.");
 }
 
+/* ---------------- Sync Contact Photos ---------------- */
+
+typedef struct {
+	unsigned long t0;
+	int stopped;
+} PSYNC;
+
+static int photo_progress(void *ud, int done, int total, const char *name)
+{
+	PSYNC *p = ud;
+	char l1[60], l2[60];
+	unsigned long el = pf_ms() - p->t0;
+	if (done >= total)
+		str_copy(l1, "Done.", sizeof(l1));
+	else if (name)
+		snprintf(l1, sizeof(l1), "%d of %d: %s", done + 1, total, name[0] ? name : "No Name");
+	else
+		snprintf(l1, sizeof(l1), "%d of %d: fetching cards...", done + 1, total);
+	/* the time left, from how long each has taken so far */
+	if (done >= total) {
+		l2[0] = 0;
+	} else if (done < 2 || el < 4000UL) {
+		str_copy(l2, "Working out the time left...", sizeof(l2));
+	} else {
+		unsigned long left = el / (unsigned long)done * (unsigned long)(total - done) / 1000UL;
+		if (left >= 5400UL)
+			snprintf(l2, sizeof(l2), "About %lu hours left", (left + 1800UL) / 3600UL);
+		else if (left >= 90UL)
+			snprintf(l2, sizeof(l2), "About %lu minutes left", (left + 30UL) / 60UL);
+		else if (left >= 45UL)
+			str_copy(l2, "About a minute left", sizeof(l2));
+		else
+			str_copy(l2, "Less than a minute left", sizeof(l2));
+	}
+	if (!prog_update(done, total, l1, l2)) {
+		p->stopped = 1;
+		return 0;
+	}
+	return 1;
+}
+
+/* every photo fetched and made now, rather than as each card is opened */
+void cmd_sync_photos(void)
+{
+	PSYNC p;
+	int failed = 0, made;
+	if (!npeople)
+		return;
+	if (opt.offline &&
+	    alert(1, "[2][EContact is working offline: only the photos already on this Atari are made.][Go on|Cancel]") != 1)
+		return;
+	memset(&p, 0, sizeof(p));
+	p.t0 = pf_ms();
+	prog_open("Sync Contact Photos");
+	made = photo_sync_all(photo_progress, &p, &failed);
+	prog_close();
+	http_close_all();
+	conn_log_flush();
+	after_change();
+	card_photo_recheck();
+	if (made < 0)
+		alert(1, "[1][The photos couldn't all be fetched: %s|What is done is kept: choose Sync Contact Photos again to go on.][ OK ]",
+		      ab_err);
+	else if (p.stopped)
+		alert(1, "[1][Stopped: %d photo%s made. What is done is kept: choose Sync Contact Photos again to go on.][ OK ]",
+		      made, made == 1 ? "" : "s");
+	else if (!made && !failed)
+		alert(1, "[1][Every contact's photo is here already.][ OK ]");
+	else if (failed)
+		alert(1, "[1][%d photo%s made. %d couldn't be (not JPEG pictures, or damaged).][ OK ]", made,
+		      made == 1 ? "" : "s", failed);
+	else
+		alert(1, "[1][%d photo%s made.][ OK ]", made, made == 1 ? "" : "s");
+	updated_status();
+}
+
 void cmd_menu(short x, short y)
 {
-	enum { M_ADD, M_NEW, M_GROUP, M_S1, M_IMP, M_EXP, M_S2, M_SIDE, M_KBD, M_S5,
+	enum { M_ADD, M_NEW, M_GROUP, M_S1, M_IMP, M_EXP, M_PHOTOS, M_S2, M_SIDE, M_KBD, M_S5,
 	       M_OFFL, M_FALC, M_LOG, M_S3, M_SET, M_FONT, M_KEYS, M_ABOUT, M_S4, M_QUIT, M_N };
 	const char *items[M_N];
 	short k, n = is_acc ? M_S4 : M_N;
@@ -489,6 +567,7 @@ void cmd_menu(short x, short y)
 	items[M_S1] = "-";
 	items[M_IMP] = "  Import vCards...";
 	items[M_EXP] = "  Export vCards...";
+	items[M_PHOTOS] = "  Sync Contact Photos...";
 	items[M_S2] = "-";
 	items[M_SIDE] = opt.sidebar ? "\x08 Groups               ^S" : "  Groups               ^S";
 	items[M_KBD] = hebrew_kbd ? "\x08 Hebrew keyboard     F10" : "  Hebrew keyboard     F10";
@@ -510,6 +589,7 @@ void cmd_menu(short x, short y)
 	case M_GROUP: cmd_new_group(-1); break;
 	case M_IMP: cmd_import(src_kind == SRC_BOOK ? src_idx : -1); break;
 	case M_EXP: cmd_export(); break;
+	case M_PHOTOS: cmd_sync_photos(); break;
 	case M_SIDE:
 		opt.sidebar = !opt.sidebar;
 		settings_later();
@@ -628,6 +708,18 @@ static void locate_folder(void)
 	pf_mkdir(workdir);
 }
 
+/* how much of a server's answer to ask for at a time: an eighth of the
+   memory (an answer is in memory twice while it is read, with the rest) */
+static void answer_budget(long heap)
+{
+	long b = heap / 8;
+	if (b < 24L * 1024)
+		b = 24L * 1024;
+	if (b > 400L * 1024)
+		b = 400L * 1024;
+	carddav_budget = b;
+}
+
 /* an accessory takes its memory once, now: later it would belong to
    whichever program is in front. HEAPKB=n in ECONTACT.INF overrides */
 static void acc_heap(void)
@@ -672,8 +764,10 @@ static void acc_heap(void)
 	}
 	if ((long)p == -32 || (long)p <= 0)
 		p = Malloc(want);
-	if ((long)p > 0)
+	if ((long)p > 0) {
 		heap_add(p, (size_t)want);
+		answer_budget(want);
+	}
 }
 
 static int settings_ready;
@@ -814,10 +908,13 @@ int main(void)
 	find_workdir();
 	st_ram_init();
 	dlg_after = win_frame_refresh;
-	if (is_acc)
+	if (is_acc) {
 		acc_heap();
-	else
+	} else {
+		long st = (long)Malloc(-1L), tt = (long)Mxalloc(-1L, 1);
+		answer_budget(tt > st ? tt : st);
 		open_window();
+	}
 
 	while (!quit_now) {
 		short flags = MU_MESAG | MU_TIMER, which;

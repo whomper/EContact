@@ -20,3 +20,12 @@
   per-pixel loops (photo.c, draw.c's draw_photo).
 - The photo cache's rules (photo.h) are tested by `make itest`: a change to
   them needs the tests to say so.
+- Syncing fetches cards without their photos (abook.c, CardDAV partial
+  retrieval); `tests/host/partialproxy.py` plays a server that does it,
+  since Radicale doesn't. A card kept in part (RESOURCE.partial) must be
+  fetched whole before anything writes it back: go through contact_text(),
+  never contact_raw(), when changing a card. The cache's photo stand-in
+  (`X-ECONTACT-PHOTO`) must never reach a server or a file.
+- Anything that reads the list again frees the CONTACTs (people_serial
+  counts up): fetching a card whole for its photo does, so the UI calls
+  after_change() and finds the chosen one again by UID.

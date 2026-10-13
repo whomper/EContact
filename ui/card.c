@@ -65,6 +65,7 @@ void card_photo_tick(void)
 	CONTACT *c;
 	PHOTOIMG *img;
 	int how, r, quick;
+	unsigned long serial = people_serial;
 	if (!want || pf_ms() - want_at < 250UL)
 		return;
 	want = 0;
@@ -84,6 +85,16 @@ void card_photo_tick(void)
 	if (!quick) {
 		busy(0);
 		status_updated();
+	}
+	if (people_serial != serial) {
+		/* the card was fetched whole for its photo: the list was read
+		   again (c is gone), and the card has its photo's key now */
+		after_change();
+		c = sel_contact();
+		if (c) {
+			tried_key = c->photo_key;
+			tried_book = c->book;
+		}
 	}
 	if (r == PH_OK) {
 		cur = *img;

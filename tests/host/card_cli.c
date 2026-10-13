@@ -27,6 +27,9 @@
  *   card-cli DIR photo-ppm NAME FILE          the picture as a PPM file, to look at
  *   card-cli DIR photo-file NAME              its cache file, and whether it is there
  *   card-cli DIR prune                        pictures of contacts gone or changed out
+ *   card-cli DIR cache NAME                   how the cache has it: part or whole, the photo
+ *   card-cli DIR photo-sync [STOP]            Sync Contact Photos (STOP: cancel after that many)
+ * CARD_BUDGET=bytes sets carddav_budget (the answer size asked for at a time).
  * BOOK is an address book's name; names are UTF-8 on the command line
  * and in the output.
  */
@@ -35,6 +38,7 @@
 #include <string.h>
 #include "abook.h"
 #include "photo.h"
+#include "carddav.h"
 #include "charset.h"
 #include "conn.h"
 #include "tls.h"
@@ -188,6 +192,23 @@ static int set_field(CONTACT *c, const char *field, const char *value)
 	return r != 0;
 }
 
+static int stop_after = -1;
+
+static int sync_cb(void *ud, int done, int total, const char *name)
+{
+	(void)ud;
+	if (name && stop_after >= 0 && done >= stop_after)
+		return 0;
+	if (name) {
+		printf("%d/%d ", done + 1, total);
+		out(name);
+		printf("\n");
+	} else if (done < total) {
+		printf("%d/%d fetching\n", done + 1, total);
+	}
+	return 1;
+}
+
 int main(int argc, char **argv)
 {
 	const char *dir, *cmd;
@@ -206,6 +227,8 @@ int main(int argc, char **argv)
 	if (getenv("CARD_LOG")) {
 		str_copy(conn_logfile, getenv("CARD_LOG"), sizeof(conn_logfile));
 	}
+	if (getenv("CARD_BUDGET"))
+		carddav_budget = atol(getenv("CARD_BUDGET"));
 	net_init();
 	book_load_all();
 
@@ -392,6 +415,25 @@ int main(int argc, char **argv)
 			return 1;
 		photo_path(c, path, sizeof(path));
 		printf("%s %s\n", path, pf_exists(path) ? "there" : "missing");
+	} else if (!strcmp(cmd, "cache") && argc >= 4) {
+		/* "partial photo=unknown", "whole photo=1A2B3C4D", "whole photo=none" */
+		CONTACT *c = find(argv[3]);
+		if (!c)
+			return 1;
+		printf("%s photo=", contact_partial(c) ? "partial" : "whole");
+		if (!c->photo_key)
+			printf("none\n");
+		else if (c->photo_key == VC_KEY_UNKNOWN)
+			printf("unknown\n");
+		else
+			printf("%08lX\n", c->photo_key);
+	} else if (!strcmp(cmd, "photo-sync")) {
+		int failed = 0, made;
+		stop_after = argc >= 4 ? atoi(argv[3]) : -1;
+		made = photo_sync_all(sync_cb, 0, &failed);
+		printf("made %d failed %d\n", made, failed);
+		if (made < 0)
+			fprintf(stderr, "photo-sync: %s\n", ab_err);
 	} else if (!strcmp(cmd, "prune")) {
 		printf("%d removed\n", photo_prune());
 	} else if (!strcmp(cmd, "people")) {

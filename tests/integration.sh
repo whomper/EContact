@@ -243,6 +243,151 @@ PY
   R=$($CLI "$D" prune)
   expect "pruned" "1 removed" "$R"
   if [ -e "$F" ]; then bad "the picture file is still there"; else ok "the picture file is gone"; fi
+
+  echo "photos left for later: cards synced without them (partial retrieval)"
+  PPORT=$((PORT + 6))
+  python3 tests/host/partialproxy.py "$PPORT" "$BASE" 2> "$W/proxy.log" &
+  PIDS+=($!)
+  RPORT=$((PORT + 8))
+  python3 tests/host/partialproxy.py "$RPORT" "$BASE" --refuse 2> "$W/refuse.log" &
+  PIDS+=($!)
+  for i in $(seq 50); do curl -s -o /dev/null "http://127.0.0.1:$PPORT/" && curl -s -o /dev/null "http://127.0.0.1:$RPORT/" && break; sleep 0.2; done
+  for n in 1 2 3 4 5 6; do
+    putcard "p$n.vcf" "P-$n" "Many$n" "PHOTO;ENCODING=b;TYPE=JPEG:$(b64 "$W/q.jpg")" "EMAIL:many$n@example.org\r\n"
+  done
+  putcard social.vcf SOC-1 Social "PHOTO;ENCODING=b;TYPE=JPEG:$(b64 "$W/blue.jpg")" \
+    "X-SOCIALPROFILE;TYPE=twitter:https://twitter.com/pat\r\nIMPP;X-SERVICE-TYPE=Skype:skype:pat.social\r\n"
+  P=$W/partial
+  $CLI "$P" carddav Part "http://127.0.0.1:$PPORT/" alice wonderland
+  expect "asked without photos" "REPORT partial" "$(tr -d '\0' < "$W/proxy.log")"
+  absent "and nothing whole" "REPORT whole" "$(tr -d '\0' < "$W/proxy.log")"
+  R=$($CLI "$P" cache "Pat Many1")
+  expect "kept in part, the photo still to come" "partial photo=unknown" "$R"
+  R=$($CLI "$P" list)
+  expect "the card is all there to see" "Pat Many1 | many1@example.org" "$R"
+  ID=$(sed -n 's/^ID=//p' "$P/ECONTACT.INF" | tr -d '\r' | head -1)
+  DAT=$P/CACHE/BOOK$(printf %04d "$ID").DAT
+  PHO=${DAT%.DAT}.PHO
+  SIZE=$(stat -c %s "$DAT")
+  if [ "$SIZE" -lt 6000 ]; then ok "the cache is small ($SIZE bytes)"; else bad "the cache is $SIZE bytes"; fi
+  if [ -e "$PHO" ]; then bad "a photo file already"; else ok "no photos kept yet"; fi
+  R=$($CLI "$P" photo "Pat Many1" offline)
+  expect "offline: needs the network" "needs-net" "$R"
+  : > "$W/proxy.log"
+  R=$($CLI "$P" photo "Pat Many1")
+  expect "opened: the whole card fetched" "ok fetched" "$R"
+  expect "and its photo shown" "TL=red TR=green BL=blue BR=yellow" "$R"
+  expect "one card, whole" "REPORT whole 1 hrefs" "$(tr -d '\0' < "$W/proxy.log")"
+  R=$($CLI "$P" cache "Pat Many1")
+  expect "now kept whole, its photo apart" "whole photo=" "$R"
+  if [ -s "$PHO" ]; then ok "the photo file"; else bad "no photo file"; fi
+  R=$($CLI "$P" photo "Pat Many1")
+  expect "then from the cache" "ok cache" "$R"
+  # a change to a card kept in part: fetched whole first, nothing lost
+  $CLI "$P" set "Pat Social" title "Influencer"
+  R=$("${CURL[@]}" "$BASE/alice/friends/social.vcf")
+  expect "the change saved" "TITLE:Influencer" "$R"
+  expect "the lines EContact doesn't show kept" "X-SOCIALPROFILE;TYPE=twitter:https://twitter.com/pat" "$R"
+  expect "and the other one" "IMPP;X-SERVICE-TYPE=Skype:skype:pat.social" "$R"
+  expect "and the photo" "PHOTO;ENCODING=b;TYPE=JPEG:/9j/" "$R"
+  absent "the stand-in never leaves" "X-ECONTACT-PHOTO" "$R"
+  R=$($CLI "$P" cache "Pat Social")
+  expect "kept whole after" "whole photo=" "$R"
+  # Sync Contact Photos: the rest, and stopped half way it goes on later
+  R=$($CLI "$P" photo-sync 2)
+  expect "stopped after two" "made 2" "$R"
+  R=$($CLI "$P" photo-sync)
+  expect "the rest, another time" "made 4 failed 0" "$R"
+  expect "by name, as it goes" "Pat Many6" "$R"
+  R=$($CLI "$P" photo-sync)
+  expect "then nothing left to do" "made 0 failed 0" "$R"
+  R=$($CLI "$P" cache "Pat Many4")
+  expect "all whole now" "whole photo=" "$R"
+  R=$($CLI "$P" photo "Pat Social" offline)
+  expect "and its picture made" "ok cache TL=blue" "$R"
+  $CLI "$P" export "$W/part.vcf"
+  R=$(cat "$W/part.vcf")
+  expect "exported with the photos" "PHOTO;ENCODING=b;TYPE=JPEG:/9j/" "$R"
+  absent "and without the stand-in" "X-ECONTACT-PHOTO" "$R"
+  # a card we have whole, changed elsewhere: fetched whole, photo and all
+  : > "$W/proxy.log"
+  putcard p2.vcf P-2 Many2 "PHOTO;ENCODING=b;TYPE=JPEG:$(b64 "$W/blue.jpg")" "EMAIL:many2@example.org\r\n"
+  $CLI "$P" sync
+  expect "a changed card fetched whole" "REPORT whole 1 hrefs" "$(tr -d '\0' < "$W/proxy.log")"
+  R=$($CLI "$P" photo "Pat Many2" offline)
+  expect "its new photo, without asking again" "ok decoded TL=blue" "$R"
+
+  echo "a server that refuses partial retrieval; little memory"
+  noise() { python3 -c "
+from PIL import Image; import os, sys
+s = int(sys.argv[2]); Image.frombytes('RGB', (s, s), os.urandom(s * s * 3)).save(sys.argv[1], 'JPEG', quality=90)" "$1" "$2"; }
+  noise "$W/big.jpg" 160
+  noise "$W/huge.jpg" 300
+  putcard big.vcf BIG-1 Big "PHOTO;ENCODING=b;TYPE=JPEG:$(b64 "$W/big.jpg")"
+  putcard big2.vcf BIG-2 Bigger "PHOTO;ENCODING=b;TYPE=JPEG:$(b64 "$W/big.jpg")"
+  putcard huge.vcf HUGE-1 Huge "PHOTO;ENCODING=b;TYPE=JPEG:$(b64 "$W/huge.jpg")"
+  Q=$W/refused
+  CARD_BUDGET=20000 $CLI "$Q" carddav Refused "http://127.0.0.1:$RPORT/" alice wonderland
+  R=$($CLI "$Q" cache "Pat Many3")
+  expect "the whole cards instead" "whole photo=" "$R"
+  N=$(tr -d '\0' < "$W/refuse.log" | grep -c "REPORT whole" || true)
+  if [ "$N" -ge 3 ]; then ok "a few at a time ($N answers)"; else bad "only $N answers"; fi
+  R=$($CLI "$Q" list)
+  expect "the big ones too" "Pat Bigger" "$R"
+  absent "one too big for the memory left for next time" "Pat Huge" "$R"
+  for n in 1 2 3 4 5 6; do expect "Pat Many$n there" "Pat Many$n | many$n@example.org" "$R"; done
+  R=$($CLI "$Q" photo "Pat Many5" offline)
+  expect "its photo from the cache files" "ok decoded TL=red" "$R"
+
+  echo "a server that sends the whole card but not the photo"
+  BPORT=$((PORT + 10))
+  python3 tests/host/partialproxy.py "$BPORT" "$BASE" --blank-photos 2> "$W/blank.log" &
+  PIDS+=($!)
+  for i in $(seq 50); do curl -s -o /dev/null "http://127.0.0.1:$BPORT/" && break; sleep 0.2; done
+  B=$W/blank
+  $CLI "$B" carddav Blank "http://127.0.0.1:$BPORT/" alice wonderland
+  R=$($CLI "$B" cache "Pat Many4")
+  expect "kept as in part all the same" "partial photo=unknown" "$R"
+  $CLI "$B" set "Pat Many4" title "Kept"
+  R=$("${CURL[@]}" "$BASE/alice/friends/p4.vcf")
+  expect "changed" "TITLE:Kept" "$R"
+  expect "its photo still on the server" "PHOTO;ENCODING=b;TYPE=JPEG:/9j/" "$R"
+
+  echo "EContact 1.9's cache, converted"
+  # written as 1.9 did: the photos in the cards, three fields a record
+  python3 - "$DAT" <<'PY'
+import re, sys
+dat = sys.argv[1]
+pho = dat[:-4] + ".PHO"
+d = open(dat, "rb").read()
+p = open(pho, "rb").read()
+out, i = [b"CARDCACHE 1\n"], d.index(b"\n") + 1
+while i < len(d):
+    j = d.index(b"\n", i)
+    head = d[i:j].decode()
+    i = j + 1
+    if head.startswith("X "):
+        out.append((head + "\n").encode())
+        continue
+    etag, href, n, flag, poff, plen = head[2:].split("\t")
+    card = d[i:i + int(n)]
+    i += int(n) + 1
+    if int(plen):
+        card = re.sub(rb"X-ECONTACT-PHOTO:[0-9A-F]+\r\n", lambda m: p[int(poff):int(poff) + int(plen)], card)
+    out.append(("R %s\t%s\t%d\n" % (etag, href, len(card))).encode() + card + b"\n")
+open(dat, "wb").write(b"".join(out))
+import os
+os.remove(pho)
+PY
+  expect "the old kind" "CARDCACHE 1" "$(head -1 "$DAT")"
+  R=$($CLI "$P" list)
+  expect "read" "Pat Many1 | many1@example.org" "$R"
+  expect "and written anew" "CARDCACHE 2" "$(head -1 "$DAT")"
+  if [ -s "$PHO" ]; then ok "the photos apart"; else bad "no photo file after converting"; fi
+  R=$($CLI "$P" photo "Pat Many1" offline)
+  expect "the pictures made before still good" "ok cache" "$R"
+  R=$($CLI "$P" cache "Pat Many6")
+  expect "the cards as they were" "whole photo=" "$R"
 else
   echo "  (skipped: needs Pillow)"
 fi

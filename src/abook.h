@@ -17,13 +17,17 @@ enum { AK_CARDDAV, AK_LOCAL };
 
 typedef struct {
 	char *href, *etag;	/* where the server keeps it */
-	long off, len;		/* its vCard in the cache file */
-	short dead;		/* replaced or deleted by a record further on in the file */
+	long off, len;		/* its vCard in the cache file (the photo replaced by a stand-in) */
+	long poff, plen;	/* its PHOTO line in the photo file; plen 0: none there */
+	unsigned short hh;	/* a hash of href, to find it quickly */
+	char partial;		/* fetched without its photo and the lines EContact doesn't show */
+	char dead;		/* replaced or deleted by a record further on in the file */
 } RESOURCE;
 
 typedef struct {
-	short id;		/* cache file BOOKnnnn.DAT */
+	short id;		/* cache files BOOKnnnn.DAT and .PHO */
 	short acct;
+	short ver;		/* of its cache file, as read */
 	char name[64];		/* Atari text */
 	char url[400];
 	char ctag[100];
@@ -84,6 +88,9 @@ extern int store_plain_passwords;
 /* every contact and group card of every book, sorted by sortkey */
 extern CONTACT **people;
 extern int npeople;
+/* counts up whenever people is read again: CONTACT pointers kept from
+   before are gone */
+extern unsigned long people_serial;
 
 /* start-up: the settings from inf (NULL: dir\ECONTACT.INF); the rest of
    EContact's files in dir */
@@ -112,13 +119,23 @@ int  sync_all(int force);
 int  sync_book(BOOK *b, int force);
 
 /* ---- contacts ---- */
-/* the contact's vCard text from the cache (malloc'ed), or NULL */
+/* the contact's vCard text from the cache (malloc'ed), or NULL. A card
+   fetched in part comes without its photo (and what EContact doesn't show) */
 char *contact_raw(const CONTACT *c, long *len);
+int  contact_partial(const CONTACT *c);
+const char *contact_href(const CONTACT *c);
+/* a card fetched in part, fetched whole from its server and kept. c goes
+   (the list is read again): the new one comes back, NULL with ab_err */
+CONTACT *contact_complete(const CONTACT *c);
+/* the cards of b at these hrefs fetched whole (photo_sync_all, a few at
+   a time); how many came, -1 and ab_err if none could */
+int  book_fetch_whole(BOOK *b, char **hrefs, int n);
 /* save e as a new contact in book (old NULL) or over old; the saved
    contact comes back (the list was read again), NULL with ab_err */
 CONTACT *contact_save(const CEDIT *e, CONTACT *old, int book);
 int  contact_delete(CONTACT *c);
 CONTACT *contact_by_uid(const char *uid, int book);	/* book -1: any */
+CONTACT *contact_by_href(int book, const char *href);	/* found again after the list was read anew */
 /* everything matching text: names, company, emails, phones, notes */
 int  contact_matches(const CONTACT *c, const char *text);
 /* the contacts of a vCard file into book; how many in *count */
