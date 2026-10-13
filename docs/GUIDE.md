@@ -1,0 +1,199 @@
+# EContact - user guide
+
+## Installing
+
+EContact is a desk accessory: TOS loads it at boot from the root of the
+boot drive, and it waits in the Desk menu as **Contacts** until you
+choose it.
+
+| Your Atari        | Copy to `C:\`    | Connects                        |
+|-------------------|------------------|---------------------------------|
+| Falcon, TT        | `ECONTACT.ACC`   | by itself (Falcon mode) or through the Pi |
+| ST, STE, Mega ST  | `ECONTST.ACC`    | through the Raspberry Pi gateway |
+
+The settings are in `ECONTACT.INF` in the root of the boot drive, where
+the accessory, EMail and ECal can always find them. Everything else is in
+EContact's folder, which can be anywhere: `FOLDER=` in `ECONTACT.INF`
+says where.
+
+```
+C:\ECONTACT.ACC
+C:\ECONTACT.INF           settings, accounts, address books; FOLDER= names the folder
+C:\ECONTACT\              EContact's folder (or another one):
+    ECONTACT.PRG          the program, if you use it
+    ECONTACT.KEY          the key the passwords in ECONTACT.INF are encrypted with
+    CACHE\                a copy of every address book (BOOKnnnn.DAT)
+    CONTACTS.TXT          everyone's addresses and the groups, for EMail and ECal
+    ECONTACT.FNT          which GDOS fonts are fixed-width (made by Font...)
+    CACERT.PEM            Falcon mode: root certificates (copy them here)
+    ROOTS.DAT             Falcon mode: the same, decoded ahead of time
+    ECONTACT.LOG          with Write a log on
+```
+
+- **`ECONTACT.PRG`** is the same program, to start from the desktop; it
+  ends when its window closes. It uses the folder it was started from and
+  writes that into `FOLDER=`, so starting it once from your folder is all
+  the accessory needs to find it.
+- **The accessory** reads `FOLDER=` when it starts. If the folder isn't
+  there, the first time you open Contacts it asks: **Locate...** opens the
+  file selector (pick any file in the folder), or use `C:\ECONTACT`.
+
+**Memory.** The accessory takes its memory once, at boot: 1.5 MB on a
+Falcon or TT, 320 KB on an ST (several hundred contacts), never more than
+half of what's free; 4 MB from TT/Fast RAM where there is some.
+`HEAPKB=` in ECONTACT.INF sets another amount, in kilobytes.
+
+## Accounts
+
+The menu (the button at the top right) > **Add account...**:
+
+- **iCloud**: your Apple ID and an **app-specific password** (make one at
+  appleid.apple.com > Sign-In and Security > App-Specific Passwords; your
+  own password doesn't work for other programs). EContact finds your
+  address book at contacts.icloud.com.
+- **Other CardDAV account**: the server's address (for instance
+  `https://carddav.fastmail.com/`, `https://cloud.example.org/remote.php/dav`,
+  or the address of one address book), user name and password. Google
+  wants OAuth, which EContact can't do: export your contacts as a .vcf
+  file at contacts.google.com and import it into an On My Atari book.
+- **On My Atari**: an address book kept only on this computer.
+
+Servers want a secure connection: in **Settings > Connection** either
+type the address of the Raspberry Pi gateway (ECal's; the same address
+and port as in ECal) or, on a Falcon or TT, turn on **Falcon mode**.
+
+Right-click an account's name on the left to refresh it, change its
+settings or delete it from this Atari (nothing is deleted on the server).
+
+## The window
+
+![The window](window.png)
+
+- **On the left**: All Contacts, then each account with its address books
+  ("All iCloud") and their groups. Click one to see those people. The
+  button at the top left (or ^S) hides the list.
+- **In the middle**: the people, sorted by last name under letter
+  headings. Click one to see their card; the arrow keys move up and down,
+  Clr/Home goes to the first (Shift: the last).
+- **Search**: just type. The list keeps those whose name, company, email,
+  phone number, address or note has what you typed ("0170 123" finds
+  "0170 1234567"); Backspace takes a letter back, Esc ends the search.
+- **On the right**: the card. Click a phone, address, birthday or note
+  to copy it to the clipboard; click an email to copy it or write to it
+  in EMail (a double-click writes at once). **mail** under the name writes
+  to the person (asking which address when there are several).
+- **At the bottom of the card**: **+** for a new contact and **Edit**.
+- The info line says how many contacts are shown and when they were last
+  updated.
+
+![A group](group.png) ![Searching](search.png)
+
+## Changing a card
+
+**Edit** (or a double-click, Return, ^E) opens the card's sections:
+
+- **Name**: first, last, middle, nickname, prefix ("Dr."), suffix,
+  company, department, job title; **Show as company** makes the company
+  the card's name, as on the Mac.
+- **Phone**, **Email**: six of each, each with its label: mobile, iPhone,
+  home, work, main, home fax, work fax, pager, other, or **Custom...** for
+  your own word.
+- **Address**: two addresses (a third one from the Mac is kept as it is).
+- **More**: the birthday as day.month.year ("17.05.1975", or "17.05"
+  without the year), web pages, and the note.
+
+**Done** saves to the server at once; **Delete** deletes the card (on the
+server too). What EContact doesn't show (the photo, related names,
+social profiles, instant messaging, the iPhone's own fields) stays on the
+card as it was. If the card was changed on another device in the
+meantime, the server refuses the save: refresh (^R) and edit again.
+
+Text fields take Hebrew: F10 switches to the Israeli keyboard, and a
+Hebrew name or note is shown right to left.
+
+## Groups
+
+![The contact menu](context-menu.png)
+
+- **New group**: the menu > New group (^G), or right-click an address book.
+- **Add to Group...**: right-click a contact; the list ticks the groups it
+  is in, and choosing a ticked one takes it out. A new contact made while
+  a group is shown goes into that group.
+- **Remove from (group)**: right-click a contact while the group is shown.
+- Right-click a group to **Send Email to Group** (everyone in it, in
+  EMail's To: line), export it, rename it (or double-click it) or delete
+  it (the people stay).
+
+iCloud keeps a group as a card of its own listing its members; Nextcloud
+and some others put the group's name in each member's categories. Both
+show and work the same way here; new groups are made as group cards.
+
+## Import and export
+
+- **Import vCards...** (the menu, or right-click an address book): a .vcf
+  file with one or many cards, from a phone, Outlook, Google or another
+  Mac. Old 2.1 cards are written as 3.0, which iCloud wants.
+- **Export vCards...**: the chosen card, or all the list shows (an
+  address book, a group, or what a search found).
+
+## My Card
+
+Right-click your own card > **Make This My Card**. The list marks it
+"me", and the window opens on it.
+
+## Settings
+
+- **General**: sort by last or first name, show names as "First Last" or
+  "Last, First", which address book new contacts go into, where the font
+  has its Hebrew letters, and starting with the Hebrew keyboard.
+- **Refresh**: refresh all every 15 minutes, hour or day, or only by hand
+  (^R, the Refresh button); and when the window opens.
+- **Connection**: Falcon mode and the DSP, the Pi gateway, and the log.
+
+The menu also has **Work offline** (no connections at all: everything
+shown comes from the copy on disk; a server's address book can't be
+changed until you're online again), **Font...**,
+**Keys...** (Help) and **About**.
+
+## With EMail and ECal
+
+EContact writes `CONTACTS.TXT` in its folder whenever the contacts change:
+every email address with its name, and the groups. With the patches in
+`integration/` applied:
+
+- **EMail**: in a new message, ^B (Message > Address book) lists
+  EContact's people and groups, then the addresses EMail remembers. Type
+  the beginning of a name on the To:, Cc: or Bcc: line first ("gr") and
+  ^B shows only those; with one match it is filled in at once. A group
+  puts all its members on the line.
+- **ECal**: an event's **Invitees** line takes addresses; **Add...** picks
+  people or a group from EContact, completing a name begun on the line.
+  The invitations are written as the event's attendees, with you (the
+  account's Apple ID or email user name) as organizer, and iCloud sends
+  them. An invitation you received shows who it is from.
+- **mail** in EContact opens a new message in EMail when EMail is
+  running; when it isn't, the address goes to the clipboard.
+- **Contacts...** in EMail's File menu and ECal's menu opens EContact's
+  window.
+
+See [INTEGRATION.md](INTEGRATION.md) for how the programs talk.
+
+## Keys
+
+| Key | Does |
+|-----|------|
+| ↑ ↓ | the contact above, below |
+| Clr/Home, Shift+Clr/Home | the first, the last |
+| Return, ^E | edit the card |
+| Delete | delete the card |
+| ^N | a new contact |
+| ^G | a new group |
+| typing | search |
+| Esc, ^F | a new search |
+| ^R, Shift+^R | refresh, everything again |
+| ^S | the groups on the left |
+| F10 | Hebrew keyboard |
+| ^W, ^Q | close the window (^Q also quits the program) |
+| Help | the keys |
+| Double-click | edit; on an email: write to it |
+| Right-click | more choices |
