@@ -28,6 +28,7 @@
 #include "bidi.h"
 #include "../src/version.h"
 #include "crash.h"
+#include "help.h"
 #include "../src/photo.h"
 #include "../src/carddav.h"
 
@@ -42,7 +43,6 @@ static char workdir[160];	/* EContact's folder: address books, keys, certificate
 static char inf_file[40];	/* ECONTACT.INF, in the root of the boot drive */
 static unsigned long last_refresh, last_minute;
 
-#define VA_START 0x4711		/* the AV protocol: "open this" */
 #define EC_OPEN  0x4543		/* 'EC': EMail or ECal asks for the window */
 
 /* ---------------- small things ---------------- */
@@ -504,72 +504,26 @@ void cmd_mail_to(const CONTACT *c, const char *email)
 	cmd_mail(line);
 }
 
-/* Memory another program reads (a VA_START's string), kept while we run.
-   An accessory under plain TOS has no memory of its own after the start:
-   what Malloc or Mxalloc give it then belongs to the program running at
-   the moment and goes when that one ends. Nothing is protected there, so
-   a static buffer does. Under MiNT or MagiC the accessory is a process
-   like the others: global memory, which memory protection lets others
-   read (Mxalloc mode 0x2B; 0x20 alone without 0x08 isn't heeded). */
-static char *shared_buf(char *local, long size)
-{
-	long m;
-	if (is_acc && !get_cookie(0x4D694E54L) && !get_cookie(0x4D616758L))	/* MiNT, MagX */
-		return local;
-	m = (long)Mxalloc(size, 0x2B);	/* global, TT RAM preferred */
-	return m > 0 ? (char *)m : local;
-}
-
-/* The user guide in ST-Guide, when it runs and ECONTACT.HYP is in
-   EContact's folder: a VA_START with the file's path, which ST-Guide
-   opens at its main page. 0 when it can't, and the Help key shows the
-   keys as before. */
+/* The user guide, ECONTACT.HYP, in EHypView or ST-Guide (common/ui/help.c,
+   which keeps the name in memory the viewer may read). 0 when no viewer
+   runs, and the Help key shows the keys as before. */
 static int open_help(void)
 {
-	static char local[220];
-	static char *path;
-	short id = appl_find("ST-GUIDE"), msg[8];
-	if (id < 0 || !opt.workdir[0])
-		return 0;
-	if (!path)
-		path = shared_buf(local, sizeof(local));
-	path_join(path, sizeof(local), opt.workdir, "ECONTACT.HYP");
-	if (!pf_exists(path))
-		return 0;
-	memset(msg, 0, sizeof(msg));
-	msg[0] = VA_START;
-	msg[1] = ap_id;
-	msg[3] = (short)((unsigned long)path >> 16);
-	msg[4] = (short)(unsigned long)path;
-	appl_write(id, 16, msg);
-	return 1;
+	return help_show(opt.workdir, "ECONTACT.HYP", 0);
 }
 
 /* Writing to someone: EMail, when it runs, gets "mailto:..." with VA_START
-   and opens a new message to them. The string must stay where it is until
-   EMail has read it, and EMail must be allowed to read it (shared_buf). */
+   and opens a new message to them (av_send, common/ui/help.c: the string
+   stays where EMail may read it). */
 void cmd_mail(const char *addr)
 {
-	static char local[1024];
-	static char *buf;
-	short id = appl_find("EMAIL   "), msg[8];
 	char line[1024];
 	snprintf(line, sizeof(line), "mailto:%s", addr);
-	if (id < 0) {
+	if (!av_send("EMAIL   ", line)) {
 		cmd_copy(addr);
 		alert(1, "[1][EMail isn't running, so the address|is on the clipboard: paste it in|EMail's To: field (^V).][ OK ]");
 		return;
 	}
-	if (!buf)
-		buf = shared_buf(local, sizeof(local));
-	str_copy(buf, line, sizeof(local));
-	memset(msg, 0, sizeof(msg));
-	msg[0] = VA_START;
-	msg[1] = ap_id;
-	msg[2] = 0;
-	msg[3] = (short)((unsigned long)buf >> 16);
-	msg[4] = (short)(unsigned long)buf;
-	appl_write(id, 16, msg);
 	status("Sent to EMail.");
 }
 
@@ -1097,6 +1051,7 @@ int main(void)
 	crash_install(workdir, "EContact", app_version);	/* the program only */
 	crash_cleanup = crash_quit;
 	crash_report = conn_log_append;	/* the report in ECONTACT.LOG too */
+	help_init();			/* memory the help viewer and EMail may read */
 	st_ram_init();
 	dlg_after = win_frame_refresh;
 	if (is_acc) {
