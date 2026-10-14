@@ -29,7 +29,7 @@ absent() {
   if grep -qF -- "$2" <<<"$3"; then bad "$1: '$2' still there"; else ok "$1"; fi
 }
 
-echo "alice:wonderland" > "$W/users"
+printf "alice:wonderland\nbob:builder\n" > "$W/users"
 python3 -m radicale --server-hosts "127.0.0.1:$PORT" --storage-filesystem-folder "$W/store" \
   --auth-type htpasswd --auth-htpasswd-filename "$W/users" --auth-htpasswd-encryption plain \
   > "$W/radicale.log" 2>&1 &
@@ -492,6 +492,55 @@ head -c 5000 "$IDX" > "$IDX.x" && mv "$IDX.x" "$IDX"
 R=$($CLI "$M" list | md5sum)
 if [ "$R" = "$BEFORE" ]; then ok "cut short: the same"; else bad "cut cache changed the list"; fi
 if [ "$(stat -c %s "$IDX")" -gt 1000 ]; then ok "and written again"; else bad "not written again"; fi
+
+echo "the accessory while the program runs (single TOS)"
+# the accessory read the files; ECONTACT.PRG then ran and synced, writing
+# the cache anew; the accessory, opened again, must not copy cards from
+# the old places in the new file, or write its old settings over the new
+BOB=(curl -s -u bob:builder)
+"${BOB[@]}" -X MKCOL "$BASE/bob/acc/" -H "Content-Type: application/xml" --data-binary @- >/dev/null <<XML
+<?xml version="1.0" encoding="utf-8"?>
+<D:mkcol xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav"><D:set><D:prop>
+<D:resourcetype><D:collection/><C:addressbook/></D:resourcetype><D:displayname>Acc</D:displayname>
+</D:prop></D:set></D:mkcol>
+XML
+for n in Aaron Bella Chris Dora; do
+  printf 'BEGIN:VCARD\r\nVERSION:3.0\r\nN:%s;Person;;;\r\nFN:Person %s\r\nEMAIL:%s@example.com\r\nUID:%s\r\nEND:VCARD\r\n' $n $n $n $n |
+    "${BOB[@]}" -X PUT "$BASE/bob/acc/$n.vcf" -H "Content-Type: text/vcard" --data-binary @- >/dev/null
+done
+A=$W/acc
+$CLI "$A" carddav Bob "$BASE/" bob builder >/dev/null
+mkfifo "$W/accfifo"
+$CLI "$A" accessory < "$W/accfifo" > "$W/acc.out" 2>&1 &
+APID=$!
+exec 3>"$W/accfifo"
+for i in $(seq 50); do grep -q waiting "$W/acc.out" && break; sleep 0.1; done
+"${BOB[@]}" -X DELETE "$BASE/bob/acc/Aaron.vcf" >/dev/null
+printf 'BEGIN:VCARD\r\nVERSION:3.0\r\nN:Evans;Eve;;;\r\nFN:Eve Evans\r\nEMAIL:eve@example.com\r\nNOTE:a longer card, so that the file is longer than before\r\nUID:Eve\r\nEND:VCARD\r\n' |
+  "${BOB[@]}" -X PUT "$BASE/bob/acc/Eve.vcf" -H "Content-Type: text/vcard" --data-binary @- >/dev/null
+$CLI "$A" sync >/dev/null
+$CLI "$A" local Kept >/dev/null	# a book the program added: in ECONTACT.INF
+echo go >&3
+exec 3>&-
+wait $APID
+expect "the accessory saw the program's changes" "the files changed: read again" "$(cat "$W/acc.out")"
+R=$($CLI "$A" list)
+for n in Bella Chris Dora; do expect "$n kept" "Person $n | $n@example.com" "$R"; done
+expect "the new card" "Eve Evans | eve@example.com" "$R"
+absent "the deleted card" "Aaron" "$R"
+expect "the program's book kept" "Kept" "$($CLI "$A" books)"
+if ! grep -a "EGIN:VCARD" "$A"/CACHE/BOOK*.DAT | grep -qv "^BEGIN:VCARD"; then
+  ok "the cache's cards whole"; else bad "a card in the cache cut"; fi
+# opened again with nothing changed in between: not read again
+mkfifo "$W/accfifo2"
+$CLI "$A" accessory < "$W/accfifo2" > "$W/acc2.out" 2>&1 &
+APID=$!
+exec 3>"$W/accfifo2"
+for i in $(seq 50); do grep -q waiting "$W/acc2.out" && break; sleep 0.1; done
+echo go >&3
+exec 3>&-
+wait $APID
+expect "nothing changed: kept" "the files as they were" "$(cat "$W/acc2.out")"
 
 echo "On My Atari"
 $CLI "$D" local Notes

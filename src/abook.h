@@ -107,6 +107,8 @@ extern unsigned long people_serial;
    EContact's files in dir */
 void store_init(const char *dir, const char *inf);
 void store_save_settings(void);
+void store_release(void);		/* all of it let go, to be read again */
+unsigned long store_stamp(void);	/* changes when the files do */
 void book_load_all(void);
 /* contacts in the caches that couldn't be read for lack of memory */
 int  contacts_lost(void);

@@ -467,6 +467,43 @@ void acct_delete(int a)
 	naccts--;
 }
 
+/* everything read from ECONTACT.INF and the caches let go, to be read
+   again with store_init and book_load_all: the accessory does it when
+   the program changed the files while it waited */
+void store_release(void)
+{
+	int i;
+	for (i = 0; i < nbooks; i++)
+		book_free(&books[i]);
+	for (i = 0; i < npeople; i++)
+		free(people[i]);
+	npeople = 0;
+	people_serial++;
+	nbooks = naccts = 0;
+	groups_collect();
+	store_lost_passwords = store_plain_passwords = 0;
+}
+
+/* the files as they are now: ECONTACT.INF, ECONTACT.KEY and the books'
+   caches, their sizes and when they were written */
+unsigned long store_stamp(void)
+{
+	char p[200];
+	unsigned long h = 5381;
+	int i;
+	for (i = -2; i < nbooks; i++) {
+		if (i == -2)
+			str_copy(p, inf_path, sizeof(p));
+		else if (i == -1)
+			path_join(p, sizeof(p), opt.workdir, "ECONTACT.KEY");
+		else
+			cache_path(&books[i], "DAT", p, sizeof(p));
+		h = (h * 33) ^ pf_stamp(p);
+		h = (h * 33) ^ (unsigned long)pf_size(p);
+	}
+	return h;
+}
+
 BOOK *book_add(int acct, const char *name)
 {
 	BOOK *b;

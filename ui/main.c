@@ -36,6 +36,7 @@ extern short _is_acc;		/* crt0.S */
 
 static short menu_id = -1;
 static int data_ready;
+static void files_left(void);
 static char workdir[160];	/* EContact's folder: address books, keys, certificates, log */
 static char inf_file[40];	/* ECONTACT.INF, in the root of the boot drive */
 static unsigned long last_refresh, last_minute;
@@ -84,6 +85,7 @@ void closing_down(int quitting)
 	}
 	status(quitting ? "Closing EContact..." : "Closing the window...");
 	busy(0);
+	files_left();
 }
 
 void status(const char *msg)
@@ -914,9 +916,43 @@ static void load_contacts(void)
 		alert(1, "[1][ECONTACT.KEY is missing or new: type the passwords again (right-click an account).][ OK ]");
 }
 
+/* The accessory's files as it left them. On single TOS its memory
+   outlives its window: ECONTACT.PRG may have run since and changed
+   ECONTACT.INF and the caches, and what the accessory holds would then
+   be written over them (the cards copied from the wrong places). So it
+   reads them all again, as at the first opening. */
+static unsigned long files_stamp;
+static int files_known;
+
+static void files_left(void)
+{
+	if (is_acc && data_ready) {
+		files_stamp = store_stamp();
+		files_known = 1;
+	}
+}
+
+static void files_check(void)
+{
+	static const char m[] = "the files changed since the window closed: reading them again";
+	if (!is_acc || !data_ready || !files_known || store_stamp() == files_stamp)
+		return;
+	files_known = 0;
+	conn_log("EContact", "--", m, (long)(sizeof(m) - 1));
+	http_close_all();
+	store_release();
+	list_invalidate();
+	settings_ready = 0;
+	data_ready = 0;
+	updated_known = 0;
+	find_workdir();			/* FOLDER= may name another folder now */
+}
+
 static void open_window(void)
 {
 	int first = win_h <= 0;
+	if (first)
+		files_check();
 	if (!settings_ready)
 		load_settings();
 	win_open();
@@ -1031,6 +1067,7 @@ int main(void)
 				if (msg[3] == menu_id) {
 					win_h = -1;
 					settings_flush();
+					files_left();
 				}
 				break;
 			case AP_TERM:

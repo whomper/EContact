@@ -35,7 +35,10 @@ C:\ECONTACT\              EContact's folder (or another one):
   started from as EContact's folder and writes that into `FOLDER=`, so
   starting it once from your folder is all it takes for the accessory to
   find it too. The accessory and the program share the settings and the
-  folder: use either, or both (not both at the same moment).
+  folder: use either, or both. Not with both windows open at the same
+  moment (under MultiTOS or MagiC); on plain TOS that can't happen, and
+  when the program has changed the files while the accessory waited in
+  the Desk menu, the accessory reads them all again as it opens.
 - **The accessory** reads `FOLDER=` when it starts. If it's empty, or
   the folder isn't there any more, the first time you open Contacts it
   asks where the folder is: **Locate...** opens the file selector (pick

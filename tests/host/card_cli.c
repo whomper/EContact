@@ -263,6 +263,31 @@ int main(int argc, char **argv)
 			fprintf(stderr, "sync: %s\n", ab_err);
 			ok = 0;
 		}
+	} else if (!strcmp(cmd, "accessory")) {
+		/* the accessory on single TOS: what it read stays in memory
+		   while the program runs (here: until a line comes on stdin);
+		   when its window opens again it reads the files again if they
+		   changed (ui/main.c files_check), then refreshes */
+		char line[16];
+		unsigned long was = store_stamp();
+		printf("waiting\n");
+		fflush(stdout);
+		if (!fgets(line, sizeof(line), stdin)) {
+			ok = 0;
+		} else {
+			if (store_stamp() != was) {
+				printf("the files changed: read again\n");
+				store_release();
+				store_init(dir, 0);
+				book_load_all();
+			} else {
+				printf("the files as they were\n");
+			}
+			if (sync_all(0) < 0) {
+				fprintf(stderr, "sync: %s\n", ab_err);
+				ok = 0;
+			}
+		}
 	} else if (!strcmp(cmd, "books")) {
 		int i;
 		for (i = 0; i < nbooks; i++) {

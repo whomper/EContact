@@ -12,6 +12,12 @@
 - Where the accessory and the program find ECONTACT.INF and the folder
   follows ECal (ui/main.c: find_workdir, move_inf, locate_folder);
   `tests/hatari/placement.py WORK etos512us.img` checks it.
+- The accessory's memory outlives its window: when ECONTACT.INF, the key
+  or a book's cache changed while it was closed (store_stamp), it lets
+  everything go (store_release) and reads it all again (ui/main.c
+  files_check). Anything new kept between openings must be let go there
+  too. `make itest` (card-cli accessory) and
+  `tests/hatari/acc_reread.py WORK etos512us.img` check it.
 - The UI is checked in Hatari: `tests/hatari/docs_shots.py WORK etos512us.img`
   takes the screenshots in docs/ (EmuTOS 512k, sourceforge.net/projects/emutos).
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);

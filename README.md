@@ -272,6 +272,8 @@ GATEWAY=../ECal/gateway/ecalgate.py make itest    # the same through the Pi gate
 tests/hatari/docs_shots.py WORK etos512us.img     # the screenshots, in Hatari
 tests/hatari/placement.py WORK etos512us.img      # where the accessory and the program
                                                   # find their settings and folder
+tests/hatari/acc_reread.py WORK etos512us.img     # the accessory after the program changed
+                                                  # the files: read again
 ```
 
 ## Licence
