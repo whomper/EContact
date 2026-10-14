@@ -188,6 +188,7 @@ def main():
            "@inputenc atarist",
            "@charset atarist",
            "@autorefoff",
+           '@options "+z"',		# and ECONTACT.REF, for ST-Guide's index
            "",
            '@node "Main" "EContact %s"' % version,
            "@{U}%s@{u}" % title, ""]

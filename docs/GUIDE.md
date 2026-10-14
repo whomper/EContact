@@ -33,6 +33,7 @@ C:\ECONTACT\              EContact's folder (or another one):
     ROOTS.DAT             Falcon mode: the same, decoded ahead of time
     ECONTACT.LOG          with Write a log on
     ECONTACT.HYP          this guide, for ST-Guide: the Help key opens it
+    ECONTACT.REF          its pages' names, for ST-Guide's index
 ```
 
 - **`ECONTACT.PRG`** is the same program, to start from the desktop or a

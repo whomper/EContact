@@ -62,10 +62,12 @@ all: $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/ECONTST.ACC $(BIN)/ROOTS.DAT
 
 help: $(BIN)/ECONTACT.HYP
 
-# after the program: its build counts VERSION up
+# after the program: its build counts VERSION up. ECONTACT.REF (the
+# pages' names, for ST-Guide's index) is written with it
 $(BIN)/ECONTACT.HYP: docs/GUIDE.md tools/mkhelp.py VERSION $(BIN)/ECONTACT.ACC | $(OBJDIR)
 	python3 tools/mkhelp.py docs/GUIDE.md VERSION $(OBJDIR)/ECONTACT.STG
 	$(HCP) -q -o $@ $(OBJDIR)/ECONTACT.STG >/dev/null
+	test -s $(BIN)/ECONTACT.REF
 
 # the ST edition: no TLS of its own (it uses the Pi gateway), 150 KB
 # smaller; only BearSSL's MD5 (for Digest logins), as 68000 code

@@ -214,6 +214,7 @@ In the [`binary`](binary) folder:
 | `ECONTACT.PRG` | the same as ECONTACT.ACC, to start from the desktop          |
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode                  |
 | `ECONTACT.HYP` | the user guide for ST-Guide: in EContact's folder, the Help key opens it |
+| `ECONTACT.REF` | its pages' names, for ST-Guide's index (ALL.REF): with the .HYP |
 
 ## Getting started
 
