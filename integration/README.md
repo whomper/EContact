@@ -3,7 +3,7 @@
 These patches make EContact the address book of
 [EMail](https://github.com/whomper/EMAIL) and
 [ECal](https://github.com/whomper/ECal). Each applies to the repository's
-`main` (EMail at c58fe3f, ECal at 1488a2c) and builds and passes its tests:
+`main` (EMail at d3c0def, ECal at c48410b) and builds and passes its tests:
 
 ```
 cd EMAIL && git apply ../EContact/integration/EMAIL.patch && make && make test
@@ -21,14 +21,13 @@ changes here, copy it again.
   the To:, Cc: or Bcc: line ("Bob <b@x>, gr") narrows the list to what
   matches it and is replaced by the choice; with one match there's no
   list at all. A group puts all its members on the line.
-- EContact's **mail** button opens a new message: EMail takes `VA_START`
-  with `mailto:...` (see [docs/INTEGRATION.md](../docs/INTEGRATION.md)).
 - **File > Contacts...** opens EContact's window.
 
 Files: `ui/dialogs.c` (the list), `ui/editor.c` (completing the line),
-`ui/main.c` (VA_START, the menu item, the boot drive), `src/people.c`,
-`src/people.h`, `Makefile`. (EMail has `appl_find` and `appl_write` of
-its own now.)
+`ui/main.c` (the menu item, the boot drive), `src/people.c`,
+`src/people.h`, `Makefile`. EContact's **mail** button needs no patch:
+EMail takes `VA_START` with `mailto:...` itself (see
+[docs/INTEGRATION.md](../docs/INTEGRATION.md)).
 
 ## ECAL.patch
 
@@ -47,5 +46,8 @@ its own now.)
 Files: `src/ics.c`, `src/ics.h` (attendees and organizer read and
 written, `ics_each_address`, `ev_invited`), `src/calstore.c` (the
 organizer set when saving), `ui/editor.c` (the Invitees line and
-Add...), `ui/main.c` (the menu item), `atari/gem.c`, `src/people.c`,
-`src/people.h`, `tests/unit.c` (17 more checks), `Makefile`.
+Add...), `ui/main.c` (the menu item), `src/people.c`, `src/people.h`,
+`tests/unit.c` (17 more checks), `Makefile`.
+
+**Contacts...** in either opens EContact's window with an empty
+`VA_START` (`av_send`, the AERA programs' shared `common/ui/av.c`).

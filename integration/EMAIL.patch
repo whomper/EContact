@@ -1,15 +1,15 @@
 diff --git a/Makefile b/Makefile
-index b77bb2a..c651139 100644
+index b45b097..b544763 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -36,7 +36,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
+@@ -40,7 +40,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
  BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
  HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
  
 -CORE    := util charset mime conn tls imap pop3 smtp store compose mail futil bidi secret ctime tz
 +CORE    := util charset mime conn tls imap pop3 smtp store compose mail futil bidi secret ctime tz people
- ATARI   := libc tos plat_tos net_tos sting gem dsprsa
- UI      := main draw win folders list reader editor dialogs popup font about dsp theme
+ ATARI   := libc tos plat_tos net_tos sting gem dsprsa crash
+ UI      := main draw win folders list reader editor dialogs popup font about dsp theme help av alert mbar aboutbox
  
 diff --git a/src/people.c b/src/people.c
 new file mode 100644
@@ -280,18 +280,18 @@ index 0000000..970da6a
 +
 +#endif
 diff --git a/ui/dialogs.c b/ui/dialogs.c
-index ae722e0..bc72c7c 100644
+index 61919db..c5e9fb2 100644
 --- a/ui/dialogs.c
 +++ b/ui/dialogs.c
-@@ -9,6 +9,7 @@
- #include <stdlib.h>
- #include <stdarg.h>
- #include "ui.h"
+@@ -13,6 +13,7 @@
+ #include "util.h"
+ #include "charset.h"
+ #include "tz.h"
 +#include "../src/people.h"
- #include "../src/bidi.h"
- #include "../src/util.h"
- #include "../src/charset.h"
-@@ -1242,34 +1243,57 @@ ACCOUNT *dlg_pick_account(const char *title)
+ 
+ #define DMAX 72
+ #define TMAX 24
+@@ -1183,34 +1184,57 @@ ACCOUNT *dlg_pick_account(const char *title)
  	return r < 0 ? 0 : accts[r];
  }
  
@@ -365,18 +365,18 @@ index ae722e0..bc72c7c 100644
  	return res;
  }
 diff --git a/ui/editor.c b/ui/editor.c
-index b938ce4..e00d87d 100644
+index 86e731a..1a897cd 100644
 --- a/ui/editor.c
 +++ b/ui/editor.c
 @@ -15,6 +15,7 @@
  #include "../src/compose.h"
- #include "../src/bidi.h"
- #include "../src/util.h"
+ #include "bidi.h"
+ #include "util.h"
 +#include "../src/people.h"
  
  typedef struct {
  	char *s;
-@@ -562,32 +563,41 @@ void editor_attach(void)
+@@ -572,32 +573,41 @@ void editor_attach_file(const char *full)
  	changed(he, -1);
  }
  
@@ -433,7 +433,7 @@ index b938ce4..e00d87d 100644
  }
  
 diff --git a/ui/main.c b/ui/main.c
-index 0c9052a..a749934 100644
+index 1cd0a1e..9dad3b3 100644
 --- a/ui/main.c
 +++ b/ui/main.c
 @@ -8,6 +8,7 @@
@@ -444,65 +444,28 @@ index 0c9052a..a749934 100644
  #include "theme.h"
  #include "../src/mail.h"
  #include "../src/compose.h"
-@@ -78,7 +79,8 @@ static const MITEM m_desk[] = {
- };
- static const MITEM m_file[] = {
- 	{ "  New message     ^N ", C_NEW }, { "  Check mail      ^K ", C_CHECK },
--	{ "  Send Outbox        ", C_SENDQ }, { "---------------------", C_SEP },
-+	{ "  Send Outbox        ", C_SENDQ }, { "  Contacts...        ", C_CONTACTS },
-+	{ "---------------------", C_SEP },
- 	{ "  Save attachment... ", C_SAVEATT }, { "---------------------", C_SEP },
- 	{ "  Quit            ^Q ", C_QUIT }, { 0, 0 }
- };
-@@ -756,10 +758,58 @@ void ui_command(short cmd)
+@@ -55,6 +56,7 @@ static const MBAR_ITEM m_file[] = {
+ 	{ "New message", "^N", C_NEW },
+ 	{ "Check mail", "^K", C_CHECK },
+ 	{ "Send Outbox", 0, C_SENDQ },
++	{ "Contacts...", 0, C_CONTACTS },
+ 	{ "-", 0, 0 },
+ 	{ "Save attachment...", 0, C_SAVEATT },
+ 	{ "-", 0, 0 },
+@@ -699,10 +701,23 @@ void ui_command(short cmd)
  	command(cmd);
  }
  
 +/* ---------------- EContact ----------------
 + * EContact (github.com/whomper/EContact) keeps the contacts: its people
-+ * are in the address book (^B), it opens its window when asked, and it
-+ * hands over an address to write to with the AV protocol's VA_START
-+ * ("mailto:name@example.com"). */
-+
-+#define VA_START 0x4711
-+#define EC_OPEN  0x4543		/* 'EC': EContact, open your window */
-+
-+static short bootdev;
-+static void sup_bootdev(void)
-+{
-+	__asm__ volatile("move.w 0x446.w,%0" : "=d"(bootdev));	/* _bootdev */
-+}
++ * are in the address book (^B), and it opens its window when sent an
++ * empty VA_START. It writes to someone with VA_START "mailto:..."
++ * (av_start, above). */
 +
 +static void open_contacts(void)
 +{
-+	short id = appl_find("ECONTACT"), msg[8];
-+	if (id < 0)
-+		id = appl_find("ECONTST ");
-+	if (id < 0) {
++	if (!av_send("ECONTACT", "") && !av_send("ECONTST ", ""))
 +		alert(1, "[1][EContact isn't loaded: put ECONTACT.ACC|in the root of the boot drive|and restart, or start ECONTACT.PRG.][ OK ]");
-+		return;
-+	}
-+	memset(msg, 0, sizeof(msg));
-+	msg[0] = EC_OPEN;
-+	msg[1] = ap_id;
-+	appl_write(id, 16, msg);
-+}
-+
-+/* "mailto:a@b?subject=..." from EContact: a new message to a@b */
-+static void got_va_start(short *msg)
-+{
-+	const char *s = (const char *)(((unsigned long)(unsigned short)msg[3] << 16) | (unsigned short)msg[4]);
-+	char to[512];
-+	ACCOUNT *a;
-+	int n;
-+	if (!s || strncasecmp(s, "mailto:", 7))
-+		return;
-+	str_copy(to, s + 7, sizeof(to));
-+	n = (int)strcspn(to, "?");
-+	to[n] = 0;
-+	a = account_for_new();
-+	if (a)
-+		editor_open(a, compose_new(a, to), 0, 0);
 +}
 +
  static void command(short cmd)
@@ -513,44 +476,33 @@ index 0c9052a..a749934 100644
  	case C_NEW: {
  		ACCOUNT *a = account_for_new();
  		if (a)
-@@ -1004,6 +1054,8 @@ int main(void)
- 		mem_unaligned_ok = get_cookie(0x5F435055L) >= 20;	/* _CPU */
+@@ -982,6 +997,7 @@ int main(void)
+ 			conn_bufsize = 4096;
  	}
  	ap_id = appl_init();
-+	Supexec(sup_bootdev);
-+	people_drive((char)('A' + bootdev));
++	people_drive((char)('A' + boot_drive()));
  	if (ap_id < 0)
  		return 1;
  	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
-@@ -1082,6 +1134,9 @@ int main(void)
- 			case AP_TERM:
- 				quit = 1;
- 				break;
-+			case VA_START:
-+				got_va_start(msg);
-+				break;
- 			default:
- 				win_message(msg);
- 			}
 diff --git a/ui/ui.h b/ui/ui.h
-index 4740ecb..17e26a1 100644
+index 2dc81b4..0c35f98 100644
 --- a/ui/ui.h
 +++ b/ui/ui.h
-@@ -124,7 +124,7 @@ int  editor_dirty(void);
- void editor_send(int now);
+@@ -130,7 +130,7 @@ void editor_send(int now);
  void editor_attach(void);
+ void editor_attach_file(const char *path);
  void editor_insert_address(void);
 -char *dlg_pick_address(void);
 +char *dlg_pick_address(const char *filter);	/* Contacts and the address book */
  
  /* dialogs */
  int  dlg_account(ACCOUNT *a);		/* 1 = OK, -1 = delete it */
-@@ -150,7 +150,7 @@ enum {
+@@ -156,7 +156,7 @@ enum {
  	C_NONE, C_ABOUT,
  	C_NEW, C_CHECK, C_SENDQ, C_SAVEATT, C_QUIT,
  	C_REPLY, C_REPLYALL, C_FORWARD, C_UNREAD, C_MARKREAD, C_FLAG, C_MOVE, C_DELETE, C_SELALL,
 -	C_SEND, C_SAVEOUT, C_ATTACH, C_ABOOK,
 +	C_SEND, C_SAVEOUT, C_ATTACH, C_ABOOK, C_CONTACTS,
  	C_FOLDERS, C_REFRESH, C_NEWFOLDER, C_RENFOLDER, C_DELFOLDER,
- 	C_ACCOUNTS, C_SETTINGS, C_FONT, C_OFFLINE, C_FALCON, C_HEBREW, C_LOG,
- 	C_SEP, C_ACC
+ 	C_ACCOUNTS, C_SETTINGS, C_FONT, C_OFFLINE, C_FALCON, C_HEBREW, C_LOG
+ };

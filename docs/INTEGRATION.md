@@ -1,8 +1,9 @@
 # EContact and other programs
 
 EContact is the address book of EMail and ECal, and any GEM program can
-use it the same way. There are three pieces: a file to read, a message to
-open EContact's window, and a message EContact sends to write to someone.
+use it the same way. There are three pieces: a file to read, the message
+that opens EContact's window (or imports vCards), and the message
+EContact sends to write to someone.
 
 ## CONTACTS.TXT: the people
 
@@ -43,31 +44,34 @@ line2 = people_complete(line, l[k].value); /* "Bob <b@x>, Grace Baker <g@x>" */
 people_pick_free(l, n);
 ```
 
-## Opening EContact's window
+## Opening EContact's window, importing vCards
 
-Send EContact the message `0x4543` ('EC') with `appl_write`; it opens (or
-tops) its window. The accessory's AES name is `ECONTACT` (or `ECONTST `
-for the ST edition, renamed or not):
+EContact takes the AV protocol's `VA_START` (`0x4711`), as every AERA
+program does: with an empty string it opens (or tops) its window; with
+the names of `.vcf` files it imports them into the address book new
+contacts go into. The accessory's AES name is `ECONTACT` (or `ECONTST `
+for the ST edition). With the AERA programs' shared code
+(`common/ui/av.c`):
 
 ```c
-short id = appl_find("ECONTACT"), msg[8] = { 0x4543, ap_id, 0, 0, 0, 0, 0, 0 };
-if (id < 0)
-	id = appl_find("ECONTST ");
-if (id >= 0)
-	appl_write(id, 16, msg);
+if (!av_send("ECONTACT", "") && !av_send("ECONTST ", ""))
+	alert(1, "[1][EContact isn't running.][ OK ]");
 ```
 
-`AC_OPEN` with -1 as the menu id does the same.
+`av_send` keeps the string where EContact may read it (global memory
+under MiNT's memory protection). `AC_OPEN` with -1 as the menu id also
+opens the window. (The private message `0x4543` of earlier versions is
+gone.)
 
 ## Writing to someone
 
-EContact's **mail** button sends the AV protocol's `VA_START` (`0x4711`)
-to the program named `EMAIL`, with a pointer in words 3 and 4 to
+EContact's **mail** button sends `VA_START` to the program named
+`EMAIL`, with a pointer in words 3 and 4 to
 `mailto:Maya Carter <maya@pixelpress.example>` (or several addresses
 separated by commas, for a group). The text is in memory any program may
 read (global, under MiNT's memory protection) and stays there. EMail
-opens a new message with it on the To: line; up to a `?`, as in a
-`mailto:` link, is the address.
+opens a new message to them; as in any `mailto:` link, `?subject=`,
+`cc=` and `body=` fill in the rest.
 
 ## Invitations in ECal
 

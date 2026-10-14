@@ -207,6 +207,10 @@ show and work the same way here; new groups are made as group cards.
   address book, a group, or what a search found). Cards whose photos
   weren't downloaded yet are fetched whole for it; offline they are
   exported as they are kept, without their photos.
+- **From other programs**: .vcf files handed to EContact by a desktop
+  such as Thing, jinnee or Gemini (or any program, with the AV
+  protocol's VA_START) are imported into the address book new contacts
+  go into.
 
 ## My Card
 
@@ -230,6 +234,10 @@ changed until you're online again), **Font...**,
 
 ## With EMail and ECal
 
+**mail** in EContact opens a new message in EMail, to the person or the
+group, when EMail is running; when it isn't, the address goes to the
+clipboard.
+
 EContact writes `CONTACTS.TXT` in its folder whenever the contacts change
 (and at the start, when it's out of date):
 every email address with its name, and the groups. With the patches in
@@ -245,8 +253,6 @@ every email address with its name, and the groups. With the patches in
   The invitations are written as the event's attendees, with you (the
   account's Apple ID or email user name) as organizer, and iCloud sends
   them. An invitation you received shows who it is from.
-- **mail** in EContact opens a new message in EMail when EMail is
-  running; when it isn't, the address goes to the clipboard.
 - **Contacts...** in EMail's File menu and ECal's menu opens EContact's
   window.
 

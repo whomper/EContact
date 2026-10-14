@@ -1,53 +1,16 @@
 diff --git a/Makefile b/Makefile
-index 409fcae..197191f 100644
+index cbddf96..4296de0 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -36,7 +36,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
+@@ -37,7 +37,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
  BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
  HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
  
 -CORE    := util charset conn tls bidi secret futil ctime tz ics rrule xml inflate http caldav calstore
 +CORE    := util charset conn tls bidi secret futil ctime tz ics rrule xml inflate http caldav calstore people
  ATARI   := libc tos plat_tos net_tos sting gem dsprsa
- UI      := main win draw popup dsp views sidebar editor dialogs field about font
+ UI      := main win draw popup dsp views sidebar editor dialogs field about font help av alert aboutbox
  
-diff --git a/atari/gem.c b/atari/gem.c
-index b395ea7..d4313b6 100644
---- a/atari/gem.c
-+++ b/atari/gem.c
-@@ -676,3 +676,19 @@ void v_gtext_n(short h, short x, short y, const char *s, short n)
- 	ptsin[1] = y;
- 	vdi(8, 1, n, h);
- }
-+
-+/* ---- talking to other programs (EContact) ---- */
-+
-+short appl_find(const char *name)
-+{
-+	addrin[0] = (void *)name;
-+	return aes(13, 0, 1, 1, 0);
-+}
-+
-+short appl_write(short id, short len, void *msg)
-+{
-+	aintin[0] = id;
-+	aintin[1] = len;
-+	addrin[0] = msg;
-+	return aes(12, 2, 1, 1, 0);
-+}
-diff --git a/atari/gem.h b/atari/gem.h
-index e1d7e71..6215a90 100644
---- a/atari/gem.h
-+++ b/atari/gem.h
-@@ -150,6 +150,8 @@ short menu_ienable(OBJECT *tree, short item, short enable);
- short evnt_timer_(unsigned long ms);
- short appl_id(void);
- short wind_find(short x, short y);
-+short appl_find(const char *name);		/* 8 characters, padded with spaces */
-+short appl_write(short id, short len, void *msg);
- OBJECT *rsrc_tree(short index);
- short objc_draw(OBJECT *tree, short start, short depth, short x, short y, short w, short h);
- short form_dial(short flag, short x, short y, short w, short h);
 diff --git a/src/calstore.c b/src/calstore.c
 index bd410ca..31b239a 100644
 --- a/src/calstore.c
@@ -683,17 +646,17 @@ index 142959f..44012ad 100644
  	test_xml();
  	test_urls();
 diff --git a/ui/editor.c b/ui/editor.c
-index b76905b..78b1845 100644
+index 4cbaf62..1a651a1 100644
 --- a/ui/editor.c
 +++ b/ui/editor.c
-@@ -10,6 +10,7 @@
- #include <stdio.h>
+@@ -11,6 +11,7 @@
  #include <stdlib.h>
  #include "ui.h"
+ #include "util.h"
 +#include "../src/people.h"
- #include "../src/util.h"
  
  static short last_cal = -1;	/* new events go where the last one went */
+ 
 @@ -492,7 +493,7 @@ static int custom_rule(RRULE *r, long startday)
  /* ---- the dialog ---- */
  
@@ -836,37 +799,27 @@ index b76905b..78b1845 100644
  		if (n->allday) {
  			n->tz = 0;
 diff --git a/ui/main.c b/ui/main.c
-index 1856c8e..8888d70 100644
+index 57f077f..2eaa4df 100644
 --- a/ui/main.c
 +++ b/ui/main.c
-@@ -16,6 +16,7 @@
- #include <stdio.h>
- #include <stdlib.h>
+@@ -18,6 +18,7 @@
  #include "ui.h"
+ #include "conn.h"
+ #include "tls.h"
 +#include "../src/people.h"
- #include "../src/conn.h"
- #include "../src/tls.h"
  #include "../src/http.h"
-@@ -379,9 +380,27 @@ void cmd_import(int cal)
+ #include "../src/plat.h"
+ #include "util.h"
+@@ -390,9 +391,17 @@ static void import_file(int cal, const char *path)
  	after_change();
  }
  
-+/* EContact's window (github.com/whomper/EContact): the contacts that
-+   invitations are picked from */
-+#define EC_OPEN 0x4543		/* 'EC': EContact, open your window */
++/* EContact's window (github.com/whomper/EContact), where invitees are
++   picked from: an empty VA_START opens it (common/ui/av.c) */
 +static void open_contacts(void)
 +{
-+	short id = appl_find("ECONTACT"), msg[8];
-+	if (id < 0)
-+		id = appl_find("ECONTST ");
-+	if (id < 0) {
++	if (!av_send("ECONTACT", "") && !av_send("ECONTST ", ""))
 +		alert(1, "[1][EContact isn't loaded: put ECONTACT.ACC|in the root of the boot drive|and restart.][ OK ]");
-+		return;
-+	}
-+	memset(msg, 0, sizeof(msg));
-+	msg[0] = EC_OPEN;
-+	msg[1] = ap_id;
-+	appl_write(id, 16, msg);
 +}
 +
  void cmd_menu(short x, short y)
@@ -876,7 +829,7 @@ index 1856c8e..8888d70 100644
  	       M_OFFL, M_FALC, M_LOG, M_S3, M_SET, M_FONT, M_KEYS, M_ABOUT, M_S4, M_QUIT, M_N };
  	const char *items[M_N];
  	short k, n = is_acc ? M_S4 : M_N;
-@@ -391,6 +410,7 @@ void cmd_menu(short x, short y)
+@@ -402,6 +411,7 @@ void cmd_menu(short x, short y)
  	items[M_GOTO] = "  Go to date...       ^G";
  	items[M_FIND] = "  Find...             ^F";
  	items[M_TODAY] = "  Today                T";
@@ -884,7 +837,7 @@ index 1856c8e..8888d70 100644
  	items[M_S2] = "-";
  	items[M_SIDE] = opt.sidebar ? "\x08 Calendar list       ^S" : "  Calendar list       ^S";
  	items[M_HEB] = opt.hebdates ? "\x08 Hebrew dates" : "  Hebrew dates";
-@@ -414,6 +434,7 @@ void cmd_menu(short x, short y)
+@@ -425,6 +435,7 @@ void cmd_menu(short x, short y)
  	case M_GOTO: dlg_goto(); break;
  	case M_FIND: dlg_find(); break;
  	case M_TODAY: views_today(); break;
@@ -892,11 +845,11 @@ index 1856c8e..8888d70 100644
  	case M_SIDE:
  		opt.sidebar = !opt.sidebar;
  		settings_later();
-@@ -896,6 +917,7 @@ int main(void)
- 	vst_alignment(vdi_h, 0, 5);
- 	wind_get(0, WF_WORKXYWH, &desk_x, &desk_y, &desk_w, &desk_h);
- 	find_workdir();
+@@ -984,6 +995,7 @@ int main(void)
+ 	crash_cleanup = crash_quit;
+ 	alert_hebrew = alert_heb;
+ 	crash_report = conn_log_append;	/* the report in ECAL.LOG too */
 +	people_drive((char)('A' + boot_drive()));	/* EContact's people, for invitations */
  	st_ram_init();
- 	dlg_after = win_frame_refresh;
- 	if (is_acc)
+ 	help_init();
+ 	av_init("ECAL|ECALST");		/* the desktop's AV server, if one runs yet */

@@ -12,8 +12,8 @@
  *
  * EMail and ECal find the people through C:\ECONTACT.INF (FOLDER=) and
  * CONTACTS.TXT in that folder; EContact hands an address to EMail with
- * the AV protocol's VA_START ("mailto:..."), and opens its window when
- * another program sends it AC_OPEN with any menu id (see
+ * the AV protocol's VA_START ("mailto:..."), and takes VA_START itself:
+ * nothing opens its window, .vcf files are imported (see
  * docs/INTEGRATION.md).
  */
 #include <string.h>
@@ -29,6 +29,7 @@
 #include "../src/version.h"
 #include "crash.h"
 #include "help.h"
+#include "av.h"
 #include "../src/photo.h"
 #include "../src/carddav.h"
 
@@ -42,8 +43,6 @@ static void files_left(void);
 static char workdir[160];	/* EContact's folder: address books, keys, certificates, log */
 static char inf_file[40];	/* ECONTACT.INF, in the root of the boot drive */
 static unsigned long last_refresh, last_minute;
-
-#define EC_OPEN  0x4543		/* 'EC': EMail or ECal asks for the window */
 
 /* ---------------- small things ---------------- */
 
@@ -376,11 +375,12 @@ void cmd_new_group(int book)
 	}
 }
 
+static void import_file(int book, const char *path);
+
 void cmd_import(int book)
 {
 	char path[200], name[20] = "", dir[200];
 	short button = 0;
-	int n;
 	if (book < 0)
 		book = book_for_new();
 	if (book < 0) {
@@ -396,13 +396,20 @@ void cmd_import(int book)
 			slash[1] = 0;
 		snprintf(path, sizeof(path), "%s%s", dir, name);
 	}
+	import_file(book, path);
+}
+
+/* the contacts in a .vcf file into the address book */
+static void import_file(int book, const char *path)
+{
+	int n;
 	busy(1);
 	if (!contacts_import(book, path, &n)) {
 		busy(0);
 		alert(1, "[1][Import stopped: %s|(%d contacts imported)][ OK ]", ab_err, n);
 	} else {
 		busy(0);
-		alert(1, "[1][%d contacts imported into|%s.][ OK ]", n, books[book].name);
+		alert(1, "[1][%d contact%s imported into|%s.][ OK ]", n, n == 1 ? "" : "s", books[book].name);
 	}
 	after_change();
 }
@@ -973,6 +980,31 @@ static void open_window(void)
 	}
 }
 
+/* VA_START (common/ui/av.c), from the desktop or another program:
+   nothing opens the window; .vcf files go into the address book new
+   contacts go into */
+static void av_start(const char *s)
+{
+	char path[200];
+	const char *p = s;
+	open_window();
+	if (win_h <= 0)
+		return;
+	while ((p = av_arg(p, path, sizeof(path))) != 0) {
+		long l = (long)strlen(path);
+		int book = book_for_new();
+		if (l < 4 || strcasecmp(path + l - 4, ".VCF")) {
+			alert(1, "[1][EContact takes vCards (.vcf):|%s isn't one.][ OK ]", path);
+			continue;
+		}
+		if (book < 0) {
+			alert(1, "[1][Add an account first: the contacts go into one of its address books.][ OK ]");
+			return;
+		}
+		import_file(book, path);
+	}
+}
+
 static void wait_release(void)
 {
 	short mx, my, mb, ks;
@@ -1060,6 +1092,7 @@ int main(void)
 	alert_hebrew = alert_heb;
 	crash_report = conn_log_append;	/* the report in ECONTACT.LOG too */
 	help_init();			/* memory the help viewer and EMail may read */
+	av_init("ECONTACT|ECONTST");	/* the desktop's AV server, if one runs yet */
 	st_ram_init();
 	dlg_after = win_frame_refresh;
 	if (is_acc) {
@@ -1079,14 +1112,14 @@ int main(void)
 			flags |= MU_KEYBD | MU_BUTTON;
 		which = evnt_multi_(flags, is_acc ? 0x102 : 0x101, 3, 0, wait, msg, &ev);
 		if (which & MU_MESAG) {
+			const char *va;
 			switch (msg[0]) {
 			case AC_OPEN:
-				/* from the Desk menu, or EMail and ECal asking for us */
-				if (msg[4] == menu_id || msg[4] == -1)
+				/* from the Desk menu (or another program, with -1) */
+				if (msg[4] == menu_id || msg[4] == -1) {
+					av_init("ECONTACT|ECONTST");	/* a desktop started since */
 					open_window();
-				break;
-			case EC_OPEN:
-				open_window();
+				}
 				break;
 			case AC_CLOSE:
 				if (msg[3] == menu_id) {
@@ -1101,7 +1134,10 @@ int main(void)
 				win_close();
 				break;
 			default:
-				win_message(msg);
+				if (av_message(msg, &va) == AV_START)
+					av_start(va);
+				else
+					win_message(msg);
 			}
 		}
 		if ((which & MU_KEYBD) && win_h > 0) {
@@ -1151,6 +1187,7 @@ int main(void)
 	http_close_all();
 	conn_log_flush();
 	crash_remove();
+	av_exit();
 	v_clsvwk(vdi_h);
 	appl_exit();
 	return 0;
