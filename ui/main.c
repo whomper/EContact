@@ -27,6 +27,7 @@
 #include "util.h"
 #include "bidi.h"
 #include "../src/version.h"
+#include "crash.h"
 #include "../src/photo.h"
 #include "../src/carddav.h"
 
@@ -91,6 +92,7 @@ void closing_down(int quitting)
 void status(const char *msg)
 {
 	char s[200];
+	crash_note(msg);		/* for CRASH.LOG, should EContact crash */
 	if (win_h <= 0)
 		return;
 	if (hebrew_kbd) {
@@ -1046,6 +1048,23 @@ static short click_count(short mx, short my, short button)
 	return 1;
 }
 
+/* EContact (the program) crashed and CRASH.LOG is written
+   (common/atari/crash.c): say so and leave GEM tidy. Only the AES and
+   VDI: the heap may be what went wrong */
+static void crash_quit(const char *what)
+{
+	char a[200];
+	graf_mouse(ARROW, 0);
+	snprintf(a, sizeof(a), "[3][EContact has crashed|(%s).|What happened is in|CRASH.LOG, next to ECONTACT.PRG.][ Quit ]", what);
+	form_alert(1, a);
+	if (win_h > 0) {
+		wind_close(win_h);
+		wind_delete(win_h);
+	}
+	v_clsvwk(vdi_h);
+	appl_exit();
+}
+
 int main(void)
 {
 	short work_out[57], msg[8], d;
@@ -1075,6 +1094,9 @@ int main(void)
 	vst_alignment(vdi_h, 0, 5);
 	wind_get(0, WF_WORKXYWH, &desk_x, &desk_y, &desk_w, &desk_h);
 	find_workdir();
+	crash_install(workdir, "EContact", app_version);	/* the program only */
+	crash_cleanup = crash_quit;
+	crash_report = conn_log_append;	/* the report in ECONTACT.LOG too */
 	st_ram_init();
 	dlg_after = win_frame_refresh;
 	if (is_acc) {
@@ -1084,6 +1106,8 @@ int main(void)
 		answer_budget(tt > st ? tt : st);
 		open_window();
 	}
+	if (crash_previous())
+		alert(1, "[1][EContact crashed last time|(%s).|What happened is in|CRASH.LOG, next to ECONTACT.PRG.][ OK ]", crash_previous());
 
 	while (!quit_now) {
 		short flags = MU_MESAG | MU_TIMER, which;
@@ -1125,7 +1149,7 @@ int main(void)
 				if (!open_help())
 					dlg_keys();
 			}
-			else
+			else if (!crash_test(scan))	/* test builds: F1-F4 crash */
 				win_key(ev.kstate, ev.kreturn);
 		}
 		if ((which & MU_BUTTON) && win_h > 0) {
@@ -1163,6 +1187,7 @@ int main(void)
 	settings_flush();
 	http_close_all();
 	conn_log_flush();
+	crash_remove();
 	v_clsvwk(vdi_h);
 	appl_exit();
 	return 0;
