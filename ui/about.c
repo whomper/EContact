@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include "ui.h"
 #include "aboutbox.h"
+#include "iconify.h"
+#include "../src/abook.h"
 #include "icon.h"
 #include "icon16.h"
 #include "../src/version.h"
@@ -24,4 +26,16 @@ void dlg_about(void)
 		 opt.falcon ? (strcmp(falcon_dsp_state(), "DSP") ? "Falcon" : "Falcon/DSP") : opt.gate[0] ? "Gateway" : "No gateway",
 		 opt.offline ? "offline" : "ready", ram[0] ? "  \xF9  " : "", ram);
 	about_show(&a);
+}
+
+/* The iconified window: the icon, and how many contacts there are under
+   it when there is room (common/ui/iconify.c) */
+void icon_window(GRECT *area)
+{
+	char s[12];
+	int i, n = 0;
+	for (i = 0; i < npeople; i++)
+		n += !people[i]->group;
+	snprintf(s, sizeof(s), "%d", n);
+	icon_redraw(win_h, area, icon_bits, icon16_px, s);
 }

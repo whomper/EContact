@@ -978,7 +978,7 @@ static void open_window(void)
 	}
 	after_change();
 	if (!naccts) {
-		alert(1, "[1][Welcome to Contacts!||Let's add your iCloud or other contacts.][ OK ]");
+		alert(1, "[1][Welcome to EContact!||Let's add your iCloud or other contacts.][ OK ]");
 		dlg_add_account();
 	} else if (opt.sync_open && !opt.offline) {
 		sync_pending = 1;
@@ -1120,6 +1120,8 @@ int main(void)
 		if (win_h > 0)
 			flags |= MU_KEYBD | MU_BUTTON;
 		which = evnt_multi_(flags, is_acc ? 0x102 : 0x101, 3, 0, wait, msg, &ev);
+		if (win_iconified)	/* an icon takes no keys or clicks (taken, not left for later) */
+			which &= ~(MU_KEYBD | MU_BUTTON);
 		if (which & MU_MESAG) {
 			const char *va;
 			switch (msg[0]) {

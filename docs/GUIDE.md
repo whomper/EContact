@@ -116,6 +116,10 @@ settings or delete it from this Atari (nothing is deleted on the server).
 - The info line says how many contacts are shown and when they were last
   updated.
 
+Where the AES can iconify windows (MultiTOS, MagiC, XaAES, N.AES), the
+window has the iconify button: EContact shrinks to its icon, with the
+number of contacts under it.
+
 ![A group](group.png) ![Searching](search.png)
 
 ## Photos

@@ -76,6 +76,8 @@ short sel_color(void);		/* the selected row: the Mac's blue, black without colou
 
 /* ---- the window (win.c) ---- */
 extern short win_h;		/* AES handle, -1 when closed */
+extern short win_iconified;	/* shown as the icon */
+void icon_window(GRECT *area);	/* the iconified window: icon and how many */
 extern GRECT work;		/* its work area */
 void win_open(void);
 void win_close(void);
