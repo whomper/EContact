@@ -426,7 +426,7 @@ void dlg_keys(void)
 		{ 8, -1, "Commands", 0 },
 		{ 9, 0, "^R", "refresh" },
 		{ 9, 1, "Shift+^R", "everything again" },
-		{ 10, 0, "^S", "show the groups" },
+		{ 10, 0, "\x01^S", "show the groups" },
 		{ 10, 1, "^W  ^Q", "close the window" },
 		{ 11, 0, "Double-click", "edit; an email: write" },
 		{ 11, 1, "Right-click", "more choices" },

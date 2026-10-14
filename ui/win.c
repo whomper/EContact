@@ -396,6 +396,9 @@ void win_message(short *msg)
 			quit_now = 1;
 		win_close();
 		break;
+	case WM_BOTTOMED:
+		wind_set(win_h, WF_BOTTOM, 0, 0, 0, 0);
+		break;
 	case WM_FULLED: {
 		short x, y, w, h, fx, fy, fw, fh;
 		wind_get(win_h, WF_CURRXYWH, &x, &y, &w, &h);
@@ -546,7 +549,11 @@ int win_key(short kstate, short key)
 				quit_now = 1;
 			win_close();
 			return 1;
-		case 0x1f: toggle_sidebar(); return 1;			/* ^S */
+		case 0x1f:						/* Shift+^S; ^S is Save */
+			if (!(kstate & (K_LSHIFT | K_RSHIFT)))
+				return 0;
+			toggle_sidebar();
+			return 1;
 		}
 	}
 	if (list_key(kstate, key))

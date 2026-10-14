@@ -5,7 +5,7 @@
  * event loop, refreshing, and the commands behind the toolbar's menu.
  *
  * As an accessory (ECONTACT.ACC in the boot drive's root) it waits in
- * the Desk menu: choosing "Contacts" opens the window over whatever
+ * the Desk menu: choosing "EContact" opens the window over whatever
  * program is running. Its files live in X:\ECONTACT\ on the boot drive.
  * As a program (ECONTACT.PRG) it keeps them next to itself and ends when
  * the window closes.
@@ -30,6 +30,7 @@
 #include "crash.h"
 #include "help.h"
 #include "av.h"
+#include "aboutbox.h"
 #include "../src/photo.h"
 #include "../src/carddav.h"
 
@@ -511,12 +512,14 @@ void cmd_mail_to(const CONTACT *c, const char *email)
 	cmd_mail(line);
 }
 
-/* The user guide, ECONTACT.HYP, in EHypView or ST-Guide (common/ui/help.c,
-   which keeps the name in memory the viewer may read). 0 when no viewer
-   runs, and the Help key shows the keys as before. */
-static int open_help(void)
+/* The Help key: the user guide, ECONTACT.HYP, in EHypView or ST-Guide
+   (common/ui/help.c, which keeps the name in memory the viewer may
+   read); without a viewer, an alert says how to get one and offers the
+   keys */
+static void help_key_pressed(void)
 {
-	return help_show(opt.workdir, "ECONTACT.HYP", 0);
+	if (help_key(opt.workdir, "ECONTACT.HYP", 0, "Keys"))
+		dlg_keys();
 }
 
 /* Writing to someone: EMail, when it runs, gets "mailto:..." with VA_START
@@ -638,7 +641,7 @@ void cmd_menu(short x, short y)
 	items[M_EXP] = "  Export vCards...";
 	items[M_PHOTOS] = "  Sync Contact Photos...";
 	items[M_S2] = "-";
-	items[M_SIDE] = opt.sidebar ? "\x08 Groups               ^S" : "  Groups               ^S";
+	items[M_SIDE] = opt.sidebar ? "\x08 Groups              \x01^S" : "  Groups              \x01^S";
 	items[M_KBD] = hebrew_kbd ? "\x08 Hebrew keyboard     F10" : "  Hebrew keyboard     F10";
 	items[M_S5] = "-";
 	items[M_OFFL] = opt.offline ? "\x08 Work offline" : "  Work offline";
@@ -951,6 +954,8 @@ static void files_check(void)
 
 static void open_window(void)
 {
+	if (!screen_check("EContact", scr_w))	/* not in ST low (the accessory) */
+		return;
 	int first = win_h <= 0;
 	if (first)
 		files_check();
@@ -1072,7 +1077,7 @@ int main(void)
 	if (ap_id < 0)
 		return 1;
 	if (is_acc)
-		menu_id = menu_register(ap_id, "  Contacts");
+		menu_id = menu_register(ap_id, "  EContact");
 	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
 	cw = gl_wchar;
 	ch = gl_hchar;
@@ -1095,6 +1100,11 @@ int main(void)
 	av_init("ECONTACT|ECONTST");	/* the desktop's AV server, if one runs yet */
 	st_ram_init();
 	dlg_after = win_frame_refresh;
+	if (!is_acc && !screen_check("EContact", scr_w)) {	/* not in ST low */
+		v_clsvwk(vdi_h);
+		appl_exit();
+		return 1;
+	}
 	if (is_acc) {
 		acc_heap();
 	} else {
@@ -1102,8 +1112,7 @@ int main(void)
 		answer_budget(tt > st ? tt : st);
 		open_window();
 	}
-	if (crash_previous())
-		alert(1, "[1][EContact crashed last time|(%s).|What happened is in|CRASH.LOG, next to ECONTACT.PRG.][ OK ]", crash_previous());
+	crash_offer("EContact", "next to ECONTACT.PRG");
 
 	while (!quit_now) {
 		short flags = MU_MESAG | MU_TIMER, which;
@@ -1145,8 +1154,7 @@ int main(void)
 			if (scan == 0x44)
 				set_hebrew_kbd(!hebrew_kbd);
 			else if (scan == 0x62) {
-				if (!open_help())
-					dlg_keys();
+				help_key_pressed();
 			}
 			else if (!crash_test(scan))	/* test builds: F1-F4 crash */
 				win_key(ev.kstate, ev.kreturn);

@@ -7,7 +7,7 @@ alone, with EMail and ECal finding the people in it.
 ## Installing
 
 EContact is a desk accessory: TOS loads it at boot from the root of the
-boot drive, and it waits in the Desk menu as **Contacts** until you
+boot drive, and it waits in the Desk menu as **EContact** until you
 choose it.
 
 | Your Atari        | Copy to `C:\`    | Connects                        |
@@ -101,7 +101,7 @@ settings or delete it from this Atari (nothing is deleted on the server).
 
 - **On the left**: All Contacts, then each account with its address books
   ("All iCloud") and their groups. Click one to see those people. The
-  button at the top left (or ^S) hides the list.
+  button at the top left (or Shift+^S) hides the list.
 - **In the middle**: the people, sorted by last name under letter
   headings. Click one to see their card; the arrow keys move up and down,
   Clr/Home goes to the first (Shift: the last).
@@ -279,10 +279,10 @@ encrypted with ECONTACT.KEY the next time EContact starts.
 | typing | search |
 | Esc, ^F | a new search |
 | ^R, Shift+^R | refresh, everything again |
-| ^S | the groups on the left |
+| Shift+^S | the groups on the left |
 | F10 | Hebrew keyboard |
 | ^W, ^Q | close the window (^Q also quits the program) |
-| Help | this guide in EHypView, ST-Guide or HypView (the keys without one) |
+| Help | this guide in EHypView, ST-Guide or HypView (without one: how to get one, or the keys) |
 | Double-click | edit; on an email: write to it |
 | Right-click | more choices |
 

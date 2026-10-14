@@ -237,7 +237,7 @@ the root of the boot drive; then **Options > Install icon**.
    accessory where it is when it asks.
 2. For an ST, set up ECal's gateway on a Raspberry Pi
    (`sudo gateway/install.sh` in ECal), or use the one you have.
-3. Reboot, choose **Contacts** in the Desk menu, and add your iCloud
+3. Reboot, choose **EContact** in the Desk menu, and add your iCloud
    account with an [app-specific password](https://support.apple.com/en-us/102654).
 
 The [user guide](docs/GUIDE.md) describes the rest.
