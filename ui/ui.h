@@ -171,7 +171,7 @@ short dlg_run(DLG *d);
 void  dlg_redraw_field(DLG *d, short i);
 void  dlg_redraw(DLG *d);
 extern void (*dlg_after)(void);
-short alert(short def, const char *fmt, ...);
+#include "alert.h"		/* alert(): common/ui */
 short dlg_pick(const char *title, const char *const *items, short n, short sel);
 int   dlg_ask(const char *title, const char *label, char *buf, short len);
 /* a box for long work: a line of what is done, a bar, a second line (the
