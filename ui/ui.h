@@ -67,8 +67,7 @@ typedef struct {
 	short interior, style;
 } PEN;
 void pen_color(short k, PEN *p);	/* colour k of the twelve */
-short popup(short x, short y, const char *const *labels, short n);	/* popup.c */
-extern GRECT popup_area;
+#include "popup.h"		/* popup(), popup_area: common/ui */
 short win_popup(short x, short y, const char *const *labels, short n);
 short red_color(void);
 short grey_color(void);		/* lines (the light grey) */
