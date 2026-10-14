@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "ui.h"
-#include "../src/bidi.h"
+#include "bidi.h"
 
 short win_h = -1;
 GRECT work, r_tool, r_side, r_list, r_card, r_search;
