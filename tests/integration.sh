@@ -109,6 +109,16 @@ expect "left the group" "Family (card, 1): Erez Yaary" "$R"
 R=$($CLI "$D" people)
 expect "CONTACTS.TXT: a person" $'P\tDana Levi\tdana@example.org\twork' "$R"
 expect "CONTACTS.TXT: a group" $'G\tFamily\tErez Yaary <erez@example.com>' "$R"
+# made again at the start when it's out of date (as after a start with
+# contacts left out), and left alone when it isn't
+grep -v "Dana Levi" "$D/CONTACTS.TXT" > "$W/people.txt"
+cp "$W/people.txt" "$D/CONTACTS.TXT"
+$CLI "$D" list > /dev/null
+R=$($CLI "$D" people)
+expect "CONTACTS.TXT made again at the start" $'P\tDana Levi\tdana@example.org\twork' "$R"
+touch -d "2001-01-01" "$D/CONTACTS.TXT"
+$CLI "$D" list > /dev/null
+if [ "$(date -r "$D/CONTACTS.TXT" +%Y)" = 2001 ]; then ok "CONTACTS.TXT left alone when the same"; else bad "CONTACTS.TXT written again unchanged"; fi
 $CLI "$D" group-rename "Atari Club" "Atari Friends"
 R=$($CLI "$D" groups)
 expect "renamed category" "Atari Friends (category, 2)" "$R"

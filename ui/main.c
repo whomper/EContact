@@ -214,12 +214,25 @@ int falcon_mode_set(int on)
 
 /* ---------------- refreshing ---------------- */
 
+/* when the contacts were last read from the servers (or from the disk,
+   until then): the status line says so whatever else changes it */
+static PFTIME updated_at;
+static int updated_known;
+
+static void updated_now(void)
+{
+	pf_now(&updated_at);
+	updated_known = 1;
+}
+
 static void updated_status(void)
 {
 	char s[120], what[40];
 	PFTIME t;
 	int i, n = 0;
-	pf_now(&t);
+	if (!updated_known)
+		updated_now();
+	t = updated_at;
 	for (i = 0; i < npeople; i++)
 		n += !people[i]->group;
 	if (nlisted != n || search_text[0] || src_kind != SRC_ALL)
@@ -260,6 +273,8 @@ static void refresh(int force, int quiet)
 	r = sync_all(force);
 	busy(0);
 	last_refresh = pf_ms();
+	if (r >= 0)
+		updated_now();
 	after_change();
 	card_photo_recheck();		/* new photos, changed ones, gone ones */
 	if (r < 0) {

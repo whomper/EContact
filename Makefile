@@ -143,6 +143,11 @@ $(OBJDIR)/people-cli: tests/host/people_cli.c share/people.c share/people.h $(HO
 $(OBJDIR)/unit: tests/unit.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
 	$(HOSTCC) $(HOSTCFLAGS) -I$(BSSL)/inc -o $@ tests/unit.c $(HOSTSRC) $(HOSTLIB)
 
+# without the sanitizers: it refuses big mallocs itself (--wrap)
+$(OBJDIR)/lowmem: tests/lowmem.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
+	$(HOSTCC) $(filter-out -fsanitize=%,$(HOSTCFLAGS)) -I$(BSSL)/inc -Wl,--wrap=malloc,--wrap=realloc \
+		-o $@ tests/lowmem.c $(HOSTSRC) $(HOSTLIB)
+
 $(OBJDIR)/mkroots: tools/mkroots.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
 	$(HOSTCC) $(HOSTCFLAGS) -I$(BSSL)/inc -o $@ tools/mkroots.c $(HOSTSRC) $(HOSTLIB)
 
@@ -150,8 +155,9 @@ $(BIN)/ROOTS.DAT: $(BIN)/CACERT.PEM
 	$(MAKE) $(OBJDIR)/mkroots
 	$(OBJDIR)/mkroots $(BIN)/CACERT.PEM $@
 
-test: $(OBJDIR)/unit
+test: $(OBJDIR)/unit $(OBJDIR)/lowmem
 	$(OBJDIR)/unit
+	$(OBJDIR)/lowmem
 
 itest: $(OBJDIR)/card-cli $(OBJDIR)/people-cli
 	tests/integration.sh

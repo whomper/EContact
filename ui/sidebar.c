@@ -163,6 +163,7 @@ static void choose(short kind, short idx)
 {
 	list_source(kind, idx);
 	list_fix_selection();
+	status_updated();
 	win_redraw(&r_tool);
 	win_redraw(&r_side);
 	win_redraw(&r_list);

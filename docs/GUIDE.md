@@ -220,7 +220,8 @@ changed until you're online again), **Font...**,
 
 ## With EMail and ECal
 
-EContact writes `CONTACTS.TXT` in its folder whenever the contacts change:
+EContact writes `CONTACTS.TXT` in its folder whenever the contacts change
+(and at the start, when it's out of date):
 every email address with its name, and the groups. With the patches in
 `integration/` applied:
 

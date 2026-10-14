@@ -1454,9 +1454,10 @@ int vcard_write(const CEDIT *e, const char *uid, const char *old, long oldlen, S
 	int i, item = 0, has_uid = 0, any = 0;
 	char fn[300], uidbuf[64];
 	memset(&v, 0, sizeof(v));
+	vcard_nomem = 0;
 	if (old && oldlen)
 		read_lines(old, old + oldlen, &v, 1);
-	keep = calloc(v.n + 1, 1);
+	keep = vcard_nomem ? 0 : calloc(v.n + 1, 1);	/* a line lost: never write the rest */
 	if (!keep) {
 		lines_free(&v);
 		return 0;
@@ -1623,12 +1624,13 @@ int vcard_write_group(const char *name, const char *uid, const char **members, i
 	int i, has_uid = 0, v4 = 0;
 	char uidbuf[64];
 	memset(&v, 0, sizeof(v));
+	vcard_nomem = 0;
 	if (old && oldlen)
 		read_lines(old, old + oldlen, &v, 1);
 	for (i = 0; i < v.n; i++)
 		if (!strcmp(v.l[i].name, "VERSION") && !strncmp(v.l[i].value, "4.0", 3))
 			v4 = 1;
-	keep = calloc(v.n + 1, 1);
+	keep = vcard_nomem ? 0 : calloc(v.n + 1, 1);
 	if (!keep) {
 		lines_free(&v);
 		return 0;
@@ -1679,8 +1681,9 @@ int vcard_set_categories(const char *old, long oldlen, const char *cats, SBUF *o
 	unsigned char *keep;
 	int has_uid = 0;
 	memset(&v, 0, sizeof(v));
+	vcard_nomem = 0;
 	read_lines(old, old + oldlen, &v, 1);
-	if (!v.n || !(keep = calloc(v.n + 1, 1))) {
+	if (!v.n || vcard_nomem || !(keep = calloc(v.n + 1, 1))) {
 		lines_free(&v);
 		return 0;
 	}

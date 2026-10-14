@@ -1107,15 +1107,13 @@ void book_load(BOOK *b)
 void book_load_all(void)
 {
 	int i;
-	char path[200];
 	for (i = 0; i < nbooks; i++) {
 		status("Reading %s...", books[i].name);
 		load_one(&books[i]);
 	}
-	/* CONTACTS.TXT was written when the contacts last changed: at the
-	   start only when it isn't there, and never with some left out */
-	path_join(path, sizeof(path), opt.workdir, "CONTACTS.TXT");
-	people_changed(!pf_exists(path) && !contacts_lost());
+	/* CONTACTS.TXT made again, as the contacts are now (people_export
+	   leaves it when nothing changed, and when some are left out) */
+	people_changed(1);
 	status_clear();
 }
 
@@ -1929,7 +1927,8 @@ CONTACT *contact_save(const CEDIT *e, CONTACT *old, int bi)
 	if (!vcard_write(e, uid, raw, len, &out)) {
 		free(raw);
 		sb_free(&out);
-		str_copy(ab_err, "a contact needs a name, a company, an email or a phone", sizeof(ab_err));
+		str_copy(ab_err, vcard_nomem ? "not enough memory for the card: nothing was changed" :
+			 "a contact needs a name, a company, an email or a phone", sizeof(ab_err));
 		return 0;
 	}
 	free(raw);
@@ -2170,8 +2169,10 @@ static int write_group(GROUP *g, const char *name, const char **mem, int n)
 	sb_init(&out);
 	/* copied: res_href's buffer is used again while storing */
 	str_copy(href, res_href(b, &b->res[g->card->res]), sizeof(href));
-	ok = vcard_write_group(name, g->card->uid, mem, n, raw, len, &out) &&
-	     store_card(b, g->card->res, href, etag, out.s, out.len);
+	ok = vcard_write_group(name, g->card->uid, mem, n, raw, len, &out);
+	if (!ok && vcard_nomem)
+		str_copy(ab_err, "not enough memory for the group: nothing was changed", sizeof(ab_err));
+	ok = ok && store_card(b, g->card->res, href, etag, out.s, out.len);
 	sb_free(&out);
 	free(raw);
 	return ok;
@@ -2191,7 +2192,10 @@ static int write_cats(CONTACT *c, const char *cats)
 		return 0;
 	sb_init(&out);
 	str_copy(href, res_href(b, &b->res[c->res]), sizeof(href));
-	ok = vcard_set_categories(raw, len, cats, &out) && store_card(b, c->res, href, etag, out.s, out.len);
+	ok = vcard_set_categories(raw, len, cats, &out);
+	if (!ok && vcard_nomem)
+		str_copy(ab_err, "not enough memory for the card: nothing was changed", sizeof(ab_err));
+	ok = ok && store_card(b, c->res, href, etag, out.s, out.len);
 	sb_free(&out);
 	free(raw);
 	return ok;
@@ -2490,6 +2494,17 @@ void people_export(void)
 			sb_adds(&b, "\r\n");
 	}
 	path_join(path, sizeof(path), opt.workdir, "CONTACTS.TXT");
+	/* written only when it says something new: at every start it usually doesn't */
+	if (pf_size(path) == b.len) {
+		long n = 0;
+		char *old = pf_load(path, &n);
+		int same = old && n == b.len && (!n || !memcmp(old, b.s, n));
+		free(old);
+		if (same) {
+			sb_free(&b);
+			return;
+		}
+	}
 	pf_save(path, b.s ? b.s : "", b.len);
 	sb_free(&b);
 }

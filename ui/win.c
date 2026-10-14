@@ -449,6 +449,7 @@ static void search_changed(void)
 {
 	list_invalidate();
 	list_fix_selection();
+	status_updated();		/* "2 of 21 contacts" */
 	{
 		GRECT r = r_search;
 		r.w++;
