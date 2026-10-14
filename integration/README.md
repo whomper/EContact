@@ -3,7 +3,7 @@
 These patches make EContact the address book of
 [EMail](https://github.com/whomper/EMAIL) and
 [ECal](https://github.com/whomper/ECal). Each applies to the repository's
-`main` (EMail at 1331163, ECal at e5765c5) and builds and passes its tests:
+`main` (EMail at c58fe3f, ECal at 1488a2c) and builds and passes its tests:
 
 ```
 cd EMAIL && git apply ../EContact/integration/EMAIL.patch && make && make test
@@ -26,8 +26,9 @@ changes here, copy it again.
 - **File > Contacts...** opens EContact's window.
 
 Files: `ui/dialogs.c` (the list), `ui/editor.c` (completing the line),
-`ui/main.c` (VA_START, the menu item, the boot drive), `atari/gem.c`
-(`appl_find`, `appl_write`), `src/people.c`, `src/people.h`, `Makefile`.
+`ui/main.c` (VA_START, the menu item, the boot drive), `src/people.c`,
+`src/people.h`, `Makefile`. (EMail has `appl_find` and `appl_write` of
+its own now.)
 
 ## ECAL.patch
 

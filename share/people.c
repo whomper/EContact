@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Erez Yaary */
 /*
  * people.c - EContact's people for EMail and ECal (see people.h).
  * Kept in EContact's repository (share/) and copied into the others.

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Erez Yaary */
 /*
  * carddav.h - CardDAV (RFC 6352), the contacts protocol of iCloud,
  * Fastmail, Nextcloud, Radicale, Synology and others: WebDAV requests

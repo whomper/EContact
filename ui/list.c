@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Erez Yaary */
 /*
  * list.c - the people in the middle column, as on the Mac: sorted by
  * last name under grey letter headings, the first name plain and the

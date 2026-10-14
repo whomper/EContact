@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Erez Yaary */
 /*
  * abook.c - the address books: settings, caches on disk, syncing with
  * CardDAV servers, saving changes, groups, and CONTACTS.TXT for EMail

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Erez Yaary */
 /*
  * people_cli.c - share/people.c on Linux, for the integration tests:
  *   people-cli INF TEXT                      the choices matching TEXT

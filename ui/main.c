@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Erez Yaary */
 /*
  * main.c - Contacts: start-up as a desk accessory or as a program, the
  * event loop, refreshing, and the commands behind the toolbar's menu.

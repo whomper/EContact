@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Erez Yaary */
 /*
  * people.h - EContact's people for other programs: EMail's address book
  * and ECal's invitations read them from here. Copy people.c and people.h

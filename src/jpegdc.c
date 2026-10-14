@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Erez Yaary */
 /*
  * jpegdc.c - the JPEGs TJpgDec won't take, read at 1/8 of their size:
  * only each 8x8 block's average (its DC value), which is all a 64x64

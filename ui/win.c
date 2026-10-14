@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Erez Yaary */
 /*
  * win.c - EContact's window, laid out as the Mac's Contacts: the groups
  * on the left, the list of people in the middle with the search field

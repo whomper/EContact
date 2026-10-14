@@ -1,8 +1,8 @@
 diff --git a/Makefile b/Makefile
-index d29bf3d..956f5c4 100644
+index 409fcae..197191f 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -34,7 +34,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
+@@ -36,7 +36,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
  BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
  HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
  
@@ -12,10 +12,10 @@ index d29bf3d..956f5c4 100644
  UI      := main win draw popup dsp views sidebar editor dialogs field about font
  
 diff --git a/atari/gem.c b/atari/gem.c
-index 4b5024f..894d667 100644
+index b395ea7..d4313b6 100644
 --- a/atari/gem.c
 +++ b/atari/gem.c
-@@ -674,3 +674,19 @@ void v_gtext_n(short h, short x, short y, const char *s, short n)
+@@ -676,3 +676,19 @@ void v_gtext_n(short h, short x, short y, const char *s, short n)
  	ptsin[1] = y;
  	vdi(8, 1, n, h);
  }
@@ -36,10 +36,10 @@ index 4b5024f..894d667 100644
 +	return aes(12, 2, 1, 1, 0);
 +}
 diff --git a/atari/gem.h b/atari/gem.h
-index 3e99ad3..64f6164 100644
+index e1d7e71..6215a90 100644
 --- a/atari/gem.h
 +++ b/atari/gem.h
-@@ -148,6 +148,8 @@ short menu_ienable(OBJECT *tree, short item, short enable);
+@@ -150,6 +150,8 @@ short menu_ienable(OBJECT *tree, short item, short enable);
  short evnt_timer_(unsigned long ms);
  short appl_id(void);
  short wind_find(short x, short y);
@@ -49,10 +49,10 @@ index 3e99ad3..64f6164 100644
  short objc_draw(OBJECT *tree, short start, short depth, short x, short y, short w, short h);
  short form_dial(short flag, short x, short y, short w, short h);
 diff --git a/src/calstore.c b/src/calstore.c
-index 94d5306..a6b3c92 100644
+index bd410ca..31b239a 100644
 --- a/src/calstore.c
 +++ b/src/calstore.c
-@@ -1499,6 +1499,7 @@ static int save_new(EVENT *e, int ci)
+@@ -1502,6 +1502,7 @@ static int save_new(EVENT *e, int ci)
  	e->seq = 0;
  	new_href(e->uid, href, sizeof(href));
  	ics_now_utc = now_utc();
@@ -60,7 +60,7 @@ index 94d5306..a6b3c92 100644
  	text = ics_build(e, 0, 0, &len);
  	if (!text) {
  		str_copy(cal_err, "out of memory", sizeof(cal_err));
-@@ -1528,6 +1529,7 @@ int ev_save(EVENT *e, int ci, int how, CTIME occ)
+@@ -1531,6 +1532,7 @@ int ev_save(EVENT *e, int ci, int how, CTIME occ)
  		return 0;
  	}
  	ics_now_utc = now_utc();
@@ -69,10 +69,10 @@ index 94d5306..a6b3c92 100644
  		return save_new(e, ci);
  	c = &cals[e->cal];
 diff --git a/src/ics.c b/src/ics.c
-index 0507fc8..b04d5e9 100644
+index 27d3b7a..880fdbc 100644
 --- a/src/ics.c
 +++ b/src/ics.c
-@@ -36,6 +36,8 @@ void ev_free(EVENT *e)
+@@ -38,6 +38,8 @@ void ev_free(EVENT *e)
  	free(e->location);
  	free(e->notes);
  	free(e->url);
@@ -81,7 +81,7 @@ index 0507fc8..b04d5e9 100644
  	free(e->rr);
  	free(e->exdate);
  	free(e->rdate);
-@@ -60,6 +62,8 @@ EVENT *ev_dup(const EVENT *s)
+@@ -62,6 +64,8 @@ EVENT *ev_dup(const EVENT *s)
  	e->location = dup0(s->location);
  	e->notes = dup0(s->notes);
  	e->url = dup0(s->url);
@@ -90,7 +90,7 @@ index 0507fc8..b04d5e9 100644
  	if (s->rr) {
  		e->rr = malloc(sizeof(RRULE));
  		if (e->rr)
-@@ -760,13 +764,37 @@ static void logical_line(ICSP *p, char *s)
+@@ -794,13 +798,37 @@ static void logical_line(ICSP *p, char *s)
  				VALUE_IS("TENTATIVE") ? ST_TENTATIVE : ST_CONFIRMED;
  	} else if (NAME_IS("SEQUENCE")) {
  		p->ev->seq = (short)atoi(value);
@@ -132,7 +132,7 @@ index 0507fc8..b04d5e9 100644
  	}
  }
  
-@@ -934,6 +962,118 @@ static void out_time(SBUF *o, const char *name, const EVENT *e, CTIME t)
+@@ -968,6 +996,118 @@ static void out_time(SBUF *o, const char *name, const EVENT *e, CTIME t)
  	out_str(o, line);
  }
  
@@ -251,7 +251,7 @@ index 0507fc8..b04d5e9 100644
  static void out_event(SBUF *o, const EVENT *e)
  {
  	char line[400], v[24];
-@@ -987,6 +1127,8 @@ static void out_event(SBUF *o, const EVENT *e)
+@@ -1021,6 +1161,8 @@ static void out_event(SBUF *o, const EVENT *e)
  		snprintf(line, sizeof(line), "EXRULE:%s", rr);
  		out_str(o, line);
  	}
@@ -260,7 +260,7 @@ index 0507fc8..b04d5e9 100644
  	if (e->status == ST_TENTATIVE)
  		out_str(o, "STATUS:TENTATIVE");
  	else if (e->status == ST_CANCELLED)
-@@ -1157,7 +1299,8 @@ static void build_line(char *line, void *ud)
+@@ -1191,7 +1333,8 @@ static void build_line(char *line, void *ud)
  					    !prop_is(s, "DESCRIPTION") && !prop_is(s, "URL") && !prop_is(s, "DTSTART") &&
  					    !prop_is(s, "DTEND") && !prop_is(s, "DURATION") && !prop_is(s, "RRULE") &&
  					    !prop_is(s, "EXDATE") && !prop_is(s, "STATUS") && !prop_is(s, "CREATED") &&
@@ -271,10 +271,10 @@ index 0507fc8..b04d5e9 100644
  					if (!strncasecmp(s, "END:VALARM", 10))
  						in_alarm = 0;
 diff --git a/src/ics.h b/src/ics.h
-index 1813f7d..ec6bde1 100644
+index 3e0d9fb..ee196be 100644
 --- a/src/ics.h
 +++ b/src/ics.h
-@@ -52,6 +52,9 @@ enum { ST_CONFIRMED, ST_TENTATIVE, ST_CANCELLED };
+@@ -54,6 +54,9 @@ enum { ST_CONFIRMED, ST_TENTATIVE, ST_CANCELLED };
  typedef struct {
  	char *uid;
  	char *summary, *location, *notes, *url;	/* Atari text, may be NULL */
@@ -284,7 +284,7 @@ index 1813f7d..ec6bde1 100644
  	const TZONE *tz;	/* zone of the times; NULL: floating or all-day */
  	/* timed events: UTC, or the wall clock when floating; all-day:
  	   00:00 of the first day and of the day after the last */
-@@ -73,6 +76,7 @@ typedef struct {
+@@ -75,6 +78,7 @@ typedef struct {
  	unsigned char gone;	/* not shown: "Canceled:" in the title, or an invitation declined
  				   (read only; the event is written back as it was) */
  	short seq;
@@ -292,7 +292,7 @@ index 1813f7d..ec6bde1 100644
  	short cal;		/* the calendar it belongs to (calstore.c) */
  	short res;		/* its resource in that calendar */
  } EVENT;
-@@ -104,6 +108,12 @@ extern CTIME ics_now_utc;
+@@ -106,6 +110,12 @@ extern CTIME ics_now_utc;
  /* the calendar's own name (X-WR-CALNAME) seen by the last parse, Atari text */
  extern char ics_calname[64];
  
@@ -307,10 +307,12 @@ index 1813f7d..ec6bde1 100644
  void rrule_format(const RRULE *r, const TZONE *tz, int allday, char *out, int size);
 diff --git a/src/people.c b/src/people.c
 new file mode 100644
-index 0000000..aa27c1d
+index 0000000..0d33837
 --- /dev/null
 +++ b/src/people.c
-@@ -0,0 +1,211 @@
+@@ -0,0 +1,213 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later
++ * Copyright (C) 2026 Erez Yaary */
 +/*
 + * people.c - EContact's people for EMail and ECal (see people.h).
 + * Kept in EContact's repository (share/) and copied into the others.
@@ -524,10 +526,12 @@ index 0000000..aa27c1d
 +}
 diff --git a/src/people.h b/src/people.h
 new file mode 100644
-index 0000000..5d42922
+index 0000000..970da6a
 --- /dev/null
 +++ b/src/people.h
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,43 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later
++ * Copyright (C) 2026 Erez Yaary */
 +/*
 + * people.h - EContact's people for other programs: EMail's address book
 + * and ECal's invitations read them from here. Copy people.c and people.h
@@ -570,10 +574,10 @@ index 0000000..5d42922
 +
 +#endif
 diff --git a/tests/unit.c b/tests/unit.c
-index 9259fa6..bea364d 100644
+index 142959f..44012ad 100644
 --- a/tests/unit.c
 +++ b/tests/unit.c
-@@ -592,6 +592,96 @@ static void test_rfc5545(void)
+@@ -594,6 +594,96 @@ static void test_rfc5545(void)
  	}
  }
  
@@ -670,7 +674,7 @@ index 9259fa6..bea364d 100644
  static void test_ics_build(void)
  {
  	EVENT *e = ev_new();
-@@ -870,6 +960,7 @@ int main(void)
+@@ -902,6 +992,7 @@ int main(void)
  	test_rrules();
  	test_rfc5545();
  	test_ics_build();
@@ -679,10 +683,10 @@ index 9259fa6..bea364d 100644
  	test_xml();
  	test_urls();
 diff --git a/ui/editor.c b/ui/editor.c
-index 7535420..52173de 100644
+index b76905b..78b1845 100644
 --- a/ui/editor.c
 +++ b/ui/editor.c
-@@ -8,6 +8,7 @@
+@@ -10,6 +10,7 @@
  #include <stdio.h>
  #include <stdlib.h>
  #include "ui.h"
@@ -690,7 +694,7 @@ index 7535420..52173de 100644
  #include "../src/util.h"
  
  static short last_cal = -1;	/* new events go where the last one went */
-@@ -490,7 +491,7 @@ static int custom_rule(RRULE *r, long startday)
+@@ -492,7 +493,7 @@ static int custom_rule(RRULE *r, long startday)
  /* ---- the dialog ---- */
  
  enum {
@@ -699,7 +703,7 @@ index 7535420..52173de 100644
  	L_START, F_SDATE, F_STIME, L_TZ, F_TZ, L_END, F_EDATE, F_ETIME,
  	L_REP, F_REP, F_REPEND, F_REPVAL, L_REPDESC, L_ALERT, F_ALERT, L_NOTES, F_NOTES, L_URL,
  	B_DELETE, B_CANCEL, B_OK, NF
-@@ -642,11 +643,83 @@ static int ask_how(int first)
+@@ -644,11 +645,83 @@ static int ask_how(int first)
  	return -1;
  }
  
@@ -783,7 +787,7 @@ index 7535420..52173de 100644
  	ED x;
  	DLG d;
  	EVENT *m = e->res >= 0 ? ev_master(e) : 0;
-@@ -693,6 +766,23 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
+@@ -695,6 +768,23 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
  	put(&x.f[F_LOC], FT_TEXT, 0, 11, row, 47, 0);
  	x.f[F_LOC].buf = loc;
  	x.f[F_LOC].max = sizeof(loc) - 1;
@@ -807,7 +811,7 @@ index 7535420..52173de 100644
  	row += 2;
  	put(&x.f[F_ALLDAY], FT_CHECK, 0, 11, row, 10, "all-day");
  	x.f[F_ALLDAY].val = e->allday;
-@@ -841,6 +931,11 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
+@@ -843,6 +933,11 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
  		EVENT *n;
  		int how, ok, ci;
  		r = dlg_run(&d);
@@ -819,7 +823,7 @@ index 7535420..52173de 100644
  		if (r == B_DELETE) {
  			int h = SAVE_ALL;
  			if (repeating) {
-@@ -878,6 +973,11 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
+@@ -880,6 +975,11 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
  		ev_set(&n->summary, title[0] ? title : "New Event");
  		ev_set(&n->location, loc);
  		ev_set(&n->notes, notes);
@@ -832,10 +836,10 @@ index 7535420..52173de 100644
  		if (n->allday) {
  			n->tz = 0;
 diff --git a/ui/main.c b/ui/main.c
-index e2ee645..c5fcbd9 100644
+index 1856c8e..8888d70 100644
 --- a/ui/main.c
 +++ b/ui/main.c
-@@ -14,6 +14,7 @@
+@@ -16,6 +16,7 @@
  #include <stdio.h>
  #include <stdlib.h>
  #include "ui.h"
@@ -843,7 +847,7 @@ index e2ee645..c5fcbd9 100644
  #include "../src/conn.h"
  #include "../src/tls.h"
  #include "../src/http.h"
-@@ -377,9 +378,27 @@ void cmd_import(int cal)
+@@ -379,9 +380,27 @@ void cmd_import(int cal)
  	after_change();
  }
  
@@ -872,7 +876,7 @@ index e2ee645..c5fcbd9 100644
  	       M_OFFL, M_FALC, M_LOG, M_S3, M_SET, M_FONT, M_KEYS, M_ABOUT, M_S4, M_QUIT, M_N };
  	const char *items[M_N];
  	short k, n = is_acc ? M_S4 : M_N;
-@@ -389,6 +408,7 @@ void cmd_menu(short x, short y)
+@@ -391,6 +410,7 @@ void cmd_menu(short x, short y)
  	items[M_GOTO] = "  Go to date...       ^G";
  	items[M_FIND] = "  Find...             ^F";
  	items[M_TODAY] = "  Today                T";
@@ -880,7 +884,7 @@ index e2ee645..c5fcbd9 100644
  	items[M_S2] = "-";
  	items[M_SIDE] = opt.sidebar ? "\x08 Calendar list       ^S" : "  Calendar list       ^S";
  	items[M_HEB] = opt.hebdates ? "\x08 Hebrew dates" : "  Hebrew dates";
-@@ -412,6 +432,7 @@ void cmd_menu(short x, short y)
+@@ -414,6 +434,7 @@ void cmd_menu(short x, short y)
  	case M_GOTO: dlg_goto(); break;
  	case M_FIND: dlg_find(); break;
  	case M_TODAY: views_today(); break;
@@ -888,7 +892,7 @@ index e2ee645..c5fcbd9 100644
  	case M_SIDE:
  		opt.sidebar = !opt.sidebar;
  		settings_later();
-@@ -817,6 +838,7 @@ int main(void)
+@@ -896,6 +917,7 @@ int main(void)
  	vst_alignment(vdi_h, 0, 5);
  	wind_get(0, WF_WORKXYWH, &desk_x, &desk_y, &desk_w, &desk_h);
  	find_workdir();

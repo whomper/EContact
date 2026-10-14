@@ -1,8 +1,8 @@
 diff --git a/Makefile b/Makefile
-index 54ab6cd..fe5533b 100644
+index b77bb2a..c651139 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -34,7 +34,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
+@@ -36,7 +36,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
  BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
  HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
  
@@ -11,49 +11,14 @@ index 54ab6cd..fe5533b 100644
  ATARI   := libc tos plat_tos net_tos sting gem dsprsa
  UI      := main draw win folders list reader editor dialogs popup font about dsp theme
  
-diff --git a/atari/gem.c b/atari/gem.c
-index 9110f99..2be7846 100644
---- a/atari/gem.c
-+++ b/atari/gem.c
-@@ -673,3 +673,19 @@ void v_gtext_n(short h, short x, short y, const char *s, short n)
- 	ptsin[1] = y;
- 	vdi(8, 1, n, h);
- }
-+
-+/* ---- talking to other programs (EContact) ---- */
-+
-+short appl_find(const char *name)
-+{
-+	addrin[0] = (void *)name;
-+	return aes(13, 0, 1, 1, 0);
-+}
-+
-+short appl_write(short id, short len, void *msg)
-+{
-+	aintin[0] = id;
-+	aintin[1] = len;
-+	addrin[0] = msg;
-+	return aes(12, 2, 1, 1, 0);
-+}
-diff --git a/atari/gem.h b/atari/gem.h
-index dd7379f..3dd1398 100644
---- a/atari/gem.h
-+++ b/atari/gem.h
-@@ -146,6 +146,8 @@ short menu_ienable(OBJECT *tree, short item, short enable);
- short evnt_timer_(unsigned long ms);
- short appl_id(void);
- short wind_find(short x, short y);
-+short appl_find(const char *name);		/* 8 characters, padded with spaces */
-+short appl_write(short id, short len, void *msg);
- OBJECT *rsrc_tree(short index);
- short objc_draw(OBJECT *tree, short start, short depth, short x, short y, short w, short h);
- short form_dial(short flag, short x, short y, short w, short h);
 diff --git a/src/people.c b/src/people.c
 new file mode 100644
-index 0000000..aa27c1d
+index 0000000..0d33837
 --- /dev/null
 +++ b/src/people.c
-@@ -0,0 +1,211 @@
+@@ -0,0 +1,213 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later
++ * Copyright (C) 2026 Erez Yaary */
 +/*
 + * people.c - EContact's people for EMail and ECal (see people.h).
 + * Kept in EContact's repository (share/) and copied into the others.
@@ -267,10 +232,12 @@ index 0000000..aa27c1d
 +}
 diff --git a/src/people.h b/src/people.h
 new file mode 100644
-index 0000000..5d42922
+index 0000000..970da6a
 --- /dev/null
 +++ b/src/people.h
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,43 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later
++ * Copyright (C) 2026 Erez Yaary */
 +/*
 + * people.h - EContact's people for other programs: EMail's address book
 + * and ECal's invitations read them from here. Copy people.c and people.h
@@ -313,10 +280,10 @@ index 0000000..5d42922
 +
 +#endif
 diff --git a/ui/dialogs.c b/ui/dialogs.c
-index 8bd2287..ef9b6ae 100644
+index ae722e0..bc72c7c 100644
 --- a/ui/dialogs.c
 +++ b/ui/dialogs.c
-@@ -7,6 +7,7 @@
+@@ -9,6 +9,7 @@
  #include <stdlib.h>
  #include <stdarg.h>
  #include "ui.h"
@@ -324,7 +291,7 @@ index 8bd2287..ef9b6ae 100644
  #include "../src/bidi.h"
  #include "../src/util.h"
  #include "../src/charset.h"
-@@ -1240,34 +1241,57 @@ ACCOUNT *dlg_pick_account(const char *title)
+@@ -1242,34 +1243,57 @@ ACCOUNT *dlg_pick_account(const char *title)
  	return r < 0 ? 0 : accts[r];
  }
  
@@ -398,10 +365,10 @@ index 8bd2287..ef9b6ae 100644
  	return res;
  }
 diff --git a/ui/editor.c b/ui/editor.c
-index 854d7d4..1fff029 100644
+index b938ce4..e00d87d 100644
 --- a/ui/editor.c
 +++ b/ui/editor.c
-@@ -13,6 +13,7 @@
+@@ -15,6 +15,7 @@
  #include "../src/compose.h"
  #include "../src/bidi.h"
  #include "../src/util.h"
@@ -409,7 +376,7 @@ index 854d7d4..1fff029 100644
  
  typedef struct {
  	char *s;
-@@ -560,32 +561,41 @@ void editor_attach(void)
+@@ -562,32 +563,41 @@ void editor_attach(void)
  	changed(he, -1);
  }
  
@@ -466,10 +433,10 @@ index 854d7d4..1fff029 100644
  }
  
 diff --git a/ui/main.c b/ui/main.c
-index 61c3b78..6bc4d94 100644
+index 0c9052a..a749934 100644
 --- a/ui/main.c
 +++ b/ui/main.c
-@@ -6,6 +6,7 @@
+@@ -8,6 +8,7 @@
  #include <stdio.h>
  #include <stdlib.h>
  #include "ui.h"
@@ -477,7 +444,7 @@ index 61c3b78..6bc4d94 100644
  #include "theme.h"
  #include "../src/mail.h"
  #include "../src/compose.h"
-@@ -42,7 +43,8 @@ static const MITEM m_desk[] = {
+@@ -78,7 +79,8 @@ static const MITEM m_desk[] = {
  };
  static const MITEM m_file[] = {
  	{ "  New message     ^N ", C_NEW }, { "  Check mail      ^K ", C_CHECK },
@@ -487,7 +454,7 @@ index 61c3b78..6bc4d94 100644
  	{ "  Save attachment... ", C_SAVEATT }, { "---------------------", C_SEP },
  	{ "  Quit            ^Q ", C_QUIT }, { 0, 0 }
  };
-@@ -720,10 +722,58 @@ void ui_command(short cmd)
+@@ -756,10 +758,58 @@ void ui_command(short cmd)
  	command(cmd);
  }
  
@@ -546,7 +513,7 @@ index 61c3b78..6bc4d94 100644
  	case C_NEW: {
  		ACCOUNT *a = account_for_new();
  		if (a)
-@@ -967,6 +1017,8 @@ int main(void)
+@@ -1004,6 +1054,8 @@ int main(void)
  		mem_unaligned_ok = get_cookie(0x5F435055L) >= 20;	/* _CPU */
  	}
  	ap_id = appl_init();
@@ -555,7 +522,7 @@ index 61c3b78..6bc4d94 100644
  	if (ap_id < 0)
  		return 1;
  	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
-@@ -1045,6 +1097,9 @@ int main(void)
+@@ -1082,6 +1134,9 @@ int main(void)
  			case AP_TERM:
  				quit = 1;
  				break;
@@ -566,10 +533,10 @@ index 61c3b78..6bc4d94 100644
  				win_message(msg);
  			}
 diff --git a/ui/ui.h b/ui/ui.h
-index 8319a6e..9f82891 100644
+index 4740ecb..17e26a1 100644
 --- a/ui/ui.h
 +++ b/ui/ui.h
-@@ -122,7 +122,7 @@ int  editor_dirty(void);
+@@ -124,7 +124,7 @@ int  editor_dirty(void);
  void editor_send(int now);
  void editor_attach(void);
  void editor_insert_address(void);
@@ -578,7 +545,7 @@ index 8319a6e..9f82891 100644
  
  /* dialogs */
  int  dlg_account(ACCOUNT *a);		/* 1 = OK, -1 = delete it */
-@@ -148,7 +148,7 @@ enum {
+@@ -150,7 +150,7 @@ enum {
  	C_NONE, C_ABOUT,
  	C_NEW, C_CHECK, C_SENDQ, C_SAVEATT, C_QUIT,
  	C_REPLY, C_REPLYALL, C_FORWARD, C_UNREAD, C_MARKREAD, C_FLAG, C_MOVE, C_DELETE, C_SELALL,

@@ -273,3 +273,23 @@ tests/hatari/docs_shots.py WORK etos512us.img     # the screenshots, in Hatari
 tests/hatari/placement.py WORK etos512us.img      # where the accessory and the program
                                                   # find their settings and folder
 ```
+
+## Licence
+
+EContact is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 2 of the License, or (at your option)
+any later version. It is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [COPYING](COPYING).
+
+Copyright (C) 2026 Erez Yaary.
+
+It includes, under their own licences (compatible with the GPL):
+
+- [BearSSL](third_party/bearssl) by Thomas Pornin: MIT licence
+  ([LICENSE.txt](third_party/bearssl/LICENSE.txt))
+- [TJpgDec](third_party/tjpgd) by ChaN: free use, the notice kept (at the
+  top of [tjpgd.c](third_party/tjpgd/tjpgd.c))
+- `CACERT.PEM`, the root certificates for Falcon mode, from Mozilla's CA
+  list (Mozilla Public License 2.0)

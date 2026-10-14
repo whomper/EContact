@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Erez Yaary */
 /*
  * sidebar.c - the list on the left, as on the Mac: All Contacts, then
  * each account with its address books and their groups. A click shows
