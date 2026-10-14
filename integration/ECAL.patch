@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index a03e5e5..d85cac8 100644
+index e9481f8..27b8727 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -37,7 +37,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
@@ -9,7 +9,7 @@ index a03e5e5..d85cac8 100644
 -CORE    := util charset conn tls bidi secret futil ctime tz ics rrule xml inflate http caldav calstore
 +CORE    := util charset conn tls bidi secret futil ctime tz ics rrule xml inflate http caldav calstore people
  ATARI   := libc tos plat_tos net_tos sting gem dsprsa
- UI      := main win draw popup dsp views sidebar editor dialogs field about font help av alert aboutbox iconify
+ UI      := main win draw popup dsp views sidebar editor dialogs field about font help av alert aboutbox iconify clip dd
  
 diff --git a/src/calstore.c b/src/calstore.c
 index bd410ca..31b239a 100644
@@ -646,18 +646,18 @@ index 142959f..44012ad 100644
  	test_xml();
  	test_urls();
 diff --git a/ui/editor.c b/ui/editor.c
-index 4cbaf62..1a651a1 100644
+index 3164aa0..893a575 100644
 --- a/ui/editor.c
 +++ b/ui/editor.c
-@@ -11,6 +11,7 @@
- #include <stdlib.h>
+@@ -12,6 +12,7 @@
  #include "ui.h"
  #include "util.h"
+ #include "clip.h"
 +#include "../src/people.h"
  
  static short last_cal = -1;	/* new events go where the last one went */
  
-@@ -492,7 +493,7 @@ static int custom_rule(RRULE *r, long startday)
+@@ -493,7 +494,7 @@ static int custom_rule(RRULE *r, long startday)
  /* ---- the dialog ---- */
  
  enum {
@@ -666,7 +666,7 @@ index 4cbaf62..1a651a1 100644
  	L_START, F_SDATE, F_STIME, L_TZ, F_TZ, L_END, F_EDATE, F_ETIME,
  	L_REP, F_REP, F_REPEND, F_REPVAL, L_REPDESC, L_ALERT, F_ALERT, L_NOTES, F_NOTES, L_URL,
  	B_DELETE, B_CANCEL, B_OK, NF
-@@ -644,11 +645,83 @@ static int ask_how(int first)
+@@ -645,11 +646,83 @@ static int ask_how(int first)
  	return -1;
  }
  
@@ -750,7 +750,7 @@ index 4cbaf62..1a651a1 100644
  	ED x;
  	DLG d;
  	EVENT *m = e->res >= 0 ? ev_master(e) : 0;
-@@ -695,6 +768,23 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
+@@ -696,6 +769,23 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
  	put(&x.f[F_LOC], FT_TEXT, 0, 11, row, 47, 0);
  	x.f[F_LOC].buf = loc;
  	x.f[F_LOC].max = sizeof(loc) - 1;
@@ -774,7 +774,7 @@ index 4cbaf62..1a651a1 100644
  	row += 2;
  	put(&x.f[F_ALLDAY], FT_CHECK, 0, 11, row, 10, "all-day");
  	x.f[F_ALLDAY].val = e->allday;
-@@ -843,6 +933,11 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
+@@ -844,6 +934,11 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
  		EVENT *n;
  		int how, ok, ci;
  		r = dlg_run(&d);
@@ -786,7 +786,7 @@ index 4cbaf62..1a651a1 100644
  		if (r == B_DELETE) {
  			int h = SAVE_ALL;
  			if (repeating) {
-@@ -880,6 +975,11 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
+@@ -881,6 +976,11 @@ static int run_editor(EVENT *e, CTIME occ_start, CTIME orig, int is_new)
  		ev_set(&n->summary, title[0] ? title : "New Event");
  		ev_set(&n->location, loc);
  		ev_set(&n->notes, notes);
@@ -799,7 +799,7 @@ index 4cbaf62..1a651a1 100644
  		if (n->allday) {
  			n->tz = 0;
 diff --git a/ui/main.c b/ui/main.c
-index 112ba8b..36038c3 100644
+index 9ccef77..b6eaa41 100644
 --- a/ui/main.c
 +++ b/ui/main.c
 @@ -18,6 +18,7 @@
@@ -810,7 +810,7 @@ index 112ba8b..36038c3 100644
  #include "../src/http.h"
  #include "../src/plat.h"
  #include "util.h"
-@@ -391,9 +392,17 @@ static void import_file(int cal, const char *path)
+@@ -392,9 +393,17 @@ static void import_file(int cal, const char *path)
  	after_change();
  }
  
@@ -829,7 +829,7 @@ index 112ba8b..36038c3 100644
  	       M_OFFL, M_FALC, M_LOG, M_S3, M_SET, M_FONT, M_KEYS, M_ABOUT, M_S4, M_QUIT, M_N };
  	const char *items[M_N];
  	short k, n = is_acc ? M_S4 : M_N;
-@@ -403,6 +412,7 @@ void cmd_menu(short x, short y)
+@@ -404,6 +413,7 @@ void cmd_menu(short x, short y)
  	items[M_GOTO] = "  Go to date...       ^G";
  	items[M_FIND] = "  Find...             ^F";
  	items[M_TODAY] = "  Today                T";
@@ -837,7 +837,7 @@ index 112ba8b..36038c3 100644
  	items[M_S2] = "-";
  	items[M_SIDE] = opt.sidebar ? "\x08 Calendar list      \x01^S" : "  Calendar list      \x01^S";
  	items[M_HEB] = opt.hebdates ? "\x08 Hebrew dates" : "  Hebrew dates";
-@@ -426,6 +436,7 @@ void cmd_menu(short x, short y)
+@@ -427,6 +437,7 @@ void cmd_menu(short x, short y)
  	case M_GOTO: dlg_goto(); break;
  	case M_FIND: dlg_find(); break;
  	case M_TODAY: views_today(); break;
@@ -845,7 +845,7 @@ index 112ba8b..36038c3 100644
  	case M_SIDE:
  		opt.sidebar = !opt.sidebar;
  		settings_later();
-@@ -987,6 +998,7 @@ int main(void)
+@@ -988,6 +999,7 @@ int main(void)
  	crash_cleanup = crash_quit;
  	alert_hebrew = alert_heb;
  	crash_report = conn_log_append;	/* the report in ECAL.LOG too */

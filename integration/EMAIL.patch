@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index 718245a..3b26c09 100644
+index 5f2b9b4..8da8503 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -40,7 +40,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
@@ -9,7 +9,7 @@ index 718245a..3b26c09 100644
 -CORE    := util charset mime conn tls imap pop3 smtp store compose mail futil bidi secret ctime tz
 +CORE    := util charset mime conn tls imap pop3 smtp store compose mail futil bidi secret ctime tz people
  ATARI   := libc tos plat_tos net_tos sting gem dsprsa crash
- UI      := main draw win folders list reader editor dialogs popup font about dsp theme help av alert mbar aboutbox iconify
+ UI      := main draw win folders list reader editor dialogs popup font about dsp theme help av alert mbar aboutbox iconify clip clipedit dd
  
 diff --git a/src/people.c b/src/people.c
 new file mode 100644
@@ -280,18 +280,18 @@ index 0000000..970da6a
 +
 +#endif
 diff --git a/ui/dialogs.c b/ui/dialogs.c
-index 8e873bf..a33e529 100644
+index ef70111..b34d7cf 100644
 --- a/ui/dialogs.c
 +++ b/ui/dialogs.c
-@@ -13,6 +13,7 @@
- #include "util.h"
+@@ -14,6 +14,7 @@
  #include "charset.h"
  #include "tz.h"
+ #include "clip.h"
 +#include "../src/people.h"
  
  #define DMAX 72
  #define TMAX 24
-@@ -1183,34 +1184,57 @@ ACCOUNT *dlg_pick_account(const char *title)
+@@ -1220,34 +1221,57 @@ ACCOUNT *dlg_pick_account(const char *title)
  	return r < 0 ? 0 : accts[r];
  }
  
@@ -365,18 +365,18 @@ index 8e873bf..a33e529 100644
  	return res;
  }
 diff --git a/ui/editor.c b/ui/editor.c
-index e23d0fc..3e3cc87 100644
+index d2be571..82bad6f 100644
 --- a/ui/editor.c
 +++ b/ui/editor.c
-@@ -15,6 +15,7 @@
- #include "../src/compose.h"
+@@ -16,6 +16,7 @@
  #include "bidi.h"
  #include "util.h"
+ #include "clip.h"
 +#include "../src/people.h"
  
  typedef struct {
  	char *s;
-@@ -572,32 +573,41 @@ void editor_attach_file(const char *full)
+@@ -666,32 +667,41 @@ void editor_attach_file(const char *full)
  	changed(he, -1);
  }
  
@@ -433,7 +433,7 @@ index e23d0fc..3e3cc87 100644
  }
  
 diff --git a/ui/main.c b/ui/main.c
-index 1028ffa..0a033ce 100644
+index 9dc7686..991dfb9 100644
 --- a/ui/main.c
 +++ b/ui/main.c
 @@ -8,6 +8,7 @@
@@ -444,7 +444,7 @@ index 1028ffa..0a033ce 100644
  #include "theme.h"
  #include "../src/mail.h"
  #include "../src/compose.h"
-@@ -58,6 +59,7 @@ static const MBAR_ITEM m_file[] = {
+@@ -60,6 +61,7 @@ static const MBAR_ITEM m_file[] = {
  	{ "New message", "^N", C_NEW },
  	{ "Check mail", "\x01^N", C_CHECK },
  	{ "Send Outbox", 0, C_SENDQ },
@@ -452,8 +452,8 @@ index 1028ffa..0a033ce 100644
  	{ "-", 0, 0 },
  	{ "Save attachment...", 0, C_SAVEATT },
  	{ "-", 0, 0 },
-@@ -703,10 +705,23 @@ void ui_command(short cmd)
- 	command(cmd);
+@@ -771,6 +773,18 @@ static void drop_text(const char *s)
+ 	}
  }
  
 +/* ---------------- EContact ----------------
@@ -471,12 +471,15 @@ index 1028ffa..0a033ce 100644
  static void command(short cmd)
  {
  	switch (cmd) {
- 	case C_ABOUT: dlg_about(); break;
+@@ -778,6 +792,7 @@ static void command(short cmd)
+ 	case C_CUT:
+ 	case C_COPY:
+ 	case C_PASTE: clip_command(cmd); break;
 +	case C_CONTACTS: open_contacts(); break;
  	case C_NEW: {
  		ACCOUNT *a = account_for_new();
  		if (a)
-@@ -1002,6 +1017,7 @@ int main(void)
+@@ -1076,6 +1091,7 @@ int main(void)
  			conn_bufsize = 4096;
  	}
  	ap_id = appl_init();
@@ -485,22 +488,22 @@ index 1028ffa..0a033ce 100644
  		return 1;
  	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
 diff --git a/ui/ui.h b/ui/ui.h
-index 12e97bc..c6bcbad 100644
+index 27ddfbf..cc41e0b 100644
 --- a/ui/ui.h
 +++ b/ui/ui.h
-@@ -134,7 +134,7 @@ void editor_send(int now);
- void editor_attach(void);
- void editor_attach_file(const char *path);
+@@ -137,7 +137,7 @@ void editor_clip(int what);			/* CLIP_COPY, CLIP_CUT, CLIP_PASTE */
+ void editor_insert_text(const char *s);		/* at the cursor */
+ void editor_insert_body(const char *s);		/* at the start of the message's text */
  void editor_insert_address(void);
 -char *dlg_pick_address(void);
 +char *dlg_pick_address(const char *filter);	/* Contacts and the address book */
  
  /* dialogs */
  int  dlg_account(ACCOUNT *a);		/* 1 = OK, -1 = delete it */
-@@ -160,7 +160,7 @@ enum {
- 	C_NONE, C_ABOUT,
+@@ -164,7 +164,7 @@ enum {
  	C_NEW, C_CHECK, C_SENDQ, C_SAVEATT, C_CLOSE, C_QUIT,
- 	C_REPLY, C_REPLYALL, C_FORWARD, C_UNREAD, C_MARKREAD, C_FLAG, C_MOVE, C_DELETE, C_SELALL,
+ 	C_CUT, C_COPY, C_PASTE, C_SELALL,
+ 	C_REPLY, C_REPLYALL, C_FORWARD, C_UNREAD, C_MARKREAD, C_FLAG, C_MOVE, C_DELETE,
 -	C_SEND, C_SAVEOUT, C_ATTACH, C_ABOOK,
 +	C_SEND, C_SAVEOUT, C_ATTACH, C_ABOOK, C_CONTACTS,
  	C_FOLDERS, C_REFRESH, C_NEWFOLDER, C_RENFOLDER, C_DELFOLDER,
