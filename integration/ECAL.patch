@@ -799,7 +799,7 @@ index 4cbaf62..1a651a1 100644
  		if (n->allday) {
  			n->tz = 0;
 diff --git a/ui/main.c b/ui/main.c
-index 57f077f..2eaa4df 100644
+index 2fd25cd..ff9ce06 100644
 --- a/ui/main.c
 +++ b/ui/main.c
 @@ -18,6 +18,7 @@
@@ -810,7 +810,7 @@ index 57f077f..2eaa4df 100644
  #include "../src/http.h"
  #include "../src/plat.h"
  #include "util.h"
-@@ -390,9 +391,17 @@ static void import_file(int cal, const char *path)
+@@ -391,9 +392,17 @@ static void import_file(int cal, const char *path)
  	after_change();
  }
  
@@ -829,15 +829,15 @@ index 57f077f..2eaa4df 100644
  	       M_OFFL, M_FALC, M_LOG, M_S3, M_SET, M_FONT, M_KEYS, M_ABOUT, M_S4, M_QUIT, M_N };
  	const char *items[M_N];
  	short k, n = is_acc ? M_S4 : M_N;
-@@ -402,6 +411,7 @@ void cmd_menu(short x, short y)
+@@ -403,6 +412,7 @@ void cmd_menu(short x, short y)
  	items[M_GOTO] = "  Go to date...       ^G";
  	items[M_FIND] = "  Find...             ^F";
  	items[M_TODAY] = "  Today                T";
 +	items[M_CONT] = "  Contacts...";
  	items[M_S2] = "-";
- 	items[M_SIDE] = opt.sidebar ? "\x08 Calendar list       ^S" : "  Calendar list       ^S";
+ 	items[M_SIDE] = opt.sidebar ? "\x08 Calendar list      \x01^S" : "  Calendar list      \x01^S";
  	items[M_HEB] = opt.hebdates ? "\x08 Hebrew dates" : "  Hebrew dates";
-@@ -425,6 +435,7 @@ void cmd_menu(short x, short y)
+@@ -426,6 +436,7 @@ void cmd_menu(short x, short y)
  	case M_GOTO: dlg_goto(); break;
  	case M_FIND: dlg_find(); break;
  	case M_TODAY: views_today(); break;
@@ -845,7 +845,7 @@ index 57f077f..2eaa4df 100644
  	case M_SIDE:
  		opt.sidebar = !opt.sidebar;
  		settings_later();
-@@ -984,6 +995,7 @@ int main(void)
+@@ -987,6 +998,7 @@ int main(void)
  	crash_cleanup = crash_quit;
  	alert_hebrew = alert_heb;
  	crash_report = conn_log_append;	/* the report in ECAL.LOG too */

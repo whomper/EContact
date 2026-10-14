@@ -280,7 +280,7 @@ index 0000000..970da6a
 +
 +#endif
 diff --git a/ui/dialogs.c b/ui/dialogs.c
-index 61919db..c5e9fb2 100644
+index 8e873bf..a33e529 100644
 --- a/ui/dialogs.c
 +++ b/ui/dialogs.c
 @@ -13,6 +13,7 @@
@@ -365,7 +365,7 @@ index 61919db..c5e9fb2 100644
  	return res;
  }
 diff --git a/ui/editor.c b/ui/editor.c
-index 86e731a..1a897cd 100644
+index e23d0fc..3e3cc87 100644
 --- a/ui/editor.c
 +++ b/ui/editor.c
 @@ -15,6 +15,7 @@
@@ -433,7 +433,7 @@ index 86e731a..1a897cd 100644
  }
  
 diff --git a/ui/main.c b/ui/main.c
-index 1cd0a1e..9dad3b3 100644
+index 0e28b61..78c71fb 100644
 --- a/ui/main.c
 +++ b/ui/main.c
 @@ -8,6 +8,7 @@
@@ -444,15 +444,15 @@ index 1cd0a1e..9dad3b3 100644
  #include "theme.h"
  #include "../src/mail.h"
  #include "../src/compose.h"
-@@ -55,6 +56,7 @@ static const MBAR_ITEM m_file[] = {
+@@ -58,6 +59,7 @@ static const MBAR_ITEM m_file[] = {
  	{ "New message", "^N", C_NEW },
- 	{ "Check mail", "^K", C_CHECK },
+ 	{ "Check mail", "\x01^N", C_CHECK },
  	{ "Send Outbox", 0, C_SENDQ },
 +	{ "Contacts...", 0, C_CONTACTS },
  	{ "-", 0, 0 },
  	{ "Save attachment...", 0, C_SAVEATT },
  	{ "-", 0, 0 },
-@@ -699,10 +701,23 @@ void ui_command(short cmd)
+@@ -703,10 +705,23 @@ void ui_command(short cmd)
  	command(cmd);
  }
  
@@ -476,7 +476,7 @@ index 1cd0a1e..9dad3b3 100644
  	case C_NEW: {
  		ACCOUNT *a = account_for_new();
  		if (a)
-@@ -982,6 +997,7 @@ int main(void)
+@@ -1002,6 +1017,7 @@ int main(void)
  			conn_bufsize = 4096;
  	}
  	ap_id = appl_init();
@@ -485,7 +485,7 @@ index 1cd0a1e..9dad3b3 100644
  		return 1;
  	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
 diff --git a/ui/ui.h b/ui/ui.h
-index 2dc81b4..0c35f98 100644
+index 3289075..6003adb 100644
 --- a/ui/ui.h
 +++ b/ui/ui.h
 @@ -130,7 +130,7 @@ void editor_send(int now);
@@ -499,7 +499,7 @@ index 2dc81b4..0c35f98 100644
  int  dlg_account(ACCOUNT *a);		/* 1 = OK, -1 = delete it */
 @@ -156,7 +156,7 @@ enum {
  	C_NONE, C_ABOUT,
- 	C_NEW, C_CHECK, C_SENDQ, C_SAVEATT, C_QUIT,
+ 	C_NEW, C_CHECK, C_SENDQ, C_SAVEATT, C_CLOSE, C_QUIT,
  	C_REPLY, C_REPLYALL, C_FORWARD, C_UNREAD, C_MARKREAD, C_FLAG, C_MOVE, C_DELETE, C_SELALL,
 -	C_SEND, C_SAVEOUT, C_ATTACH, C_ABOOK,
 +	C_SEND, C_SAVEOUT, C_ATTACH, C_ABOOK, C_CONTACTS,
