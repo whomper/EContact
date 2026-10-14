@@ -125,7 +125,7 @@ $(OBJDIR)/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
 $(OBJDIR)/tjpgd.o: third_party/tjpgd/tjpgd.c third_party/tjpgd/tjpgd.h third_party/tjpgd/tjpgdcnf.h | $(OBJDIR)
 	$(CC) $(subst -Os,-O2,$(CFLAGS)) -w -c -o $@ $<
 
-$(OBJDIR)/crt0.o: atari/crt0.S | $(OBJDIR)
+$(OBJDIR)/crt0.o: common/atari/crt0.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
 $(OBJDIR)/sting_s.o: common/atari/sting.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
