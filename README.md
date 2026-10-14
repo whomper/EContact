@@ -215,6 +215,15 @@ In the [`binary`](binary) folder:
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode                  |
 | `ECONTACT.HYP` | the user guide for ST-Guide: in EContact's folder, the Help key opens it |
 | `ECONTACT.REF` | its pages' names, for ST-Guide's index (ALL.REF): with the .HYP |
+| `icons/`       | the desktop icon: `ECONTACT.RSC` (black-and-white and 16-colour), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
+
+**The desktop icon.** Copy the icons from `icons/ECONTACT.RSC` into your
+desktop's icon file (`DESKICON.RSC`, `DESKCICN.RSC`) with a resource
+editor; `ECONTACT.DEF` gives them their names there. For EmuTOS,
+`tools/icon/add_to_emuicon.py emuicon.rsc EMUICON.RSC` writes a copy of
+EmuTOS's icon file with EContact's added (it says which number), for
+the root of the boot drive; then **Options > Install icon**.
+`tools/icon/make_rsc.py` makes the files from `tools/icon/make_icon.py`.
 
 ## Getting started
 
