@@ -33,6 +33,8 @@
 #include "aboutbox.h"
 #include "../src/photo.h"
 #include "../src/carddav.h"
+#include "clip.h"
+#include "dd.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 short gl_wchar, gl_hchar, ap_id, is_acc, ncolors, hebrew_kbd, quit_now;
@@ -470,32 +472,26 @@ void cmd_export(void)
 	free(list);
 }
 
-/* the GEM clipboard: SCRAP.TXT in its folder */
+/* the GEM clipboard (common/ui/clip.c): SCRAP.TXT in its folder, the
+   other SCRAP.* gone, other programs told */
 void cmd_copy(const char *text)
 {
-	char dir[160], path[200];
-	dir[0] = 0;
-	if (!scrp_read(dir) || !dir[0]) {
-		snprintf(dir, sizeof(dir), "%c:\\CLIPBRD", 'A' + boot_drive());
-		pf_mkdir(dir);
-		scrp_write(dir);
-	}
-	{
-		int n = (int)strlen(dir);
-		while (n && dir[n - 1] == '\\')
-			dir[--n] = 0;
-		/* some programs leave a file name in it */
-		if (n > 4 && dir[n - 4] == '.') {
-			char *s = strrchr(dir, '\\');
-			if (s)
-				*s = 0;
-		}
-	}
-	path_join(path, sizeof(path), dir, "SCRAP.TXT");
-	if (pf_save(path, text, (long)strlen(text)) < 0)
+	if (!clip_put(text, (long)strlen(text)))
 		alert(1, "[1][Couldn't write the clipboard.][ OK ]");
 	else
 		status("Copied to the clipboard.");
+}
+
+/* a contact as EMail's To: line takes it: "Maya Carter <maya@example.com>" */
+void cmd_copy_contact(const CONTACT *c)
+{
+	char name[160], t[300];
+	vcard_display_name(c, 0, name, sizeof(name));
+	if (c->nemail)
+		snprintf(t, sizeof(t), "%s <%s>", name, c->email[0].value);
+	else
+		str_copy(t, name, sizeof(t));
+	cmd_copy(t);
 }
 
 /* "Maya Carter <maya@example.com>" for EMail's To: line */
@@ -1134,6 +1130,7 @@ int main(void)
 				break;
 			case AC_CLOSE:
 				if (msg[3] == menu_id) {
+					av_window(win_h, 0);
 					win_h = -1;
 					settings_flush();
 					files_left();
@@ -1144,11 +1141,19 @@ int main(void)
 					quit_now = 1;
 				win_close();
 				break;
-			default:
-				if (av_message(msg, &va) == AV_START)
-					av_start(va);
-				else
-					win_message(msg);
+			default: {
+				DROP d;
+				/* .vcf files dropped: imported, as VA_START's */
+				switch (dd_message(msg, DD_WANT_FILES, &d)) {
+				case DD_FILES: av_start(d.data); break;
+				case DD_NONE:
+					if (av_message(msg, &va) == AV_START)
+						av_start(va);
+					else
+						win_message(msg);
+				}
+				dd_done(&d);
+			}
 			}
 		}
 		if ((which & MU_KEYBD) && win_h > 0) {

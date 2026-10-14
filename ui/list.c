@@ -474,16 +474,7 @@ void contact_menu(short mx, short my, CONTACT *c)
 		after_change();
 		break;
 	case A_MAIL: cmd_mail_to(c, c->email[0].value); break;
-	case A_COPY: {
-		char name[160], t[300];
-		vcard_display_name(c, 0, name, sizeof(name));
-		if (c->nemail)
-			snprintf(t, sizeof(t), "%s <%s>", name, c->email[0].value);
-		else
-			str_copy(t, name, sizeof(t));
-		cmd_copy(t);
-		break;
-	}
+	case A_COPY: cmd_copy_contact(c); break;
 	case A_ME:
 		str_copy(opt.me, uid, sizeof(opt.me));
 		store_save_settings();

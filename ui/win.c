@@ -11,6 +11,8 @@
 #include "ui.h"
 #include "bidi.h"
 #include "iconify.h"
+#include "av.h"
+#include "clip.h"
 
 short win_h = -1;
 GRECT work, r_tool, r_side, r_list, r_card, r_search;
@@ -353,6 +355,8 @@ void win_open(void)
 		x = sx;
 	}
 	wind_open(win_h, x, y, w, h);
+	if (is_acc)		/* the desktop drops files on it (VA_DRAGACCWIND) */
+		av_window(win_h, 1);
 	win_layout();
 	win_sliders();
 }
@@ -385,6 +389,8 @@ void win_close(void)
 	if (!win_iconified)	/* the place was kept when it was iconified */
 		remember_place();
 	closing_down(quit_now || !is_acc);
+	if (is_acc)
+		av_window(win_h, 0);
 	wind_close(win_h);
 	wind_delete(win_h);
 	win_h = -1;
@@ -531,12 +537,35 @@ int win_mouse(short mx, short my, short button, short clicks, short kstate)
 	return 0;
 }
 
+/* ^X ^V on the search field (^C copies the contact chosen) */
+static int search_clip(int what)
+{
+	char t[sizeof(search_text)];
+	int n = (int)strlen(search_text);
+	char *p;
+	if (what == CLIP_CUT) {
+		if (!n || !clip_put(search_text, n))
+			return 1;
+		search_text[0] = 0;
+	} else {
+		clip_get(t, sizeof(t));
+		for (p = clip_line(t); *p && n < (int)sizeof(search_text) - 1; p++)
+			if ((unsigned char)*p >= ' ' && (*p != ' ' || n))
+				search_text[n++] = *p;
+		search_text[n] = 0;
+	}
+	search_changed();
+	return 1;
+}
+
 /* typing goes into the search field, as on the Mac */
 static int search_key(short kstate, short key)
 {
 	short scan = KEY_SCAN(key);
 	unsigned char a = key_char(kstate, key);
 	int n = (int)strlen(search_text);
+	if ((kstate & K_CTRL) && (clip_key(key) == CLIP_CUT || clip_key(key) == CLIP_PASTE))
+		return search_clip(clip_key(key));
 	if (kstate & (K_CTRL | K_ALT))
 		return 0;
 	if (scan == 0x0e) {			/* Backspace */
@@ -590,6 +619,12 @@ int win_key(short kstate, short key)
 			if (!(kstate & (K_LSHIFT | K_RSHIFT)))
 				return 0;
 			toggle_sidebar();
+			return 1;
+		case 0x2e:						/* ^C: the contact chosen */
+			if (sel_contact())
+				cmd_copy_contact(sel_contact());
+			else if (search_text[0])
+				cmd_copy(search_text);
 			return 1;
 		}
 	}

@@ -407,22 +407,14 @@ static void value_menu(short mx, short my, CONTACT *c, HIT *h)
 	const char *items[3];
 	short n = 0, k, mail = h->kind == HV_EMAIL || h->kind == HV_MAILBTN;
 	const char *val = "";
-	char tmp[400];
 	switch (h->kind) {
 	case HV_TEL: val = c->tel[h->idx].value; break;
 	case HV_EMAIL: val = c->email[h->idx].value; break;
 	case HV_MAILBTN: val = c->email[0].value; break;
 	case HV_URL: val = c->url[h->idx].value; break;
-	case HV_ADR: {
-		/* the address on lines, as on an envelope */
-		char *p;
-		str_copy(tmp, c->adr[h->idx].value, sizeof(tmp));
-		for (p = tmp; *p; p++)
-			if (*p == '\n')
-				*p = '\r';
-		val = tmp;
+	case HV_ADR:	/* the address on lines, as on an envelope */
+		val = c->adr[h->idx].value;
 		break;
-	}
 	case HV_BDAY: val = c->bday; break;
 	case HV_NOTE: val = c->note; break;
 	}

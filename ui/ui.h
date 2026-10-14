@@ -216,6 +216,7 @@ void cmd_new_group(int book);
 void cmd_mail(const char *addr);	/* a message to addr in EMail */
 void cmd_mail_to(const CONTACT *c, const char *email);	/* to "Name <email>" */
 void cmd_copy(const char *text);	/* to the GEM clipboard */
+void cmd_copy_contact(const CONTACT *c);	/* "Name <email>" to it */
 void after_change(void);		/* contacts changed: the list and the window again */
 extern short hebrew_kbd;
 void set_hebrew_kbd(short on);

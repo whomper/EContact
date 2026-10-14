@@ -240,7 +240,14 @@ changed until you're online again), **Font...**,
 
 **mail** in EContact opens a new message in EMail, to the person or the
 group, when EMail is running; when it isn't, the address goes to the
-clipboard.
+clipboard, and ^V puts it on EMail's To: line. ^C copies the contact
+you chose the same way, "Maya Carter <maya@example.com>", ready for a
+To: line.
+
+Under MultiTOS, MagiC or XaAES you can drag .vcf files onto EContact's
+window to import them. Running as an accessory, EContact tells the
+desktop about its window, so Thing and the like can drop .vcf files on
+it there too.
 
 EContact writes `CONTACTS.TXT` in its folder whenever the contacts change
 (and at the start, when it's out of date):
@@ -282,6 +289,9 @@ encrypted with ECONTACT.KEY the next time EContact starts.
 | ^G | a new group |
 | typing | search |
 | Esc, ^F | a new search |
+| ^C | copy the contact chosen: "Name <email>" |
+| ^V, ^X | paste into the search, cut it |
+| ^C ^X ^V | in a dialog: copy, cut, paste a field |
 | ^R, Shift+^R | refresh, everything again |
 | Shift+^S | the groups on the left |
 | F10 | Hebrew keyboard |

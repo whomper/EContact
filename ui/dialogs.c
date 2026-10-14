@@ -431,6 +431,9 @@ void dlg_keys(void)
 		{ 11, 0, "Double-click", "edit; an email: write" },
 		{ 11, 1, "Right-click", "more choices" },
 		{ 12, 0, "Help", "the guide, in ST-Guide" },
+		{ 12, 1, "^C", "copy Name <email>" },
+		{ 13, 0, "^V  ^X", "paste, cut the search" },
+		{ 13, 1, "^C ^X ^V", "in a dialog's field" },
 	};
 	enum { N = sizeof(k) / sizeof(k[0]) };
 	FIELD f[2 * N + 1];
@@ -444,6 +447,6 @@ void dlg_keys(void)
 		put(&f[n++], FT_LABEL, FF_LTR, kx, k[i].row, 0, k[i].key);
 		put(&f[n++], FT_LABEL, FF_LTR, dx, k[i].row, 0, k[i].does);
 	}
-	put(&f[n++], FT_BUTTON, FF_DEFAULT | FF_CANCEL, 62, 12, 10, "OK");
-	run("Keys", f, n, 73, 13, -1);
+	put(&f[n++], FT_BUTTON, FF_DEFAULT | FF_CANCEL, 62, 14, 10, "OK");
+	run("Keys", f, n, 73, 15, -1);
 }
