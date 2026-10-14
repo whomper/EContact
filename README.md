@@ -257,7 +257,7 @@ make help HCP=/path/to/hcp               # ECONTACT.HYP alone
 carries the program's version.
 
 As in ECal and EMail, the program is freestanding (`atari/`, no MiNTLib),
-`tools/elf2tos.py` writes the TOS executable, one binary is both the
+`common/tools/elf2tos.py` writes the TOS executable, one binary is both the
 accessory and the program, and every build counts the minor version up
 (`VERSION`, `tools/bump.py`). Commit `VERSION` with the program.
 
@@ -273,6 +273,8 @@ ui/       the GEM program: main.c, win.c (the window), sidebar.c, list.c,
 share/    people.c: EContact's people for other programs (EMail, ECal)
 integration/  the patches for EMail and ECal
 atari/    TOS runtime, STinG, DSP (from ECal)
+common/   code shared with the other AERA programs (from AERA-Atari):
+          BearSSL, the DSP RSA program, bidi, dates, passwords, build tools
 tests/    unit tests, CardDAV integration tests, Hatari screenshots
 ```
 
@@ -310,8 +312,8 @@ Copyright (C) 2026 Erez Yaary.
 
 It includes, under their own licences (compatible with the GPL):
 
-- [BearSSL](third_party/bearssl) by Thomas Pornin: MIT licence
-  ([LICENSE.txt](third_party/bearssl/LICENSE.txt))
+- [BearSSL](common/third_party/bearssl) by Thomas Pornin: MIT licence
+  ([LICENSE.txt](common/third_party/bearssl/LICENSE.txt))
 - [TJpgDec](third_party/tjpgd) by ChaN: free use, the notice kept (at the
   top of [tjpgd.c](third_party/tjpgd/tjpgd.c))
 - `CACERT.PEM`, the root certificates for Falcon mode, from Mozilla's CA

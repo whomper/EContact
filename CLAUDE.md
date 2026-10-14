@@ -58,3 +58,8 @@
   parsed contacts (vcard_pack); a change to CONTACT's layout changes
   VC_PACK_ID, and a new version reparses anyway. Contacts that don't fit
   are counted (contacts_lost) and the user is told, never left out quietly.
+- `common/` is shared AERA code (BearSSL, the DSP RSA, bidi, dates,
+  passwords, libc headers, build tools), a git subtree of
+  github.com/whomper/AERA-Atari. Don't edit it here: change it in
+  AERA-Atari, then run `tools/sync-common.sh`. Follow the AERA Atari app
+  guidelines (AERA-Atari, `standards/ATARI-APP-GUIDELINES.md`).

@@ -7,7 +7,7 @@
 #                   (the same program, to start from the desktop) and ECONTST.ACC
 #                   (the ST edition, through the Pi gateway) with a stock m68k ELF
 #                   cross compiler (Debian/Ubuntu: apt install gcc-m68k-linux-gnu).
-#                   No MiNTLib: the program is freestanding and tools/elf2tos.py
+#                   No MiNTLib: the program is freestanding and common/tools/elf2tos.py
 #                   writes the TOS header.
 #   make test       builds the contacts core for this computer and runs the
 #                   unit tests; `make itest` also syncs with a local CardDAV
@@ -22,19 +22,19 @@ GCCINC  := $(shell $(CC) -print-file-name=include 2>/dev/null)
 CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -fno-pic -fno-pie -fno-tree-loop-distribute-patterns -fno-store-merging \
            -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
-           -DCAL_TOS -nostdinc -isystem $(GCCINC) -Iatari/include -Isrc -Iatari \
-           -Ithird_party/bearssl/inc -Ithird_party/tjpgd
-LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,atari/link.ld \
+           -DCAL_TOS -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
+           -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/third_party/bearssl/inc -Ithird_party/tjpgd
+LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
            -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments
 
 # BearSSL 0.6 for Falcon mode, built for the 68030 (the rest stays 68000 code)
-BSSL    := third_party/bearssl
+BSSL    := common/third_party/bearssl
 BSSLSRC := $(wildcard $(BSSL)/src/*/*.c)
 BSSLDEF := -DBR_USE_URANDOM=0 -DBR_USE_GETENTROPY=0 -DBR_USE_UNIX_TIME=0 \
            -DBR_USE_WIN32_TIME=0 -DBR_USE_WIN32_RAND=0 -DBR_RDRAND=0
 BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
            -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables -w \
-           -nostdinc -isystem $(GCCINC) -Iatari/include -I$(BSSL)/inc -I$(BSSL)/src $(BSSLDEF)
+           -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include -I$(BSSL)/inc -I$(BSSL)/src $(BSSLDEF)
 BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
 HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
@@ -46,7 +46,8 @@ OBJDIR  := build
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI)))
 OBJS    := $(OBJS0) $(OBJDIR)/version.o
-HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h dsp/*.h third_party/tjpgd/*.h)
+HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
+           common/src/*.h common/atari/*.h common/atari/include/*.h common/dsp/*.h third_party/tjpgd/*.h)
 
 # what goes onto the Atari: binary/
 BIN     := binary
@@ -76,10 +77,10 @@ STOBJS  := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out tls,$(CORE)) $(ATARI) $(UI) tls_none)) \
            $(addprefix $(OBJDIR)/st/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/version.o
 
-$(BIN)/ECONTST.ACC: $(OBJDIR)/econtst.elf tools/elf2tos.py
-	PRGFLAGS=7 python3 tools/elf2tos.py $< $@
+$(BIN)/ECONTST.ACC: $(OBJDIR)/econtst.elf common/tools/elf2tos.py
+	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
 
-$(OBJDIR)/econtst.elf: $(STOBJS) atari/link.ld
+$(OBJDIR)/econtst.elf: $(STOBJS) common/atari/link.ld
 	$(CC) $(LDFLAGS) -o $@ $(STOBJS) -lgcc
 
 $(OBJDIR)/st/%.o: $(BSSL)/src/hash/%.c
@@ -91,12 +92,12 @@ $(OBJDIR)/st/%.o: $(BSSL)/src/codec/%.c
 
 # one program, two names: it sees at start-up whether TOS loaded it as
 # an accessory or started it as an application
-$(BIN)/ECONTACT.ACC: $(OBJDIR)/contact.elf tools/elf2tos.py
-	PRGFLAGS=7 python3 tools/elf2tos.py $< $@
+$(BIN)/ECONTACT.ACC: $(OBJDIR)/contact.elf common/tools/elf2tos.py
+	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
 $(BIN)/ECONTACT.PRG: $(BIN)/ECONTACT.ACC
 	cp $< $@
 
-$(OBJDIR)/contact.elf: $(OBJS) $(OBJDIR)/libbearssl.a atari/link.ld
+$(OBJDIR)/contact.elf: $(OBJS) $(OBJDIR)/libbearssl.a common/atari/link.ld
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(OBJDIR)/libbearssl.a -lgcc
 
 $(OBJDIR)/bssl/%.o: $(BSSL)/src/%.c
@@ -113,15 +114,21 @@ $(OBJDIR)/%.o: atari/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 $(OBJDIR)/%.o: ui/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJDIR)/%.o: common/src/%.c $(HDRS) | $(OBJDIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJDIR)/%.o: common/atari/%.c $(HDRS) | $(OBJDIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJDIR)/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
 # ChaN's JPEG decoder for the photos: 68000 code, for speed
 $(OBJDIR)/tjpgd.o: third_party/tjpgd/tjpgd.c third_party/tjpgd/tjpgd.h third_party/tjpgd/tjpgdcnf.h | $(OBJDIR)
 	$(CC) $(subst -Os,-O2,$(CFLAGS)) -w -c -o $@ $<
 
 $(OBJDIR)/crt0.o: atari/crt0.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
-$(OBJDIR)/sting_s.o: atari/sting.S | $(OBJDIR)
+$(OBJDIR)/sting_s.o: common/atari/sting.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
-$(OBJDIR)/nf.o: atari/nf.S | $(OBJDIR)
+$(OBJDIR)/nf.o: common/atari/nf.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
 
 $(OBJDIR):
@@ -138,8 +145,8 @@ $(OBJDIR)/version.o: $(OBJDIR)/version.c
 # ---- host build: the same contacts core, for tests and card-cli ----
 HOSTCC     ?= cc
 HOSTCFLAGS := -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
-              -Wno-format-truncation -Isrc -Ithird_party/tjpgd -fsanitize=address,undefined
-HOSTSRC    := $(addprefix src/,$(addsuffix .c,$(CORE))) third_party/tjpgd/tjpgd.c tests/host/plat_posix.c tests/host/version_host.c
+              -Wno-format-truncation -Isrc -Icommon/src -Ithird_party/tjpgd -fsanitize=address,undefined
+HOSTSRC    := $(foreach m,$(CORE),$(firstword $(wildcard src/$(m).c common/src/$(m).c))) third_party/tjpgd/tjpgd.c tests/host/plat_posix.c tests/host/version_host.c
 HOSTLIB    := $(OBJDIR)/libbearssl-host.a
 
 $(OBJDIR)/hbssl/%.o: $(BSSL)/src/%.c
@@ -164,9 +171,12 @@ $(OBJDIR)/lowmem: tests/lowmem.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
 	$(HOSTCC) $(filter-out -fsanitize=%,$(HOSTCFLAGS)) -I$(BSSL)/inc -Wl,--wrap=malloc,--wrap=realloc \
 		-o $@ tests/lowmem.c $(HOSTSRC) $(HOSTLIB)
 
-$(OBJDIR)/mkroots: tools/mkroots.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
-	$(HOSTCC) $(HOSTCFLAGS) -I$(BSSL)/inc -o $@ tools/mkroots.c $(HOSTSRC) $(HOSTLIB)
+$(OBJDIR)/mkroots: common/tools/mkroots.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
+	$(HOSTCC) $(HOSTCFLAGS) -I$(BSSL)/inc -o $@ common/tools/mkroots.c $(HOSTSRC) $(HOSTLIB)
 
+# the root certificates: Mozilla's list, kept in common/
+$(BIN)/CACERT.PEM: common/certs/CACERT.PEM
+	cp $< $@
 $(BIN)/ROOTS.DAT: $(BIN)/CACERT.PEM
 	$(MAKE) $(OBJDIR)/mkroots
 	$(OBJDIR)/mkroots $(BIN)/CACERT.PEM $@
@@ -176,7 +186,7 @@ $(OBJDIR)/fakeguide.acc: tests/atari/fakeguide.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.
 	$(CC) $(CFLAGS) -c -o $(OBJDIR)/fakeguide.o $<
 	$(CC) $(LDFLAGS) -o $(OBJDIR)/fakeguide.elf $(OBJDIR)/crt0.o $(OBJDIR)/fakeguide.o \
 		$(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
-	python3 tools/elf2tos.py $(OBJDIR)/fakeguide.elf $@
+	python3 common/tools/elf2tos.py $(OBJDIR)/fakeguide.elf $@
 
 test: $(OBJDIR)/unit $(OBJDIR)/lowmem
 	$(OBJDIR)/unit
