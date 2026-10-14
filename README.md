@@ -15,7 +15,7 @@ A contacts program for the Atari, written in C for GEM. Like ECal it runs
 as a **desk accessory**, so it opens from the Desk menu over whatever
 program you're in, and it is laid out like the Mac's Contacts: the groups
 on the left, the people in the middle under a search field, the chosen
-person's card on the right.
+person's card on the right. 
 
 ![EContact on a Falcon](docs/window.png)
 
