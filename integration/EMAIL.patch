@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index b45b097..b544763 100644
+index 718245a..3b26c09 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -40,7 +40,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
@@ -9,7 +9,7 @@ index b45b097..b544763 100644
 -CORE    := util charset mime conn tls imap pop3 smtp store compose mail futil bidi secret ctime tz
 +CORE    := util charset mime conn tls imap pop3 smtp store compose mail futil bidi secret ctime tz people
  ATARI   := libc tos plat_tos net_tos sting gem dsprsa crash
- UI      := main draw win folders list reader editor dialogs popup font about dsp theme help av alert mbar aboutbox
+ UI      := main draw win folders list reader editor dialogs popup font about dsp theme help av alert mbar aboutbox iconify
  
 diff --git a/src/people.c b/src/people.c
 new file mode 100644
@@ -433,7 +433,7 @@ index e23d0fc..3e3cc87 100644
  }
  
 diff --git a/ui/main.c b/ui/main.c
-index 0e28b61..78c71fb 100644
+index 1028ffa..0a033ce 100644
 --- a/ui/main.c
 +++ b/ui/main.c
 @@ -8,6 +8,7 @@
@@ -485,10 +485,10 @@ index 0e28b61..78c71fb 100644
  		return 1;
  	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
 diff --git a/ui/ui.h b/ui/ui.h
-index 3289075..6003adb 100644
+index 12e97bc..c6bcbad 100644
 --- a/ui/ui.h
 +++ b/ui/ui.h
-@@ -130,7 +130,7 @@ void editor_send(int now);
+@@ -134,7 +134,7 @@ void editor_send(int now);
  void editor_attach(void);
  void editor_attach_file(const char *path);
  void editor_insert_address(void);
@@ -497,7 +497,7 @@ index 3289075..6003adb 100644
  
  /* dialogs */
  int  dlg_account(ACCOUNT *a);		/* 1 = OK, -1 = delete it */
-@@ -156,7 +156,7 @@ enum {
+@@ -160,7 +160,7 @@ enum {
  	C_NONE, C_ABOUT,
  	C_NEW, C_CHECK, C_SENDQ, C_SAVEATT, C_CLOSE, C_QUIT,
  	C_REPLY, C_REPLYALL, C_FORWARD, C_UNREAD, C_MARKREAD, C_FLAG, C_MOVE, C_DELETE, C_SELALL,

@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index cbddf96..4296de0 100644
+index a03e5e5..d85cac8 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -37,7 +37,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
@@ -9,7 +9,7 @@ index cbddf96..4296de0 100644
 -CORE    := util charset conn tls bidi secret futil ctime tz ics rrule xml inflate http caldav calstore
 +CORE    := util charset conn tls bidi secret futil ctime tz ics rrule xml inflate http caldav calstore people
  ATARI   := libc tos plat_tos net_tos sting gem dsprsa
- UI      := main win draw popup dsp views sidebar editor dialogs field about font help av alert aboutbox
+ UI      := main win draw popup dsp views sidebar editor dialogs field about font help av alert aboutbox iconify
  
 diff --git a/src/calstore.c b/src/calstore.c
 index bd410ca..31b239a 100644
@@ -799,7 +799,7 @@ index 4cbaf62..1a651a1 100644
  		if (n->allday) {
  			n->tz = 0;
 diff --git a/ui/main.c b/ui/main.c
-index 2fd25cd..ff9ce06 100644
+index 112ba8b..36038c3 100644
 --- a/ui/main.c
 +++ b/ui/main.c
 @@ -18,6 +18,7 @@
