@@ -213,13 +213,15 @@ In the [`binary`](binary) folder:
 | `ECONTST.ACC`  | ST and STE: the same accessory without TLS (100 KB smaller), through the Pi |
 | `ECONTACT.PRG` | the same as ECONTACT.ACC, to start from the desktop          |
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode                  |
+| `ECONTACT.HYP` | the user guide for ST-Guide: in EContact's folder, the Help key opens it |
 
 ## Getting started
 
 1. Copy `ECONTACT.ACC` (Falcon/TT) or `ECONTST.ACC` (ST/STE, renamed to
    `ECONTACT.ACC` or not) into the root of your boot drive, e.g. `C:\`.
    For Falcon mode, make a folder `C:\ECONTACT` and put `CACERT.PEM` and
-   `ROOTS.DAT` in it (EContact keeps its own files there too). The folder
+   `ROOTS.DAT` in it, and `ECONTACT.HYP` for the Help key (EContact keeps
+   its own files there too). The folder
    can be anywhere: the settings, `C:\ECONTACT.INF`, say where in
    `FOLDER=`; start `ECONTACT.PRG` from the folder once, or show the
    accessory where it is when it asks.
@@ -234,8 +236,15 @@ The [user guide](docs/GUIDE.md) describes the rest.
 
 ```
 sudo apt install gcc-m68k-linux-gnu      # Debian/Ubuntu
-make                                     # binary/ECONTACT.ACC, ECONTACT.PRG, ECONTST.ACC
+make                                     # binary/ECONTACT.ACC, ECONTACT.PRG, ECONTST.ACC,
+                                         # and ECONTACT.HYP when hcp is installed
+make help HCP=/path/to/hcp               # ECONTACT.HYP alone
 ```
+
+`binary/ECONTACT.HYP` is made from `docs/GUIDE.md` by `tools/mkhelp.py`
+(from EMail) and HCP, ST-Guide's compiler, from
+[hypview](https://github.com/th-otto/hypview); `make test` checks it
+carries the program's version.
 
 As in ECal and EMail, the program is freestanding (`atari/`, no MiNTLib),
 `tools/elf2tos.py` writes the TOS executable, one binary is both the
@@ -274,6 +283,8 @@ tests/hatari/placement.py WORK etos512us.img      # where the accessory and the 
                                                   # find their settings and folder
 tests/hatari/acc_reread.py WORK etos512us.img     # the accessory after the program changed
                                                   # the files: read again
+tests/hatari/help_key.py WORK etos512us.img       # the Help key, with a stand-in for
+                                                  # ST-Guide (make build/fakeguide.acc)
 ```
 
 ## Licence

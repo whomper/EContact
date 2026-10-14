@@ -18,6 +18,13 @@
   files_check). Anything new kept between openings must be let go there
   too. `make itest` (card-cli accessory) and
   `tests/hatari/acc_reread.py WORK etos512us.img` check it.
+- `binary/ECONTACT.HYP` (the Help key's ST-Guide guide) is made from
+  docs/GUIDE.md by `make` when `hcp` is installed, and `make test` fails
+  when it doesn't say the program's version: build hcp from
+  github.com/th-otto/hypview (`./autogen.sh && ./configure && make -C hyp
+  hcp`; if linking fails on include/linux/libc.so, link the objects by
+  hand without it) and put it on the PATH. `tests/hatari/help_key.py`
+  checks the Help key.
 - The UI is checked in Hatari: `tests/hatari/docs_shots.py WORK etos512us.img`
   takes the screenshots in docs/ (EmuTOS 512k, sourceforge.net/projects/emutos).
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);

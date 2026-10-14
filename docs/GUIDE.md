@@ -1,5 +1,9 @@
 # EContact - user guide
 
+Contacts for the Atari ST, TT and Falcon, like the Mac's Contacts:
+iCloud and other CardDAV address books, or contacts kept on the Atari
+alone, with EMail and ECal finding the people in it.
+
 ## Installing
 
 EContact is a desk accessory: TOS loads it at boot from the root of the
@@ -28,6 +32,7 @@ C:\ECONTACT\              EContact's folder (or another one):
     CACERT.PEM            Falcon mode: root certificates (copy them here)
     ROOTS.DAT             Falcon mode: the same, decoded ahead of time
     ECONTACT.LOG          with Write a log on
+    ECONTACT.HYP          this guide, for ST-Guide: the Help key opens it
 ```
 
 - **`ECONTACT.PRG`** is the same program, to start from the desktop or a
@@ -55,7 +60,7 @@ free on an ST: about 250 KB on a 1 MB ST (some 490 contacts), 750 KB on
 another amount, in kilobytes (`ECONTACT.PRG` takes what it needs from
 all that is free); a contact takes about half a kilobyte, and
 a sync wants a fifth of the memory free besides. If contacts don't fit,
-the window says how many aren't shown and an alert says what to set:
+the window says how many aren't shown and an alert says what to set.
 
 ![Contacts that don't fit](memory-full.png)
 
@@ -219,7 +224,7 @@ Right-click your own card > **Make This My Card**. The list marks it
 The menu also has **Work offline** (no connections at all: everything
 shown comes from the copy on disk; a server's address book can't be
 changed until you're online again), **Font...**,
-**Keys...** (Help) and **About**.
+**Keys...** and **About**.
 
 ## With EMail and ECal
 
@@ -269,6 +274,6 @@ encrypted with ECONTACT.KEY the next time EContact starts.
 | ^S | the groups on the left |
 | F10 | Hebrew keyboard |
 | ^W, ^Q | close the window (^Q also quits the program) |
-| Help | the keys |
+| Help | this guide in ST-Guide (the keys without it) |
 | Double-click | edit; on an email: write to it |
 | Right-click | more choices |

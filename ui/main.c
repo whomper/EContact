@@ -502,10 +502,50 @@ void cmd_mail_to(const CONTACT *c, const char *email)
 	cmd_mail(line);
 }
 
+/* Memory another program reads (a VA_START's string), kept while we run.
+   An accessory under plain TOS has no memory of its own after the start:
+   what Malloc or Mxalloc give it then belongs to the program running at
+   the moment and goes when that one ends. Nothing is protected there, so
+   a static buffer does. Under MiNT or MagiC the accessory is a process
+   like the others: global memory, which memory protection lets others
+   read (Mxalloc mode 0x2B; 0x20 alone without 0x08 isn't heeded). */
+static char *shared_buf(char *local, long size)
+{
+	long m;
+	if (is_acc && !get_cookie(0x4D694E54L) && !get_cookie(0x4D616758L))	/* MiNT, MagX */
+		return local;
+	m = (long)Mxalloc(size, 0x2B);	/* global, TT RAM preferred */
+	return m > 0 ? (char *)m : local;
+}
+
+/* The user guide in ST-Guide, when it runs and ECONTACT.HYP is in
+   EContact's folder: a VA_START with the file's path, which ST-Guide
+   opens at its main page. 0 when it can't, and the Help key shows the
+   keys as before. */
+static int open_help(void)
+{
+	static char local[220];
+	static char *path;
+	short id = appl_find("ST-GUIDE"), msg[8];
+	if (id < 0 || !opt.workdir[0])
+		return 0;
+	if (!path)
+		path = shared_buf(local, sizeof(local));
+	path_join(path, sizeof(local), opt.workdir, "ECONTACT.HYP");
+	if (!pf_exists(path))
+		return 0;
+	memset(msg, 0, sizeof(msg));
+	msg[0] = VA_START;
+	msg[1] = ap_id;
+	msg[3] = (short)((unsigned long)path >> 16);
+	msg[4] = (short)(unsigned long)path;
+	appl_write(id, 16, msg);
+	return 1;
+}
+
 /* Writing to someone: EMail, when it runs, gets "mailto:..." with VA_START
    and opens a new message to them. The string must stay where it is until
-   EMail has read it, and EMail must be allowed to read it (MiNT's memory
-   protection): global memory where there is Mxalloc, else ours. */
+   EMail has read it, and EMail must be allowed to read it (shared_buf). */
 void cmd_mail(const char *addr)
 {
 	static char local[1024];
@@ -518,10 +558,8 @@ void cmd_mail(const char *addr)
 		alert(1, "[1][EMail isn't running, so the address|is on the clipboard: paste it in|EMail's To: field (^V).][ OK ]");
 		return;
 	}
-	if (!buf) {
-		long m = (long)Mxalloc(sizeof(local), 0x2B);	/* global, TT RAM preferred */
-		buf = (m > 0) ? (char *)m : local;
-	}
+	if (!buf)
+		buf = shared_buf(local, sizeof(local));
 	str_copy(buf, line, sizeof(local));
 	memset(msg, 0, sizeof(msg));
 	msg[0] = VA_START;
@@ -1083,8 +1121,10 @@ int main(void)
 			short scan = KEY_SCAN(ev.kreturn);
 			if (scan == 0x44)
 				set_hebrew_kbd(!hebrew_kbd);
-			else if (scan == 0x62)
-				dlg_keys();
+			else if (scan == 0x62) {
+				if (!open_help())
+					dlg_keys();
+			}
 			else
 				win_key(ev.kstate, ev.kreturn);
 		}

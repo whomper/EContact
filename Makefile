@@ -51,7 +51,21 @@ HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h dsp/*.h third_p
 # what goes onto the Atari: binary/
 BIN     := binary
 
-all: $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/ECONTST.ACC $(BIN)/ROOTS.DAT
+# the help file for ST-Guide, from docs/GUIDE.md, needs HCP (hcp, from
+# github.com/th-otto/hypview; CLAUDE.md says how to build it): made with
+# the program when hcp is there, else by `make help HCP=/path/to/hcp`.
+# `make test` checks it says the program's version
+HCP     ?= hcp
+HAVEHCP := $(shell command -v $(HCP) 2>/dev/null)
+
+all: $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/ECONTST.ACC $(BIN)/ROOTS.DAT $(if $(HAVEHCP),$(BIN)/ECONTACT.HYP)
+
+help: $(BIN)/ECONTACT.HYP
+
+# after the program: its build counts VERSION up
+$(BIN)/ECONTACT.HYP: docs/GUIDE.md tools/mkhelp.py VERSION $(BIN)/ECONTACT.ACC | $(OBJDIR)
+	python3 tools/mkhelp.py docs/GUIDE.md VERSION $(OBJDIR)/ECONTACT.STG
+	$(HCP) -q -o $@ $(OBJDIR)/ECONTACT.STG >/dev/null
 
 # the ST edition: no TLS of its own (it uses the Pi gateway), 150 KB
 # smaller; only BearSSL's MD5 (for Digest logins), as 68000 code
@@ -155,9 +169,18 @@ $(BIN)/ROOTS.DAT: $(BIN)/CACERT.PEM
 	$(MAKE) $(OBJDIR)/mkroots
 	$(OBJDIR)/mkroots $(BIN)/CACERT.PEM $@
 
+# a stand-in for ST-Guide, for tests/hatari/help_key.py
+$(OBJDIR)/fakeguide.acc: tests/atari/fakeguide.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o
+	$(CC) $(CFLAGS) -c -o $(OBJDIR)/fakeguide.o $<
+	$(CC) $(LDFLAGS) -o $(OBJDIR)/fakeguide.elf $(OBJDIR)/crt0.o $(OBJDIR)/fakeguide.o \
+		$(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
+	python3 tools/elf2tos.py $(OBJDIR)/fakeguide.elf $@
+
 test: $(OBJDIR)/unit $(OBJDIR)/lowmem
 	$(OBJDIR)/unit
 	$(OBJDIR)/lowmem
+	@grep -q "ECONTACT.HYP $$(cat VERSION)" $(BIN)/ECONTACT.HYP || \
+	  { echo "$(BIN)/ECONTACT.HYP isn't version $$(cat VERSION): make help"; exit 1; }
 
 itest: $(OBJDIR)/card-cli $(OBJDIR)/people-cli
 	tests/integration.sh
@@ -165,4 +188,4 @@ itest: $(OBJDIR)/card-cli $(OBJDIR)/people-cli
 clean:
 	rm -rf $(OBJDIR) $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/ECONTST.ACC
 
-.PHONY: all test itest clean
+.PHONY: all help test itest clean
