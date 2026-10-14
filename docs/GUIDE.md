@@ -32,7 +32,8 @@ C:\ECONTACT\              EContact's folder (or another one):
     CACERT.PEM            Falcon mode: root certificates (copy them here)
     ROOTS.DAT             Falcon mode: the same, decoded ahead of time
     ECONTACT.LOG          with Write a log on
-    ECONTACT.HYP          this guide, for ST-Guide: the Help key opens it
+    CRASH.LOG             what happened, if ECONTACT.PRG ever crashes
+    ECONTACT.HYP          this guide, for EHypView or ST-Guide: the Help key opens it
     ECONTACT.REF          its pages' names, for ST-Guide's index
 ```
 
@@ -275,6 +276,18 @@ encrypted with ECONTACT.KEY the next time EContact starts.
 | ^S | the groups on the left |
 | F10 | Hebrew keyboard |
 | ^W, ^Q | close the window (^Q also quits the program) |
-| Help | this guide in ST-Guide (the keys without it) |
+| Help | this guide in EHypView, ST-Guide or HypView (the keys without one) |
 | Double-click | edit; on an email: write to it |
 | Right-click | more choices |
+
+## When something goes wrong
+
+- `ECONTACT.LOG` (Settings > Connection: the log) has the conversation
+  with the servers.
+- **A crash**: if EContact itself goes wrong (what would be 2 to 8 bombs),
+  it says so, writes what happened to `CRASH.LOG` next to `ECONTACT.PRG` and
+  quits, leaving the Atari running. A crash in the system or a driver
+  still gives the bombs; TOS keeps a record of them, and EContact adds it to
+  `CRASH.LOG` the next time it starts (and says so if the crash was in
+  EContact). Send `CRASH.LOG`, with `ECONTACT.LOG` if the log was on, to the author. Under MiNT or MagiC, which
+  handle crashes themselves, there is no `CRASH.LOG`, nor in the accessory.
