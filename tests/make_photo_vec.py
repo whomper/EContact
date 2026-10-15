@@ -60,6 +60,7 @@ g.save(b, "JPEG", quality=90)
 vec["jpg_gray"] = b.getvalue()
 out = os.path.join(os.path.dirname(__file__), "photo_vec.h")
 with open(out, "w") as f:
+    f.write("/* SPDX-License-Identifier: GPL-2.0-or-later\n * Copyright (C) 2026 AERA | Erez Yaary */\n")
     f.write("/* made by tests/make_photo_vec.py: do not edit */\n")
     for k, v in vec.items():
         f.write("static const unsigned char %s[%d] = {\n" % (k, len(v)))
