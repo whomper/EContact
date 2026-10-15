@@ -21,6 +21,7 @@
 #include "ui.h"
 #include "../src/photo.h"
 #include "../src/plat.h"
+#include "../src/conn.h"
 
 /* the photo shown, whose it is, and the last one tried */
 static PHOTOIMG cur;
@@ -67,10 +68,11 @@ void card_photo_tick(void)
 	CONTACT *c;
 	PHOTOIMG *img;
 	int how, r, quick;
-	unsigned long serial = people_serial;
+	unsigned long serial = people_serial, t0, tl = 0;
 	if (!want || pf_ms() - want_at < 250UL)
 		return;
 	want = 0;
+	t0 = pf_ms();
 	c = sel_contact();
 	if (!c || !c->photo_key || !opt.photos)
 		return;
@@ -91,7 +93,9 @@ void card_photo_tick(void)
 	if (people_serial != serial) {
 		/* the card was fetched whole for its photo: the list was read
 		   again (c is gone), and the card has its photo's key now */
+		unsigned long t = pf_ms();
 		after_change();
+		tl = pf_ms() - t;
 		c = sel_contact();
 		if (c) {
 			tried_key = c->photo_key;
@@ -112,6 +116,17 @@ void card_photo_tick(void)
 		cur_book = tried_book;
 		cur_key = tried_key;
 		win_redraw(&r_avatar);
+		if (!quick) {
+			/* with Write a log on: the whole wait, as the user saw it */
+			char m[100];
+			unsigned long ms = pf_ms() - t0;
+			snprintf(m, sizeof(m), "shown after %lu.%02lu s", ms / 1000, ms % 1000 / 10);
+			if (tl)
+				snprintf(m + strlen(m), sizeof(m) - strlen(m), " (the list read again: %lu.%02lu s)",
+					 tl / 1000, tl % 1000 / 10);
+			conn_log("Photo", " -- ", m, (long)strlen(m));
+			conn_log_flush();
+		}
 	}
 	free(img);
 }

@@ -754,6 +754,40 @@ static int fetch(const CONTACT *c, const char *uri, const PHDR *old, SBUF *body,
 
 static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *cached);
 
+/* where a photo's time went, for the log: ms fetching the whole card, the
+   picture behind a link (and its size), decoding, and keeping it */
+static struct {
+	unsigned long card, pic, dec, keep;
+	long bytes;
+} took;
+
+static void secs(char *out, int size, const char *what, unsigned long ms)
+{
+	snprintf(out + strlen(out), size - strlen(out), "%s%s %lu.%02lu s", out[0] ? ", " : "", what,
+		 ms / 1000, ms % 1000 / 10);
+}
+
+/* With Write a log on, each photo made, and where its time went */
+static void log_made(const CONTACT *c)
+{
+	char line[300], name[100];
+	line[0] = 0;
+	if (took.card)
+		secs(line, sizeof(line), "card fetched whole", took.card);
+	if (took.bytes) {
+		secs(line, sizeof(line), "picture", took.pic);
+		snprintf(line + strlen(line), sizeof(line) - strlen(line), " (%ld KB)", (took.bytes + 1023) / 1024);
+	}
+	secs(line, sizeof(line), "decoded", took.dec);
+	secs(line, sizeof(line), "kept", took.keep);
+	vcard_display_name(c, 0, name, sizeof(name));
+	{
+		char all[420];
+		snprintf(all, sizeof(all), "%s: made: %s", name, line);
+		conn_log("Photo", " -- ", all, (long)strlen(all));
+	}
+}
+
 /* With Write a log on, each photo that can't be shown, and why */
 static void log_failure(const CONTACT *c, int r, int cached)
 {
@@ -773,7 +807,13 @@ int photo_get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how)
 	int cached = 0, r, bi = c->book;
 	str_copy(uid, c->uid ? c->uid : "", sizeof(uid));
 	why(PW_OK, 0);
+	memset(&took, 0, sizeof(took));
 	r = get(c, out, may_fetch, how, &cached);
+	if (r == PH_OK && !cached) {
+		const CONTACT *now = uid[0] ? contact_by_uid(uid, bi) : c;
+		if (now)
+			log_made(now);
+	}
 	if (r != PH_OK && r != PH_NONE) {
 		/* c may have gone (fetched whole): found again to be named */
 		const CONTACT *now = uid[0] ? contact_by_uid(uid, bi) : c;
@@ -796,9 +836,11 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 		return PH_NONE;
 	if (c->photo_key == VC_KEY_UNKNOWN) {
 		/* the card came without its photo: now the whole card (c goes) */
+		unsigned long t = pf_ms();
 		if (!may_fetch)
 			return PH_NEEDS_NET;
 		c = contact_complete(c);
+		took.card = pf_ms() - t;
 		if (!c) {
 			why(PW_NO_CARD, ab_err);
 			return PH_NEEDS_NET;
@@ -848,8 +890,11 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 	}
 	free(raw);
 	if (ref.kind == PR_DATA) {
+		unsigned long t = pf_ms();
 		if (photo_decode_jpeg(ref.data, ref.len, &ref, out)) {
+			took.dec = pf_ms() - t;
 			write_cache(path, c, 0, 0, 0, out);
+			took.keep = pf_ms() - t - took.dec;
 			r = PH_OK;
 		} else {
 			write_cache(path, c, 0, 0, 0, 0);	/* not again until it changes */
@@ -867,8 +912,11 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 		HTTPRESP rs;
 		int st;
 		const PHDR *old = h.valid && !h.failed ? &h : 0;
+		unsigned long t = pf_ms();
 		sb_init(&body);
 		st = fetch(c, ref.uri, old, &body, &rs);
+		took.pic = pf_ms() - t;
+		took.bytes = body.len ? body.len : 1;
 		if (st == 304 && old && load_px(path, &h, out)) {
 			/* the same picture: the card's new ETag noted */
 			write_cache(path, c, 1, h.ietag, h.ilmod, out);
@@ -876,8 +924,11 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 				*how = PHH_CHECKED;
 			r = PH_OK;
 		} else if (st == 200) {
+			t = pf_ms();
 			if (photo_decode_jpeg((unsigned char *)body.s, body.len, &ref, out)) {
+				took.dec = pf_ms() - t;
 				write_cache(path, c, 1, rs.etag, rs.lastmod, out);
+				took.keep = pf_ms() - t - took.dec;
 				r = PH_OK;
 			} else {
 				if (photo_why != PW_OK && !photo_why_detail[0])
