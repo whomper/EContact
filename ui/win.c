@@ -590,6 +590,14 @@ static int search_key(short kstate, short key)
 	return 1;
 }
 
+/* ^F: a new search */
+void win_find(void)
+{
+	search_text[0] = 0;
+	search_changed();
+	status("Type to search: names, companies, emails, phones, notes");
+}
+
 int win_key(short kstate, short key)
 {
 	short scan = KEY_SCAN(key);
@@ -597,11 +605,8 @@ int win_key(short kstate, short key)
 		switch (scan) {
 		case 0x31: cmd_new_contact(); return 1;			/* ^N */
 		case 0x13: cmd_refresh(kstate & (K_LSHIFT | K_RSHIFT)); return 1;	/* ^R */
-		case 0x21:						/* ^F: a new search */
-			search_text[0] = 0;
-			search_changed();
-			status("Type to search: names, companies, emails, phones, notes");
-			return 1;
+		case 0x21: win_find(); return 1;			/* ^F: a new search */
+		case 0x33: dlg_settings(); return 1;			/* ^, */
 		case 0x12:						/* ^E: edit */
 			if (sel_contact())
 				editor_open(sel_contact());

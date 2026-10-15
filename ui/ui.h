@@ -190,6 +190,7 @@ void dlg_settings(void);
 void dlg_connection(void);
 void dlg_about(void);
 void dlg_keys(void);
+void win_find(void);			/* ^F: a new search */
 void font_apply(void);
 void font_menu(void);
 void font_reselect(void);

@@ -211,7 +211,7 @@ In the [`binary`](binary) folder:
 |----------------|-------------------------------------------------------------------|
 | `ECONTACT.ACC` | Falcon and TT: the accessory with Falcon mode (TLS, DSP); also works through the Pi |
 | `ECONTST.ACC`  | ST and STE: the same accessory without TLS (100 KB smaller), through the Pi |
-| `ECONTACT.PRG` | the same as ECONTACT.ACC, to start from the desktop          |
+| `ECONTACT.PRG` | the same as ECONTACT.ACC, to start from the desktop, with a menu bar |
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode                  |
 | `ECONTACT.HYP` | the user guide for ST-Guide: in EContact's folder, the Help key opens it |
 | `ECONTACT.REF` | its pages' names, for ST-Guide's index (ALL.REF): with the .HYP |

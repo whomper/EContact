@@ -35,6 +35,8 @@
 #include "../src/carddav.h"
 #include "clip.h"
 #include "dd.h"
+#include "mbar.h"
+#include "twin.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 short gl_wchar, gl_hchar, ap_id, is_acc, ncolors, hebrew_kbd, quit_now;
@@ -623,75 +625,210 @@ void cmd_sync_photos(void)
 	updated_status();
 }
 
-void cmd_menu(short x, short y)
+/* the commands of the menu bar (the program) and the toolbar's menu */
+enum { C_NONE, C_ABOUT, C_NEW, C_GROUP, C_ADD, C_IMP, C_EXP, C_PHOTOS, C_REFRESH, C_REFRESH_ALL,
+       C_QUIT, C_COPY, C_EDIT, C_DELETE, C_FIND, C_SIDE, C_SET, C_FONT, C_OFFL, C_FALC, C_LOG,
+       C_KBD, C_HELP, C_KEYS };
+
+static const MBAR_ITEM m_desk[] = {
+	{ "About EContact...", 0, C_ABOUT },
+	{ 0, 0, 0 }
+};
+static const MBAR_ITEM m_file[] = {
+	{ "New contact", "^N", C_NEW },
+	{ "New group", "^G", C_GROUP },
+	{ "Add account...", 0, C_ADD },
+	{ "-", 0, 0 },
+	{ "Import vCards...", 0, C_IMP },
+	{ "Export vCards...", 0, C_EXP },
+	{ "Sync Contact Photos...", 0, C_PHOTOS },
+	{ "-", 0, 0 },
+	{ "Refresh", "^R", C_REFRESH },
+	{ "Refresh everything", "\x01^R", C_REFRESH_ALL },
+	{ "-", 0, 0 },
+	{ "Quit", "^Q", C_QUIT },
+	{ 0, 0, 0 }
+};
+static const MBAR_ITEM m_edit[] = {
+	{ "Copy contact", "^C", C_COPY },
+	{ "-", 0, 0 },
+	{ "Edit contact...", "^E", C_EDIT },
+	{ "Delete...", "Del", C_DELETE },
+	{ 0, 0, 0 }
+};
+static const MBAR_ITEM m_view[] = {
+	{ "Find", "^F", C_FIND },
+	{ "-", 0, 0 },
+	{ "Groups", "\x01^S", C_SIDE },
+	{ 0, 0, 0 }
+};
+static const MBAR_ITEM m_opts[] = {
+	{ "Settings...", "^,", C_SET },
+	{ "Font...", 0, C_FONT },
+	{ "-", 0, 0 },
+	{ "Work offline", 0, C_OFFL },
+	{ "Falcon mode (TLS)", 0, C_FALC },
+	{ "Write a log", 0, C_LOG },
+	{ "Hebrew keyboard", "F10", C_KBD },
+	{ 0, 0, 0 }
+};
+static const MBAR_ITEM m_help[] = {
+	{ "EContact help", "Help", C_HELP },
+	{ "Keys...", 0, C_KEYS },
+	{ 0, 0, 0 }
+};
+static const MBAR_TITLE bar[] = {
+	{ " EContact ", m_desk },
+	{ " File ", m_file },
+	{ " Edit ", m_edit },
+	{ " View ", m_view },
+	{ " Options ", m_opts },
+	{ " Help ", m_help },
+	{ 0, 0 }
+};
+static MBAR mb;
+static int has_menu;
+
+static void check(int cmd, int on)
 {
-	enum { M_ADD, M_NEW, M_GROUP, M_S1, M_IMP, M_EXP, M_PHOTOS, M_S2, M_SIDE, M_KBD, M_S5,
-	       M_OFFL, M_FALC, M_LOG, M_S3, M_SET, M_FONT, M_KEYS, M_ABOUT, M_S4, M_QUIT, M_N };
-	const char *items[M_N];
-	short k, n = is_acc ? M_S4 : M_N;
-	items[M_ADD] = "  Add account...";
-	items[M_NEW] = "  New contact          ^N";
-	items[M_GROUP] = "  New group            ^G";
-	items[M_S1] = "-";
-	items[M_IMP] = "  Import vCards...";
-	items[M_EXP] = "  Export vCards...";
-	items[M_PHOTOS] = "  Sync Contact Photos...";
-	items[M_S2] = "-";
-	items[M_SIDE] = opt.sidebar ? "\x08 Groups              \x01^S" : "  Groups              \x01^S";
-	items[M_KBD] = hebrew_kbd ? "\x08 Hebrew keyboard     F10" : "  Hebrew keyboard     F10";
-	items[M_S5] = "-";
-	items[M_OFFL] = opt.offline ? "\x08 Work offline" : "  Work offline";
-	items[M_FALC] = opt.falcon ? "\x08 Falcon mode (TLS)" : "  Falcon mode (TLS)";
-	items[M_LOG] = opt.log ? "\x08 Write a log" : "  Write a log";
-	items[M_S3] = "-";
-	items[M_SET] = "  Settings...";
-	items[M_FONT] = "  Font...";
-	items[M_KEYS] = "  Keys...             Help";
-	items[M_ABOUT] = "  About EContact...";
-	items[M_S4] = "-";
-	items[M_QUIT] = "  Quit                  ^Q";
-	k = win_popup(x, y, items, n);
-	switch (k) {
-	case M_ADD: dlg_add_account(); break;
-	case M_NEW: cmd_new_contact(); break;
-	case M_GROUP: cmd_new_group(-1); break;
-	case M_IMP: cmd_import(src_kind == SRC_BOOK ? src_idx : -1); break;
-	case M_EXP: cmd_export(); break;
-	case M_PHOTOS: cmd_sync_photos(); break;
-	case M_SIDE:
+	short o = mbar_object(&mb, cmd);
+	if (o > 0)
+		menu_icheck(mb.tree, o, on ? 1 : 0);
+}
+
+static void enable(int cmd, int on)
+{
+	short o = mbar_object(&mb, cmd);
+	if (o > 0)
+		menu_ienable(mb.tree, o, on ? 1 : 0);
+}
+
+/* the menu bar's ticks and greyed items, as things are now */
+static void menu_update(void)
+{
+	if (!has_menu)
+		return;
+	enable(C_COPY, sel_contact() != 0 || search_text[0]);
+	enable(C_EDIT, sel_contact() != 0);
+	enable(C_DELETE, sel_contact() != 0);
+	check(C_SIDE, opt.sidebar);
+	check(C_OFFL, opt.offline);
+	check(C_FALC, opt.falcon);
+	check(C_LOG, opt.log);
+	check(C_KBD, hebrew_kbd);
+}
+
+static void help_key_pressed(void);
+
+static void command(int c)
+{
+	switch (c) {
+	case C_ABOUT: dlg_about(); break;
+	case C_NEW: cmd_new_contact(); break;
+	case C_GROUP: cmd_new_group(-1); break;
+	case C_ADD: dlg_add_account(); break;
+	case C_IMP: cmd_import(src_kind == SRC_BOOK ? src_idx : -1); break;
+	case C_EXP: cmd_export(); break;
+	case C_PHOTOS: cmd_sync_photos(); break;
+	case C_REFRESH: cmd_refresh(0); break;
+	case C_REFRESH_ALL: cmd_refresh(1); break;
+	case C_COPY:
+		if (sel_contact())
+			cmd_copy_contact(sel_contact());
+		else if (search_text[0])
+			cmd_copy(search_text);
+		break;
+	case C_EDIT:
+		if (sel_contact())
+			editor_open(sel_contact());
+		break;
+	case C_DELETE: cmd_delete_selected(); break;
+	case C_FIND: win_find(); break;
+	case C_SIDE:
 		opt.sidebar = !opt.sidebar;
 		settings_later();
 		win_layout();
 		win_redraw(0);
 		break;
-	case M_KBD: set_hebrew_kbd(!hebrew_kbd); break;
-	case M_OFFL:
+	case C_KBD: set_hebrew_kbd(!hebrew_kbd); break;
+	case C_OFFL:
 		opt.offline = !opt.offline;
 		if (opt.offline)
 			http_close_all();
 		store_save_settings();
 		updated_status();
 		break;
-	case M_FALC:
+	case C_FALC:
 		if (falcon_mode_set(!opt.falcon)) {
 			http_close_all();
 			store_save_settings();
 		}
 		break;
-	case M_LOG:
+	case C_LOG:
 		opt.log = !opt.log;
 		set_logging();
 		store_save_settings();
 		break;
-	case M_SET: dlg_settings(); break;
-	case M_FONT: font_menu(); break;
-	case M_KEYS: dlg_keys(); break;
-	case M_ABOUT: dlg_about(); break;
-	case M_QUIT:
+	case C_SET: dlg_settings(); break;
+	case C_FONT: font_menu(); break;
+	case C_HELP: help_key_pressed(); break;
+	case C_KEYS: dlg_keys(); break;
+	case C_QUIT:
 		quit_now = 1;
 		win_close();
 		break;
 	}
+	menu_update();
+}
+
+/* the toolbar's menu: the menu bar's commands, for the accessory, which
+   has none */
+void cmd_menu(short x, short y)
+{
+	static const struct {
+		const char *text;
+		short cmd;
+	} m[] = {
+		{ "  Add account...", C_ADD },
+		{ "  New contact          ^N", C_NEW },
+		{ "  New group            ^G", C_GROUP },
+		{ "-", 0 },
+		{ "  Import vCards...", C_IMP },
+		{ "  Export vCards...", C_EXP },
+		{ "  Sync Contact Photos...", C_PHOTOS },
+		{ "-", 0 },
+		{ "  Groups              \x01^S", C_SIDE },
+		{ "  Hebrew keyboard     F10", C_KBD },
+		{ "-", 0 },
+		{ "  Work offline", C_OFFL },
+		{ "  Falcon mode (TLS)", C_FALC },
+		{ "  Write a log", C_LOG },
+		{ "-", 0 },
+		{ "  Settings...          ^,", C_SET },
+		{ "  Font...", C_FONT },
+		{ "  Keys...             Help", C_KEYS },
+		{ "  About EContact...", C_ABOUT },
+		{ "-", 0 },
+		{ "  Quit                  ^Q", C_QUIT },
+	};
+	enum { N = sizeof(m) / sizeof(m[0]) };
+	char ticked[N][40];
+	const char *items[N];
+	short i, k, n = is_acc ? N - 2 : N;
+	for (i = 0; i < N; i++) {
+		int on = (m[i].cmd == C_SIDE && opt.sidebar) || (m[i].cmd == C_KBD && hebrew_kbd) ||
+			 (m[i].cmd == C_OFFL && opt.offline) || (m[i].cmd == C_FALC && opt.falcon) ||
+			 (m[i].cmd == C_LOG && opt.log);
+		items[i] = m[i].text;
+		if (on) {
+			str_copy(ticked[i], m[i].text, sizeof(ticked[i]));
+			ticked[i][0] = '\x08';		/* the tick */
+			items[i] = ticked[i];
+		}
+	}
+	k = win_popup(x, y, items, n);
+	if (k >= 0 && k < N)
+		command(m[k].cmd);
 }
 
 /* ---------------- start-up ---------------- */
@@ -742,8 +879,9 @@ static void find_workdir(void)
 			if (!pf_exists(old))
 				workdir[0] = 0;
 		}
-		if (workdir[0] && !pf_exists(workdir))
-			workdir[0] = 0;		/* gone: ask at the first opening */
+		if (workdir[0] && strlen(workdir) > 3 && !pf_exists(workdir))
+			workdir[0] = 0;		/* gone: ask at the first opening (a
+						   drive's root has no entry to find) */
 		return;
 	}
 	path[0] = 0;
@@ -1072,6 +1210,11 @@ int main(void)
 	ap_id = appl_init();
 	if (ap_id < 0)
 		return 1;
+	twin_init("ECONTACT|ECONTST");
+	if (!is_acc && twin_handover(av_command())) {
+		appl_exit();		/* ECONTACT.ACC runs, and has it */
+		return 0;
+	}
 	if (is_acc)
 		menu_id = menu_register(ap_id, "  EContact");
 	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
@@ -1106,7 +1249,14 @@ int main(void)
 	} else {
 		long st = (long)Malloc(-1L), tt = (long)Mxalloc(-1L, 1);
 		answer_budget(tt > st ? tt : st);
-		open_window();
+		/* the menu bar (the accessory has the toolbar's menu) */
+		if (mbar_build(&mb, bar, gl_wchar, gl_hchar, scr_w, scr_h) == 0)
+			has_menu = menu_bar(mb.tree, 1) != 0;
+		if (av_command()[0])
+			av_start(av_command());	/* a .vcf the desktop opens with EContact */
+		else
+			open_window();
+		menu_update();
 	}
 	crash_offer("EContact", "next to ECONTACT.PRG");
 
@@ -1124,12 +1274,25 @@ int main(void)
 			case AC_OPEN:
 				/* from the Desk menu (or another program, with -1) */
 				if (msg[4] == menu_id || msg[4] == -1) {
+					if (twin_pass(""))	/* ECONTACT.PRG runs: its window to the front */
+						break;
 					av_init("ECONTACT|ECONTST");	/* a desktop started since */
 					open_window();
 				}
 				break;
+			case MN_SELECTED:
+				if (has_menu) {
+					command(mbar_command(&mb, msg[4]));
+					menu_tnormal(mb.tree, msg[3], 1);
+				}
+				break;
 			case AC_CLOSE:
-				if (msg[3] == menu_id) {
+				twin_reset();		/* another program in front */
+				/* the program in front started or ended: the AES took
+				   our window, if it was open. The files are noted only
+				   then: on single TOS this comes when ECONTACT.PRG ends
+				   too, after it changed them */
+				if (msg[3] == menu_id && win_h > 0) {
 					av_window(win_h, 0);
 					win_h = -1;
 					settings_flush();
@@ -1147,7 +1310,7 @@ int main(void)
 				switch (dd_message(msg, DD_WANT_FILES, &d)) {
 				case DD_FILES: av_start(d.data); break;
 				case DD_NONE:
-					if (av_message(msg, &va) == AV_START)
+					if (av_message(msg, &va) == AV_START && !(is_acc && twin_pass(va)))
 						av_start(va);
 					else
 						win_message(msg);
@@ -1181,6 +1344,8 @@ int main(void)
 			}
 			wait_release();
 		}
+		if (which & (MU_KEYBD | MU_BUTTON | MU_MESAG))
+			menu_update();
 		if ((which & MU_TIMER) && settings_dirty && pf_ms() - settings_at >= 3000UL)
 			settings_flush();
 		if ((which & MU_TIMER) && win_h > 0)
@@ -1203,6 +1368,9 @@ int main(void)
 	conn_log_flush();
 	crash_remove();
 	av_exit();
+	if (has_menu)
+		menu_bar(mb.tree, 0);
+	mbar_free(&mb);
 	v_clsvwk(vdi_h);
 	appl_exit();
 	return 0;

@@ -38,14 +38,18 @@ C:\ECONTACT\              EContact's folder (or another one):
 ```
 
 - **`ECONTACT.PRG`** is the same program, to start from the desktop or a
-  shell; it ends when its window closes. It uses the folder it was
-  started from as EContact's folder and writes that into `FOLDER=`, so
-  starting it once from your folder is all it takes for the accessory to
-  find it too. The accessory and the program share the settings and the
-  folder: use either, or both. Not with both windows open at the same
-  moment (under MultiTOS or MagiC); on plain TOS that can't happen, and
-  when the program has changed the files while the accessory waited in
-  the Desk menu, the accessory reads them all again as it opens.
+  shell; it ends when its window closes. It has a menu bar (**File**,
+  **Edit**, **View**, **Options**, **Help**) with the commands of the
+  accessory's menu. It uses the folder it was started from as EContact's
+  folder and writes that into `FOLDER=`, so starting it once from your
+  folder is all it takes for the accessory to find it too.
+- **Both installed:** they share the settings and the folder, and never
+  work on them at once. While `ECONTACT.PRG` runs, EContact in the Desk
+  menu brings the program's window to the front instead of opening the
+  accessory's; when the program has changed the files, the accessory
+  reads them all again as it next opens. Under MagiC or MiNT, where the
+  accessory runs beside the programs, starting `ECONTACT.PRG` opens the
+  accessory instead.
 - **The accessory** reads `FOLDER=` when it starts. If it's empty, or
   the folder isn't there any more, the first time you open Contacts it
   asks where the folder is: **Locate...** opens the file selector (pick
@@ -75,7 +79,8 @@ the program and its memory are.
 
 ## Accounts
 
-The menu (the button at the top right) > **Add account...**:
+File > **Add account...** (in the accessory, the menu: the button at the
+top right):
 
 - **iCloud**: your Apple ID and an **app-specific password** (make one at
   appleid.apple.com > Sign-In and Security > App-Specific Passwords; your
@@ -214,7 +219,8 @@ show and work the same way here; new groups are made as group cards.
 - **From other programs**: .vcf files handed to EContact by a desktop
   such as Thing, jinnee or Gemini (or any program, with the AV
   protocol's VA_START) are imported into the address book new contacts
-  go into.
+  go into. `ECONTACT.PRG` takes them the same way when the desktop starts
+  it with one (installed as the application for `.VCF`).
 
 ## My Card
 
@@ -231,10 +237,11 @@ Right-click your own card > **Make This My Card**. The list marks it
   (^R, the Refresh button); and when the window opens.
 - **Connection**: Falcon mode and the DSP, the Pi gateway, and the log.
 
-The menu also has **Work offline** (no connections at all: everything
-shown comes from the copy on disk; a server's address book can't be
-changed until you're online again), **Font...**,
-**Keys...** and **About**.
+Settings opens with Options > **Settings...** (^,), or from the menu in
+the accessory. The Options menu also has **Work offline** (no
+connections at all: everything shown comes from the copy on disk; a
+server's address book can't be changed until you're online again) and
+**Font...**; Help has **Keys...**, and the EContact menu **About**.
 
 ## With EMail and ECal
 
@@ -275,7 +282,10 @@ The settings file explains itself, like ECal's and EMail's: a note
 before each setting, `1` for on and `0` for off. It can be edited with
 any text editor while EContact isn't running (keys in any case, a note
 after a value with ` ;`). A password typed in there in plain text is
-encrypted with ECONTACT.KEY the next time EContact starts.
+encrypted with ECONTACT.KEY the next time EContact starts. EContact
+writes the file anew as `ECONTACT.IN$` and only then puts it in the old
+one's place, so a reset or a full disk while it writes leaves the old
+settings as they were.
 
 ## Keys
 
@@ -294,6 +304,7 @@ encrypted with ECONTACT.KEY the next time EContact starts.
 | ^C ^X ^V | in a dialog: copy, cut, paste a field |
 | ^R, Shift+^R | refresh, everything again |
 | Shift+^S | the groups on the left |
+| ^, | Settings |
 | F10 | Hebrew keyboard |
 | ^W, ^Q | close the window (^Q also quits the program) |
 | Help | this guide in EHypView, ST-Guide or HypView (without one: how to get one, or the keys) |
