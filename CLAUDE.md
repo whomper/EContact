@@ -105,5 +105,9 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   scratch from card to card): small mallocs left between contacts make
   every later malloc and free on the Atari slower. `BOOKnnnn.IDX` keeps
   parsed contacts (vcard_pack); a change to CONTACT's layout changes
-  VC_PACK_ID, and a new version reparses anyway. Contacts that don't fit
-  are counted (contacts_lost) and the user is told, never left out quietly.
+  VC_PACK_ID, and a change to the parser's sources reparses (the
+  Makefile's PARSE_SRC, summed into parse_id): add a file there when
+  vcard_parse's result comes to depend on it. A new version alone keeps
+  the index: reading every card again takes 13 s for 600 on a Falcon.
+  Contacts that don't fit are counted (contacts_lost) and the user is
+  told, never left out quietly.

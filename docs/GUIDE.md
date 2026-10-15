@@ -151,8 +151,8 @@ offline too.
 To have them all, choose **Sync Contact Photos...** in the menu (the
 button at the right of the toolbar). A box shows who is being done, how
 many are left and about how long it will take. **Cancel** (or Esc) stops
-after the one being done; what is done is kept, and choosing it again goes
-on from there. Offline, it makes the pictures of the photos already
+at once, even in the middle of a photo; what is done is kept, and choosing
+it again goes on from there. Offline, it makes the pictures of the photos already
 downloaded. Some servers send the photos while syncing anyway: those are
 kept as they come, and Sync Contact Photos only has to decode them.
 
@@ -239,8 +239,9 @@ Right-click your own card > **Make This My Card**. The list marks it
   "Last, First", which address book new contacts go into, where the font
   has its Hebrew letters, starting with the Hebrew keyboard, and showing
   photos.
-- **Refresh**: refresh all every 15 minutes, hour or day, or only by hand
-  (^R, the Refresh button); and when the window opens.
+- **Refresh**: refresh all every 15 minutes, hour or day (counted from
+  when the window opened), or only by hand (^R, the Refresh button); and
+  when the window opens, unless that is turned off.
 - **Connection**: Falcon mode and the DSP, the Pi gateway, and the log.
 
 Settings opens with Options > **Settings...** (^,), or from the menu in

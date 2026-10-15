@@ -20,5 +20,7 @@ int  jdc_why(const JDC *j);
 /* the colour of the 8x8 block at bx, by */
 void jdc_rgb(const JDC *j, int bx, int by, int *r, int *g, int *b);
 void jdc_free(JDC *j);
+/* called now and then while reading; 0 stops it (Cancel) */
+extern int (*jdc_poll)(void);
 
 #endif

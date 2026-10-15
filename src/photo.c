@@ -302,7 +302,30 @@ typedef struct {
 	long sx0, sy0, side;
 	short *t0, *t1;		/* a row or column of it -> its first and last cell */
 	unsigned short *sum;	/* r, g, b, count per cell (6-bit values summed) */
+	short polls;		/* blocks since pf_idle was last called */
 } DEC;
+
+/* a decode takes seconds on an Atari (half a minute for a big picture):
+   the progress box looks at Cancel as it goes (conn_tick, every 50 ms),
+   or Esc is looked for five times a second (pf_idle, the busy bee), and
+   a stop (conn_stop) ends the decode. 0: stop */
+static int decode_poll(void)
+{
+	static unsigned long last;
+	if (conn_tick) {
+		conn_tick();
+	} else if (pf_idle) {
+		unsigned long now = pf_ms();
+		if (now - last >= 200) {
+			last = now;
+			pf_idle();
+		}
+	}
+	return !conn_stop;
+}
+
+/* which decoder made the last picture, for the log */
+static const char *dec_how = "";
 
 static size_t in_fn(JDEC *jd, uint8_t *buf, size_t n)
 {
@@ -323,6 +346,11 @@ static int out_fn(JDEC *jd, void *bitmap, JRECT *r)
 	DEC *d = jd->device;
 	const unsigned char *px = bitmap;
 	long x, y, w = r->right - r->left + 1;
+	if (++d->polls >= 8) {
+		d->polls = 0;
+		if (!decode_poll())
+			return 0;	/* stopped: JDR_INTR */
+	}
 	if (r->right < d->sx0 || r->left >= d->sx0 + d->side || r->bottom < d->sy0 || r->top >= d->sy0 + d->side)
 		return 1;		/* a block outside the square */
 	for (y = r->top; y <= r->bottom; y++, px += w * 3) {
@@ -471,6 +499,7 @@ static int decode_dc(const unsigned char *jpg, long len, const PHOTOREF *ref, DE
 		    wy == JW_UNSUPPORTED ? "lossless, arithmetic-coded or 12-bit" : "");
 		return 0;
 	}
+	jdc_poll = decode_poll;
 	square_of(w, h, ref, &x0, &y0, &side);
 	if (!cells_for(d, x0 >> 3, y0 >> 3, side >> 3 ? side >> 3 : 1) || !jdc_read(j)) {
 		why(jdc_why(j) == JW_MEMORY || !d->t0 ? PW_MEMORY : PW_DAMAGED, "");
@@ -524,6 +553,7 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 		/* progressive, SOF1, another sampling, CMYK...: the averages */
 		free(pool);
 		pool = 0;
+		dec_how = rc == JDR_FMT3 ? ", the averages (progressive or another kind)" : ", the averages";
 		ok = decode_dc(jpg, len, ref, &d, out);
 		goto done;
 	}
@@ -537,8 +567,15 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 		why(PW_MEMORY, 0);
 		goto done;
 	}
-	if (jd_decomp(&jd, out_fn, (uint8_t)scale) != JDR_OK) {
+	dec_how = scale == 3 ? ", 1/8" : scale == 2 ? ", 1/4" : scale == 1 ? ", 1/2" : ", whole";
+	rc = jd_decomp(&jd, out_fn, (uint8_t)scale);
+	if (rc == JDR_INTR && conn_stop) {
+		why(PW_NO_ANSWER, "stopped");
+		goto done;
+	}
+	if (rc != JDR_OK) {
 		/* damaged as TJpgDec sees it: the averages may still be read */
+		dec_how = ", the averages after TJpgDec failed";
 		free(pool);
 		pool = 0;
 		memset(d.sum, 0, PHOTO_N * PHOTO_N * 4 * sizeof(unsigned short));
@@ -548,6 +585,8 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 	cells_out(&d, out);
 	ok = 1;
 done:
+	if (!ok && conn_stop)
+		why(PW_NO_ANSWER, "stopped");
 	free(pool);
 	free(d.sum);
 	free(d.t0);
@@ -779,6 +818,7 @@ static void log_made(const CONTACT *c)
 		snprintf(line + strlen(line), sizeof(line) - strlen(line), " (%ld KB)", (took.bytes + 1023) / 1024);
 	}
 	secs(line, sizeof(line), "decoded", took.dec);
+	snprintf(line + strlen(line), sizeof(line) - strlen(line), "%s", dec_how);
 	secs(line, sizeof(line), "kept", took.keep);
 	vcard_display_name(c, 0, name, sizeof(name));
 	{
@@ -795,9 +835,12 @@ static void log_failure(const CONTACT *c, int r, int cached)
 	if (r == PH_OK || r == PH_NONE)
 		return;
 	vcard_display_name(c, 0, name, sizeof(name));
-	snprintf(line, sizeof(line), "%s: %s%s%s%s", name,
-		 r == PH_NEEDS_NET && photo_why == PW_OK ? "needs the network" : photo_why_text(photo_why),
-		 photo_why_detail[0] ? ", " : "", photo_why_detail, cached ? " (as the last time)" : "");
+	if (conn_stop)
+		snprintf(line, sizeof(line), "%s: stopped (Cancel or Esc), not kept", name);
+	else
+		snprintf(line, sizeof(line), "%s: %s%s%s%s", name,
+			 r == PH_NEEDS_NET && photo_why == PW_OK ? "needs the network" : photo_why_text(photo_why),
+			 photo_why_detail[0] ? ", " : "", photo_why_detail, cached ? " (as the last time)" : "");
 	conn_log("Photo", " -- ", line, (long)strlen(line));
 }
 
@@ -896,6 +939,8 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 			write_cache(path, c, 0, 0, 0, out);
 			took.keep = pf_ms() - t - took.dec;
 			r = PH_OK;
+		} else if (conn_stop) {
+			r = PH_NEEDS_NET;	/* stopped: tried again next time */
 		} else {
 			write_cache(path, c, 0, 0, 0, 0);	/* not again until it changes */
 		}
@@ -930,6 +975,8 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 				write_cache(path, c, 1, rs.etag, rs.lastmod, out);
 				took.keep = pf_ms() - t - took.dec;
 				r = PH_OK;
+			} else if (conn_stop) {
+				r = PH_NEEDS_NET;	/* stopped: tried again next time */
 			} else {
 				if (photo_why != PW_OK && !photo_why_detail[0])
 					snprintf(photo_why_detail, sizeof(photo_why_detail), "%.40s, %ld bytes", rs.ctype, body.len);
@@ -1126,6 +1173,10 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 			if (!cb(ud, done, nt, 0))
 				break;
 			if (book_fetch_whole(&books[bi], hrefs, nh) < 0) {
+				if (conn_stop) {
+					cb(ud, done, nt, 0);	/* stopped: says so */
+					break;
+				}
 				/* no answer: the rest another time */
 				*failed = bad + nt - done;
 				made = -1;
@@ -1145,6 +1196,11 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 			}
 			if (c && c->photo_key && c->photo_key != VC_KEY_UNKNOWN) {
 				r = photo_get(c, img, net, &how);
+				if (conn_stop && r != PH_OK) {
+					cb(ud, done, nt, 0);	/* stopped, this one not done */
+					stop = 1;
+					break;
+				}
 				if (r == PH_OK) {
 					made++;
 				} else if (r != PH_NONE) {

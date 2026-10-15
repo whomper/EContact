@@ -211,7 +211,8 @@ static void avatar(const CONTACT *c, short cx, short cy, short ry, const GRECT *
 	}
 	vcard_initials(c, ini);
 	n = (short)strlen(ini);
-	text_at(cx - n * cw / 2, cy - ch / 2, ini, n, n, TX_BOLD | TX_INVERSE | TX_LTR);
+	/* as on the Mac, the letters about half as high as the circle */
+	text_big(cx, cy, ini, n, ry, TX_INVERSE);	/* doubled: bold already */
 }
 
 static void label_at(short x, short y, short lw, const char *label)

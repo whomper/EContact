@@ -41,6 +41,7 @@ void xor_frame(GRECT *r);
 void clip_on(GRECT *r);
 void clip_off(void);
 void text_at(short x, short y, const char *s, long n, short cols, short flags);
+void text_big(short cx, short cy, const char *s, short n, short h, short flags);
 void text_color(short color);	/* for the next text_at; 1 = black, reset after */
 void hline(short x1, short x2, short y);
 void vline(short x, short y1, short y2);

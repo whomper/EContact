@@ -466,6 +466,32 @@ static void runs_at(short x, short y, const char *s, short n)
 	}
 }
 
+/* a few letters large, centred on cx, cy: the initials in the round
+   picture. The system font at about h pixels high (the VDI doubles it
+   where it has no bigger one); then the chosen font again */
+void text_big(short cx, short cy, const char *s, short n, short h, short flags)
+{
+	short dw, dh, keep_cw = cw, keep_ch = ch;
+	if (n <= 0)
+		return;
+	if (heb_mode != HM_MAP && has_heb(s, n)) {
+		/* Hebrew drawn another way (runs_at): at the usual size */
+		text_at(cx - n * cw / 2, cy - ch / 2, s, n, n, flags | TX_LTR);
+		return;
+	}
+	vst_font(vdi_h, 1);
+	/* vst_height takes the height above the baseline: 13 of the 8x16
+	   font's 16 rows, 6 of the 8x8's 8 */
+	vst_height(vdi_h, (short)(h * (keep_ch >= 16 ? 13 : 6) / (keep_ch >= 16 ? 16 : 8)), &dw, &dh);
+	vst_alignment(vdi_h, 0, 5);
+	set_wrmode(2);
+	set_text((flags & TX_INVERSE) ? 0 : 1, (flags & TX_BOLD) ? 1 : 0);
+	v_gtext_n(vdi_h, cx - n * dw / 2, cy - dh / 2, s, n);
+	font_reselect();
+	cw = keep_cw;
+	ch = keep_ch;
+}
+
 void text_color(short color)
 {
 	next_text_color = color;

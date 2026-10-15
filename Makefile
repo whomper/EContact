@@ -159,9 +159,16 @@ icons:
 # "1.33-dev". tools/bump.py starts a release.
 VERSION_STR := $(shell cat VERSION)$(if $(RELEASE),,-dev)
 
+# the parser's own number: BOOKnnnn.IDX keeps what vcard_parse made, and
+# is good for every build whose parser is the same source (a new version
+# alone doesn't read all the cards again: half a minute on an ST)
+PARSE_SRC := src/vcard.c src/vcard.h common/src/charset.c common/src/charset.h common/src/charset_tab.h \
+	     common/src/bidi.c common/src/bidi.h common/src/util.c common/src/util.h
+PARSE_ID  := $(shell cat $(PARSE_SRC) | cksum | cut -d' ' -f1)
+
 # written again whenever the string changes, so RELEASE=1 rebuilds it
 $(OBJDIR)/version.c: FORCE | $(OBJDIR)
-	@printf '/* written by the Makefile: do not edit */\nconst char app_version[] = "%s";\n' "$(VERSION_STR)" > $@.new
+	@printf '/* written by the Makefile: do not edit */\nconst char app_version[] = "%s";\nconst char parse_id[] = "P%s";\n' "$(VERSION_STR)" "$(PARSE_ID)" > $@.new
 	@if cmp -s $@.new $@; then rm $@.new; else mv $@.new $@; fi
 FORCE:
 $(OBJDIR)/version.o: $(OBJDIR)/version.c

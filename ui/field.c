@@ -19,6 +19,8 @@
 #include "bidi.h"
 #include "util.h"
 #include "clip.h"
+#include "plat.h"
+#include "conn.h"
 
 static GRECT box;		/* the dialog on screen */
 static short rh;		/* pixels per row */
@@ -1027,8 +1029,12 @@ int dlg_ask(const char *title, const char *label, char *buf, short len)
 /* ---------------- progress ----------------
  * A box for long work (Sync Contact Photos): what is being done, a bar,
  * the time left, and Cancel. The work calls prog_update between steps;
- * a click on Cancel or Esc is seen then (the mouse is the box's while it
- * is up, so a click during a step waits for the next). */
+ * a step (a photo can take half a minute) calls pf_idle while it waits
+ * for the network and conn_tick as data comes in or a picture is
+ * decoded, and the box looks at the mouse then, every 50 ms at most.
+ * GEM keeps no clicks for later: a click is seen while the button is
+ * down, and a click lasts about a tenth of a second. Cancel or Esc stops
+ * the network (conn_stop) and the step, and says "Stopping...". */
 
 enum { PG_LINE1, PG_LINE2, PG_CANCEL, PG_N };
 static FIELD pg_f[PG_N];
@@ -1038,6 +1044,61 @@ static GRECT pg_bar, pg_outer;
 static short pg_outer_rh, pg_outer_pad, pg_open;
 static DLG *pg_outer_dlg;
 static long pg_shown = -1;
+static int pg_stop;
+static void (*pg_outer_idle)(void), (*pg_outer_tick)(void);
+static unsigned long pg_looked;
+
+static void prog_stopping(void)
+{
+	if (pg_stop)
+		return;
+	pg_stop = 1;
+	conn_stop = 1;
+	str_copy(pg_l2, "Stopping...", sizeof(pg_l2));
+	dlg_redraw_field(&pg_d, PG_LINE2);
+}
+
+/* Cancel or Esc since last looked, without waiting for them; other
+   keys and clicks are the box's, and dropped */
+static void prog_poll(short ms)
+{
+	short m[8], mx, my, mb, ks;
+	AEVENT e;
+	pg_looked = pf_ms();
+	for (;;) {
+		evnt_multi_(MU_KEYBD | MU_BUTTON | MU_TIMER, 1, 1, 1, ms, m, &e);
+		ms = 0;
+		if (e.which & MU_KEYBD) {
+			if (KEY_SCAN(e.kreturn) == 0x01 || KEY_SCAN(e.kreturn) == 0x61)	/* Esc, Undo */
+				prog_stopping();
+			continue;
+		}
+		if (e.which & MU_BUTTON) {
+			if (field_at(&pg_d, e.mx, e.my) == PG_CANCEL) {
+				press_effect(&pg_d, PG_CANCEL);
+				prog_stopping();
+			}
+			do {
+				graf_mkstate(&mx, &my, &mb, &ks);
+			} while (mb & 3);
+			continue;
+		}
+		break;
+	}
+}
+
+/* pf_idle while the box is up: the network's waits, the decoder */
+static void prog_idle(void)
+{
+	prog_poll(5);
+}
+
+/* conn_tick while the box is up: data coming in, a picture decoded */
+static void prog_tick(void)
+{
+	if (pf_ms() - pg_looked >= 50)
+		prog_poll(0);
+}
 
 static void prog_bar(long done, long total)
 {
@@ -1109,6 +1170,11 @@ void prog_open(const char *title)
 	depth++;
 	pg_open = 1;
 	pg_shown = -1;
+	pg_stop = 0;
+	pg_outer_idle = pf_idle;
+	pg_outer_tick = conn_tick;
+	pf_idle = prog_idle;
+	conn_tick = prog_tick;
 	wind_update(BEG_UPDATE);
 	wind_update(3);
 	form_dial(FMD_START, box.x, box.y, box.w + 2, box.h + 2);
@@ -1119,11 +1185,10 @@ void prog_open(const char *title)
 
 int prog_update(long done, long total, const char *line1, const char *line2)
 {
-	short m[8], mx, my, mb, ks;
-	AEVENT e;
-	int go = 1;
 	if (!pg_open)
 		return 1;
+	if (pg_stop)
+		return 0;
 	if (line1 && strcmp(line1, pg_l1)) {
 		str_copy(pg_l1, line1, sizeof(pg_l1));
 		dlg_redraw_field(&pg_d, PG_LINE1);
@@ -1136,31 +1201,9 @@ int prog_update(long done, long total, const char *line1, const char *line2)
 		pg_shown = done * 1000 / total;
 		prog_bar(done, total);
 	}
-	/* Cancel or Esc since the last step; nothing waited for */
-	for (;;) {
-		evnt_multi_(MU_KEYBD | MU_BUTTON | MU_TIMER, 1, 1, 1, 0, m, &e);
-		if (e.which & MU_KEYBD) {
-			if (KEY_SCAN(e.kreturn) == 0x01 || KEY_SCAN(e.kreturn) == 0x61)	/* Esc, Undo */
-				go = 0;
-			continue;
-		}
-		if (e.which & MU_BUTTON) {
-			if (field_at(&pg_d, e.mx, e.my) == PG_CANCEL) {
-				press_effect(&pg_d, PG_CANCEL);
-				go = 0;
-			}
-			do {
-				graf_mkstate(&mx, &my, &mb, &ks);
-			} while (mb & 3);
-			continue;
-		}
-		break;
-	}
-	if (!go) {
-		str_copy(pg_l2, "Stopping...", sizeof(pg_l2));
-		dlg_redraw_field(&pg_d, PG_LINE2);
-	}
-	return go;
+	/* Cancel or Esc since the last look; nothing waited for */
+	prog_poll(0);
+	return !pg_stop;
 }
 
 void prog_close(void)
@@ -1168,6 +1211,8 @@ void prog_close(void)
 	if (!pg_open)
 		return;
 	pg_open = 0;
+	pf_idle = pg_outer_idle;
+	conn_tick = pg_outer_tick;
 	clip_off();
 	form_dial(FMD_FINISH, box.x, box.y, box.w + 2, box.h + 2);
 	wind_update(2);

@@ -859,14 +859,16 @@ static int cache_rewrite(BOOK *b, int drop, const char *href, const char *etag, 
  * made is kept: each contact as vcard_pack gave it, under the hash and
  * length of its text in BOOKnnnn.DAT. At start-up a card whose text is
  * the same is taken from here; the others are parsed, and the file
- * written again. Changes add to its end. Only this build's: the header
- * has VC_PACK_ID and the version. */
+ * written again. Changes add to its end. Only for this layout and this
+ * parser: the header has VC_PACK_ID and parse_id (the Makefile's sum of
+ * the parser's sources), so a new version whose parser is the same
+ * keeps it. */
 #define IDX_MAGIC "CARDIDX\n"
 
 typedef struct {
 	char magic[8];
 	long packid;
-	char version[16];
+	char version[16];	/* parse_id */
 } IDXHEAD;
 
 typedef struct {
@@ -879,7 +881,7 @@ typedef struct {
 static int idx_head_ok(const IDXHEAD *h)
 {
 	return !memcmp(h->magic, IDX_MAGIC, 8) && h->packid == VC_PACK_ID &&
-	       !strncmp(h->version, app_version, sizeof(h->version));
+	       !strncmp(h->version, parse_id, sizeof(h->version));
 }
 
 static void idx_head(IDXHEAD *h)
@@ -887,7 +889,7 @@ static void idx_head(IDXHEAD *h)
 	memset(h, 0, sizeof(*h));
 	memcpy(h->magic, IDX_MAGIC, 8);
 	h->packid = VC_PACK_ID;
-	str_copy(h->version, app_version, sizeof(h->version));
+	str_copy(h->version, parse_id, sizeof(h->version));
 }
 
 static int idx_put(int h, const CONTACT *c, unsigned long th, long tlen, unsigned short hh)
@@ -1004,11 +1006,19 @@ static void idx_read(BOOK *b, FR *f, int *used, int *stale)
 	pf_close(f->h);
 }
 
+/* "1.23 s" */
+static char *secs_of(unsigned long ms, char *out)
+{
+	sprintf(out, "%lu.%02lu s", ms / 1000UL, ms % 1000UL / 10UL);
+	return out;
+}
+
 static void load_one(BOOK *b)
 {
 	char path[200], line[700];
 	static FR f;		/* 16 KB: not on the accessory's stack */
-	int used = 0, stale = 0, parsed = 0;
+	int used = 0, stale = 0, parsed = 0, wrote = 0;
+	unsigned long t0 = pf_ms(), t_rec = 0, t_idx = 0, t_parse = 0, t_write = 0;
 	people_drop((int)(b - books), -1);
 	book_free(b);
 	b->ver = 0;
@@ -1079,12 +1089,14 @@ static void load_one(BOOK *b)
 			b->maxres = b->nres + 8;
 		}
 	}
+	t_rec = pf_ms() - t0;
 	/* the cards as they were parsed before, where their text is the same */
 	if (b->ver == CACHE_VER && !parse_old) {
 		pf_close(f.h);
 		idx_read(b, &f, &used, &stale);
 		f.h = pf_open(path, PF_READ);
 	}
+	t_idx = pf_ms() - t0 - t_rec;
 	/* then the rest, parsed (the old kind are only listed here: read
 	   after they are written anew) */
 	if (f.h >= 0 && (b->ver == CACHE_VER || parse_old) && pf_seek(f.h, 0) == 0) {
@@ -1120,10 +1132,22 @@ static void load_one(BOOK *b)
 	}
 	if (f.h >= 0)
 		pf_close(f.h);
+	t_parse = pf_ms() - t0 - t_rec - t_idx;
 	/* the parsed cache written again when cards were parsed, or when it
 	   holds many that are gone */
-	if (b->ver == CACHE_VER && !parse_old && (parsed > 0 || (stale > 16 && stale > used / 4)))
+	if (b->ver == CACHE_VER && !parse_old && (parsed > 0 || (stale > 16 && stale > used / 4))) {
 		idx_write(b);
+		wrote = 1;
+	}
+	t_write = pf_ms() - t0 - t_rec - t_idx - t_parse;
+	{
+		/* in the log: where the start-up's time goes */
+		char m[300], a[16], r[16], i[16], p[16], w[16];
+		snprintf(m, sizeof(m), "%.40s: %d cards in %s: the records %s, %d from the index %s, %d parsed %s%s%s",
+			 b->name, used + parsed, secs_of(pf_ms() - t0, a), secs_of(t_rec, r), used, secs_of(t_idx, i), parsed,
+			 secs_of(t_parse, p), wrote ? ", the index written " : "", wrote ? secs_of(t_write, w) : "");
+		conn_log("Contacts", " -- ", m, (long)strlen(m));
+	}
 	if (b->ver != CACHE_VER && !parse_old) {
 		status("Converting %s...", b->name);
 		if (!cache_rewrite(b, -1, 0, 0, 0, 0, 0)) {
@@ -1150,7 +1174,14 @@ void book_load_all(void)
 	}
 	/* CONTACTS.TXT made again, as the contacts are now (people_export
 	   leaves it when nothing changed, and when some are left out) */
-	people_changed(1);
+	{
+		unsigned long t = pf_ms();
+		char m[60], a[16];
+		people_changed(1);
+		snprintf(m, sizeof(m), "CONTACTS.TXT for EMail and ECal: %s", secs_of(pf_ms() - t, a));
+		conn_log("Contacts", " -- ", m, (long)strlen(m));
+		conn_log_flush();
+	}
 	status_clear();
 }
 

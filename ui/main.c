@@ -122,13 +122,29 @@ static void warn_plain(const char *keyfile)
 		 "Is the disk locked or full?][ OK ]", keyfile);
 }
 
+/* the log's first line, whenever it is switched on: which version, and
+   whether the program and its memory are in TT RAM (ST RAM is several
+   times slower on a TT, and far slower behind a CT60; an accessory's
+   program is always in ST RAM) */
 void set_logging(void)
 {
+	int was = conn_logfile[0] != 0;
 	conn_log_flush();
 	if (opt.log)
 		path_join(conn_logfile, sizeof(conn_logfile), workdir, "ECONTACT.LOG");
 	else
 		conn_logfile[0] = 0;
+	if (conn_logfile[0] && !was) {
+		char m[120];
+		void *h = malloc(16);
+		snprintf(m, sizeof(m), "EContact %s (%s): program at %08lx (%s RAM), memory at %08lx (%s RAM)",
+			 app_version, is_acc ? "accessory" : "program", (unsigned long)set_logging,
+			 (unsigned long)set_logging >= 0x01000000UL ? "TT" : "ST",
+			 (unsigned long)h, (unsigned long)h >= 0x01000000UL ? "TT" : "ST");
+		free(h);
+		conn_log("EContact", "--", m, (long)strlen(m));
+		conn_log_flush();
+	}
 }
 
 /* Israeli SI-1452 layout by key position (scancode 0x10-0x35), giving
@@ -1035,17 +1051,6 @@ static void load_settings(void)
 		store_save_settings();
 	hebrew_kbd = opt.hebrew;
 	font_apply();
-	{
-		char m[100];
-		void *h = malloc(16);
-		snprintf(m, sizeof(m), "EContact %s: program at %08lx (%s RAM), memory at %08lx (%s RAM)",
-			 app_version, (unsigned long)load_settings,
-			 (unsigned long)load_settings >= 0x01000000UL ? "TT" : "ST",
-			 (unsigned long)h, (unsigned long)h >= 0x01000000UL ? "TT" : "ST");
-		free(h);
-		conn_log("EContact", "--", m, (long)strlen(m));
-		conn_log_flush();
-	}
 	settings_ready = 1;
 }
 
@@ -1109,6 +1114,11 @@ static void open_window(void)
 		win_redraw(0);
 		load_contacts();
 	}
+	/* the timed refresh counts from now: the 200 Hz timer counts from
+	   when the Atari was switched on, and the window may have been
+	   closed for hours (only "refresh when the window opens" refreshes
+	   now) */
+	last_refresh = last_minute = pf_ms();
 	/* "my card", or the first, chosen at the start as on the Mac */
 	if (!sel_contact()) {
 		CONTACT *me = contact_by_uid(opt.me, -1);

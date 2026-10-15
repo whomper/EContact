@@ -483,10 +483,11 @@ MID=$(sed -n 's/^ID=//p' "$M/ECONTACT.INF" | tr -d '\r' | tail -1)
 IDX=$M/CACHE/BOOK$(printf %04d "$MID").IDX
 if [ -s "$IDX" ]; then ok "kept"; else bad "no $IDX"; fi
 BEFORE=$($CLI "$M" list | md5sum)
-# another version's: its header says so, and it isn't used
-python3 -c "import sys; d=bytearray(open(sys.argv[1],'rb').read()); d[20:24]=b'0.0X'; open(sys.argv[1],'wb').write(d)" "$IDX"
+# another parser's: its header says so (parse_id), and it isn't used
+python3 -c "import sys; d=bytearray(open(sys.argv[1],'rb').read()); d[12:16]=b'P0.X'; open(sys.argv[1],'wb').write(d)" "$IDX"
 R=$($CLI "$M" list | md5sum)
-if [ "$R" = "$BEFORE" ]; then ok "another version's: the same contacts"; else bad "another version's cache changed the list"; fi
+if [ "$R" = "$BEFORE" ]; then ok "another parser's: the same contacts"; else bad "another parser's cache changed the list"; fi
+if head -c 28 "$IDX" | grep -q host; then ok "and written again for this one"; else bad "another parser's cache kept"; fi
 # cut short, as by a crash while it was written
 head -c 5000 "$IDX" > "$IDX.x" && mv "$IDX.x" "$IDX"
 R=$($CLI "$M" list | md5sum)

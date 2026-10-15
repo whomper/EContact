@@ -9,4 +9,7 @@
 #ifndef VERSION_H
 #define VERSION_H
 extern const char app_version[];	/* "1.33" or "1.33-dev" */
+/* the parser's sources, summed by the Makefile: BOOKnnnn.IDX is good
+   while they are the same */
+extern const char parse_id[];
 #endif
