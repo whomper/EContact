@@ -63,3 +63,8 @@
   github.com/whomper/AERA-Atari. Don't edit it here: change it in
   AERA-Atari, then run `tools/sync-common.sh`. Follow the AERA Atari app
   guidelines (AERA-Atari, `standards/ATARI-APP-GUIDELINES.md`).
+- **The name** reads "AERA | Erez Yaary" wherever it is given: copyright
+  lines (`Copyright (C) 2026 AERA | Erez Yaary`), the About box, the help
+  file's `@author`, the docs, and as the author of every commit:
+  `git commit --author="AERA | Erez Yaary <yaary@me.com>"`, with Claude as
+  the signing committer (AERA-Atari, `standards/GITHUB-IDENTITY.md`).
