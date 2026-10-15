@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * Contact photos (the AERA guidelines, 7.1): a JPEG from a card or a
  * server made into EContact's picture (TJpgDec, else jpegdc.c), and

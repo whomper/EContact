@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026 Erez Yaary
+# Copyright (C) 2026 AERA | Erez Yaary
 """ECONTACT.PRG with ECONTACT.ACC installed, in Hatari under EmuTOS
 (plain TOS; the AERA guidelines, 2.3 and 3.1):
   - the accessory opened and closed, then ECONTACT.PRG started from the

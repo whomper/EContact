@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * photo.c - contacts' pictures (see photo.h): the PHOTO line taken
  * apart, the JPEG decoded with ChaN's TJpgDec at 1/2, 1/4 or 1/8 of its

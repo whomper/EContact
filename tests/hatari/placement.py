@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026 Erez Yaary
+# Copyright (C) 2026 AERA | Erez Yaary
 """Where EContact finds its settings and its folder, as ECal does, checked
 in Hatari on an ST (ECONTST.ACC, ECONTACT.PRG):
 

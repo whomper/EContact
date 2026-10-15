@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026 Erez Yaary
+# Copyright (C) 2026 AERA | Erez Yaary
 # EContact - contacts for the Atari ST/STE/TT/Falcon, in C, a desk
 # accessory like ECal and a companion to EMail.
 #

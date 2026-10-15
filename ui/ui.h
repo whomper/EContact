@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * ui.h - EContact's GEM interface: one window like the Mac's Contacts,
  * the groups on the left, the people in the middle under a search field,

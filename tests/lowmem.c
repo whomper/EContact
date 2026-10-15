@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * lowmem.c - writing a card again when there isn't the memory to read it
  * whole: a card with a big photo, mallocs over a limit refused, as on an

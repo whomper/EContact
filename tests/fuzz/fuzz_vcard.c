@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * vCards from a server or an imported file (the AERA guidelines, 7.1):
  * every card parsed, shown as EContact shows it, opened for editing and

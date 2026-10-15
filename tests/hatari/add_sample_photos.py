@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026 Erez Yaary
+# Copyright (C) 2026 AERA | Erez Yaary
 """Puts drawn portraits (made-up people, so drawn ones: a head, hair and
 shoulders on a coloured background) into some of tests/hatari/sample.vcf's
 cards, as the Mac exports them: PHOTO;ENCODING=b;TYPE=JPEG, base64,

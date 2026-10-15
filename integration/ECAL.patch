@@ -275,7 +275,7 @@ index 0000000..0d33837
 +++ b/src/people.c
 @@ -0,0 +1,213 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later
-+ * Copyright (C) 2026 Erez Yaary */
++ * Copyright (C) 2026 AERA | Erez Yaary */
 +/*
 + * people.c - EContact's people for EMail and ECal (see people.h).
 + * Kept in EContact's repository (share/) and copied into the others.
@@ -494,7 +494,7 @@ index 0000000..970da6a
 +++ b/src/people.h
 @@ -0,0 +1,43 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later
-+ * Copyright (C) 2026 Erez Yaary */
++ * Copyright (C) 2026 AERA | Erez Yaary */
 +/*
 + * people.h - EContact's people for other programs: EMail's address book
 + * and ECal's invitations read them from here. Copy people.c and people.h

@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026 Erez Yaary
+# Copyright (C) 2026 AERA | Erez Yaary
 # EContact's core against a real CardDAV server (Radicale), with card-cli
 # (the same abook/CardDAV/HTTP/TLS code as the Atari):
 #

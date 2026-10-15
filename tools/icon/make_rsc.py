@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026 Erez Yaary
+# Copyright (C) 2026 AERA | Erez Yaary
 """Write EContact's desktop icon as files for Atari icon and resource
 editors (EMail's make_rsc.py, from Claude ST's):
 

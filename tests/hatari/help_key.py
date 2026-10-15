@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026 Erez Yaary
+# Copyright (C) 2026 AERA | Erez Yaary
 """The Help key in Hatari on an ST, with a stand-in for ST-Guide
 (build/fakeguide.acc, `make build/fakeguide.acc`) that writes what a
 VA_START names into C:\\VASTART.TXT:

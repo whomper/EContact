@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * editor.c - a contact's card to fill in or change. The Mac edits the
  * card where it stands; an Atari screen is shorter, so here the card's

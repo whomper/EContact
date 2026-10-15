@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026 Erez Yaary
+# Copyright (C) 2026 AERA | Erez Yaary
 """A picture server for the photo tests: serves DIR's files with an ETag
 (their MD5), answers If-None-Match with 304, and logs each request (and
 whether it carried a login) to stderr.

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * photo.h - contacts' pictures: the JPEG a vCard carries (or links to),
  * decoded once into a small picture and kept in CACHE\PHOTOS, so a card

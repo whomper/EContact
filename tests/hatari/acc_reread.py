@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026 Erez Yaary
+# Copyright (C) 2026 AERA | Erez Yaary
 """The accessory while the program changes its files, on single TOS,
 checked in Hatari on an ST (ECONTST.ACC):
 

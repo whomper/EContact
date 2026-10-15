@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * jpegdc.h - JPEGs read at 1/8 of their size from their blocks' DC
  * values alone (see jpegdc.c): what photo.c falls back on when TJpgDec

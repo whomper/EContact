@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * card.c - the chosen person's card, as the Mac shows it: a round
  * picture with the initials, the name in bold, the job and company

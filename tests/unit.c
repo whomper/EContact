@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * unit.c - tests for the contacts core: vCards in (3.0 from iCloud, 4.0,
  * 2.1 from old phones) and out, labels, birthdays, groups, XML and URLs.

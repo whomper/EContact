@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * draw.c - drawing for EContact's window: rectangles, lines, the colour
  * (or pattern) of the avatars, and text. Text is kept in logical

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026 Erez Yaary
+# Copyright (C) 2026 AERA | Erez Yaary
 """A CardDAV server that does partial retrieval (RFC 6352 8.4), for the
 tests: a proxy in front of Radicale (which ignores it) that answers an
 addressbook-multiget asking for some properties with only those, and a

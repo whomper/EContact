@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * vcard.h - vCard (RFC 2426 3.0, RFC 6350 4.0, and the old 2.1 of
  * phones and Outlook), the format iCloud and every CardDAV server keep
