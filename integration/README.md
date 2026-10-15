@@ -1,7 +1,7 @@
 # EMail and ECal with EContact
 
 These patches make EContact the address book of
-[EMail](https://github.com/whomper/EMAIL) and
+[EMail](https://github.com/whomper/EMail) and
 [ECal](https://github.com/whomper/ECal). Each applies to the repository's
 `main` (EMail at 5c5e1ca, ECal at d315498) and builds and passes its tests:
 

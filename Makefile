@@ -20,7 +20,7 @@
 # programs (.github/workflows/release.yml).
 #
 # The Atari runtime, TLS, HTTP, WebDAV and Hebrew text come from ECal and
-# EMail (github.com/whomper/ECal, github.com/whomper/EMAIL).
+# EMail (github.com/whomper/ECal, github.com/whomper/EMail).
 
 CROSS   ?= m68k-linux-gnu-
 CC      := $(CROSS)gcc
@@ -77,7 +77,7 @@ $(BIN)/ECONTACT.HYP: docs/GUIDE.md tools/mkhelp.py VERSION | $(OBJDIR) $(BIN)
 	$(HCP) -q -o $@ $(OBJDIR)/ECONTACT.STG >/dev/null
 	test -s $(BIN)/ECONTACT.REF
 
-# the ST edition: no TLS of its own (it uses the Pi gateway), 150 KB
+# the ST edition: no TLS of its own (it uses the Pi gateway), about 105 KB
 # smaller; only BearSSL's MD5 (for Digest logins), as 68000 code. Only
 # ever an accessory, so no crash catcher (crash_none.c)
 STBSSL  := hash/md5 codec/dec32le codec/enc32le
