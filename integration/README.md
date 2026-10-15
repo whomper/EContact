@@ -3,7 +3,7 @@
 These patches make EContact the address book of
 [EMail](https://github.com/whomper/EMAIL) and
 [ECal](https://github.com/whomper/ECal). Each applies to the repository's
-`main` (EMail at 49dfe23, ECal at 1326579) and builds and passes its tests:
+`main` (EMail at 49dfe23, ECal at a262c38) and builds and passes its tests:
 
 ```
 cd EMAIL && git apply ../EContact/integration/EMAIL.patch && make && make test
@@ -41,7 +41,7 @@ EMail takes `VA_START` with `mailto:...` itself (see
   were.
 - An invitation from someone else shows **From:** and who sent it,
   instead of the invitees.
-- The menu has **Contacts...** to open EContact's window.
+- **Contacts...** in the File menu (the program) and the ≡ menu (the accessory) opens EContact's window.
 
 Files: `src/ics.c`, `src/ics.h` (attendees and organizer read and
 written, `ics_each_address`, `ev_invited`), `src/calstore.c` (the

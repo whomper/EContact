@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index e9481f8..27b8727 100644
+index 4fef15d..eb0448e 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -37,7 +37,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
@@ -9,13 +9,13 @@ index e9481f8..27b8727 100644
 -CORE    := util charset conn tls bidi secret futil ctime tz ics rrule xml inflate http caldav calstore
 +CORE    := util charset conn tls bidi secret futil ctime tz ics rrule xml inflate http caldav calstore people
  ATARI   := libc tos plat_tos net_tos sting gem dsprsa
- UI      := main win draw popup dsp views sidebar editor dialogs field about font help av alert aboutbox iconify clip dd
+ UI      := main win draw popup dsp views sidebar editor dialogs field about font help av alert aboutbox iconify clip dd mbar twin
  
 diff --git a/src/calstore.c b/src/calstore.c
-index bd410ca..31b239a 100644
+index 173c61e..432ab77 100644
 --- a/src/calstore.c
 +++ b/src/calstore.c
-@@ -1502,6 +1502,7 @@ static int save_new(EVENT *e, int ci)
+@@ -1549,6 +1549,7 @@ static int save_new(EVENT *e, int ci)
  	e->seq = 0;
  	new_href(e->uid, href, sizeof(href));
  	ics_now_utc = now_utc();
@@ -23,7 +23,7 @@ index bd410ca..31b239a 100644
  	text = ics_build(e, 0, 0, &len);
  	if (!text) {
  		str_copy(cal_err, "out of memory", sizeof(cal_err));
-@@ -1531,6 +1532,7 @@ int ev_save(EVENT *e, int ci, int how, CTIME occ)
+@@ -1578,6 +1579,7 @@ int ev_save(EVENT *e, int ci, int how, CTIME occ)
  		return 0;
  	}
  	ics_now_utc = now_utc();
@@ -799,7 +799,7 @@ index 3164aa0..893a575 100644
  		if (n->allday) {
  			n->tz = 0;
 diff --git a/ui/main.c b/ui/main.c
-index 9ccef77..b6eaa41 100644
+index 9305230..c573e4b 100644
 --- a/ui/main.c
 +++ b/ui/main.c
 @@ -18,6 +18,7 @@
@@ -810,7 +810,7 @@ index 9ccef77..b6eaa41 100644
  #include "../src/http.h"
  #include "../src/plat.h"
  #include "util.h"
-@@ -392,9 +393,17 @@ static void import_file(int cal, const char *path)
+@@ -394,10 +395,18 @@ static void import_file(int cal, const char *path)
  	after_change();
  }
  
@@ -822,30 +822,39 @@ index 9ccef77..b6eaa41 100644
 +		alert(1, "[1][EContact isn't loaded: put ECONTACT.ACC|in the root of the boot drive|and restart.][ OK ]");
 +}
 +
- void cmd_menu(short x, short y)
- {
--	enum { M_ADD, M_NEW, M_S1, M_GOTO, M_FIND, M_TODAY, M_S2, M_SIDE, M_HEB, M_KBD, M_S5,
-+	enum { M_ADD, M_NEW, M_S1, M_GOTO, M_FIND, M_TODAY, M_CONT, M_S2, M_SIDE, M_HEB, M_KBD, M_S5,
- 	       M_OFFL, M_FALC, M_LOG, M_S3, M_SET, M_FONT, M_KEYS, M_ABOUT, M_S4, M_QUIT, M_N };
- 	const char *items[M_N];
- 	short k, n = is_acc ? M_S4 : M_N;
-@@ -404,6 +413,7 @@ void cmd_menu(short x, short y)
- 	items[M_GOTO] = "  Go to date...       ^G";
- 	items[M_FIND] = "  Find...             ^F";
- 	items[M_TODAY] = "  Today                T";
-+	items[M_CONT] = "  Contacts...";
- 	items[M_S2] = "-";
- 	items[M_SIDE] = opt.sidebar ? "\x08 Calendar list      \x01^S" : "  Calendar list      \x01^S";
- 	items[M_HEB] = opt.hebdates ? "\x08 Hebrew dates" : "  Hebrew dates";
-@@ -427,6 +437,7 @@ void cmd_menu(short x, short y)
- 	case M_GOTO: dlg_goto(); break;
- 	case M_FIND: dlg_find(); break;
- 	case M_TODAY: views_today(); break;
-+	case M_CONT: open_contacts(); break;
- 	case M_SIDE:
- 		opt.sidebar = !opt.sidebar;
- 		settings_later();
-@@ -988,6 +999,7 @@ int main(void)
+ /* the commands of the menu bar (the program) and the toolbar's menu */
+ enum { C_NONE, C_ABOUT, C_NEW, C_ADD, C_REFRESH, C_REFRESH_ALL, C_QUIT, C_COPY, C_DAY, C_WEEK,
+        C_MONTH, C_YEAR, C_TODAY, C_GOTO, C_FIND, C_SIDE, C_HEB, C_SET, C_FONT, C_OFFL, C_FALC,
+-       C_LOG, C_KBD, C_HELP, C_KEYS };
++       C_LOG, C_KBD, C_HELP, C_KEYS, C_CONTACTS };
+ 
+ static const MBAR_ITEM m_desk[] = {
+ 	{ "About ECal...", 0, C_ABOUT },
+@@ -406,6 +415,7 @@ static const MBAR_ITEM m_desk[] = {
+ static const MBAR_ITEM m_file[] = {
+ 	{ "New event", "^N", C_NEW },
+ 	{ "Add account or calendar...", 0, C_ADD },
++	{ "Contacts...", 0, C_CONTACTS },
+ 	{ "-", 0, 0 },
+ 	{ "Refresh", "^R", C_REFRESH },
+ 	{ "Refresh everything", "\x01^R", C_REFRESH_ALL },
+@@ -532,6 +542,7 @@ static void command(int c)
+ 	case C_FONT: font_menu(); break;
+ 	case C_HELP: help_open(); break;
+ 	case C_KEYS: dlg_keys(); break;
++	case C_CONTACTS: open_contacts(); break;
+ 	case C_QUIT:
+ 		quit_now = 1;
+ 		win_close();
+@@ -554,6 +565,7 @@ void cmd_menu(short x, short y)
+ 		{ "  Go to date...       ^G", C_GOTO },
+ 		{ "  Find...             ^F", C_FIND },
+ 		{ "  Today                T", C_TODAY },
++		{ "  Contacts...", C_CONTACTS },
+ 		{ "-", 0 },
+ 		{ "  Calendar list      \x01^S", C_SIDE },
+ 		{ "  Hebrew dates", C_HEB },
+@@ -1165,6 +1177,7 @@ int main(void)
  	crash_cleanup = crash_quit;
  	alert_hebrew = alert_heb;
  	crash_report = conn_log_append;	/* the report in ECAL.LOG too */
