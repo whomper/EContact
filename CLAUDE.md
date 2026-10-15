@@ -49,6 +49,12 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   `CACERT.PEM`, `ROOTS.DAT` and the icon. The icons are committed in `icons/` (`make icons`).
 - Before pushing: `make test` (the core) and `make itest` (card-cli against
   Radicale: `pip install radicale`), and `make` with no warnings.
+- `gateway/` is a read-only copy of
+  [AERA-Gateway](https://github.com/whomper/AERA-Gateway)'s: ecalgate (the
+  `dav` service) serves EContact as it serves ECal. Change it there, with
+  that repository's owner session, and bring it here with
+  `tools/sync-gateway.sh`; `GATEWAY=gateway/ecalgate.py make itest` tests
+  through it.
 - `share/people.c` is also compiled into EMail and ECal (`src/people.c`
   there); `integration/*.patch` are the changes to those two. When either
   changes, regenerate the patch from a checkout of that repository's `main`

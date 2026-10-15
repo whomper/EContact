@@ -55,8 +55,9 @@ file with EContact's added (it says which number), for the root of the boot driv
    files there too). The folder can be anywhere: the settings, `C:\ECONTACT.INF`, say where in
    `FOLDER=`; start `ECONTACT.PRG` from the folder once, or show the accessory where it is when it
    asks.
-2. For an ST, set up ECal's gateway on a Raspberry Pi (`sudo gateway/install.sh` in
-   [ECal](https://github.com/whomper/ECal)), or use the one you have.
+2. For an ST, set up the gateway on a Raspberry Pi: in a clone of this repository (or of
+   [AERA-Gateway](https://github.com/whomper/AERA-Gateway)), `sudo gateway/aera-gateway install dav`.
+   ECal uses the same one: if it already works through your Pi, there is nothing to do.
 3. Reboot, choose **EContact** in the Desk menu, and add your iCloud account with an
    [app-specific password](https://support.apple.com/en-us/102654).
 4. Press **Help** in EContact for the guide (with ST-Guide or EHypView installed); the
@@ -81,7 +82,7 @@ Falcon, TT:  Atari (ECONTACT.ACC, TLS 1.2, RSA on the DSP) ---------------------
 - **Falcon mode.** TLS 1.2 on the Falcon or TT with BearSSL, the server's RSA signature checked on
   the DSP56001, as in EMail and ECal.
 
-The gateway's own README: [ECal's `gateway/`](https://github.com/whomper/ECal/tree/main/gateway).
+The gateway's own README: [gateway/README.md](gateway/README.md).
 
 ## What it does
 
@@ -264,13 +265,15 @@ ui/           the GEM program: main.c, win.c (the window), sidebar.c, list.c,
               card.c, editor.c, dialogs.c, about.c; field.c, font.c, draw.c from ECal
 share/        people.c: EContact's people for other programs (EMail, ECal)
 integration/  the patches for EMail and ECal
+gateway/      the Raspberry Pi gateways (ecalgate.py serves EContact) and aera-gateway, their
+              installer: a copy of AERA-Gateway's; change it there, then tools/sync-gateway.sh
 atari/        plat_tos.c: files, folders and time on GEMDOS
 common/       code shared with the other AERA programs (from AERA-Atari): the TOS
               runtime, STinG, the DSP, TLS and BearSSL, the GEM building blocks,
               bidi, dates, passwords, build tools
 third_party/  ChaN's TJpgDec, for the photos
 tests/        unit tests, fuzz targets, CardDAV integration tests, Hatari rigs
-tools/        the version bump, the help file, the desktop icon
+tools/        the version bump, the help file, the desktop icon, sync-common.sh, sync-gateway.sh
 icons/        the desktop icon, as a release carries it
 docs/         the user guide (GUIDE.md, the source of ECONTACT.HYP), INTEGRATION.md, pictures
 ```
@@ -290,7 +293,7 @@ make itest      # card-cli against a real CardDAV server (Radicale: pip install
                 # export, delete, the people list EMail and ECal read, photos
                 # and their cache, partial retrieval (tests/host/partialproxy.py),
                 # little memory, and converting 1.9's cache
-GATEWAY=../ECal/gateway/ecalgate.py make itest    # the same through the Pi gateway
+GATEWAY=gateway/ecalgate.py make itest            # the same through the Pi gateway
 tests/hatari/docs_shots.py WORK etos512us.img     # the screenshots, in Hatari
 tests/hatari/placement.py WORK etos512us.img      # where the accessory and the program
                                                   # find their settings and folder

@@ -5,8 +5,8 @@
 # (the same abook/CardDAV/HTTP/TLS code as the Atari):
 #
 #   tests/integration.sh             plain HTTP, straight to the server
-#   GATEWAY=path/to/ecalgate.py tests/integration.sh
-#                                    through ECal's Pi gateway
+#   GATEWAY=gateway/ecalgate.py tests/integration.sh
+#                                    through the Pi gateway (or another copy of it)
 #
 # Needs: pip install radicale.
 set -euo pipefail

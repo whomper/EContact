@@ -1,8 +1,8 @@
 diff --git a/Makefile b/Makefile
-index a106dc5..b664125 100644
+index faba16f..b42b94e 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -40,7 +40,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
+@@ -46,7 +46,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
  BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
  HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
  
@@ -13,7 +13,7 @@ index a106dc5..b664125 100644
  
 diff --git a/src/people.c b/src/people.c
 new file mode 100644
-index 0000000..0d33837
+index 0000000..2150a19
 --- /dev/null
 +++ b/src/people.c
 @@ -0,0 +1,213 @@
@@ -232,7 +232,7 @@ index 0000000..0d33837
 +}
 diff --git a/src/people.h b/src/people.h
 new file mode 100644
-index 0000000..970da6a
+index 0000000..ad66075
 --- /dev/null
 +++ b/src/people.h
 @@ -0,0 +1,43 @@
@@ -280,7 +280,7 @@ index 0000000..970da6a
 +
 +#endif
 diff --git a/ui/dialogs.c b/ui/dialogs.c
-index ef70111..b34d7cf 100644
+index 2f8c496..f4f74b6 100644
 --- a/ui/dialogs.c
 +++ b/ui/dialogs.c
 @@ -14,6 +14,7 @@
@@ -365,7 +365,7 @@ index ef70111..b34d7cf 100644
  	return res;
  }
 diff --git a/ui/editor.c b/ui/editor.c
-index d2be571..82bad6f 100644
+index 45b5b81..61d3b61 100644
 --- a/ui/editor.c
 +++ b/ui/editor.c
 @@ -16,6 +16,7 @@
@@ -433,7 +433,7 @@ index d2be571..82bad6f 100644
  }
  
 diff --git a/ui/main.c b/ui/main.c
-index 0d596bf..4da319d 100644
+index 8607231..4e987d5 100644
 --- a/ui/main.c
 +++ b/ui/main.c
 @@ -8,6 +8,7 @@
@@ -488,7 +488,7 @@ index 0d596bf..4da319d 100644
  		return 1;
  	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
 diff --git a/ui/ui.h b/ui/ui.h
-index 27ddfbf..cc41e0b 100644
+index bbe2e50..47e6b88 100644
 --- a/ui/ui.h
 +++ b/ui/ui.h
 @@ -137,7 +137,7 @@ void editor_clip(int what);			/* CLIP_COPY, CLIP_CUT, CLIP_PASTE */

@@ -1,8 +1,8 @@
 diff --git a/Makefile b/Makefile
-index f75b1b9..26b5dbc 100644
+index e038344..52732c3 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -37,7 +37,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
+@@ -43,7 +43,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
  BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
  HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
  
@@ -12,7 +12,7 @@ index f75b1b9..26b5dbc 100644
  UI      := main win draw popup dsp views sidebar editor dialogs field about font help av alert aboutbox iconify clip dd mbar twin busy
  
 diff --git a/src/calstore.c b/src/calstore.c
-index 173c61e..432ab77 100644
+index 7b03f49..1d20c1e 100644
 --- a/src/calstore.c
 +++ b/src/calstore.c
 @@ -1549,6 +1549,7 @@ static int save_new(EVENT *e, int ci)
@@ -32,7 +32,7 @@ index 173c61e..432ab77 100644
  		return save_new(e, ci);
  	c = &cals[e->cal];
 diff --git a/src/ics.c b/src/ics.c
-index badbe97..110fe3d 100644
+index 76153a6..43ddee6 100644
 --- a/src/ics.c
 +++ b/src/ics.c
 @@ -38,6 +38,8 @@ void ev_free(EVENT *e)
@@ -234,7 +234,7 @@ index badbe97..110fe3d 100644
  					if (!strncasecmp(s, "END:VALARM", 10))
  						in_alarm = 0;
 diff --git a/src/ics.h b/src/ics.h
-index 3e0d9fb..ee196be 100644
+index 7642e6b..d842697 100644
 --- a/src/ics.h
 +++ b/src/ics.h
 @@ -54,6 +54,9 @@ enum { ST_CONFIRMED, ST_TENTATIVE, ST_CANCELLED };
@@ -270,7 +270,7 @@ index 3e0d9fb..ee196be 100644
  void rrule_format(const RRULE *r, const TZONE *tz, int allday, char *out, int size);
 diff --git a/src/people.c b/src/people.c
 new file mode 100644
-index 0000000..0d33837
+index 0000000..2150a19
 --- /dev/null
 +++ b/src/people.c
 @@ -0,0 +1,213 @@
@@ -489,7 +489,7 @@ index 0000000..0d33837
 +}
 diff --git a/src/people.h b/src/people.h
 new file mode 100644
-index 0000000..970da6a
+index 0000000..ad66075
 --- /dev/null
 +++ b/src/people.h
 @@ -0,0 +1,43 @@
@@ -537,7 +537,7 @@ index 0000000..970da6a
 +
 +#endif
 diff --git a/tests/unit.c b/tests/unit.c
-index 2c7b69e..73b012a 100644
+index 2cf040a..bc78809 100644
 --- a/tests/unit.c
 +++ b/tests/unit.c
 @@ -609,6 +609,96 @@ static void test_rfc5545(void)
@@ -646,7 +646,7 @@ index 2c7b69e..73b012a 100644
  	test_xml();
  	test_urls();
 diff --git a/ui/editor.c b/ui/editor.c
-index 3164aa0..893a575 100644
+index 0857158..32718ca 100644
 --- a/ui/editor.c
 +++ b/ui/editor.c
 @@ -12,6 +12,7 @@
@@ -799,7 +799,7 @@ index 3164aa0..893a575 100644
  		if (n->allday) {
  			n->tz = 0;
 diff --git a/ui/main.c b/ui/main.c
-index 140bead..8bb9bd2 100644
+index 0d94343..efe72b3 100644
 --- a/ui/main.c
 +++ b/ui/main.c
 @@ -20,6 +20,7 @@
