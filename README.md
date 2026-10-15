@@ -283,7 +283,11 @@ tests/    unit tests, CardDAV integration tests, Hatari screenshots
 ```
 make test       # the core: vCards from iCloud, 4.0, 2.1, labels, birthdays,
                 # groups, writing back without losing anything, the parsed
-                # cache (233 checks, photos of every kind of JPEG too)
+                # cache (240 checks, photos of every kind of JPEG too); the
+                # fuzz inputs again (tests/fuzz/seeds, and found/: what once
+                # broke a parser)
+make fuzz       # CardDAV answers, vCards, JPEG photos, XML and inflate from
+                # libFuzzer (clang), FUZZTIME seconds each
 make itest      # card-cli against a real CardDAV server (Radicale): sync, add,
                 # change, groups both ways, import, export, delete, the
                 # people list EMail and ECal read, photos and their cache,
@@ -297,6 +301,8 @@ tests/hatari/acc_reread.py WORK etos512us.img     # the accessory after the prog
                                                   # the files: read again
 tests/hatari/help_key.py WORK etos512us.img       # the Help key, with a stand-in for
                                                   # ST-Guide (make build/fakeguide.acc)
+tests/hatari/stop_test.py WORK etos512us.img      # Esc stops a server that says nothing
+                                                  # (FAKESTNG and the serial bridge from ECal)
 ```
 
 ## Licence

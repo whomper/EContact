@@ -41,7 +41,7 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
 CORE    := util charset conn tls bidi secret futil ctime xml inflate http vcard carddav abook photo jpegdc
 ATARI   := libc tos plat_tos net_tos sting gem dsprsa
-UI      := main win draw popup dsp sidebar list card editor dialogs field about font help av alert aboutbox iconify clip dd mbar twin
+UI      := main win draw popup dsp sidebar list card editor dialogs field about font help av alert aboutbox iconify clip dd mbar twin busy
 
 OBJDIR  := build
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash.o $(OBJDIR)/crash_s.o \
@@ -122,9 +122,13 @@ $(OBJDIR)/%.o: common/atari/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 $(OBJDIR)/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
-# ChaN's JPEG decoder for the photos: 68000 code, for speed
-$(OBJDIR)/tjpgd.o: third_party/tjpgd/tjpgd.c third_party/tjpgd/tjpgd.h third_party/tjpgd/tjpgdcnf.h | $(OBJDIR)
-	$(CC) $(subst -Os,-O2,$(CFLAGS)) -w -c -o $@ $<
+# ChaN's JPEG decoder for the photos: 68000 code, for speed. Its IDCT
+# overflows on a damaged photo's coefficients: -fwrapv (here and in every
+# host build) makes that the wrap the 68000 does anyway, not undefined
+# behaviour; its pixels are clipped through a masked table
+TJPGD   := third_party/tjpgd/tjpgd.c third_party/tjpgd/tjpgd.h third_party/tjpgd/tjpgdcnf.h
+$(OBJDIR)/tjpgd.o: $(TJPGD) | $(OBJDIR)
+	$(CC) $(subst -Os,-O2,$(CFLAGS)) -fwrapv -w -c -o $@ $<
 
 $(OBJDIR)/crt0.o: common/atari/crt0.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
@@ -150,14 +154,21 @@ $(OBJDIR)/version.o: $(OBJDIR)/version.c
 HOSTCC     ?= cc
 HOSTCFLAGS := -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
               -Wno-format-truncation -Isrc -Icommon/src -Ithird_party/tjpgd -fsanitize=address,undefined
-HOSTSRC    := $(foreach m,$(CORE),$(firstword $(wildcard src/$(m).c common/src/$(m).c))) third_party/tjpgd/tjpgd.c tests/host/plat_posix.c tests/host/version_host.c
-HOSTLIB    := $(OBJDIR)/libbearssl-host.a
+HOSTSRC    := $(foreach m,$(CORE),$(firstword $(wildcard src/$(m).c common/src/$(m).c))) tests/host/plat_posix.c tests/host/version_host.c
+HOSTLIB    := $(OBJDIR)/libbearssl-host.a $(OBJDIR)/host-tjpgd.o
+
+$(OBJDIR)/host-tjpgd.o: $(TJPGD) | $(OBJDIR)
+	$(HOSTCC) $(HOSTCFLAGS) -fwrapv -w -c -o $@ $<
+$(OBJDIR)/plain-tjpgd.o: $(TJPGD) | $(OBJDIR)
+	$(HOSTCC) $(filter-out -fsanitize=%,$(HOSTCFLAGS)) -fwrapv -w -c -o $@ $<
+$(OBJDIR)/fuzz-tjpgd.o: $(TJPGD) | $(OBJDIR)
+	$(FUZZCC) $(subst -fsanitize=fuzzer,-fsanitize=fuzzer-no-link,$(FUZZFLAGS)) -fwrapv -w -c -o $@ $<
 
 $(OBJDIR)/hbssl/%.o: $(BSSL)/src/%.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -w -I$(BSSL)/inc -I$(BSSL)/src -c -o $@ $<
 
-$(HOSTLIB): $(HBSSLOBJ)
+$(OBJDIR)/libbearssl-host.a: $(HBSSLOBJ)
 	rm -f $@
 	ar rcs $@ $^
 
@@ -171,9 +182,9 @@ $(OBJDIR)/unit: tests/unit.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
 	$(HOSTCC) $(HOSTCFLAGS) -I$(BSSL)/inc -o $@ tests/unit.c $(HOSTSRC) $(HOSTLIB)
 
 # without the sanitizers: it refuses big mallocs itself (--wrap)
-$(OBJDIR)/lowmem: tests/lowmem.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
+$(OBJDIR)/lowmem: tests/lowmem.c $(HOSTSRC) $(HDRS) $(OBJDIR)/libbearssl-host.a $(OBJDIR)/plain-tjpgd.o | $(OBJDIR)
 	$(HOSTCC) $(filter-out -fsanitize=%,$(HOSTCFLAGS)) -I$(BSSL)/inc -Wl,--wrap=malloc,--wrap=realloc \
-		-o $@ tests/lowmem.c $(HOSTSRC) $(HOSTLIB)
+		-o $@ tests/lowmem.c $(HOSTSRC) $(OBJDIR)/libbearssl-host.a $(OBJDIR)/plain-tjpgd.o
 
 $(OBJDIR)/mkroots: common/tools/mkroots.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
 	$(HOSTCC) $(HOSTCFLAGS) -I$(BSSL)/inc -o $@ common/tools/mkroots.c $(HOSTSRC) $(HOSTLIB)
@@ -192,9 +203,48 @@ $(OBJDIR)/fakeguide.acc: tests/atari/fakeguide.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.
 		$(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
 	python3 common/tools/elf2tos.py $(OBJDIR)/fakeguide.elf $@
 
-test: $(OBJDIR)/unit $(OBJDIR)/lowmem
+# ---- fuzzing (the AERA guidelines, 7.1): what servers send, from
+# libFuzzer, with AddressSanitizer and UBSan. The network is
+# common/tests/fuzz/fuzz_net.c: the server says the fuzz input. Needs
+# clang with libFuzzer (Debian/Ubuntu: clang, libclang-rt-dev); make fuzz
+# runs each target FUZZTIME seconds from tests/fuzz/seeds (mkseeds.py)
+FUZZCC    ?= clang
+FUZZTIME  ?= 60
+FUZZERS   := dav vcard jpeg xml inflate
+FUZZFLAGS := -g -O1 -fsanitize=fuzzer,address,undefined -fno-sanitize-recover=undefined -DFUZZ_NET \
+             -Isrc -Icommon/src -Ithird_party/tjpgd -Icommon/tests/fuzz -I$(BSSL)/inc
+
+$(OBJDIR)/fuzz_%: tests/fuzz/fuzz_%.c $(HOSTSRC) $(HDRS) $(OBJDIR)/libbearssl-host.a $(OBJDIR)/fuzz-tjpgd.o \
+		common/tests/fuzz/fuzz_net.c | $(OBJDIR)
+	$(FUZZCC) $(FUZZFLAGS) -o $@ $< $(HOSTSRC) common/tests/fuzz/fuzz_net.c $(OBJDIR)/libbearssl-host.a \
+		$(OBJDIR)/fuzz-tjpgd.o
+
+fuzz: $(addprefix $(OBJDIR)/fuzz_,$(FUZZERS))
+	@for f in $(FUZZERS); do \
+	  mkdir -p $(OBJDIR)/corpus/$$f; \
+	  echo "fuzz_$$f: $(FUZZTIME) s"; \
+	  $(OBJDIR)/fuzz_$$f -max_total_time=$(FUZZTIME) -timeout=10 -rss_limit_mb=1024 \
+	    -artifact_prefix=$(OBJDIR)/crash-$$f- $(OBJDIR)/corpus/$$f tests/fuzz/seeds/$$f \
+	    $$(ls -d tests/fuzz/found/$$f 2>/dev/null) \
+	    > $(OBJDIR)/fuzz_$$f.log 2>&1 || { tail -40 $(OBJDIR)/fuzz_$$f.log; exit 1; }; \
+	  grep -E "^#[0-9]+.*DONE" $(OBJDIR)/fuzz_$$f.log | tail -1; \
+	done
+
+# the same targets without libFuzzer (common/tests/fuzz/replay.c), with
+# this computer's compiler: make test runs the seeds again, and the inputs
+# that once broke a parser (tests/fuzz/found)
+REPLAYFLAGS := $(HOSTCFLAGS) -fno-sanitize-recover=undefined -DFUZZ_NET -Icommon/tests/fuzz -I$(BSSL)/inc -Ithird_party/tjpgd
+REPLAYSRC   := common/tests/fuzz/fuzz_net.c common/tests/fuzz/replay.c
+
+$(OBJDIR)/replay_%: tests/fuzz/fuzz_%.c $(HOSTSRC) $(HDRS) $(HOSTLIB) $(REPLAYSRC) | $(OBJDIR)
+	$(HOSTCC) $(REPLAYFLAGS) -o $@ $< $(HOSTSRC) $(REPLAYSRC) $(HOSTLIB)
+
+test: $(OBJDIR)/unit $(OBJDIR)/lowmem $(addprefix $(OBJDIR)/replay_,$(FUZZERS))
 	$(OBJDIR)/unit
 	$(OBJDIR)/lowmem
+	@for f in $(FUZZERS); do \
+	  $(OBJDIR)/replay_$$f tests/fuzz/seeds/$$f $$(ls -d tests/fuzz/found/$$f 2>/dev/null) || exit 1; \
+	done
 	@grep -q "ECONTACT.HYP $$(cat VERSION)" $(BIN)/ECONTACT.HYP || \
 	  { echo "$(BIN)/ECONTACT.HYP isn't version $$(cat VERSION): make help"; exit 1; }
 
@@ -204,4 +254,4 @@ itest: $(OBJDIR)/card-cli $(OBJDIR)/people-cli
 clean:
 	rm -rf $(OBJDIR) $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/ECONTST.ACC
 
-.PHONY: all help test itest clean
+.PHONY: all help test itest clean fuzz

@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include "ui.h"
 #include "conn.h"
+#include "secret.h"
+#include "busy.h"
 #include "tls.h"
 #include "../src/http.h"
 #include "../src/plat.h"
@@ -106,14 +108,18 @@ void status(const char *msg)
 	win_status(msg);
 }
 
+/* the bee; while it shows, Esc or Undo stops the network (busy.h) */
 void busy(int on)
 {
-	graf_mouse(on ? BUSYBEE : ARROW, 0);
+	busy_bee(on);
 }
 
-static void idle(void)
+/* a password that can't be encrypted goes into ECONTACT.INF as it is, and the
+   user is told, once (the AERA guidelines, 7.2) */
+static void warn_plain(const char *keyfile)
 {
-	evnt_timer_(5);
+	alert(1, "[1][EContact can't write its key file, %s, so the passwords in ECONTACT.INF are kept unencrypted. "
+		 "Is the disk locked or full?][ OK ]", keyfile);
 }
 
 void set_logging(void)
@@ -1011,6 +1017,7 @@ static void load_settings(void)
 {
 	if (!workdir[0])
 		locate_folder();
+	secret_warn = warn_plain;	/* before anything is saved */
 	move_inf();
 	store_init(workdir, inf_file);
 	if (strcasecmp(opt.folder, workdir))
@@ -1020,7 +1027,7 @@ static void load_settings(void)
 	path_join(tls_seed_path, sizeof(tls_seed_path), workdir, "SEED.DAT");
 	set_logging();
 	net_init();
-	pf_idle = idle;
+	pf_idle = busy_idle;
 	ab_status = status;
 	tls_note = status;
 	falcon_dsp_init();
@@ -1265,7 +1272,12 @@ int main(void)
 		unsigned long wait = sync_pending ? 150 : card_photo_pending() ? 100 : 1000;
 		if (win_h > 0)
 			flags |= MU_KEYBD | MU_BUTTON;
-		which = evnt_multi_(flags, is_acc ? 0x102 : 0x101, 3, 0, wait, msg, &ev);
+		conn_stop = 0;		/* a stop is for one operation */
+		/* a key typed while busy comes first, as if typed now */
+		if (win_h > 0 && busy_key(&ev))
+			which = MU_KEYBD;
+		else
+			which = evnt_multi_(flags, is_acc ? 0x102 : 0x101, 3, 0, wait, msg, &ev);
 		if (win_iconified)	/* an icon takes no keys or clicks (taken, not left for later) */
 			which &= ~(MU_KEYBD | MU_BUTTON);
 		if (which & MU_MESAG) {

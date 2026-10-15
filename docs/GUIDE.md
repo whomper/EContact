@@ -286,6 +286,10 @@ encrypted with ECONTACT.KEY the next time EContact starts. EContact
 writes the file anew as `ECONTACT.IN$` and only then puts it in the old
 one's place, so a reset or a full disk while it writes leaves the old
 settings as they were.
+When ECONTACT.KEY can't be written (a locked disk, a full one, a folder in its
+place), the passwords go into ECONTACT.INF as they are, and EContact says so once
+each time it starts; once ECONTACT.KEY can be written, they are encrypted the
+next time EContact saves its settings.
 
 ## Keys
 
@@ -310,6 +314,11 @@ settings as they were.
 | Help | this guide in EHypView, ST-Guide or HypView (without one: how to get one, or the keys) |
 | Double-click | edit; on an email: write to it |
 | Right-click | more choices |
+
+While the busy bee shows (a refresh, saving a card to the server), Esc or
+Undo stops what EContact is waiting for from the server, at once rather
+than after the minute it would wait: the alert then says "stopped".
+Anything else you type meanwhile is kept for afterwards.
 
 ## When something goes wrong
 

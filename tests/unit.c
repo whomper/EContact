@@ -412,6 +412,31 @@ static void test_photos(void)
 		CHECK((tl >> 11) == ((tl >> 6) & 31) && (tl & 31) == (tl >> 11));
 		CHECK((tl >> 11) < (br >> 11));
 	}
+	{
+		/* found by make fuzz: a second frame header (SOF) refused, its
+		   tables not taken twice (AddressSanitizer would see the leak) */
+		static unsigned char twice[sizeof(jpg_prog) + 64];
+		long i, k, seg = 0;
+		for (i = 2; i + 4 < (long)sizeof(jpg_prog) && !seg; i++)
+			if (jpg_prog[i] == 0xFF && jpg_prog[i + 1] == 0xC2)
+				seg = i;
+		k = 2 + (jpg_prog[seg + 2] << 8 | jpg_prog[seg + 3]);
+		CHECK(seg > 0 && k < 64);
+		memcpy(twice, jpg_prog, seg + k);
+		memcpy(twice + seg + k, jpg_prog + seg, k);
+		memcpy(twice + seg + 2 * k, jpg_prog + seg + k, sizeof(jpg_prog) - seg - k);
+		CHECK(!photo_decode_jpeg(twice, (long)sizeof(jpg_prog) + k, 0, &im));
+		/* and one that says it is 65535 x 65535, cut short after its first
+		   scan's header: given up at once, not read block by block from
+		   nothing (minutes on a 68000) */
+		memcpy(twice, jpg_prog, sizeof(jpg_prog));
+		twice[seg + 5] = twice[seg + 6] = twice[seg + 7] = twice[seg + 8] = 0xFF;
+		for (i = seg; i + 1 < (long)sizeof(jpg_prog) && !(twice[i] == 0xFF && twice[i + 1] == 0xDA); i++)
+			;
+		k = i + 2 + (twice[i + 2] << 8 | twice[i + 3]) + 16;
+		CHECK(k < (long)sizeof(jpg_prog));
+		CHECK(!photo_decode_jpeg(twice, k, 0, &im));
+	}
 	/* and why not, when not */
 	CHECK(!photo_decode_jpeg(png_quarters, sizeof(png_quarters), 0, &im));
 	CHECK_EQ(photo_why, PW_PNG);

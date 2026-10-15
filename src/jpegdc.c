@@ -48,8 +48,14 @@ struct JDC {
 	/* bits */
 	unsigned long acc;
 	int nbits, marker;
+	long phantom;			/* zero bytes made up past the data */
 	int why;
 };
+
+/* A photo cut short reads on in zeros, a few bytes' worth at most; one
+   that only says it is 65535 x 65535 would have every block of it read
+   from nothing, for minutes on a 68000: given up as damaged instead */
+#define PHANTOM_MAX 4096L
 
 /* two bytes, read one at a time: GCC would merge them into one word
    read, an address error on a 68000 when p is odd */
@@ -81,8 +87,10 @@ static void build(HUFF *h)
 static int byte_in(JDC *j)
 {
 	int b;
-	if (j->marker || j->p >= j->end)
+	if (j->marker || j->p >= j->end) {
+		j->phantom++;
 		return 0;		/* past a marker: zeros, as the standard says */
+	}
 	b = *j->p++;
 	if (b == 0xFF) {
 		int n = j->p < j->end ? *j->p : 0;
@@ -163,7 +171,7 @@ static int restart(JDC *j)
 static int block(JDC *j, COMP *c, int bx, int by, int al)
 {
 	int s = decode(j, &j->dc[c->td]), k, v;
-	if (s < 0 || s > 11)
+	if (s < 0 || s > 11 || j->phantom > PHANTOM_MAX)
 		return 0;
 	c->pred += extend(getbits(j, s), s);
 	if (!j->prog) {
@@ -282,6 +290,8 @@ JDC *jdc_open(const unsigned char *p, long n, int *w, int *h, int *why)
 			goto bad;
 		switch (m) {
 		case 0xC0: case 0xC1: case 0xC2:
+			if (j->ncomp)
+				goto bad;		/* a second frame: not a JPEG we read */
 			if (s[0] != 8) {
 				*why = JW_UNSUPPORTED;	/* 12-bit */
 				goto bad;
@@ -325,7 +335,7 @@ JDC *jdc_open(const unsigned char *p, long n, int *w, int *h, int *why)
 			goto bad;
 		case 0xDB: {
 			const unsigned char *q = s, *qe = s + len - 2;
-			while (q < qe) {
+			while (q + 3 <= qe) {		/* q[1], q[2] are read */
 				int pq = q[0] >> 4, tq = q[0] & 3;
 				j->q0[tq] = pq ? rd16(q + 1) : q[1];
 				q += 1 + (pq ? 128 : 64);

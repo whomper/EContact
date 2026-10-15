@@ -1,0 +1,55 @@
+€HTTP/1.1 207 Multi-Status
+Content-Type: application/xml; charset=utf-8
+Content-Length: 376
+
+<?xml version="1.0" encoding="utf-8"?>
+<d:multistatus xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:cs="http://calendarserver.org/ns/"><d:response><d:href>/</d:href><d:propstat><d:prop><d:current-user-principal><d:href>/principals/me/</d:href></d:current-user-principal></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>HTTP/1.1 207 Multi-Status
+Content-Type: application/xml; charset=utf-8
+Content-Length: 394
+
+<?xml version="1.0" encoding="utf-8"?>
+<d:multistatus xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:cs="http://calendarserver.org/ns/"><d:response><d:href>/principals/me/</d:href><d:propstat><d:prop><card:addressbook-home-set><d:href>/addressbooks/me/</d:href></card:addressbook-home-set></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>HTTP/1.1 207 Multi-Status
+Content-Type: application/xml; charset=utf-8
+Transfer-Encoding: chunked
+
+28
+<?xml version="1.0" encoding="utf-8"?>
+<
+28
+d:multistatus xmlns:d="DAV:" xmlns:card=
+28
+"urn:ietf:params:xml:ns:carddav" xmlns:c
+28
+s="http://calendarserver.org/ns/"><d:res
+28
+ponse><d:href>/addressbooks/me/</d:href>
+28
+<d:propstat><d:prop><d:resourcetype><d:c
+28
+ollection/></d:resourcetype></d:prop><d:
+28
+status>HTTP/1.1 200 OK</d:status></d:pro
+28
+pstat></d:response><d:response><d:href>/
+28
+addressbooks/me/card/</d:href><d:propsta
+28
+t><d:prop><d:resourcetype><d:collection/
+28
+><card:addressbook/></d:resourcetype><d:
+28
+displayname>Contacts &amp; more</d:displ
+28
+ayname><cs:getctag>c1</cs:getctag><d:cur
+28
+rent-user-privilege-set><d:privilege><d:
+28
+write/></d:privilege></d:current-user-pr
+28
+ivilege-set></d:prop><d:status>HTTP/1.1 
+28
+200 OK</d:status></d:propstat></d:respon
+13
+se></d:multistatus>
+0
+

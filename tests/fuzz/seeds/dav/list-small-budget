@@ -1,0 +1,69 @@
+BHTTP/1.1 207 Multi-Status
+Content-Type: application/xml; charset=utf-8
+Transfer-Encoding: chunked
+
+28
+<?xml version="1.0" encoding="utf-8"?>
+<
+28
+d:multistatus xmlns:d="DAV:" xmlns:card=
+28
+"urn:ietf:params:xml:ns:carddav" xmlns:c
+28
+s="http://calendarserver.org/ns/"><d:res
+28
+ponse><d:href>/addressbooks/me/card/0.vc
+28
+f</d:href><d:propstat><d:prop><d:getetag
+28
+>"e0"</d:getetag></d:prop><d:status>HTTP
+28
+/1.1 200 OK</d:status></d:propstat></d:r
+28
+esponse><d:response><d:href>/addressbook
+28
+s/me/card/1.vcf</d:href><d:propstat><d:p
+28
+rop><d:getetag>"e1"</d:getetag></d:prop>
+28
+<d:status>HTTP/1.1 200 OK</d:status></d:
+28
+propstat></d:response><d:response><d:hre
+28
+f>/addressbooks/me/card/2.vcf</d:href><d
+28
+:propstat><d:prop><d:getetag>"e2"</d:get
+28
+etag></d:prop><d:status>HTTP/1.1 200 OK<
+28
+/d:status></d:propstat></d:response><d:r
+28
+esponse><d:href>/addressbooks/me/card/3.
+28
+vcf</d:href><d:propstat><d:prop><d:getet
+28
+ag>"e3"</d:getetag></d:prop><d:status>HT
+28
+TP/1.1 200 OK</d:status></d:propstat></d
+28
+:response><d:response><d:href>/addressbo
+28
+oks/me/card/4.vcf</d:href><d:propstat><d
+28
+:prop><d:getetag>"e4"</d:getetag></d:pro
+28
+p><d:status>HTTP/1.1 200 OK</d:status></
+28
+d:propstat></d:response><d:response><d:h
+28
+ref>/addressbooks/me/card/5.vcf</d:href>
+28
+<d:propstat><d:prop><d:getetag>"e5"</d:g
+28
+etetag></d:prop><d:status>HTTP/1.1 200 O
+28
+K</d:status></d:propstat></d:response></
+e
+d:multistatus>
+0
+
