@@ -12,6 +12,12 @@
 #   make test       builds the contacts core for this computer and runs the
 #                   unit tests; `make itest` also syncs with a local CardDAV
 #                   server (Radicale).
+#   make help       binary/ECONTACT.HYP, the guide for ST-Guide (needs hcp:
+#                   common/tools/build-hcp.sh builds it)
+#   make dist       a release's files in dist/: each file, and ECONTACT-x.y.zip
+#
+# binary/ is what make builds, never committed: releases carry the
+# programs (.github/workflows/release.yml).
 #
 # The Atari runtime, TLS, HTTP, WebDAV and Hebrew text come from ECal and
 # EMail (github.com/whomper/ECal, github.com/whomper/EMAIL).
@@ -48,15 +54,16 @@ OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI)))
 OBJS    := $(OBJS0) $(OBJDIR)/version.o
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
-           common/src/*.h common/atari/*.h common/atari/include/*.h common/dsp/*.h third_party/tjpgd/*.h)
+           common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h \
+           third_party/tjpgd/*.h)
 
-# what goes onto the Atari: binary/
+# what goes onto the Atari: binary/ (built, never committed)
 BIN     := binary
 
 # the help file for ST-Guide, from docs/GUIDE.md, needs HCP (hcp, from
-# github.com/th-otto/hypview; CLAUDE.md says how to build it): made with
-# the program when hcp is there, else by `make help HCP=/path/to/hcp`.
-# `make test` checks it says the program's version
+# github.com/th-otto/hypview; common/tools/build-hcp.sh builds it): made
+# with the program when hcp is there, else by `make help HCP=/path/to/hcp`.
+# `make test` and `make dist` check it says the program's version
 HCP     ?= hcp
 HAVEHCP := $(shell command -v $(HCP) 2>/dev/null)
 
@@ -64,9 +71,8 @@ all: $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/ECONTST.ACC $(BIN)/ROOTS.DAT
 
 help: $(BIN)/ECONTACT.HYP
 
-# after the program: its build counts VERSION up. ECONTACT.REF (the
-# pages' names, for ST-Guide's index) is written with it
-$(BIN)/ECONTACT.HYP: docs/GUIDE.md tools/mkhelp.py VERSION $(BIN)/ECONTACT.ACC | $(OBJDIR)
+# ECONTACT.REF (the pages' names, for ST-Guide's index) is written with it
+$(BIN)/ECONTACT.HYP: docs/GUIDE.md tools/mkhelp.py VERSION | $(OBJDIR) $(BIN)
 	python3 tools/mkhelp.py docs/GUIDE.md VERSION $(OBJDIR)/ECONTACT.STG
 	$(HCP) -q -o $@ $(OBJDIR)/ECONTACT.STG >/dev/null
 	test -s $(BIN)/ECONTACT.REF
@@ -79,7 +85,7 @@ STOBJS  := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out tls,$(CORE)) $(ATARI) $(UI) tls_none)) \
            $(addprefix $(OBJDIR)/st/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/version.o
 
-$(BIN)/ECONTST.ACC: $(OBJDIR)/econtst.elf common/tools/elf2tos.py
+$(BIN)/ECONTST.ACC: $(OBJDIR)/econtst.elf common/tools/elf2tos.py | $(BIN)
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
 
 $(OBJDIR)/econtst.elf: $(STOBJS) common/atari/link.ld
@@ -94,7 +100,7 @@ $(OBJDIR)/st/%.o: $(BSSL)/src/codec/%.c
 
 # one program, two names: it sees at start-up whether TOS loaded it as
 # an accessory or started it as an application
-$(BIN)/ECONTACT.ACC: $(OBJDIR)/contact.elf common/tools/elf2tos.py
+$(BIN)/ECONTACT.ACC: $(OBJDIR)/contact.elf common/tools/elf2tos.py | $(BIN)
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
 $(BIN)/ECONTACT.PRG: $(BIN)/ECONTACT.ACC
 	cp $< $@
@@ -139,14 +145,25 @@ $(OBJDIR)/nf.o: common/atari/nf.S | $(OBJDIR)
 $(OBJDIR)/crash_s.o: common/atari/crash.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
 
-$(OBJDIR):
+$(OBJDIR) $(BIN):
 	mkdir -p $@
 
-# every build counts the version up (VERSION, major.minor as in EMail):
-# version.c is written again
-# whenever anything in either edition was compiled again
-$(OBJDIR)/version.c: $(OBJS0) $(filter-out $(OBJDIR)/version.o,$(STOBJS)) src/version.h tools/bump.py
-	python3 tools/bump.py VERSION $@
+# EContact's icon for the desktop: icons/, drawn by tools/icon and
+# committed; a release carries them
+icons:
+	python3 tools/icon/make_rsc.py
+
+# the version: VERSION holds the last release (major.minor, e.g. 1.33),
+# and the build never writes it. A release build (RELEASE=1, as the
+# release workflow makes it) shows it as it is; any other shows
+# "1.33-dev". tools/bump.py starts a release.
+VERSION_STR := $(shell cat VERSION)$(if $(RELEASE),,-dev)
+
+# written again whenever the string changes, so RELEASE=1 rebuilds it
+$(OBJDIR)/version.c: FORCE | $(OBJDIR)
+	@printf '/* written by the Makefile: do not edit */\nconst char app_version[] = "%s";\n' "$(VERSION_STR)" > $@.new
+	@if cmp -s $@.new $@; then rm $@.new; else mv $@.new $@; fi
+FORCE:
 $(OBJDIR)/version.o: $(OBJDIR)/version.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
@@ -190,7 +207,7 @@ $(OBJDIR)/mkroots: common/tools/mkroots.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJD
 	$(HOSTCC) $(HOSTCFLAGS) -I$(BSSL)/inc -o $@ common/tools/mkroots.c $(HOSTSRC) $(HOSTLIB)
 
 # the root certificates: Mozilla's list, kept in common/
-$(BIN)/CACERT.PEM: common/certs/CACERT.PEM
+$(BIN)/CACERT.PEM: common/certs/CACERT.PEM | $(BIN)
 	cp $< $@
 $(BIN)/ROOTS.DAT: $(BIN)/CACERT.PEM
 	$(MAKE) $(OBJDIR)/mkroots
@@ -245,13 +262,31 @@ test: $(OBJDIR)/unit $(OBJDIR)/lowmem $(addprefix $(OBJDIR)/replay_,$(FUZZERS))
 	@for f in $(FUZZERS); do \
 	  $(OBJDIR)/replay_$$f tests/fuzz/seeds/$$f $$(ls -d tests/fuzz/found/$$f 2>/dev/null) || exit 1; \
 	done
-	@grep -q "ECONTACT.HYP $$(cat VERSION)" $(BIN)/ECONTACT.HYP || \
+	@$(HYPCHECK)
+
+# the help file says the program's version (when it was made)
+HYPCHECK = test ! -f $(BIN)/ECONTACT.HYP || grep -q "ECONTACT.HYP $$(cat VERSION)" $(BIN)/ECONTACT.HYP || \
 	  { echo "$(BIN)/ECONTACT.HYP isn't version $$(cat VERSION): make help"; exit 1; }
+
+# a release's files: each one in dist/, and all of them in
+# dist/ECONTACT-x.y.zip (the icons in icons/), for the release workflow
+DIST    := $(BIN)/ECONTACT.ACC $(BIN)/ECONTST.ACC $(BIN)/ECONTACT.PRG $(BIN)/CACERT.PEM $(BIN)/ROOTS.DAT \
+           $(BIN)/ECONTACT.HYP $(BIN)/ECONTACT.REF
+ICONS   := icons/ECONTACT.RSC icons/ECONTACT.DEF icons/ECONTACT.ICN icons/ECONTMSK.ICN
+dist: all help
+	@$(HYPCHECK)
+	rm -rf dist
+	mkdir -p dist/zip/icons
+	cp $(DIST) $(ICONS) dist/
+	cp $(DIST) dist/zip/
+	cp $(ICONS) dist/zip/icons/
+	cd dist/zip && zip -q -9 -r ../ECONTACT-$(VERSION_STR).zip .
+	rm -rf dist/zip
 
 itest: $(OBJDIR)/card-cli $(OBJDIR)/people-cli
 	tests/integration.sh
 
 clean:
-	rm -rf $(OBJDIR) $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/ECONTST.ACC
+	rm -rf $(OBJDIR) $(BIN) dist
 
-.PHONY: all help test itest clean fuzz
+.PHONY: all help icons dist test itest clean fuzz FORCE

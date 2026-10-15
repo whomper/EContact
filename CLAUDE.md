@@ -1,14 +1,19 @@
 # Notes for working on EContact
 
-- **Every new build gets a new version.** `make` counts the minor number in
-  `VERSION` up whenever anything was compiled again (`tools/bump.py`), as in
-  ECal and EMail: commit `VERSION` with `binary/`, and never reuse a number.
+- **Releases carry the programs.** `binary/` and `dist/` are build output,
+  never committed. `VERSION` holds the last release and `make` never
+  writes it (a build shows `x.y-dev`; `RELEASE=1` shows `x.y`). A
+  release: `tools/bump.py`, commit, push, then run the Release workflow
+  on main with the notes (or push a tag `vX.Y` made with `git tag -a`);
+  `.github/workflows/release.yml` tags vX.Y, tests, builds the programs and
+  `ECONTACT.HYP` and publishes each file and the zip as a GitHub Release.
+  Never reuse a number. The icons are committed in `icons/` (`make icons`).
 - Before pushing: `make test` (the core) and `make itest` (card-cli against
   Radicale: `pip install radicale`), and `make` with no warnings.
 - `share/people.c` is also compiled into EMail and ECal (`src/people.c`
   there); `integration/*.patch` are the changes to those two. When either
   changes, regenerate the patch from a checkout of that repository's `main`
-  (`git diff -- . ':!VERSION' ':!binary'`) and check it applies and builds.
+  (`git diff -- . ':!VERSION'`) and check it applies and builds.
 - Where the accessory and the program find ECONTACT.INF and the folder
   follows ECal (ui/main.c: find_workdir, move_inf, locate_folder);
   `tests/hatari/placement.py WORK etos512us.img` checks it.
@@ -19,12 +24,11 @@
   too. `make itest` (card-cli accessory) and
   `tests/hatari/acc_reread.py WORK etos512us.img` check it.
 - `binary/ECONTACT.HYP` (the Help key's ST-Guide guide) is made from
-  docs/GUIDE.md by `make` when `hcp` is installed, and `make test` fails
-  when it doesn't say the program's version: build hcp from
-  github.com/th-otto/hypview (`./autogen.sh && ./configure && make -C hyp
-  hcp`; if linking fails on include/linux/libc.so, link the objects by
-  hand without it) and put it on the PATH. `tests/hatari/help_key.py`
-  checks the Help key.
+  docs/GUIDE.md by `make` when `hcp` is installed, and `make test` and
+  `make dist` fail when it doesn't say the program's version:
+  `common/tools/build-hcp.sh DIR` builds hcp from github.com/th-otto/hypview
+  (the release workflow does the same); put it on the PATH or pass
+  `HCP=`. `tests/hatari/help_key.py` checks the Help key.
 - The UI is checked in Hatari: `tests/hatari/docs_shots.py WORK etos512us.img`
   takes the screenshots in docs/ (EmuTOS 512k, sourceforge.net/projects/emutos).
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);

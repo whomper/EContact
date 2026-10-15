@@ -205,7 +205,8 @@ Falcon, TT:          Falcon (ECONTACT.ACC, TLS 1.2, RSA on the DSP) ------------
 
 ## The files
 
-In the [`binary`](binary) folder:
+Each [release](https://github.com/whomper/EContact/releases/latest) has
+them, each on its own and all together in `ECONTACT-x.y.zip`:
 
 | File           | For                                                               |
 |----------------|-------------------------------------------------------------------|
@@ -215,9 +216,9 @@ In the [`binary`](binary) folder:
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode                  |
 | `ECONTACT.HYP` | the user guide for ST-Guide: in EContact's folder, the Help key opens it |
 | `ECONTACT.REF` | its pages' names, for ST-Guide's index (ALL.REF): with the .HYP |
-| `icons/`       | the desktop icon: `ECONTACT.RSC` (black-and-white and 16-colour), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
+| `ECONTACT.RSC`, `.DEF`, `.ICN`, `ECONTMSK.ICN` | the desktop icon, in the zip's `icons/` folder: `ECONTACT.RSC` (black-and-white and 16-colour), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
 
-**The desktop icon.** Copy the icons from `icons/ECONTACT.RSC` into your
+**The desktop icon.** Copy the icons from `ECONTACT.RSC` into your
 desktop's icon file (`DESKICON.RSC`, `DESKCICN.RSC`) with a resource
 editor; `ECONTACT.DEF` gives them their names there. For EmuTOS,
 `tools/icon/add_to_emuicon.py emuicon.rsc EMUICON.RSC` writes a copy of
@@ -249,17 +250,31 @@ sudo apt install gcc-m68k-linux-gnu      # Debian/Ubuntu
 make                                     # binary/ECONTACT.ACC, ECONTACT.PRG, ECONTST.ACC,
                                          # and ECONTACT.HYP when hcp is installed
 make help HCP=/path/to/hcp               # ECONTACT.HYP alone
+make dist                                # a release's files in dist/
 ```
 
 `binary/ECONTACT.HYP` is made from `docs/GUIDE.md` by `tools/mkhelp.py`
 (from EMail) and HCP, ST-Guide's compiler, from
-[hypview](https://github.com/th-otto/hypview); `make test` checks it
+[hypview](https://github.com/th-otto/hypview)
+(`common/tools/build-hcp.sh DIR` builds it); `make test` checks it
 carries the program's version.
 
 As in ECal and EMail, the program is freestanding (`atari/`, no MiNTLib),
-`common/tools/elf2tos.py` writes the TOS executable, one binary is both the
-accessory and the program, and every build counts the minor version up
-(`VERSION`, `tools/bump.py`). Commit `VERSION` with the program.
+`common/tools/elf2tos.py` writes the TOS executable, and one binary is both
+the accessory and the program. `binary/` and `dist/` are what make builds;
+they are never committed.
+
+**Versions and releases.** `VERSION` holds the last release, major.minor
+(e.g. 1.33), and the build never changes it. A release build
+(`RELEASE=1`) shows it as it is in the About box and the User-Agent
+EContact sends; any other build shows `1.33-dev`. To release:
+`tools/bump.py`, commit and push, then run the Release workflow
+(Actions > Release > Run workflow, on main) with what is new:
+[`.github/workflows/release.yml`](.github/workflows/release.yml) tags the
+commit `v1.34`, tests, builds the programs and the help file, and
+publishes them as a GitHub Release with those notes. Pushing a tag
+`v1.34` made with `git tag -a` does the same, with the tag's message as
+the notes.
 
 ## Source
 

@@ -1,23 +1,28 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""Count the version up and write version.c, as EMail does: VERSION holds
-major.minor (e.g. 1.25), and every build of the program adds one to the
-minor number. Run by the Makefile whenever any part of the program was
-compiled again; the version shows in About and the User-Agent and goes
-into events' PRODID. Commit VERSION with the program.
+"""Start a release: count the version in VERSION up and say what to do next.
 
-    bump.py VERSION-FILE OUT.c
+A normal build never changes VERSION (it shows "x.y-dev"); only this does.
+The release workflow (.github/workflows/release.yml), run by hand on main
+or started by a tag vX.Y, builds the programs and publishes them as a
+GitHub Release.
+
+    tools/bump.py          1.33 -> 1.34
+    tools/bump.py major    1.33 -> 2.0
 """
 import sys
 
-vfile, out = sys.argv[1:3]
-try:
-    major, minor = open(vfile).read().strip().split(".")[:2]
-except (FileNotFoundError, ValueError):
-    major, minor = "1", "0"
-version = "%s.%d" % (major, int(minor) + 1)
-open(vfile, "w").write(version + "\n")
-open(out, "w").write("/* written by tools/bump.py: do not edit */\n"
-                     'const char app_version[] = "%s";\n' % version)
-print("EContact", version)
+major, minor = open("VERSION").read().strip().split(".")[:2]
+if sys.argv[1:] == ["major"]:
+    version = "%d.0" % (int(major) + 1)
+elif sys.argv[1:] in ([], ["minor"]):
+    version = "%s.%d" % (major, int(minor) + 1)
+else:
+    sys.exit(__doc__)
+open("VERSION", "w").write(version + "\n")
+print("VERSION is now %s. Then:" % version)
+print('  git commit -am "Release %s" && git push' % version)
+print("  and run the Release workflow on main (Actions > Release > Run workflow)")
+print('  with what is new; or: git tag -a v%s -m "What is new" && git push origin v%s'
+      % (version, version))

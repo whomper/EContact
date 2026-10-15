@@ -4,16 +4,16 @@
 """Write EContact's desktop icon as files for Atari icon and resource
 editors (EMail's make_rsc.py, from Claude ST's):
 
-  binary/icons/ECONTACT.RSC   GEM resource, one tree: a monochrome G_ICON and
-                              a colour G_CICON (16 colours), each with its mask
-                              and the label "ECONTACT". Copy them into
-                              DESKICON.RSC / DESKCICN.RSC with a resource
-                              editor (Interface, ORCS, RSM...), or into
-                              EmuTOS's EMUICON.RSC with add_to_emuicon.py.
-  binary/icons/ECONTACT.DEF   the names a resource editor shows for them:
-                              the tree ECONTACT, ICONMONO and ICONCOL
-  binary/icons/ECONTACT.ICN   the monochrome image, ICN text format
-  binary/icons/ECONTMSK.ICN   its mask, ICN text format
+  icons/ECONTACT.RSC   GEM resource, one tree: a monochrome G_ICON and
+                       a colour G_CICON (16 colours), each with its mask
+                       and the label "ECONTACT". Copy them into
+                       DESKICON.RSC / DESKCICN.RSC with a resource
+                       editor (Interface, ORCS, RSM...), or into
+                       EmuTOS's EMUICON.RSC with add_to_emuicon.py.
+  icons/ECONTACT.DEF   the names a resource editor shows for them:
+                       the tree ECONTACT, ICONMONO and ICONCOL
+  icons/ECONTACT.ICN   the monochrome image, ICN text format
+  icons/ECONTMSK.ICN   its mask, ICN text format
 
 The colour icon uses the standard VDI colours (white, black, greys, red
 for the book's spine, light blue for the person), since desktop icons
@@ -28,7 +28,7 @@ import make_icon as mi   # draws the icon (px: mono, col: 16-colour design)
 
 W = H = 32
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-OUT = os.path.join(ROOT, "binary", "icons")
+OUT = os.path.join(ROOT, "icons")
 
 # the About box's colours (make_icon.PALETTE) -> standard VDI pens for the
 # desktop: putty and its shade to the greys, outline and screen black, the

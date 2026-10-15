@@ -8,7 +8,8 @@ VA_START names into C:\\VASTART.TXT:
     tests/hatari/help_key.py WORK etos512us.img
 
 1. the accessory, ECONTACT.HYP in its folder: ST-Guide is sent its path
-2. the same without ECONTACT.HYP: the Keys box instead, nothing sent
+2. the same without ECONTACT.HYP: *:\\ECONTACT.HYP sent, for ST-Guide's
+   own paths (common/ui/help.c, as ECal's help_test.py)
 3. the program, started from its folder: the same path sent
 Screenshots in WORK/*/shots.
 """
@@ -86,10 +87,8 @@ def main():
         os.remove(os.path.join(folder, "ECONTACT.HYP"))
         r.key(K["HELP"])
         time.sleep(3)
-        r.shot("2-keys")
-        check("nothing sent", sent(hd) is None)
-        r.key(K["RETURN"])
-        time.sleep(1)
+        r.shot("2-search")
+        check("ST-Guide asked to look in its own paths", sent(hd) == "*:\\ECONTACT.HYP")
     finally:
         r.stop()
 
