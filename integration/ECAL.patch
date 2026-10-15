@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index 4fef15d..eb0448e 100644
+index f75b1b9..26b5dbc 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -37,7 +37,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
@@ -9,7 +9,7 @@ index 4fef15d..eb0448e 100644
 -CORE    := util charset conn tls bidi secret futil ctime tz ics rrule xml inflate http caldav calstore
 +CORE    := util charset conn tls bidi secret futil ctime tz ics rrule xml inflate http caldav calstore people
  ATARI   := libc tos plat_tos net_tos sting gem dsprsa
- UI      := main win draw popup dsp views sidebar editor dialogs field about font help av alert aboutbox iconify clip dd mbar twin
+ UI      := main win draw popup dsp views sidebar editor dialogs field about font help av alert aboutbox iconify clip dd mbar twin busy
  
 diff --git a/src/calstore.c b/src/calstore.c
 index 173c61e..432ab77 100644
@@ -32,7 +32,7 @@ index 173c61e..432ab77 100644
  		return save_new(e, ci);
  	c = &cals[e->cal];
 diff --git a/src/ics.c b/src/ics.c
-index 27d3b7a..880fdbc 100644
+index badbe97..110fe3d 100644
 --- a/src/ics.c
 +++ b/src/ics.c
 @@ -38,6 +38,8 @@ void ev_free(EVENT *e)
@@ -53,7 +53,7 @@ index 27d3b7a..880fdbc 100644
  	if (s->rr) {
  		e->rr = malloc(sizeof(RRULE));
  		if (e->rr)
-@@ -794,13 +798,37 @@ static void logical_line(ICSP *p, char *s)
+@@ -806,13 +810,37 @@ static void logical_line(ICSP *p, char *s)
  				VALUE_IS("TENTATIVE") ? ST_TENTATIVE : ST_CONFIRMED;
  	} else if (NAME_IS("SEQUENCE")) {
  		p->ev->seq = (short)atoi(value);
@@ -95,7 +95,7 @@ index 27d3b7a..880fdbc 100644
  	}
  }
  
-@@ -968,6 +996,118 @@ static void out_time(SBUF *o, const char *name, const EVENT *e, CTIME t)
+@@ -980,6 +1008,118 @@ static void out_time(SBUF *o, const char *name, const EVENT *e, CTIME t)
  	out_str(o, line);
  }
  
@@ -214,7 +214,7 @@ index 27d3b7a..880fdbc 100644
  static void out_event(SBUF *o, const EVENT *e)
  {
  	char line[400], v[24];
-@@ -1021,6 +1161,8 @@ static void out_event(SBUF *o, const EVENT *e)
+@@ -1033,6 +1173,8 @@ static void out_event(SBUF *o, const EVENT *e)
  		snprintf(line, sizeof(line), "EXRULE:%s", rr);
  		out_str(o, line);
  	}
@@ -223,7 +223,7 @@ index 27d3b7a..880fdbc 100644
  	if (e->status == ST_TENTATIVE)
  		out_str(o, "STATUS:TENTATIVE");
  	else if (e->status == ST_CANCELLED)
-@@ -1191,7 +1333,8 @@ static void build_line(char *line, void *ud)
+@@ -1203,7 +1345,8 @@ static void build_line(char *line, void *ud)
  					    !prop_is(s, "DESCRIPTION") && !prop_is(s, "URL") && !prop_is(s, "DTSTART") &&
  					    !prop_is(s, "DTEND") && !prop_is(s, "DURATION") && !prop_is(s, "RRULE") &&
  					    !prop_is(s, "EXDATE") && !prop_is(s, "STATUS") && !prop_is(s, "CREATED") &&
@@ -537,10 +537,10 @@ index 0000000..970da6a
 +
 +#endif
 diff --git a/tests/unit.c b/tests/unit.c
-index 142959f..44012ad 100644
+index 2c7b69e..73b012a 100644
 --- a/tests/unit.c
 +++ b/tests/unit.c
-@@ -594,6 +594,96 @@ static void test_rfc5545(void)
+@@ -609,6 +609,96 @@ static void test_rfc5545(void)
  	}
  }
  
@@ -637,7 +637,7 @@ index 142959f..44012ad 100644
  static void test_ics_build(void)
  {
  	EVENT *e = ev_new();
-@@ -902,6 +992,7 @@ int main(void)
+@@ -917,6 +1007,7 @@ int main(void)
  	test_rrules();
  	test_rfc5545();
  	test_ics_build();
@@ -799,18 +799,18 @@ index 3164aa0..893a575 100644
  		if (n->allday) {
  			n->tz = 0;
 diff --git a/ui/main.c b/ui/main.c
-index 9305230..c573e4b 100644
+index 140bead..8bb9bd2 100644
 --- a/ui/main.c
 +++ b/ui/main.c
-@@ -18,6 +18,7 @@
- #include "ui.h"
- #include "conn.h"
+@@ -20,6 +20,7 @@
+ #include "secret.h"
+ #include "busy.h"
  #include "tls.h"
 +#include "../src/people.h"
  #include "../src/http.h"
  #include "../src/plat.h"
  #include "util.h"
-@@ -394,10 +395,18 @@ static void import_file(int cal, const char *path)
+@@ -399,10 +400,18 @@ static void import_file(int cal, const char *path)
  	after_change();
  }
  
@@ -830,7 +830,7 @@ index 9305230..c573e4b 100644
  
  static const MBAR_ITEM m_desk[] = {
  	{ "About ECal...", 0, C_ABOUT },
-@@ -406,6 +415,7 @@ static const MBAR_ITEM m_desk[] = {
+@@ -411,6 +420,7 @@ static const MBAR_ITEM m_desk[] = {
  static const MBAR_ITEM m_file[] = {
  	{ "New event", "^N", C_NEW },
  	{ "Add account or calendar...", 0, C_ADD },
@@ -838,7 +838,7 @@ index 9305230..c573e4b 100644
  	{ "-", 0, 0 },
  	{ "Refresh", "^R", C_REFRESH },
  	{ "Refresh everything", "\x01^R", C_REFRESH_ALL },
-@@ -532,6 +542,7 @@ static void command(int c)
+@@ -537,6 +547,7 @@ static void command(int c)
  	case C_FONT: font_menu(); break;
  	case C_HELP: help_open(); break;
  	case C_KEYS: dlg_keys(); break;
@@ -846,7 +846,7 @@ index 9305230..c573e4b 100644
  	case C_QUIT:
  		quit_now = 1;
  		win_close();
-@@ -554,6 +565,7 @@ void cmd_menu(short x, short y)
+@@ -559,6 +570,7 @@ void cmd_menu(short x, short y)
  		{ "  Go to date...       ^G", C_GOTO },
  		{ "  Find...             ^F", C_FIND },
  		{ "  Today                T", C_TODAY },
@@ -854,7 +854,7 @@ index 9305230..c573e4b 100644
  		{ "-", 0 },
  		{ "  Calendar list      \x01^S", C_SIDE },
  		{ "  Hebrew dates", C_HEB },
-@@ -1165,6 +1177,7 @@ int main(void)
+@@ -1171,6 +1183,7 @@ int main(void)
  	crash_cleanup = crash_quit;
  	alert_hebrew = alert_heb;
  	crash_report = conn_log_append;	/* the report in ECAL.LOG too */
