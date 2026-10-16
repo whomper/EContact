@@ -154,10 +154,9 @@ icons:
 	python3 tools/icon/make_rsc.py
 
 # the version: VERSION holds the last release (major.minor, e.g. 1.33),
-# and the build never writes it. A release build (RELEASE=1, as the
-# release workflow makes it) shows it as it is; any other shows
-# "1.33-dev". tools/bump.py starts a release.
-VERSION_STR := $(shell cat VERSION)$(if $(RELEASE),,-dev)
+# and the build never writes it; every build shows it as it is.
+# tools/bump.py starts a release.
+VERSION_STR := $(shell cat VERSION)
 
 # the parser's own number: BOOKnnnn.IDX keeps what vcard_parse made, and
 # is good for every build whose parser is the same source (a new version
@@ -166,7 +165,7 @@ PARSE_SRC := src/vcard.c src/vcard.h common/src/charset.c common/src/charset.h c
 	     common/src/bidi.c common/src/bidi.h common/src/util.c common/src/util.h
 PARSE_ID  := $(shell cat $(PARSE_SRC) | cksum | cut -d' ' -f1)
 
-# written again whenever the string changes, so RELEASE=1 rebuilds it
+# written again whenever the string changes
 $(OBJDIR)/version.c: FORCE | $(OBJDIR)
 	@printf '/* written by the Makefile: do not edit */\nconst char app_version[] = "%s";\nconst char parse_id[] = "P%s";\n' "$(VERSION_STR)" "$(PARSE_ID)" > $@.new
 	@if cmp -s $@.new $@; then rm $@.new; else mv $@.new $@; fi

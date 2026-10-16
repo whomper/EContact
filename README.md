@@ -248,8 +248,8 @@ TOS executable, and one binary is both the accessory and the program. `binary/` 
 make builds; they are never committed, and a build changes no tracked file.
 
 **Versions and releases.** `VERSION` holds the last release, major.minor (e.g. 1.33), and the build
-never changes it. A release build (`RELEASE=1`) shows it as it is in the About box and the User-Agent
-EContact sends; any other build shows `1.33-dev`. To release: `tools/bump.py`, commit and push, then
+never changes it. Every build shows it as it is in the About box and the User-Agent EContact sends;
+only releases leave the build machine. To release: `tools/bump.py`, commit and push, then
 run the Release workflow (**Actions > Release > Run workflow**, on `main`) with what is new:
 [`.github/workflows/release.yml`](.github/workflows/release.yml) tags the commit `v1.34`, tests,
 builds the programs and the help file, and publishes them as a GitHub Release with those notes.
