@@ -217,11 +217,15 @@ name, a company, one or two emails, two phones, some with an address, birthday o
   bytes in memory either way (1,000 on a 1 MB ST: 300 shown).
 - **Contacts that don't fit are never left out quietly**: the window says "N not shown" and an alert
   gives the `HEAPKB=` to set. `CONTACTS.TXT` is then left as it was, so EMail and ECal keep everyone.
+  Once memory is full, the rest are counted, not read only to be let go: 1,500 contacts on a 1 MB ST
+  start in 15 s, not 28.
 - **Start-up reads parsed contacts** from `CACHE\BOOKnnnn.IDX`: a card is parsed (about 85 ms on an
   8 MHz ST) only the first time, and after it changes; the rest take about 18 ms each. A new version
   keeps the index unless its card parser changed; then the first start parses everything once (2,500
-  contacts: 4 minutes on an ST; 600 take 13 s on a Falcon). With **Write a log** on, the log says how
-  long each address book took to read.
+  contacts: 4 minutes on an ST; 600 take 13 s on a Falcon). `CONTACTS.TXT` notes what it was made
+  from and is left alone while that is the same (making it again took 6 s for 600 contacts on an
+  8 MHz ST, at every start). With **Write a log** on, the log says how long each address book took to
+  read.
 - **Syncing a big address book** reads the server's list of cards as it arrives when memory is small,
   keeping only what needs fetching.
 - STinG takes 100 KB or more of its own: with it, a 1 MB ST holds about 400 contacts. A 512 KB ST

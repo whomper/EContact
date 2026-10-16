@@ -109,13 +109,24 @@ expect "left the group" "Family (card, 1): Erez Yaary" "$R"
 R=$($CLI "$D" people)
 expect "CONTACTS.TXT: a person" $'P\tDana Levi\tdana@example.org\twork' "$R"
 expect "CONTACTS.TXT: a group" $'G\tFamily\tErez Yaary <erez@example.com>' "$R"
-# made again at the start when it's out of date (as after a start with
-# contacts left out), and left alone when it isn't
-grep -v "Dana Levi" "$D/CONTACTS.TXT" > "$W/people.txt"
+# made again at the start when it was made from other contacts (its
+# "; made from" line differs), and left alone when it wasn't: not even
+# read through and compared (6 s for 600 contacts on an ST)
+grep -q "^; made from [0-9A-F]\{8\}" "$D/CONTACTS.TXT" && ok "CONTACTS.TXT says what it was made from" ||
+  bad "CONTACTS.TXT without its \"made from\" line"
+grep -v "Dana Levi" "$D/CONTACTS.TXT" | sed 's/^; made from .*/; made from 00000000\r/' > "$W/people.txt"
 cp "$W/people.txt" "$D/CONTACTS.TXT"
 $CLI "$D" list > /dev/null
 R=$($CLI "$D" people)
 expect "CONTACTS.TXT made again at the start" $'P\tDana Levi\tdana@example.org\twork' "$R"
+grep -v "Dana Levi" "$D/CONTACTS.TXT" > "$W/people.txt"
+cp "$W/people.txt" "$D/CONTACTS.TXT"
+$CLI "$D" list > /dev/null
+R=$($CLI "$D" people)
+absent "made from the same contacts: as it is" $'P\tDana Levi' "$R"
+$CLI "$D" set "Dana Levi" title "Engineer" > /dev/null
+R=$($CLI "$D" people)
+expect "and made again when a contact changes" $'P\tDana Levi\tdana@example.org\twork' "$R"
 touch -d "2001-01-01" "$D/CONTACTS.TXT"
 $CLI "$D" list > /dev/null
 if [ "$(date -r "$D/CONTACTS.TXT" +%Y)" = 2001 ]; then ok "CONTACTS.TXT left alone when the same"; else bad "CONTACTS.TXT written again unchanged"; fi

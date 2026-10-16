@@ -758,13 +758,15 @@ static void kill_res(BOOK *b, int r)
 }
 
 /* a contact read from the cache into the list */
-static void add_contact(BOOK *b, int r, const char *raw, long len)
+/* 1 added, 0 not a card, -1 no memory for it (counted as lost) */
+static int add_contact(BOOK *b, int r, const char *raw, long len)
 {
 	CONTACT *c = vcard_parse(raw, len);
 	if (!c) {
-		if (vcard_nomem)
-			b->lost++;
-		return;
+		if (!vcard_nomem)
+			return 0;
+		b->lost++;
+		return -1;
 	}
 	c->book = (short)(b - books);
 	c->res = (short)r;
@@ -773,7 +775,9 @@ static void add_contact(BOOK *b, int r, const char *raw, long len)
 	if (!people_add(c)) {
 		free(c);
 		b->lost++;
+		return -1;
 	}
+	return 1;
 }
 
 int contacts_lost(void)
@@ -1017,7 +1021,7 @@ static void load_one(BOOK *b)
 {
 	char path[200], line[700];
 	static FR f;		/* 16 KB: not on the accessory's stack */
-	int used = 0, stale = 0, parsed = 0, wrote = 0;
+	int used = 0, stale = 0, parsed = 0, wrote = 0, full = 0;
 	unsigned long t0 = pf_ms(), t_rec = 0, t_idx = 0, t_parse = 0, t_write = 0;
 	people_drop((int)(b - books), -1);
 	book_free(b);
@@ -1109,7 +1113,12 @@ static void load_one(BOOK *b)
 			RESOURCE *rs = &b->res[r];
 			if (rs->dead || rs->done || rs->len >= 262144L)
 				continue;
-			parsed++;
+			if (full) {
+				/* memory is full: the rest counted as left out, not
+				   parsed at every start only to be let go again */
+				b->lost++;
+				continue;
+			}
 			if (rs->len + 1 > max) {
 				free(raw);
 				max = rs->len + 1 > 4096 ? rs->len + 1 : 4096;
@@ -1126,7 +1135,10 @@ static void load_one(BOOK *b)
 			if (!fr_bytes(&f, raw, rs->len))
 				break;
 			raw[rs->len] = 0;
-			add_contact(b, r, raw, rs->len);
+			switch (add_contact(b, r, raw, rs->len)) {
+			case 1: parsed++; break;
+			case -1: full = 1; break;
+			}
 		}
 		free(raw);
 	}
@@ -1143,9 +1155,11 @@ static void load_one(BOOK *b)
 	{
 		/* in the log: where the start-up's time goes */
 		char m[300], a[16], r[16], i[16], p[16], w[16];
-		snprintf(m, sizeof(m), "%.40s: %d cards in %s: the records %s, %d from the index %s, %d parsed %s%s%s",
-			 b->name, used + parsed, secs_of(pf_ms() - t0, a), secs_of(t_rec, r), used, secs_of(t_idx, i), parsed,
-			 secs_of(t_parse, p), wrote ? ", the index written " : "", wrote ? secs_of(t_write, w) : "");
+		int k = snprintf(m, sizeof(m), "%.40s: %d cards in %s: the records %s, %d from the index %s, %d parsed %s%s%s",
+				 b->name, used + parsed, secs_of(pf_ms() - t0, a), secs_of(t_rec, r), used, secs_of(t_idx, i),
+				 parsed, secs_of(t_parse, p), wrote ? ", the index written " : "", wrote ? secs_of(t_write, w) : "");
+		if (b->lost && k > 0 && k < (int)sizeof(m))
+			snprintf(m + k, sizeof(m) - k, "; %d left out, no memory for them", b->lost);
 		conn_log("Contacts", " -- ", m, (long)strlen(m));
 	}
 	if (b->ver != CACHE_VER && !parse_old) {
@@ -2524,20 +2538,68 @@ int contacts_export(CONTACT **list, int n, const char *path)
 
 /* ---------------- CONTACTS.TXT ---------------- */
 
+/* what CONTACTS.TXT is made from, in one number: the cards (each one's
+   text hash, which the cache keeps anyway), the order and this build.
+   The file says it in a comment: when it is the same, the file is left
+   without being made again (at every start: 6 s for 600 contacts on an
+   8 MHz ST). Shifts and adds only: a 68000 multiplies in software */
+static unsigned long people_stamp(void)
+{
+	unsigned long h = 0x2C1B3C6DUL;
+	const char *v;
+	int i, r;
+#define MIX(x) (h = ((h << 7) | (h >> 25)) + (unsigned long)(x) + 0x9E3779B9UL)
+	for (v = app_version; *v; v++)
+		MIX((unsigned char)*v);
+	MIX(opt.sort_first);
+	MIX(opt.last_first);
+	MIX(nbooks);
+	for (i = 0; i < nbooks; i++) {
+		BOOK *b = &books[i];
+		MIX(b->id);
+		MIX(b->nres);
+		for (r = 0; r < b->nres; r++)
+			if (!b->res[r].dead) {
+				MIX(b->res[r].th);
+				MIX(b->res[r].len);
+				MIX(b->res[r].hh);
+			}
+	}
+#undef MIX
+	return h;
+}
+
 void people_export(void)
 {
 	SBUF b;
-	char path[200], name[160];
+	char path[200], name[160], mark[40];
 	int i, j, k;
 	/* with contacts left out for lack of memory, EMail and ECal keep the
 	   whole list they have */
 	if (!opt.workdir[0] || contacts_lost())
 		return;
+	path_join(path, sizeof(path), opt.workdir, "CONTACTS.TXT");
+	snprintf(mark, sizeof(mark), "; made from %08lX\r\n", people_stamp());
+	{
+		/* made from the same contacts: as it is (EMail and ECal read only
+		   the P and G lines) */
+		char head[400];
+		int h = pf_open(path, PF_READ);
+		long n = h >= 0 ? pf_read(h, head, sizeof(head) - 1) : -1;
+		if (h >= 0)
+			pf_close(h);
+		if (n > 0) {
+			head[n] = 0;
+			if (strstr(head, mark))
+				return;
+		}
+	}
 	sb_init(&b);
 	sb_adds(&b, "; EContact's people, for EMail and ECal. Written by EContact whenever the\r\n"
 		    "; contacts change: don't edit it here, change the contacts in EContact.\r\n"
 		    "; P<tab>name<tab>email<tab>label    one line for each email address\r\n"
 		    "; G<tab>group<tab>Name <email>, Name <email>...\r\n");
+	sb_adds(&b, mark);
 	for (i = 0; i < npeople; i++) {
 		CONTACT *c = people[i];
 		if (c->group || !c->nemail)
@@ -2561,8 +2623,7 @@ void people_export(void)
 		if (!first)
 			sb_adds(&b, "\r\n");
 	}
-	path_join(path, sizeof(path), opt.workdir, "CONTACTS.TXT");
-	/* written only when it says something new: at every start it usually doesn't */
+	/* written only when it says something new */
 	if (pf_size(path) == b.len) {
 		long n = 0;
 		char *old = pf_load(path, &n);

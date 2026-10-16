@@ -13,7 +13,10 @@ EContact writes `CONTACTS.TXT` in its folder whenever the contacts change
 (near the top of the file, so it can be read without reading it all).
 
 The file is Atari text (Hebrew at 0xC2-0xDC, in reading order), CRLF
-lines; lines starting with `;` are notes:
+lines; lines starting with `;` are notes. One of them, `; made from
+1A2B3C4D`, is EContact's own: a number for the contacts the file was
+made from, so that it isn't made again at each start when they are the
+same. Readers pass it by with the other notes.
 
 ```
 P<tab>name<tab>email<tab>label                  one line for each email address
