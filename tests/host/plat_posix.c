@@ -22,7 +22,7 @@
 
 void (*pf_idle)(void);
 
-int pf_open(const char *path, int mode)
+int os_open(const char *path, int mode)
 {
 	int fl = mode == PF_READ ? O_RDONLY : mode == PF_WRITE ? O_WRONLY | O_CREAT | O_TRUNC
 		: O_WRONLY | O_CREAT | O_APPEND;
@@ -31,10 +31,11 @@ int pf_open(const char *path, int mode)
 
 long pf_read(int h, void *buf, long n) { return read(h, buf, n); }
 long pf_write(int h, const void *buf, long n) { return write(h, buf, n); }
-void pf_close(int h) { close(h); }
+void os_close(int h) { close(h); }
 long pf_seek(int h, long off) { return (long)lseek(h, off, SEEK_SET); }
+long os_seek_end(int h) { return (long)lseek(h, 0, SEEK_END); }
 
-long pf_size(const char *path)
+long os_size(const char *path)
 {
 	struct stat st;
 	if (stat(path, &st) < 0 || !S_ISREG(st.st_mode))
@@ -42,7 +43,7 @@ long pf_size(const char *path)
 	return st.st_size;
 }
 
-unsigned long pf_stamp(const char *path)
+unsigned long os_stamp(const char *path)
 {
 	struct stat st;
 	if (stat(path, &st) < 0 || !S_ISREG(st.st_mode))
@@ -50,7 +51,7 @@ unsigned long pf_stamp(const char *path)
 	return (unsigned long)st.st_mtime ^ (unsigned long)st.st_mtim.tv_nsec;
 }
 
-int pf_exists(const char *path)
+int os_exists(const char *path)
 {
 	struct stat st;
 	return stat(path, &st) == 0;
@@ -61,8 +62,8 @@ int pf_mkdir(const char *path)
 	return (mkdir(path, 0755) == 0 || errno == EEXIST) ? 0 : -1;
 }
 
-int pf_remove(const char *path) { return unlink(path); }
-int pf_rename(const char *from, const char *to) { return rename(from, to); }
+int os_remove(const char *path) { return unlink(path); }
+int os_rename(const char *from, const char *to) { return rename(from, to); }
 
 int pf_list(const char *dir, int (*cb)(const char *, long, void *), void *ud)
 {

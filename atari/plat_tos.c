@@ -10,7 +10,7 @@
 
 void (*pf_idle)(void);
 
-int pf_open(const char *path, int mode)
+int os_open(const char *path, int mode)
 {
 	long h;
 	if (mode == PF_WRITE)
@@ -25,12 +25,13 @@ int pf_open(const char *path, int mode)
 
 long pf_read(int h, void *buf, long n) { return Fread((short)h, n, buf); }
 long pf_write(int h, const void *buf, long n) { return Fwrite((short)h, n, buf); }
-void pf_close(int h) { Fclose((short)h); }
+void os_close(int h) { Fclose((short)h); }
 long pf_seek(int h, long off) { return Fseek(off, (short)h, 0); }
+long os_seek_end(int h) { return Fseek(0, (short)h, 2); }
 
 static DTA dta;
 
-long pf_size(const char *path)
+long os_size(const char *path)
 {
 	void *old = Fgetdta();
 	long r;
@@ -40,7 +41,7 @@ long pf_size(const char *path)
 	return r;
 }
 
-unsigned long pf_stamp(const char *path)
+unsigned long os_stamp(const char *path)
 {
 	void *old = Fgetdta();
 	unsigned long r;
@@ -50,7 +51,7 @@ unsigned long pf_stamp(const char *path)
 	return r;
 }
 
-int pf_exists(const char *path)
+int os_exists(const char *path)
 {
 	void *old = Fgetdta();
 	long r;
@@ -66,8 +67,8 @@ int pf_mkdir(const char *path)
 	return (r == 0 || r == -36 || pf_exists(path)) ? 0 : (int)r;
 }
 
-int pf_remove(const char *path) { return (int)Fdelete(path); }
-int pf_rename(const char *from, const char *to) { return (int)Frename(from, to); }
+int os_remove(const char *path) { return (int)Fdelete(path); }
+int os_rename(const char *from, const char *to) { return (int)Frename(from, to); }
 
 int pf_list(const char *dir, int (*cb)(const char *, long, void *), void *ud)
 {

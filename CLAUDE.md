@@ -102,6 +102,12 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 - Anything that reads the list again frees the CONTACTs (people_serial
   counts up): fetching a card whole for its photo does, so the UI calls
   after_change() and finds the chosen one again by UID.
+- While a sync runs (pf_keep, src/pfkeep.c) the files it opens again and
+  again stay open: every Fopen takes an entry in TOS's small internal
+  pool, and Erez's Falcon ran out of it ("OUT OF INTERNAL MEMORY") during
+  a long Sync Contact Photos. TOS writes a file's length only when it is
+  closed, so code must ask for sizes and dates, remove and rename through
+  pf_* (they close a kept file first), never through GEMDOS directly.
 - Memory on an ST is the limit (README "How many contacts"). Reading a
   card leaves nothing in memory but its CONTACT (vcard_parse keeps its
   scratch from card to card): small mallocs left between contacts make

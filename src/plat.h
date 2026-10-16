@@ -32,6 +32,21 @@ int  pf_exists(const char *path);
 int  pf_mkdir(const char *path);		/* 0 ok or already there */
 int  pf_remove(const char *path);
 int  pf_rename(const char *from, const char *to);
+/* While a sync runs, the files it opens again and again (the address
+   book's cache, the log) are kept open instead (pfkeep.c): every open
+   takes an entry in TOS's small internal pool, and a long Sync Contact
+   Photos opened them hundreds of times. 1 on, 0 off (all closed) */
+void pf_keep(int on);
+/* the machine's own calls under pf_open...pf_rename (atari/plat_tos.c,
+   tests/host/plat_posix.c) */
+int  os_open(const char *path, int mode);
+void os_close(int h);
+long os_seek_end(int h);
+long os_size(const char *path);
+unsigned long os_stamp(const char *path);
+int  os_exists(const char *path);
+int  os_remove(const char *path);
+int  os_rename(const char *from, const char *to);
 /* call cb for every plain file in dir; stop early if cb returns non-zero */
 int  pf_list(const char *dir, int (*cb)(const char *name, long size, void *ud), void *ud);
 

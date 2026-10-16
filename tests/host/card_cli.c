@@ -259,7 +259,11 @@ int main(int argc, char **argv)
 	} else if (!strcmp(cmd, "falcon") && argc >= 4) {
 		opt.falcon = (short)atoi(argv[3]);
 	} else if (!strcmp(cmd, "sync")) {
-		if (sync_all(argc >= 4) < 0) {
+		int sr;
+		pf_keep(1);	/* as EContact does */
+		sr = sync_all(argc >= 4);
+		pf_keep(0);
+		if (sr < 0) {
 			fprintf(stderr, "sync: %s\n", ab_err);
 			ok = 0;
 		}
@@ -461,7 +465,9 @@ int main(int argc, char **argv)
 	} else if (!strcmp(cmd, "photo-sync")) {
 		int failed = 0, made;
 		stop_after = argc >= 4 ? atoi(argv[3]) : -1;
+		pf_keep(1);	/* as EContact does */
 		made = photo_sync_all(sync_cb, 0, &failed);
+		pf_keep(0);
 		printf("made %d failed %d\n", made, failed);
 		if (made < 0)
 			fprintf(stderr, "photo-sync: %s\n", ab_err);

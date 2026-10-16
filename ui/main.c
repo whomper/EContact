@@ -302,7 +302,9 @@ static void refresh(int force, int quiet)
 	}
 	busy(1);
 	status("Updating...");
+	pf_keep(1);		/* the cache and the log stay open while it runs */
 	r = sync_all(force);
+	pf_keep(0);
 	busy(0);
 	last_refresh = pf_ms();
 	if (r >= 0)
@@ -613,7 +615,9 @@ void cmd_sync_photos(void)
 	memset(&p, 0, sizeof(p));
 	p.t0 = pf_ms();
 	prog_open("Sync Contact Photos");
+	pf_keep(1);		/* the cache and the log stay open while it runs */
 	made = photo_sync_all(photo_progress, &p, &failed);
+	pf_keep(0);
 	prog_close();
 	http_close_all();
 	conn_log_flush();
