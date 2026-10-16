@@ -143,6 +143,8 @@ void set_logging(void)
 			 (unsigned long)h, (unsigned long)h >= 0x01000000UL ? "TT" : "ST");
 		free(h);
 		conn_log("EContact", "--", m, (long)strlen(m));
+		if (*tos_clock())
+			conn_log("EContact", "--", tos_clock(), (long)strlen(tos_clock()));
 		conn_log_flush();
 	}
 }
