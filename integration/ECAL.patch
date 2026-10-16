@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index e038344..52732c3 100644
+index 9c9a3a0..a7b5f92 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -43,7 +43,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
@@ -12,10 +12,10 @@ index e038344..52732c3 100644
  UI      := main win draw popup dsp views sidebar editor dialogs field about font help av alert aboutbox iconify clip dd mbar twin busy
  
 diff --git a/src/calstore.c b/src/calstore.c
-index 7b03f49..1d20c1e 100644
+index 16cc935..25d282e 100644
 --- a/src/calstore.c
 +++ b/src/calstore.c
-@@ -1549,6 +1549,7 @@ static int save_new(EVENT *e, int ci)
+@@ -1640,6 +1640,7 @@ static int save_new(EVENT *e, int ci)
  	e->seq = 0;
  	new_href(e->uid, href, sizeof(href));
  	ics_now_utc = now_utc();
@@ -23,7 +23,7 @@ index 7b03f49..1d20c1e 100644
  	text = ics_build(e, 0, 0, &len);
  	if (!text) {
  		str_copy(cal_err, "out of memory", sizeof(cal_err));
-@@ -1578,6 +1579,7 @@ int ev_save(EVENT *e, int ci, int how, CTIME occ)
+@@ -1723,6 +1724,7 @@ int ev_save(EVENT *e, int ci, int how, CTIME occ)
  		return 0;
  	}
  	ics_now_utc = now_utc();
@@ -32,7 +32,7 @@ index 7b03f49..1d20c1e 100644
  		return save_new(e, ci);
  	c = &cals[e->cal];
 diff --git a/src/ics.c b/src/ics.c
-index 76153a6..43ddee6 100644
+index 365fd3e..77a13ec 100644
 --- a/src/ics.c
 +++ b/src/ics.c
 @@ -38,6 +38,8 @@ void ev_free(EVENT *e)
@@ -53,7 +53,7 @@ index 76153a6..43ddee6 100644
  	if (s->rr) {
  		e->rr = malloc(sizeof(RRULE));
  		if (e->rr)
-@@ -806,13 +810,37 @@ static void logical_line(ICSP *p, char *s)
+@@ -831,13 +835,37 @@ static void logical_line(ICSP *p, char *s)
  				VALUE_IS("TENTATIVE") ? ST_TENTATIVE : ST_CONFIRMED;
  	} else if (NAME_IS("SEQUENCE")) {
  		p->ev->seq = (short)atoi(value);
@@ -95,7 +95,23 @@ index 76153a6..43ddee6 100644
  	}
  }
  
-@@ -980,6 +1008,118 @@ static void out_time(SBUF *o, const char *name, const EVENT *e, CTIME t)
+@@ -870,12 +898,14 @@ static int wanted(const char *s, long n)
+ 		return !(up(s, n, 1) == 'T' && up(s, n, 4) == 'A' && up(s, n, 5) == 'M');
+ 	case 'L':	/* LOCATION; not LAST-MODIFIED */
+ 		return up(s, n, 1) == 'O';
++	case 'O':	/* ORGANIZER: who invited (the invitees, EContact's) */
++		return up(s, n, 1) == 'R';
+ 	case 'T':	/* TRIGGER, TZID, TZOFFSET...; not TRANSP */
+ 		return up(s, n, 1) == 'Z' || up(s, n, 2) == 'I';
+ 	case 'X':	/* X-WR-CALNAME; not X-APPLE-... */
+ 		return up(s, n, 2) == 'W' && up(s, n, 3) == 'R';
+ 	}
+-	return 0;	/* CREATED, CLASS, PRODID, VERSION, CALSCALE, METHOD, ORGANIZER... */
++	return 0;	/* CREATED, CLASS, PRODID, VERSION, CALSCALE, METHOD... */
+ }
+ 
+ void ics_line(ICSP *p, const char *s, long n)
+@@ -1049,6 +1079,118 @@ static void out_time(SBUF *o, const char *name, const EVENT *e, CTIME t)
  	out_str(o, line);
  }
  
@@ -214,7 +230,7 @@ index 76153a6..43ddee6 100644
  static void out_event(SBUF *o, const EVENT *e)
  {
  	char line[400], v[24];
-@@ -1033,6 +1173,8 @@ static void out_event(SBUF *o, const EVENT *e)
+@@ -1102,6 +1244,8 @@ static void out_event(SBUF *o, const EVENT *e)
  		snprintf(line, sizeof(line), "EXRULE:%s", rr);
  		out_str(o, line);
  	}
@@ -223,7 +239,7 @@ index 76153a6..43ddee6 100644
  	if (e->status == ST_TENTATIVE)
  		out_str(o, "STATUS:TENTATIVE");
  	else if (e->status == ST_CANCELLED)
-@@ -1203,7 +1345,8 @@ static void build_line(char *line, void *ud)
+@@ -1272,7 +1416,8 @@ static void build_line(char *line, void *ud)
  					    !prop_is(s, "DESCRIPTION") && !prop_is(s, "URL") && !prop_is(s, "DTSTART") &&
  					    !prop_is(s, "DTEND") && !prop_is(s, "DURATION") && !prop_is(s, "RRULE") &&
  					    !prop_is(s, "EXDATE") && !prop_is(s, "STATUS") && !prop_is(s, "CREATED") &&
@@ -799,7 +815,7 @@ index 0857158..32718ca 100644
  		if (n->allday) {
  			n->tz = 0;
 diff --git a/ui/main.c b/ui/main.c
-index 0d94343..efe72b3 100644
+index 5053e8b..e1de302 100644
 --- a/ui/main.c
 +++ b/ui/main.c
 @@ -20,6 +20,7 @@
@@ -854,11 +870,11 @@ index 0d94343..efe72b3 100644
  		{ "-", 0 },
  		{ "  Calendar list      \x01^S", C_SIDE },
  		{ "  Hebrew dates", C_HEB },
-@@ -1171,6 +1183,7 @@ int main(void)
+@@ -1175,6 +1187,7 @@ int main(void)
  	crash_cleanup = crash_quit;
  	alert_hebrew = alert_heb;
  	crash_report = conn_log_append;	/* the report in ECAL.LOG too */
 +	people_drive((char)('A' + boot_drive()));	/* EContact's people, for invitations */
  	st_ram_init();
+ 	win_buffer_init();
  	help_init();
- 	av_init("ECAL|ECALST");		/* the desktop's AV server, if one runs yet */
