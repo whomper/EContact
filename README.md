@@ -140,7 +140,7 @@ EContact is the address book of the other two:
 
 ![EMail's ^B in a new message: "gr" on the To: line offers the Atari Club group and Grace Baker from EContact](docs/email-complete.png) ![ECal's New Event dialog with Priya Patel on the Invitees line, picked from EContact with Add...](docs/ecal-invitees.png)
 
-The changes to EMail and ECal are in [integration/](integration) as patches, with
+ECal (2.5 and later) does this itself; the changes to EMail are in [integration/](integration) as a patch, with
 [docs/INTEGRATION.md](docs/INTEGRATION.md) describing how the three talk (a file, `CONTACTS.TXT`, and
 two GEM messages), so other programs can use EContact too.
 
@@ -270,7 +270,7 @@ src/          the contacts core, also built on Linux for the tests:
 ui/           the GEM program: main.c, win.c (the window), sidebar.c, list.c,
               card.c, editor.c, dialogs.c, about.c; field.c, font.c, draw.c from ECal
 share/        people.c: EContact's people for other programs (EMail, ECal)
-integration/  the patches for EMail and ECal
+integration/  the patch for EMail (ECal 2.5 has its part itself)
 gateway/      the Raspberry Pi gateways (ecalgate.py serves EContact) and aera-gateway, their
               installer: a copy of AERA-Gateway's; change it there, then tools/sync-gateway.sh
 atari/        plat_tos.c: files, folders and time on GEMDOS

@@ -58,9 +58,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   `tools/sync-gateway.sh`; `GATEWAY=gateway/ecalgate.py make itest` tests
   through it.
 - `share/people.c` is also compiled into EMail and ECal (`src/people.c`
-  there); `integration/*.patch` are the changes to those two. When either
-  changes, regenerate the patch from a checkout of that repository's `main`
-  (`git diff -- . ':!VERSION'`) and check it applies and builds.
+  there). ECal (2.5 and later) carries its copy and its invitees itself:
+  when people.c changes, tell ECal's session. `integration/EMAIL.patch` is
+  the change to EMail: when it or EMail changes, regenerate it from a
+  checkout of EMail's `main` (`git diff -- . ':!VERSION'`) and check it
+  applies and builds.
 - Where the accessory and the program find ECONTACT.INF and the folder
   follows ECal (ui/main.c: find_workdir, move_inf, locate_folder);
   `tests/hatari/placement.py WORK etos512us.img` checks it.

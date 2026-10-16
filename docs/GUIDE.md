@@ -265,8 +265,8 @@ it there too.
 
 EContact writes `CONTACTS.TXT` in its folder whenever the contacts change
 (and at the start, when it's out of date):
-every email address with its name, and the groups. With the patches in
-`integration/` applied:
+every email address with its name, and the groups. EMail with the patch
+in `integration/` applied, and ECal 2.5 and later, use it:
 
 - **EMail**: in a new message, ^B (Message > Address book) lists
   EContact's people and groups, then the addresses EMail remembers. Type

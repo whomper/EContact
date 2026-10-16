@@ -6,9 +6,9 @@ sample contacts (tests/hatari/sample.vcf, made-up people):
 
     tests/hatari/docs_shots.py WORK etos512us.img [--email DIR] [--ecal DIR] [--update]
 
---email and --ecal name checkouts of EMail and ECal with the patches in
-integration/ applied and built, for the shots of the two working
-together. They land in WORK/*/shots; --update copies them into docs/.
+--email names a checkout of EMail with integration/EMAIL.patch applied
+and built, --ecal one of ECal (2.5 or later), for the shots of them
+working together. They land in WORK/*/shots; --update copies them into docs/.
 """
 import argparse
 import os
