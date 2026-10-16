@@ -32,7 +32,7 @@ index 16cc935..25d282e 100644
  		return save_new(e, ci);
  	c = &cals[e->cal];
 diff --git a/src/ics.c b/src/ics.c
-index 365fd3e..77a13ec 100644
+index 46c41d0..a918578 100644
 --- a/src/ics.c
 +++ b/src/ics.c
 @@ -38,6 +38,8 @@ void ev_free(EVENT *e)
@@ -95,23 +95,7 @@ index 365fd3e..77a13ec 100644
  	}
  }
  
-@@ -870,12 +898,14 @@ static int wanted(const char *s, long n)
- 		return !(up(s, n, 1) == 'T' && up(s, n, 4) == 'A' && up(s, n, 5) == 'M');
- 	case 'L':	/* LOCATION; not LAST-MODIFIED */
- 		return up(s, n, 1) == 'O';
-+	case 'O':	/* ORGANIZER: who invited (the invitees, EContact's) */
-+		return up(s, n, 1) == 'R';
- 	case 'T':	/* TRIGGER, TZID, TZOFFSET...; not TRANSP */
- 		return up(s, n, 1) == 'Z' || up(s, n, 2) == 'I';
- 	case 'X':	/* X-WR-CALNAME; not X-APPLE-... */
- 		return up(s, n, 2) == 'W' && up(s, n, 3) == 'R';
- 	}
--	return 0;	/* CREATED, CLASS, PRODID, VERSION, CALSCALE, METHOD, ORGANIZER... */
-+	return 0;	/* CREATED, CLASS, PRODID, VERSION, CALSCALE, METHOD... */
- }
- 
- void ics_line(ICSP *p, const char *s, long n)
-@@ -1049,6 +1079,118 @@ static void out_time(SBUF *o, const char *name, const EVENT *e, CTIME t)
+@@ -1051,6 +1079,118 @@ static void out_time(SBUF *o, const char *name, const EVENT *e, CTIME t)
  	out_str(o, line);
  }
  
@@ -230,7 +214,7 @@ index 365fd3e..77a13ec 100644
  static void out_event(SBUF *o, const EVENT *e)
  {
  	char line[400], v[24];
-@@ -1102,6 +1244,8 @@ static void out_event(SBUF *o, const EVENT *e)
+@@ -1104,6 +1244,8 @@ static void out_event(SBUF *o, const EVENT *e)
  		snprintf(line, sizeof(line), "EXRULE:%s", rr);
  		out_str(o, line);
  	}
@@ -239,16 +223,50 @@ index 365fd3e..77a13ec 100644
  	if (e->status == ST_TENTATIVE)
  		out_str(o, "STATUS:TENTATIVE");
  	else if (e->status == ST_CANCELLED)
-@@ -1272,7 +1416,8 @@ static void build_line(char *line, void *ud)
- 					    !prop_is(s, "DESCRIPTION") && !prop_is(s, "URL") && !prop_is(s, "DTSTART") &&
- 					    !prop_is(s, "DTEND") && !prop_is(s, "DURATION") && !prop_is(s, "RRULE") &&
- 					    !prop_is(s, "EXDATE") && !prop_is(s, "STATUS") && !prop_is(s, "CREATED") &&
--					    !prop_is(s, "RDATE") && !prop_is(s, "EXRULE"))
-+					    !prop_is(s, "RDATE") && !prop_is(s, "EXRULE") &&
-+					    !(b->e->att_edited && (prop_is(s, "ATTENDEE") || prop_is(s, "ORGANIZER"))))
- 						sb_adds(&keep, s);
- 					if (!strncasecmp(s, "END:VALARM", 10))
- 						in_alarm = 0;
+@@ -1218,7 +1360,7 @@ static CTIME recur_of(const char *line)
+ 
+ /* the properties of a VEVENT (comp, CRLF lines) that ECal doesn't edit,
+    to go into the one written in its place; not its alarms */
+-static void keep_props(SBUF *keep, char *s)
++static void keep_props(SBUF *keep, char *s, int att_edited)
+ {
+ 	int in_alarm = 0;
+ 	while (s && *s) {
+@@ -1242,7 +1384,8 @@ static void keep_props(SBUF *keep, char *s)
+ 		    !prop_is(s, "DESCRIPTION") && !prop_is(s, "URL") && !prop_is(s, "DTSTART") &&
+ 		    !prop_is(s, "DTEND") && !prop_is(s, "DURATION") && !prop_is(s, "RRULE") &&
+ 		    !prop_is(s, "EXDATE") && !prop_is(s, "STATUS") && !prop_is(s, "CREATED") &&
+-		    !prop_is(s, "RDATE") && !prop_is(s, "EXRULE") && !prop_is(s, "RECURRENCE-ID"))
++		    !prop_is(s, "RDATE") && !prop_is(s, "EXRULE") && !prop_is(s, "RECURRENCE-ID") &&
++		    !(att_edited && (prop_is(s, "ATTENDEE") || prop_is(s, "ORGANIZER"))))
+ 			sb_adds(keep, s);
+ 		if (!strncasecmp(s, "END:VALARM", 10))
+ 			in_alarm = 0;
+@@ -1298,7 +1441,7 @@ static void build_line(char *line, void *ud)
+ 				SBUF keep;
+ 				sb_init(&keep);
+ 				out_event(b->o, b->e);
+-				keep_props(&keep, b->comp.s);
++				keep_props(&keep, b->comp.s, b->e->att_edited);
+ 				put_kept(b->o, &keep);
+ 				sb_free(&keep);
+ 				b->done = 1;
+@@ -1312,13 +1455,13 @@ static void build_line(char *line, void *ud)
+ 		   goes into the new one; a first exception takes the series' */
+ 		if (b->is_exc && b->exc_at == b->e->recurid) {
+ 			sb_reset(&b->keep_exc);
+-			keep_props(&b->keep_exc, b->comp.s);
++			keep_props(&b->keep_exc, b->comp.s, b->e->att_edited);
+ 			b->had_exc = 1;
+ 			return;
+ 		}
+ 		if (!b->is_exc) {
+ 			sb_reset(&b->keep_master);
+-			keep_props(&b->keep_master, b->comp.s);
++			keep_props(&b->keep_master, b->comp.s, b->e->att_edited);
+ 		}
+ 		sb_add(b->o, b->comp.s, b->comp.len);
+ 		return;
 diff --git a/src/ics.h b/src/ics.h
 index 7642e6b..d842697 100644
 --- a/src/ics.h

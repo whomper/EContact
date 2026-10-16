@@ -3,7 +3,7 @@
 These patches make EContact the address book of
 [EMail](https://github.com/whomper/EMail) and
 [ECal](https://github.com/whomper/ECal). Each applies to the repository's
-`main` (EMail 1.33 at 9b64626, ECal 2.3 at e463c9b) and builds and passes its tests:
+`main` (EMail 1.33 at 9b64626, ECal 2.4 at 5a8f084) and builds and passes its tests:
 
 ```
 cd EMAIL && git apply ../EContact/integration/EMAIL.patch && make && make test
