@@ -582,7 +582,9 @@ static int search_clip(int what)
 	return 1;
 }
 
-/* typing goes into the search field, as on the Mac */
+/* typing goes into the search field, as on the Mac. Esc leaves the
+   query as it is (the guidelines, 3.5): only Backspace, ^X and the clear
+   button take text out */
 static int search_key(short kstate, short key)
 {
 	short scan = KEY_SCAN(key);
@@ -596,10 +598,6 @@ static int search_key(short kstate, short key)
 		if (!n)
 			return 1;
 		search_text[n - 1] = 0;
-	} else if (scan == 0x01) {		/* Esc */
-		if (!n)
-			return 0;
-		search_text[0] = 0;
 	} else if (a >= ' ' && a != 0x7f && scan != 0x72 && scan != 0x1c && scan != 0x0f) {
 		if (a == ' ' && !n)
 			return 0;

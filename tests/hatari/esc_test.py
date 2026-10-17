@@ -9,8 +9,10 @@
   name typed doesn't stay in the field (the dialog closes);
 - the same with Undo;
 - Settings (^,), then Esc: ECONTACT.INF as it was;
-- Delete on a contact, then Esc at "Are you sure?": the alert closes as
-  Cancel, and nothing is deleted.
+- Delete on a contact, then Esc at "Are you sure?", and again with Undo:
+  the alert closes as Cancel (common/ui/alert.c), and nothing is deleted;
+- a search typed, then Esc: the query and the list stay as they were (Esc
+  never clears text).
 Screenshots in WORK/shots.
 """
 import os
@@ -91,6 +93,17 @@ def main():
         r.key(K["ESC"])
         time.sleep(3)
         r.shot("6-delete-esc")
+        r.key(K["DELETE"])
+        time.sleep(3)
+        r.key(K["UNDO"])
+        time.sleep(3)
+        r.shot("7-delete-undo")
+        r.type("ma")                        # a search
+        time.sleep(3)
+        r.shot("8-search")
+        r.key(K["ESC"])
+        time.sleep(3)
+        r.shot("9-search-esc")
         r.ctrl("q")
         time.sleep(8)
     finally:
@@ -105,7 +118,11 @@ def main():
     check("the Delete alert came", same(shot("5-delete-asked"), shot("4-settings-esc")) < 0.99)
     check("Esc closed it (as Cancel): the window as before",
           same(shot("6-delete-esc"), shot("4-settings-esc")) > 0.995)
-    check("Esc at \"Are you sure?\": nothing deleted", count() == before)
+    check("Undo closed it too", same(shot("7-delete-undo"), shot("4-settings-esc")) > 0.995)
+    check("Esc and Undo at \"Are you sure?\": nothing deleted", count() == before)
+    check("the search typed", same(shot("8-search"), shot("7-delete-undo")) < 0.99)
+    check("Esc in the search: the query and the list as they were",
+          same(shot("9-search-esc"), shot("8-search")) > 0.995)
     print("screenshots in", os.path.join(work, "shots"))
     print("all passed" if not fails else "%d failed" % fails)
     sys.exit(1 if fails else 0)

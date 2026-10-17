@@ -127,7 +127,8 @@ settings or delete it from this Atari (nothing is deleted on the server).
   Clr/Home goes to the first (Shift: the last).
 - **Search**: just type. The list keeps those whose name, company, email,
   phone number, address or note has what you typed ("0170 123" finds
-  "0170 1234567"); Backspace takes a letter back, Esc ends the search.
+  "0170 1234567"); Backspace takes a letter back, ^X or the clear button
+  in the field takes it all (Esc leaves it as it is).
 - **On the right**: the card. Click a phone, address, birthday or note
   to copy it to the clipboard; click an email to copy it or write to it
   in EMail (a double-click writes at once). **mail** under the name writes
@@ -328,7 +329,7 @@ next time EContact saves its settings.
 | ^N | a new contact |
 | ^G | a new group |
 | typing | search |
-| Esc, ^F | a new search |
+| ^F | a new search |
 | ^C | copy the contact chosen: "Name <email>" |
 | ^V, ^X | paste into the search, cut it |
 | ^C ^X ^V | in a dialog: copy, cut, paste a field |
