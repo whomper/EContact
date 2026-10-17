@@ -31,6 +31,10 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (there is no `-dev` label). Don't commit built programs, help files or certificates (`binary/`,
   `dist/`). Never reuse a number.
 - **Only formal releases leave the build machine.** Erez gets vX.Y releases made by the Release workflow from `main`, nothing else: no test builds, no CI artifacts, no builds from a branch. Work lands on `main`; to try a fix on real hardware, release it. If a release doesn't work, roll back with a release: revert on `main`, release the next number, and say in the bad release's notes that it is withdrawn and which one to use.
+- **Testing with another AERA program uses its latest release**, what Erez runs, never a build of its
+  `main`: `common/tools/getrelease.py APP DIR FILE...` fetches it. Only for a change both programs are
+  still making, test against the other's `main` at a named commit, say so, and test again against its
+  release when it is out.
 - **Every new source file starts with the SPDX line and copyright** (see any `.c` file); a generator
   writes them into the files it makes.
 - **The name** reads "AERA | Erez Yaary" wherever it is given: copyright lines
@@ -84,7 +88,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   docs/help/WINDOW.IMG (made once with `helpfront.py thumb` from
   docs/window.png). `tests/hatari/help_key.py` checks the Help key.
 - The UI is checked in Hatari: `tests/hatari/docs_shots.py WORK etos512us.img`
-  takes the screenshots in docs/ (EmuTOS 512k, sourceforge.net/projects/emutos).
+  takes the screenshots in docs/ (EmuTOS 512k, sourceforge.net/projects/emutos);
+  with `--email` and `--ecal` it fetches EMail's and ECal's latest releases
+  (getrelease.py). The rigs' stand-ins (fakeguide for ST-Guide, ASKER.PRG
+  for EMail) are EContact's own test programs; `quiet_sync.py` uses
+  common's FAKESTNG and serial bridge (common/tools/fakesting).
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000

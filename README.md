@@ -305,7 +305,8 @@ make itest      # card-cli against a real CardDAV server (Radicale: pip install
                 # where the cards are, the refresh in the background, and
                 # PEOPLE's answers (card-cli ask)
 GATEWAY=gateway/ecalgate.py make itest            # the same through the Pi gateway
-tests/hatari/docs_shots.py WORK etos512us.img     # the screenshots, in Hatari
+tests/hatari/docs_shots.py WORK etos512us.img     # the screenshots, in Hatari (--email,
+                                                  # --ecal: with their latest releases)
 tests/hatari/placement.py WORK etos512us.img      # where the accessory and the program
                                                   # find their settings and folder
 tests/hatari/acc_reread.py WORK etos512us.img     # the accessory after the program changed
@@ -314,7 +315,7 @@ tests/hatari/twin_test.py WORK etos512us.img      # the program with the accesso
 tests/hatari/help_key.py WORK etos512us.img       # the Help key, with a stand-in for
                                                   # ST-Guide (make build/fakeguide.acc)
 tests/hatari/stop_test.py WORK etos512us.img      # Esc stops a server that says nothing
-                                                  # (FAKESTNG and the serial bridge from ECal)
+                                                  # (FAKESTNG and the serial bridge from common/)
 make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \
      WORK/bin/ECONTACT.ACC WORK/bin/ECONTST.ACC   # an edition that times its event calls
 tests/hatari/quiet_start.py WORK etos512us.img    # the accessory's quiet start: 600 contacts

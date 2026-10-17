@@ -4,11 +4,16 @@
 """The screenshots in docs/ and the README, taken in Hatari with the
 sample contacts (tests/hatari/sample.vcf, made-up people):
 
-    tests/hatari/docs_shots.py WORK etos512us.img [--email DIR] [--ecal DIR] [--update]
+    tests/hatari/docs_shots.py WORK etos512us.img [--email [EMail@vX.Y]] [--ecal [ECal@vX.Y]]
+                               [--ecal-src DIR] [--update]
 
---email names a checkout of EMail (1.35 or later: it asks with PEOPLE)
-and built, --ecal one of ECal (2.5 or later), for the shots of them
-working together. They land in WORK/*/shots; --update copies them into docs/.
+--email and --ecal take the shots of EContact working with EMail (1.35 or
+later: it asks with PEOPLE) and ECal (2.5 or later): their latest
+releases, what Erez runs (the guidelines, 1.2), or the one named, fetched
+by common/tools/getrelease.py; the shots' folders say which (*.VERSION).
+--ecal-src names a checkout of ECal (../ecal if not given) for its test
+data only: ui_tour.seed() writes the calendar the shots show.
+They land in WORK/*/shots; --update copies them into docs/.
 """
 import argparse
 import os
@@ -23,6 +28,8 @@ from rig import Rig, K, SCAN  # noqa: E402
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 BIN = os.path.join(ROOT, "binary")
 CLI = os.path.join(ROOT, "build", "card-cli")
+sys.path.insert(0, os.path.join(ROOT, "common", "tools"))
+import getrelease  # noqa: E402
 
 
 def seed(folder):
@@ -112,13 +119,14 @@ def st_shots(r):
     r.shot("st-mono")
 
 
-def with_email(work, tos, email_dir):
+def with_email(work, tos, spec):
     """EContact as an accessory over EMail: ^B completes a name"""
     hd = os.path.join(work, "hd")
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(hd)
     as_accessory(hd)
-    shutil.copy(os.path.join(email_dir, "binary", "EMAIL.PRG"), os.path.join(hd, "EMAIL.PRG"))
+    getrelease.fetch(spec, os.path.join(work, "shots"), ["EMAIL.PRG"])
+    shutil.move(os.path.join(work, "shots", "EMAIL.PRG"), os.path.join(hd, "EMAIL.PRG"))
     with open(os.path.join(hd, "EMAIL.INF"), "w", newline="") as f:
         f.write("[OPTIONS]\r\nOFFLINE=1\r\n\r\n[ACCOUNT]\r\nNAME=Home\r\nFULLNAME=Erez Yaary\r\n"
                 "EMAIL=erez@example.com\r\nIN=imap\r\nHOST=192.168.1.2\r\nPORT=143\r\nUSER=erez\r\n")
@@ -143,14 +151,15 @@ def with_email(work, tos, email_dir):
     return os.path.join(work, "shots")
 
 
-def with_ecal(work, tos, ecal_dir):
+def with_ecal(work, tos, spec, ecal_src):
     """ECal's invitations from EContact's people"""
     hd = os.path.join(work, "hd")
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(hd)
     as_accessory(hd)
-    shutil.copy(os.path.join(ecal_dir, "binary", "ECAL.PRG"), os.path.join(hd, "ECAL.PRG"))
-    sys.path.insert(0, os.path.join(ecal_dir, "tests", "hatari"))
+    getrelease.fetch(spec, os.path.join(work, "shots"), ["ECAL.PRG"])
+    shutil.move(os.path.join(work, "shots", "ECAL.PRG"), os.path.join(hd, "ECAL.PRG"))
+    sys.path.insert(0, os.path.join(ecal_src, "tests", "hatari"))
     import ui_tour  # ECal's: its seed() writes an On My Atari calendar
     ui_tour.seed(hd, english=True)
     r = Rig(work, tos, machine="falcon", extra=["--memsize", "14"], auto="C:\\ECAL.PRG")
@@ -182,8 +191,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("work")
     ap.add_argument("tos")
-    ap.add_argument("--email")
-    ap.add_argument("--ecal")
+    ap.add_argument("--email", nargs="?", const="EMail")
+    ap.add_argument("--ecal", nargs="?", const="ECal")
+    ap.add_argument("--ecal-src", default=os.path.join(ROOT, "..", "ecal"))
     ap.add_argument("--update", action="store_true", help="copy them into docs/")
     a = ap.parse_args()
     dirs = [program(os.path.join(a.work, "falcon"), a.tos, "falcon", falcon_shots),
@@ -191,7 +201,7 @@ def main():
     if a.email:
         dirs.append(with_email(os.path.join(a.work, "email"), a.tos, a.email))
     if a.ecal:
-        dirs.append(with_ecal(os.path.join(a.work, "ecal"), a.tos, a.ecal))
+        dirs.append(with_ecal(os.path.join(a.work, "ecal"), a.tos, a.ecal, a.ecal_src))
     for d in dirs:
         for f in sorted(os.listdir(d)):
             if not f.endswith(".png") or f.startswith("grab"):

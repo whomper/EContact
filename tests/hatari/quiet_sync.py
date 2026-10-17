@@ -15,7 +15,8 @@ background after boot (START=5) and a minute later refreshes them
 (SYNC_AFTER=1), its window closed: what changed must be in the cache,
 added to its end, and no stretch between event calls longer than 100 ms
 but the exchanges with the server. Hatari has no network card: FAKESTNG.PRG
-and serial_bridge.py are ECal's (ECAL_DIR; ../ecal if not given). FAKESTNG
+and serial_bridge.py are common's (common/tools/fakesting: built here with
+`make -C common/tools/fakesting` when FAKESTNG.PRG isn't there). FAKESTNG
 reads and sends each byte through the emulated serial port, waiting in
 the ROM (seconds for a list of contacts), so the exchanges' stretches
 here are the line's, reported but not judged; with STinG the answer is
@@ -37,7 +38,7 @@ from rig import Rig  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
-ECAL = os.environ.get("ECAL_DIR", os.path.join(ROOT, "..", "ecal"))
+FAKE = os.path.join(ROOT, "common", "tools", "fakesting")    # FAKESTNG.PRG and its serial bridge
 CLI = os.path.join(ROOT, "build", "card-cli")
 fails = 0
 
@@ -59,6 +60,8 @@ def free_port():
 def main():
     work, tos = os.path.abspath(sys.argv[1]), sys.argv[2]
     n = int(sys.argv[3]) if len(sys.argv) > 3 else 40
+    if not os.path.exists(os.path.join(FAKE, "FAKESTNG.PRG")):
+        subprocess.run(["make", "-s", "-C", FAKE], check=True)
     shutil.rmtree(work + "/st", ignore_errors=True)
     d = os.path.join(work, "st")
     hd = os.path.join(d, "hd")
@@ -124,11 +127,11 @@ def main():
         os.remove(os.path.join(folder, "ECONTACT.INF"))
         open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
         shutil.copy(os.path.join(work, "bin", "ECONTST.ACC"), os.path.join(hd, "ECONTACT.ACC"))
-        shutil.copy(os.path.join(ECAL, "tools", "fakesting", "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
+        shutil.copy(os.path.join(FAKE, "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
         fifo_out, fifo_in = os.path.join(d, "st_out"), os.path.join(d, "st_in")
         for p in (fifo_out, fifo_in):
             os.mkfifo(p)
-        procs.append(subprocess.Popen([sys.executable, os.path.join(ECAL, "tests", "hatari", "serial_bridge.py"),
+        procs.append(subprocess.Popen([sys.executable, os.path.join(FAKE, "serial_bridge.py"),
                                        fifo_out, fifo_in], stderr=open(os.path.join(d, "bridge.log"), "w")))
         log = os.path.join(folder, "ECONTACT.LOG")
         r = Rig(d, tos, machine="megast", serial=(fifo_out, fifo_in), extra=["--memsize", "4", "--monitor", "mono"],

@@ -8,7 +8,7 @@ after the 60 s timeout, and EContact must carry on.
 
 Hatari has no network card: FAKESTNG.PRG carries the Atari's TCP
 connections over the emulated serial port to serial_bridge.py; both are
-ECal's (ECAL_DIR, a checkout of whomper/ECal; ../ecal if not given).
+common's (common/tools/fakesting; FAKESTNG.PRG is built when it isn't there).
 
     tests/hatari/stop_test.py WORKDIR etos512us.img
 """
@@ -26,7 +26,7 @@ from rig import K  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
-ECAL = os.environ.get("ECAL_DIR", os.path.join(ROOT, "..", "ecal"))
+FAKE = os.path.join(ROOT, "common", "tools", "fakesting")    # FAKESTNG.PRG and its serial bridge
 GW = 18182
 
 
@@ -65,7 +65,9 @@ def main():
     stop = threading.Event()
     threading.Thread(target=silent_server, args=(stop,), daemon=True).start()
     shutil.copy(os.path.join(ROOT, "binary", "ECONTST.ACC"), os.path.join(hd, "ECONTACT.ACC"))
-    shutil.copy(os.path.join(ECAL, "tools", "fakesting", "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
+    if not os.path.exists(os.path.join(FAKE, "FAKESTNG.PRG")):
+        subprocess.run(["make", "-s", "-C", FAKE], check=True)
+    shutil.copy(os.path.join(FAKE, "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
     with open(os.path.join(hd, "ECONTACT", "ECONTACT.INF"), "w", newline="") as f:
         f.write("gate=127.0.0.1\r\ngateport=%d\r\n"
                 "sync_open=1\r\nlog=1\r\n[account]\r\nname=Server\r\nkind=0\r\n"
@@ -73,7 +75,7 @@ def main():
     fifo_out, fifo_in = os.path.join(work, "st_out"), os.path.join(work, "st_in")
     for p in (fifo_out, fifo_in):
         os.mkfifo(p)
-    bridge = subprocess.Popen([sys.executable, os.path.join(ECAL, "tests", "hatari", "serial_bridge.py"), fifo_out, fifo_in],
+    bridge = subprocess.Popen([sys.executable, os.path.join(FAKE, "serial_bridge.py"), fifo_out, fifo_in],
                               stderr=open(os.path.join(work, "bridge.log"), "w"))
     r = rig.Rig(work, tos, machine="st", serial=(fifo_out, fifo_in),
                 extra=["--memsize", "4", "--monitor", "mono"], auto=None)
