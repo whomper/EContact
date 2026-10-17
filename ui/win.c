@@ -24,6 +24,12 @@ static char title[80], info[140];
 enum { B_SIDE, B_REFRESH, B_MENU, NBUT };
 static GRECT but[NBUT];
 static const char *const blabel[NBUT] = { " ", "Refresh", "\xF0" };
+static const char *const pick_label[NBUT] = { " ", "Cancel", "Choose" };
+
+static const char *label(int i)
+{
+	return picking ? pick_label[i] : blabel[i];
+}
 
 short win_iconified;	/* shown as EContact's icon (WM_ICONIFY) */
 short win_hold;
@@ -108,7 +114,7 @@ void win_layout(void)
 	but[B_SIDE].h = ch + 2;
 	x = work.x + work.w - 4;
 	for (i = B_MENU; i >= B_REFRESH; i--) {
-		bw = ((short)strlen(blabel[i]) + 2) * cw;
+		bw = ((short)strlen(label(i)) + 2) * cw;
 		x -= bw;
 		but[i].x = x;
 		but[i].y = work.y + 3;
@@ -139,7 +145,7 @@ void win_sliders(void)
 static void draw_button(int i)
 {
 	GRECT r = but[i];
-	const char *l = blabel[i];
+	const char *l = label(i);
 	short n = (short)strlen(l);
 	fill(&r, 0);
 	frame(&r, 1);
@@ -491,6 +497,13 @@ static void toggle_sidebar(void)
 	win_redraw(0);
 }
 
+static void search_changed(void);
+
+void win_search_set(void)
+{
+	search_changed();
+}
+
 /* the search changed: the list again, the card if the choice went */
 static void search_changed(void)
 {
@@ -518,8 +531,18 @@ int win_mouse(short mx, short my, short button, short clicks, short kstate)
 				break;
 		switch (i) {
 		case B_SIDE: toggle_sidebar(); break;
-		case B_REFRESH: cmd_refresh(kstate & (K_LSHIFT | K_RSHIFT)); break;
-		case B_MENU: cmd_menu(but[B_MENU].x, but[B_MENU].y + but[B_MENU].h); break;
+		case B_REFRESH:
+			if (picking)
+				pick_end(0);
+			else
+				cmd_refresh(kstate & (K_LSHIFT | K_RSHIFT));
+			break;
+		case B_MENU:
+			if (picking)
+				pick_end(1);
+			else
+				cmd_menu(but[B_MENU].x, but[B_MENU].y + but[B_MENU].h);
+			break;
 		default:
 			/* the clear button in the search field */
 			if (rect_hit(&r_search, mx, my) && search_text[0] && mx >= r_search.x + r_search.w - 2 * cw) {
@@ -632,6 +655,12 @@ int win_key(short kstate, short key)
 			else if (search_text[0])
 				cmd_copy(search_text);
 			return 1;
+		}
+	}
+	if (picking && !(kstate & (K_CTRL | K_ALT))) {
+		switch (scan) {
+		case 0x1c: case 0x72: pick_end(1); return 1;	/* Return: Choose */
+		case 0x01: pick_end(0); return 1;		/* Esc: Cancel */
 		}
 	}
 	if (list_key(kstate, key))

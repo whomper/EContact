@@ -199,10 +199,10 @@ int  group_new(int book, const char *name);	/* -1 on failure, else its index */
 int  group_rename(GROUP *g, const char *name);
 int  group_delete(GROUP *g);			/* the group, not its members */
 
-/* ---- for EMail and ECal ----
- * CONTACTS.TXT in EContact's folder: every email address with its name,
- * and the groups, written whenever the contacts change. EMail's address
- * book and ECal's invitations read it (see share/people.c). */
-void people_export(void);
+/* ---- for EMail and ECal (PEOPLE, ui/answer.c) ----
+ * people_names_stamp: the names and addresses in one number; it changes
+ * when they do (after a load, a sync or a change) */
+extern unsigned long people_names_stamp;
+int people_name_for(const char *addr, char *name, int size);	/* 1 found */
 
 #endif

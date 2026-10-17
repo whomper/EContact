@@ -2,7 +2,7 @@
  * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * abook.c - the address books: settings, caches on disk, syncing with
- * CardDAV servers, saving changes, groups, and CONTACTS.TXT for EMail
+ * CardDAV servers, saving changes, groups, and the names for EMail
  * and ECal. Built like ECal's calstore.c.
  *
  * Each address book has cache files in CACHE\ next to the settings:
@@ -273,9 +273,9 @@ void store_save_settings(void)
 		    "; 1 means on, 0 means off. Keys may be in any case.\r\n\r\n[OPTIONS]\r\n");
 #define S(key, name, text) kv(&b, text, key, opt.name);
 #define I(key, name, text) kn(&b, text, key, opt.name);
-	/* first: the accessory, EMail and ECal read it from the start of the file */
-	sb_adds(&b, "; EContact's folder, with its address books, keys and certificates, and\r\n"
-		    "; CONTACTS.TXT for EMail and ECal; ECONTACT.PRG writes where it was started from\r\nFOLDER=");
+	/* first: the accessory reads it from the start of the file at boot */
+	sb_adds(&b, "; EContact's folder, with its address books, keys and certificates;\r\n"
+		    "; ECONTACT.PRG writes where it was started from\r\nFOLDER=");
 	sb_adds(&b, opt.workdir);
 	sb_adds(&b, "\r\n\r\n");
 	I("HEAPKB", heapkb, "memory the accessory takes at boot, in KB (about 1 KB a contact); 0: 1.5 MB on a Falcon/TT, half the free memory on an ST")
@@ -485,15 +485,19 @@ static void count_books(void)
 			books[people[i]->book].count++;
 }
 
-/* sorted again, groups and counts again, and EMail's and ECal's list */
-static void people_changed(int export)
+/* sorted again, groups and counts again; names: they may have changed
+   (EMail and ECal are told) */
+static void names_stamp(void);
+static unsigned long names_of(unsigned long h, const CONTACT *c);
+
+static void people_changed(int names)
 {
 	people_serial++;
 	people_sort();
 	count_books();
 	groups_collect();
-	if (export)
-		people_export();
+	if (names)
+		names_stamp();
 }
 
 /* ---------------- accounts and books ---------------- */
@@ -1106,11 +1110,11 @@ static char *secs_of(unsigned long ms, char *out)
  * the file was written is in it twice, and only the later copy is read),
  * the parsed cache, the cards it didn't have, parsed, and the parsed
  * cache written again when that parsed some. Then the list is sorted, its
- * groups collected, and CONTACTS.TXT made again. Each step is short (a
+ * groups collected, and the names stamp made again. Each step is short (a
  * few records, one card), so the accessory can read its books between
  * event calls (common/ui/bgwork.c); book_load_all does all the steps at
  * once. */
-enum { LB_IDLE, LB_START, LB_REC, LB_TRIM, LB_IDX, LB_PARSE, LB_END, LB_SORT, LB_WRITE, LB_GROUPS, LB_EXPORT };
+enum { LB_IDLE, LB_START, LB_REC, LB_TRIM, LB_IDX, LB_PARSE, LB_END, LB_SORT, LB_WRITE, LB_GROUPS, LB_NAMES };
 
 typedef struct {
 	int phase, bi, last, all;	/* the book read, the last one; all: then sorted */
@@ -1118,7 +1122,8 @@ typedef struct {
 	int used, stale, parsed, full, wrote, trust, kind, inend, quiet;
 	unsigned long gen, datstamp;
 	long datsize, esize;
-	unsigned long at, t[LB_EXPORT + 1], t0, tsort;	/* the work's time in each pass */
+	unsigned long at, t[LB_NAMES + 1], t0, tsort;	/* the work's time in each pass */
+	unsigned long names;		/* the names stamp so far */
 	int r, wi, wh, wok;
 	long wneed;			/* the books whose parsed cache is written after the sort */
 	unsigned long wgen[MAXBOOK], wstamp[MAXBOOK];
@@ -1133,9 +1138,6 @@ static LD ld = { .wh = -1 };
 static void sort_begin(void);
 static int sort_step(void);
 static void sort_cancel(void);
-static void export_begin(void);
-static int export_step(void);
-static void export_cancel(void);
 static FR lf;			/* 16 KB: not on the accessory's stack */
 
 /* the time since the last look, to the pass it went to */
@@ -1612,23 +1614,25 @@ static void ld_step(void)
 		break;
 	case LB_GROUPS:
 		groups_collect();
-		ld_to(LB_EXPORT);
+		ld_to(LB_NAMES);
 		break;
-	case LB_EXPORT: {
-		/* CONTACTS.TXT made again, as the contacts are now (people_export
-		   leaves it when nothing changed, and when some are left out) */
+	case LB_NAMES: {
+		/* the names stamp (names_stamp), 64 contacts a step */
 		char m[60], a[16];
+		int n;
 		if (!ld.begun) {
 			ld.begun = 1;
-			export_begin();	/* a step of its own */
-			break;
+			ld.r = 0;
+			ld.names = 0x2C1B3C6DUL + opt.last_first;
 		}
-		if (export_step())
+		for (n = 0; n < 64 && ld.r < npeople; n++, ld.r++)
+			ld.names = names_of(ld.names, people[ld.r]);
+		if (ld.r < npeople)
 			break;
+		people_names_stamp = ld.names & 0xFFFFFFFFUL;
 		ld_to(LB_IDLE);
-		snprintf(m, sizeof(m), "CONTACTS.TXT for EMail and ECal: %s",
-			 secs_of(ld.t[LB_SORT] + ld.t[LB_GROUPS] + ld.t[LB_EXPORT], a));
-		/* (the sort's time, and the groups', with it) */
+		snprintf(m, sizeof(m), "the list sorted: %s",
+			 secs_of(ld.t[LB_SORT] + ld.t[LB_GROUPS] + ld.t[LB_NAMES], a));
 		conn_log("Contacts", " -- ", m, (long)strlen(m));
 		conn_log_flush();
 		status_clear();
@@ -1696,7 +1700,6 @@ void books_load_cancel(void)
 	memset(&ld, 0, sizeof(ld));
 	ld.wh = -1;
 	sort_cancel();
-	export_cancel();
 }
 
 static void load_one(BOOK *b)
@@ -2378,7 +2381,7 @@ int book_fetch_whole(BOOK *b, char **hrefs, int n)
 		str_copy(ab_err, "couldn't write the address book's cache (disk full?)", sizeof(ab_err));
 		return -1;
 	}
-	people_changed(0);		/* the same people, the same emails: CONTACTS.TXT stays */
+	people_changed(0);		/* the same people, the same emails */
 	return ok || m.n ? m.n : -1;
 }
 
@@ -2726,7 +2729,7 @@ int quiet_sync_step(void)
 			quiet_sync_cancel();
 			qs_last = changed;
 			if (changed) {
-				/* sorted again, CONTACTS.TXT made again: in steps too */
+				/* sorted again, the names stamp again: in steps too */
 				books_load_cancel();
 				ld.all = 1;
 				ld.phase = LB_SORT;
@@ -3424,206 +3427,72 @@ int contacts_export(CONTACT **list, int n, const char *path)
 	return ok;
 }
 
-/* ---------------- CONTACTS.TXT ---------------- */
+/* ---------------- the people, for EMail and ECal ---------------- */
 
-/* what CONTACTS.TXT is made from, in one number: the cards (each one's
-   text hash, which the cache keeps anyway), the order and this build.
-   The file says it in a comment: when it is the same, the file is left
-   without being made again (at every start: 6 s for 600 contacts on an
-   8 MHz ST). Shifts and adds only: a 68000 multiplies in software */
-static unsigned long people_stamp(void)
+/* Their names and addresses in one number, which changes when one of
+   them does (and not for a phone number or a note): EMail and ECal are
+   told then (PEOPLE's changed:, ui/answer.c). Shifts and adds: a 68000
+   multiplies in software */
+unsigned long people_names_stamp;
+
+static unsigned long names_mix(unsigned long h, const char *s)
 {
-	unsigned long h = 0x2C1B3C6DUL;
-	const char *v;
-	int i, r;
-#define MIX(x) (h = ((h << 7) | (h >> 25)) + (unsigned long)(x) + 0x9E3779B9UL)
-	for (v = app_version; *v; v++)
-		MIX((unsigned char)*v);
-	MIX(opt.sort_first);
-	MIX(opt.last_first);
-	MIX(nbooks);
-	for (i = 0; i < nbooks; i++) {
-		BOOK *b = &books[i];
-		MIX(b->id);
-		MIX(b->nres);
-		for (r = 0; r < b->nres; r++)
-			if (!b->res[r].dead) {
-				MIX(b->res[r].th);
-				MIX(b->res[r].len);
-				MIX(b->res[r].hh);
-			}
-	}
-#undef MIX
+	if (s)
+		while (*s)
+			h = ((h << 5) | (h >> 27)) + (unsigned char)*s++ + 0x9E3779B9UL;
+	return ((h << 5) | (h >> 27)) + 1;
+}
+
+static unsigned long names_of(unsigned long h, const CONTACT *c)
+{
+	int j;
+	h = names_mix(h, c->given);
+	h = names_mix(h, c->middle);
+	h = names_mix(h, c->family);
+	h = names_mix(h, c->fn);
+	h = names_mix(h, c->org);
+	h += c->company * 3 + c->group * 5;
+	for (j = 0; j < c->nemail; j++)
+		h = names_mix(h, c->email[j].value);
 	return h;
 }
 
-/* CONTACTS.TXT made in steps (a load in the background): a few contacts
-   at a time, written to CONTACTS.TMP a piece at a time, and then put in
-   its place, so EMail or ECal, running meanwhile, never read half of it */
-enum { EX_IDLE, EX_PEOPLE, EX_GROUPS, EX_SAME, EX_WRITE };
-
-static struct {
-	int st, i, k, first;
-	long pos;
-	SBUF b;
-	char path[200], tmp[200];
-} ex;
-
-static void export_cancel(void)
+static void names_stamp(void)
 {
-	if (ex.st != EX_IDLE)
-		sb_free(&ex.b);
-	ex.st = EX_IDLE;
+	unsigned long h = 0x2C1B3C6DUL + opt.last_first;
+	int i;
+	for (i = 0; i < npeople; i++)
+		h = names_of(h, people[i]);
+	people_names_stamp = h & 0xFFFFFFFFUL;
 }
 
-static void export_begin(void)
+/* the name EMail or ECal shows for an address: 1 found */
+int people_name_for(const char *addr, char *name, int size)
 {
-	char mark[40];
-	export_cancel();
-	/* with contacts left out for lack of memory, EMail and ECal keep the
-	   whole list they have */
-	if (!opt.workdir[0] || contacts_lost())
-		return;
-	path_join(ex.path, sizeof(ex.path), opt.workdir, "CONTACTS.TXT");
-	path_join(ex.tmp, sizeof(ex.tmp), opt.workdir, "CONTACTS.TMP");
-	snprintf(mark, sizeof(mark), "; made from %08lX\r\n", people_stamp());
-	{
-		/* made from the same contacts: as it is (EMail and ECal read only
-		   the P and G lines) */
-		char head[400];
-		int h = pf_open(ex.path, PF_READ);
-		long n = h >= 0 ? pf_read(h, head, sizeof(head) - 1) : -1;
-		if (h >= 0)
-			pf_close(h);
-		if (n > 0) {
-			head[n] = 0;
-			if (strstr(head, mark))
-				return;
-		}
-	}
-	sb_init(&ex.b);
-	{
-		/* its room taken at once: growing it would copy it, a long
-		   stretch for a 68000 */
-		long need = 400;
-		int i;
-		for (i = 0; i < npeople; i++)
-			need += 110L * people[i]->nemail;
-		sb_reserve(&ex.b, need);
-	}
-	sb_adds(&ex.b, "; EContact's people, for EMail and ECal. Written by EContact whenever the\r\n"
-		       "; contacts change: don't edit it here, change the contacts in EContact.\r\n"
-		       "; P<tab>name<tab>email<tab>label    one line for each email address\r\n"
-		       "; G<tab>group<tab>Name <email>, Name <email>...\r\n");
-	sb_adds(&ex.b, mark);
-	ex.i = 0;
-	ex.st = EX_PEOPLE;
-}
-
-/* 1 while there is more to do */
-static int export_step(void)
-{
-	char name[160];
-	int n = 0, j;
-	switch (ex.st) {
-	case EX_PEOPLE:
-		for (; ex.i < npeople && n < 4; ex.i++) {
-			CONTACT *c = people[ex.i];
-			if (c->group || !c->nemail)
-				continue;
-			vcard_display_name(c, 0, name, sizeof(name));
-			for (j = 0; j < c->nemail; j++)
-				sb_printf(&ex.b, "P\t%s\t%s\t%s\r\n", name, c->email[j].value, c->email[j].label);
-			n++;
-		}
-		if (ex.i < npeople)
-			return 1;
-		ex.k = ex.i = 0;
-		ex.first = 1;
-		ex.st = EX_GROUPS;
-		return 1;
-	case EX_GROUPS:
-		/* each group's line: its members, looked for a few hundred at a time */
-		if (ex.k < ngroups) {
-			for (; ex.i < npeople && n < 128; ex.i++, n++) {
-				CONTACT *c = people[ex.i];
-				if (!c->nemail || !group_has(&groups[ex.k], c))
-					continue;
-				if (ex.first)
-					sb_printf(&ex.b, "G\t%s\t", groups[ex.k].name);
-				vcard_display_name(c, 0, name, sizeof(name));
-				sb_printf(&ex.b, "%s%s <%s>", ex.first ? "" : ", ", name, c->email[0].value);
-				ex.first = 0;
-			}
-			if (ex.i < npeople)
-				return 1;
-			if (!ex.first)
-				sb_adds(&ex.b, "\r\n");
-			ex.k++;
-			ex.i = 0;
-			ex.first = 1;
-			return 1;
-		}
-		ex.pos = 0;
-		/* written only when it says something new */
-		ex.st = pf_size(ex.path) == ex.b.len ? EX_SAME : EX_WRITE;
-		return 1;
-	case EX_SAME: {
-		/* the old one compared, 8 KB at a time */
-		static char old[8192];
-		long k = ex.b.len - ex.pos < (long)sizeof(old) ? ex.b.len - ex.pos : (long)sizeof(old);
-		int h = pf_open(ex.path, PF_READ), same;
-		same = h >= 0 && pf_seek(h, ex.pos) == ex.pos && pf_read(h, old, k) == k && !memcmp(old, ex.b.s + ex.pos, k);
-		if (h >= 0)
-			pf_close(h);
-		ex.pos += k;
-		if (!same) {
-			ex.pos = 0;
-			ex.st = EX_WRITE;
-			return 1;
-		}
-		if (ex.pos < ex.b.len)
-			return 1;
-		break;			/* the same */
-	}
-	case EX_WRITE: {
-		long k = ex.b.len - ex.pos < 8192L ? ex.b.len - ex.pos : 8192L;
-		int h = pf_open(ex.tmp, ex.pos ? PF_APPEND : PF_WRITE), ok;
-		ok = h >= 0 && (!k || pf_write(h, ex.b.s + ex.pos, k) == k);
-		if (h >= 0)
-			pf_close(h);
-		ex.pos += k;
-		if (!ok) {
-			pf_remove(ex.tmp);
-			break;
-		}
-		if (ex.pos < ex.b.len)
-			return 1;
-		pf_remove(ex.path);
-		pf_rename(ex.tmp, ex.path);
-		break;
-	}
-	default:
+	int i, j;
+	int a = tolower((unsigned char)*addr);
+	name[0] = 0;
+	if (!*addr)
 		return 0;
+	for (i = 0; i < npeople; i++) {
+		const CONTACT *c = people[i];
+		if (c->group)
+			continue;
+		for (j = 0; j < c->nemail; j++) {
+			const char *v = c->email[j].value;
+			if (tolower((unsigned char)*v) == a && !strcasecmp(v, addr)) {
+				vcard_display_name(c, opt.last_first, name, size);
+				return 1;
+			}
+		}
 	}
-	export_cancel();
 	return 0;
-}
-
-void people_export(void)
-{
-	export_begin();
-	while (export_step())
-		;
 }
 
 /* the step next, for AES_PROFILE's notes */
 const char *books_load_what(void)
 {
 	static const char *const n[] = { "idle", "load-start", "load-records", "load-trim", "load-index", "load-parse",
-					  "load-end", "load-sort", "load-write", "load-groups", "load-export" };
-	static const char *const e[] = { "export-begin", "export-people", "export-groups", "export-same", "export-write" };
-	if (ld.phase == LB_EXPORT && ld.begun)
-		return e[ex.st];
+					  "load-end", "load-sort", "load-write", "load-groups", "load-names" };
 	return n[ld.phase];
 }

@@ -5,46 +5,45 @@ use it the same way. There are three pieces: a file to read, the message
 that opens EContact's window (or imports vCards), and the message
 EContact sends to write to someone.
 
-## CONTACTS.TXT: the people
+## PEOPLE: asking EContact about people
 
-EContact writes `CONTACTS.TXT` in its folder whenever the contacts change
-(after a refresh, an edit, an import...). The folder is in
-`ECONTACT.INF`, in the root of the boot drive, on the line `FOLDER=`
-(near the top of the file, so it can be read without reading it all).
-
-The file is Atari text (Hebrew at 0xC2-0xDC, in reading order), CRLF
-lines; lines starting with `;` are notes. One of them, `; made from
-1A2B3C4D`, is EContact's own: a number for the contacts the file was
-made from, so that it isn't made again at each start when they are the
-same. Readers pass it by with the other notes.
+EMail and ECal show people by name and let the user pick them in
+EContact's window. They ask EContact with the family's PEOPLE message
+(0x4E43, the AERA guidelines 4.1); no program reads another's files.
+PEOPLE is laid out as `VA_START` (word 1 the sender, words 3 and 4 a
+string the receiver may read) and answered with `AV_STARTED`. Strings
+are at most 1 KB of Atari text; a longer question or answer goes as
+several whole ones, each sent after the last one's `AV_STARTED`.
 
 ```
-P<tab>name<tab>email<tab>label                  one line for each email address
-G<tab>group<tab>Name <email>, Name <email>...    one line for each group with addresses
+names:EMAIL a@b c@d        ->  names:                       a line for each address,
+                               a@b<tab>Grace Baker            an empty name when EContact
+                               c@d<tab>                       doesn't know it
+pick:ECAL gra              ->  EContact's window chooses (people, or a group's
+                               members with an address; "gra" fills its search):
+                               pick:
+                               grace@example.net<tab>Grace Baker
+                               (a bare pick: when cancelled, closed or quit)
+changed:                   <-  to the askers, when the names or addresses changed,
+                               and when the accessory has read its books
 ```
 
-```
-P	Maya Carter	maya@pixelpress.example	work
-P	Maya Carter	maya.carter@example.com	home
-G	Atari Club	Grace Baker <grace.baker@example.net>, Daniel Hughes <dan@retrorepairs.example>
-```
-
-[`share/people.c`](../share/people.c) reads it: copy `people.c` and
-`people.h` into a program's `src/` (they need only `util.c` and
-`plat.h`, as EMail and ECal have them). It finds the file, lists the
-people and groups matching what was typed, and completes a To: line:
+`EMAIL` and `ECAL` are the askers' AES names. EContact answers from the
+contacts it holds, without reading a file or raising an alert; before
+the accessory has read its books (in the background, a minute after
+boot) the names are empty, and the askers are told `changed:` once it
+has. With ECONTACT.PRG running, the accessory hands the question on to
+it. The shared code does both sides (AERA-Atari's `common/ui/av.c` and
+`common/ui/people_ask.c`; EContact's answers are `ui/answer.c`):
 
 ```c
-people_drive('A' + boot_drive());          /* once, at start-up */
+people_init(64, 2048, names_came, picked);   /* once, at start */
 ...
-char part[100], *line2;
-PPICK *l;
-int n;
-people_partial(line, part, sizeof(part));  /* "Bob <b@x>, gr" -> "gr" */
-n = people_pick_list(part, &l);            /* groups first, then by name */
-/* show l[i].label, let the user choose k */
-line2 = people_complete(line, l[k].value); /* "Bob <b@x>, Grace Baker <g@x>" */
-people_pick_free(l, n);
+case AV_PEOPLE: people_message(s, msg[1]);   /* in every event loop */
+people_poll();                               /* each turn */
+...
+const char *n = people_name("grace@example.net");   /* 0 while asked */
+people_pick("gra");                                 /* picked() gets them */
 ```
 
 ## Opening EContact's window, importing vCards

@@ -129,9 +129,8 @@ under a search field, the chosen person's card on the right.
 
 EContact is the address book of the other two:
 
-- **EMail**: ^B in a new message offers EContact's people and groups (and the addresses EMail
-  remembers). Type the beginning of a name first, "gr", and ^B finds Grace; one match is filled in at
-  once. EContact's **mail** button, or a double-click on an address, opens a new message to that
+- **EMail**: the addresses it shows carry EContact's names, and its address book picks people or a
+  group in EContact's window (Choose or Cancel in the toolbar). EContact's **mail** button, or a double-click on an address, opens a new message to that
   person in EMail.
 - **ECal**: an event has **Invitees**; **Add...** picks people or a whole group from EContact (or type
   addresses). iCloud and other CalDAV servers that do scheduling (RFC 6638) send the invitations by
@@ -140,9 +139,9 @@ EContact is the address book of the other two:
 
 ![EMail's ^B in a new message: "gr" on the To: line offers the Atari Club group and Grace Baker from EContact](docs/email-complete.png) ![ECal's New Event dialog with Priya Patel on the Invitees line, picked from EContact with Add...](docs/ecal-invitees.png)
 
-ECal (2.5 and later) does this itself; the changes to EMail are in [integration/](integration) as a patch, with
-[docs/INTEGRATION.md](docs/INTEGRATION.md) describing how the three talk (a file, `CONTACTS.TXT`, and
-two GEM messages), so other programs can use EContact too.
+They ask EContact with the family's PEOPLE message (EMail 1.35 and ECal's next releases):
+[docs/INTEGRATION.md](docs/INTEGRATION.md) describes how the three talk, so other programs can use
+EContact too.
 
 ## Photos and their cache
 
@@ -216,7 +215,7 @@ name, a company, one or two emails, two phones, some with an address, birthday o
 - With more in the address book than fit, a few less show: each card in the cache keeps about 125
   bytes in memory either way (1,000 on a 1 MB ST: 300 shown).
 - **Contacts that don't fit are never left out quietly**: the window says "N not shown" and an alert
-  gives the `HEAPKB=` to set. `CONTACTS.TXT` is then left as it was, so EMail and ECal keep everyone.
+  gives the `HEAPKB=` to set. EMail and ECal then find names only for the contacts EContact holds.
   Once memory is full, the rest are counted, not read only to be let go: 1,500 contacts on a 1 MB ST
   start in 15 s, not 28.
 - **The accessory reads its books in the background** a minute after boot (`START=`), in steps of
@@ -229,10 +228,8 @@ name, a company, one or two emails, two phones, some with an address, birthday o
 - **Start-up reads parsed contacts** from `CACHE\BOOKnnnn.IDX`: a card is parsed (about 85 ms on an
   8 MHz ST) only the first time, and after it changes; the rest take about 18 ms each. A new version
   keeps the index unless its card parser changed; then the first start parses everything once (2,500
-  contacts: 4 minutes on an ST; 600 take 13 s on a Falcon). `CONTACTS.TXT` notes what it was made
-  from and is left alone while that is the same (making it again took 6 s for 600 contacts on an
-  8 MHz ST, at every start). With **Write a log** on, the log says how long each address book took to
-  read.
+  contacts: 4 minutes on an ST; 600 take 13 s on a Falcon). With **Write a log** on, the log says
+  how long each address book took to read.
 - **Syncing a big address book** reads the server's list of cards as it arrives when memory is small,
   keeping only what needs fetching.
 - STinG takes 100 KB or more of its own: with it, a 1 MB ST holds about 400 contacts. A 512 KB ST
@@ -271,13 +268,12 @@ Pushing a tag `v1.34` made with `git tag -a` does the same, with the tag's messa
 ```
 src/          the contacts core, also built on Linux for the tests:
               vcard.c    vCard 2.1/3.0/4.0 in and out      carddav.c  CardDAV
-              abook.c    accounts, books, caches, sync, saving, groups, CONTACTS.TXT
+              abook.c    accounts, books, caches, sync, saving, groups
               photo.c    photos and their cache            jpegdc.c   the JPEGs TJpgDec won't take
               http.c, xml.c, inflate.c: HTTP, WebDAV's XML and gzip, from ECal
 ui/           the GEM program: main.c, win.c (the window), sidebar.c, list.c,
-              card.c, editor.c, dialogs.c, about.c; field.c, font.c, draw.c from ECal
-share/        people.c: EContact's people for other programs (EMail, ECal)
-integration/  the patch for EMail (ECal 2.5 has its part itself)
+              card.c, editor.c, dialogs.c, about.c; answer.c: PEOPLE, EMail and ECal
+              asking about people; field.c, font.c, draw.c from ECal
 gateway/      the Raspberry Pi gateways (ecalgate.py serves EContact) and aera-gateway, their
               installer: a copy of AERA-Gateway's; change it there, then tools/sync-gateway.sh
 atari/        plat_tos.c: files, folders and time on GEMDOS
@@ -306,7 +302,8 @@ make itest      # card-cli against a real CardDAV server (Radicale: pip install
                 # export, delete, the people list EMail and ECal read, photos
                 # and their cache, partial retrieval (tests/host/partialproxy.py),
                 # little memory, converting 1.9's cache, the index found by
-                # where the cards are, and the refresh in the background
+                # where the cards are, the refresh in the background, and
+                # PEOPLE's answers (card-cli ask)
 GATEWAY=gateway/ecalgate.py make itest            # the same through the Pi gateway
 tests/hatari/docs_shots.py WORK etos512us.img     # the screenshots, in Hatari
 tests/hatari/placement.py WORK etos512us.img      # where the accessory and the program
@@ -325,6 +322,9 @@ tests/hatari/quiet_start.py WORK etos512us.img    # the accessory's quiet start:
                                                   # (Falcon) or 100 ms (ST) between event calls
 tests/hatari/quiet_sync.py WORK etos512us.img     # its refresh with the window closed, through
                                                   # the gateway (FAKESTNG and the bridge too)
+make build/ASKER.PRG && tests/hatari/people_ask.py WORK etos512us.img
+                                                  # PEOPLE: a stand-in for EMail asks for a name
+                                                  # at boot and picks someone in the window
 ```
 
 The Hatari rigs run [EmuTOS](https://sourceforge.net/projects/emutos/) (`etos512us.img`) under Xvfb,

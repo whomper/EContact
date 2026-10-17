@@ -12,7 +12,6 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CLI=$PWD/build/card-cli
-PEOPLE=$PWD/build/people-cli
 W=$(mktemp -d)
 PIDS=()
 cleanup() { for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done; rm -rf "$W"; }
@@ -106,45 +105,27 @@ expect "joined the category" "Atari Club (category, 2): Sam Cohen, Erez Yaary" "
 $CLI "$D" group-remove Family "Dana Levi"
 R=$($CLI "$D" groups)
 expect "left the group" "Family (card, 1): Erez Yaary" "$R"
-R=$($CLI "$D" people)
-expect "CONTACTS.TXT: a person" $'P\tDana Levi\tdana@example.org\twork' "$R"
-expect "CONTACTS.TXT: a group" $'G\tFamily\tErez Yaary <erez@example.com>' "$R"
-# made again at the start when it was made from other contacts (its
-# "; made from" line differs), and left alone when it wasn't: not even
-# read through and compared (6 s for 600 contacts on an ST)
-grep -q "^; made from [0-9A-F]\{8\}" "$D/CONTACTS.TXT" && ok "CONTACTS.TXT says what it was made from" ||
-  bad "CONTACTS.TXT without its \"made from\" line"
-grep -v "Dana Levi" "$D/CONTACTS.TXT" | sed 's/^; made from .*/; made from 00000000\r/' > "$W/people.txt"
-cp "$W/people.txt" "$D/CONTACTS.TXT"
-$CLI "$D" list > /dev/null
-R=$($CLI "$D" people)
-expect "CONTACTS.TXT made again at the start" $'P\tDana Levi\tdana@example.org\twork' "$R"
-grep -v "Dana Levi" "$D/CONTACTS.TXT" > "$W/people.txt"
-cp "$W/people.txt" "$D/CONTACTS.TXT"
-$CLI "$D" list > /dev/null
-R=$($CLI "$D" people)
-absent "made from the same contacts: as it is" $'P\tDana Levi' "$R"
-$CLI "$D" set "Dana Levi" title "Engineer" > /dev/null
-R=$($CLI "$D" people)
-expect "and made again when a contact changes" $'P\tDana Levi\tdana@example.org\twork' "$R"
-touch -d "2001-01-01" "$D/CONTACTS.TXT"
-$CLI "$D" list > /dev/null
-if [ "$(date -r "$D/CONTACTS.TXT" +%Y)" = 2001 ]; then ok "CONTACTS.TXT left alone when the same"; else bad "CONTACTS.TXT written again unchanged"; fi
+echo "PEOPLE: EMail and ECal asking (ui/answer.c)"
+R=$($CLI "$D" ask "names:EMAIL dana@example.org NOBODY@x.org DANA@HOME.EXAMPLE")
+expect "names: to the asker" "to 7: names:" "$R"
+expect "a known address, its name" $'dana@example.org\tDana Levi' "$R"
+expect "any case" $'DANA@HOME.EXAMPLE\tDana Levi' "$R"
+if grep -qx $'NOBODY@x.org\t' <<<"$R"; then ok "an unknown one, empty"; else bad "an unknown one: $R"; fi
+R=$($CLI "$D" ask "pick:EMAIL dan" @group Family)
+expect "pick: the search for the window" 'pick for EMAIL, searching "dan"' "$R"
+expect "pick: answered" "to 7: pick:" "$R"
+expect "a group: its members with an address" $'erez@example.com\tErez Yaary' "$R"
+R=$($CLI "$D" ask "names:EMAIL sam@example.net" @poll @poll)
+N=$(grep -c "changed:" <<<"$R" || true)
+if [ "$N" = 1 ]; then ok "changed: once, when the names are first there"; else bad "changed: $N times"; fi
+R=$($CLI "$D" ask "names:EMAIL sam@example.net" @poll @email "Dana Levi" dana@new.example @poll)
+N=$(grep -c "changed:" <<<"$R" || true)
+if [ "$N" = 2 ]; then ok "and again when an address changed"; else bad "changed: $N times"; fi
+R=$($CLI "$D" ask "names:EMAIL dana@new.example")
+expect "the new address known" $'dana@new.example\tDana Levi' "$R"
 $CLI "$D" group-rename "Atari Club" "Atari Friends"
 R=$($CLI "$D" groups)
 expect "renamed category" "Atari Friends (category, 2)" "$R"
-
-echo "the people for EMail and ECal (share/people.c)"
-R=$($PEOPLE "$D/ECONTACT.INF" "")
-expect "everyone" "Dana Levi <dana@example.org>" "$R"
-expect "the group first" "1	Family (1 person)	Erez Yaary <erez@example.com>" "$R"
-R=$($PEOPLE "$D/ECONTACT.INF" "dan")
-expect "a search" "Dana Levi <dana@home.example>" "$R"
-absent "only matches" "Sam Cohen" "$R"
-R=$($PEOPLE "$D/ECONTACT.INF" "-complete" "Bob <b@x.org>, da" "Dana Levi <dana@example.org>")
-expect "completing a To: line" "Bob <b@x.org>, Dana Levi <dana@example.org>" "$R"
-R=$($PEOPLE "$D/ECONTACT.INF" "-complete" "Bob <b@x.org>" "Sam <s@x.org>")
-expect "adding to a To: line" "Bob <b@x.org>, Sam <s@x.org>" "$R"
 
 echo "import and export"
 printf 'BEGIN:VCARD\r\nVERSION:2.1\r\nN;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:M=C3=BCller;J=C3=BCrgen\r\nTEL;CELL:0170 1234567\r\nEND:VCARD\r\nBEGIN:VCARD\r\nVERSION:3.0\r\nFN:Atari Corp\r\nORG:Atari Corp\r\nX-ABShowAs:COMPANY\r\nEND:VCARD\r\n' > "$W/in.vcf"
@@ -632,7 +613,7 @@ absent "its old self" "Quiet Cat |" "$R"
 absent "the gone one" "Quiet Ben" "$R"
 expect "the others kept" "Quiet Dan | Dan@example.net" "$R"
 expect "added to the cache, not written anew" "$GEN" "$(head -1 "$QDAT")"
-expect "CONTACTS.TXT made again" "Eve@example.net" "$(cat "$Q/CONTACTS.TXT")"
+expect "its names known" $'Eve@example.net\tQuiet Eve' "$($CLI "$Q" ask "names:EMAIL Eve@example.net")"
 R=$($CLI "$Q" quiet-sync)
 expect "nothing changed: nothing done" "0 books changed" "$R"
 R=$($CLI "$Q" sync && $CLI "$Q" list)

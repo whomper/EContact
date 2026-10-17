@@ -140,7 +140,7 @@ def main():
                 time.sleep(3)
                 t = open(log, encoding="latin-1").read() if os.path.exists(log) else ""
                 i = t.find("refreshing in the background")
-                done = i >= 0 and "CONTACTS.TXT" in t[i:]
+                done = i >= 0 and "the list sorted" in t[i:]
             took = time.time() - t0
             time.sleep(3)
             r.click(30, 8)

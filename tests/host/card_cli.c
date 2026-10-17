@@ -24,7 +24,10 @@
  *   card-cli DIR group-delete GROUP
  *   card-cli DIR import BOOK FILE
  *   card-cli DIR export FILE
- *   card-cli DIR people                       CONTACTS.TXT, as EMail and ECal read it
+ *   card-cli DIR ask STEP...                  PEOPLE (ui/answer.c) as EMail asks: each
+ *                                             STEP a question ("names:EMAIL a@b"), @poll
+ *                                             (answer_poll), @email NAME ADDR, @group
+ *                                             GROUP (chosen in a pick); what is sent printed
  *   card-cli DIR photo NAME [offline]         the picture: how it came, and its colours
  *   card-cli DIR photo-ppm NAME FILE          the picture as a PPM file, to look at
  *   card-cli DIR photo-file NAME              its cache file, and whether it is there
@@ -47,6 +50,28 @@
 #include "http.h"
 #include "util.h"
 #include "plat.h"
+#include "tos.h"
+#include "gem.h"
+#include "av.h"
+#include "people_ask.h"
+#include "answer.h"
+
+/* ---- PEOPLE on Linux: what EContact sends is printed; the asker,
+   EMAIL, is program 7 ---- */
+void (*av_people_hook)(const char *s, short from);
+u32 tos_ms(void) { return pf_ms(); }
+short appl_find(const char *name) { return !strncmp(name, "EMAIL   ", 8) ? 7 : -1; }
+const char *av_name(void) { return "ECONTACT"; }
+int av_people_ready(void) { return 1; }
+int av_people(short id, const char *text)
+{
+	char *u;
+	long n;
+	u = atari_to_utf8(text, (long)strlen(text), &n);
+	printf("to %d: %s\n--\n", id, u ? u : text);
+	free(u);
+	return 1;
+}
 
 static void show_status(const char *s)
 {
@@ -488,14 +513,33 @@ int main(int argc, char **argv)
 			fprintf(stderr, "photo-sync: %s\n", ab_err);
 	} else if (!strcmp(cmd, "prune")) {
 		printf("%d removed\n", photo_prune());
-	} else if (!strcmp(cmd, "people")) {
-		char path[300], *t;
-		long len;
-		path_join(path, sizeof(path), dir, "CONTACTS.TXT");
-		t = pf_load(path, &len);
-		if (t) {
-			out(t);
-			free(t);
+	} else if (!strcmp(cmd, "ask")) {
+		int i;
+		answer_init();
+		for (i = 3; i < argc && ok; i++) {
+			if (!strcmp(argv[i], "@poll")) {
+				answer_poll(1);
+			} else if (!strcmp(argv[i], "@email") && i + 2 < argc) {
+				CONTACT *c = find(argv[i + 1]);
+				ok = c && set_field(c, "email", argv[i + 2]);
+				i += 2;
+			} else if (!strcmp(argv[i], "@group") && i + 1 < argc) {
+				int g;
+				char *n = to_atari(argv[++i]);
+				for (g = 0; g < ngroups && strcmp(groups[g].name, n); g++)
+					;
+				free(n);
+				ok = g < ngroups;
+				if (ok)
+					answer_picked_group(&groups[g]);
+			} else {
+				char *q = to_atari(argv[i]);
+				answer_message(q, 7, 1);
+				free(q);
+				if (pick_new && pick_to >= 0)
+					printf("pick for %s, searching \"%s\"\n", pick_asker, pick_search);
+			}
+			answer_poll(1);
 		}
 	} else {
 		fprintf(stderr, "unknown command %s\n", cmd);

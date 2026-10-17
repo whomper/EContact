@@ -84,8 +84,8 @@ def main():
         r.click(60, 158, double=True)
         time.sleep(3)
         r.shot("2-folder")
-        # CACHE, CONTACTS.TXT, ECONTACT.KEY, ECONTACT.LOG, ECONTACT.PRG
-        r.click(140, 200, double=True)
+        # CACHE, ECONTACT.KEY, ECONTACT.LOG / ECONTACT.PRG
+        r.click(60, 200, double=True)
         time.sleep(15)
         r.shot("3-program")
         r.click(216, 8)                 # View

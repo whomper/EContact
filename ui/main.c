@@ -10,11 +10,11 @@
  * As a program (ECONTACT.PRG) it keeps them next to itself and ends when
  * the window closes.
  *
- * EMail and ECal find the people through C:\ECONTACT.INF (FOLDER=) and
- * CONTACTS.TXT in that folder; EContact hands an address to EMail with
- * the AV protocol's VA_START ("mailto:..."), and takes VA_START itself:
- * nothing opens its window, .vcf files are imported (see
- * docs/INTEGRATION.md).
+ * EMail and ECal ask EContact about people with PEOPLE (answer.c): names
+ * for addresses, people chosen in the window, word when they change.
+ * EContact hands an address to EMail with the AV protocol's VA_START
+ * ("mailto:..."), and takes VA_START itself: nothing opens its window,
+ * .vcf files are imported (see docs/INTEGRATION.md).
  */
 #include <string.h>
 #include <stdio.h>
@@ -40,6 +40,8 @@
 #include "mbar.h"
 #include "twin.h"
 #include "bgwork.h"
+#include "people_ask.h"
+#include "answer.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 short gl_wchar, gl_hchar, ap_id, is_acc, ncolors, hebrew_kbd, quit_now;
@@ -48,6 +50,7 @@ extern short _is_acc;		/* crt0.S */
 static short menu_id = -1;
 static int data_ready;
 static void files_left(void);
+static void open_window(void);
 static char workdir[160];	/* EContact's folder: address books, keys, certificates, log */
 static char inf_file[40];	/* ECONTACT.INF, in the root of the boot drive */
 static unsigned long last_refresh, last_minute;
@@ -72,9 +75,83 @@ void settings_flush(void)
 	}
 }
 
+/* ---------------- choosing people for EMail or ECal (pick:) ---------------- */
+
+short picking;			/* the window chooses for pick_to (answer.c) */
+static int pick_opened;		/* the window was opened for it */
+
+static void pick_start(void)
+{
+	int was_open = win_h > 0, i;
+	pick_new = 0;
+	if (pick_to < 0)
+		return;
+	picking = 0;		/* a pick before it: answer.c has cancelled it */
+	if (was_open)
+		wind_set(win_h, WF_TOP, 0, 0, 0, 0);
+	else
+		open_window();
+	if (win_h <= 0) {
+		answer_picked(0, 0);
+		return;
+	}
+	pick_opened = !was_open;
+	picking = 1;
+	for (i = 0; i < npeople; i++)
+		people[i]->mark = 0;
+	str_copy(search_text, pick_search, sizeof(search_text));
+	win_search_set();
+	status_updated();
+	win_layout();
+	win_redraw(0);
+}
+
+/* Choose (choose = 1) or Cancel: the ticked people, else a group's members
+   with an address (chosen on the left), else the one chosen. may_close:
+   the window, opened for the pick, closes (not when it is closing) */
+static void pick_finish(int choose, int may_close)
+{
+	CONTACT **l = 0;
+	int n = 0, i;
+	if (!picking)
+		return;
+	picking = 0;
+	if (choose && (l = malloc((npeople + 1) * sizeof(CONTACT *))) != 0) {
+		for (i = 0; i < npeople; i++)
+			if (people[i]->mark && !people[i]->group)
+				l[n++] = people[i];
+		if (!n && !(src_kind == SRC_GROUP && src_idx < ngroups) && sel_contact() && !sel_contact()->group)
+			l[n++] = sel_contact();
+	}
+	if (choose && !n && src_kind == SRC_GROUP && src_idx < ngroups)
+		answer_picked_group(&groups[src_idx]);
+	else
+		answer_picked(l, n);
+	free(l);
+	for (i = 0; i < npeople; i++)
+		people[i]->mark = 0;
+	if (win_h > 0) {
+		status_updated();
+		win_layout();
+		win_redraw(0);
+	}
+	/* opened for it: closed again, back to the program that asked */
+	if (pick_opened && may_close && is_acc && win_h > 0) {
+		pick_opened = 0;
+		win_close();
+	}
+	pick_opened = 0;
+}
+
+void pick_end(int choose)
+{
+	pick_finish(choose, 1);
+}
+
 void closing_down(int quitting)
 {
 	char host[100], m[160];
+	pick_finish(0, 0);		/* a pick open: cancelled */
 	busy(1);
 	if (settings_dirty) {
 		status("Closing: saving your settings...");
@@ -277,7 +354,9 @@ static void updated_status(void)
 		snprintf(what, sizeof(what), "%d contact%s", n, n == 1 ? "" : "s");
 	if (contacts_lost() > 0)
 		snprintf(what + strlen(what), sizeof(what) - strlen(what), ", %d not shown", contacts_lost());
-	if (opt.offline)
+	if (picking)
+		snprintf(s, sizeof(s), "%s   Choose for %s: tick people or a group, then Choose", what, pick_asker);
+	else if (opt.offline)
 		snprintf(s, sizeof(s), "%s   Working offline", what);
 	else if (!naccts)
 		snprintf(s, sizeof(s), "%s", what);
@@ -1156,10 +1235,46 @@ static void load_contacts(void)
    (REFRESH=, SYNC_AFTER=): one exchange with a server a step (abook.c
    quiet_sync), every message that comes meanwhile held for the main
    loop, and the sync stopped by it */
-static short held[4][8];
+static short held[16][8];
 static int nheld;
 static void (*was_idle)(void);
 static long was_budget;
+
+/* While the network works in the window (busy.c), messages are read
+   too: PEOPLE is answered at once, the rest waits for the main loop */
+static void busy_hold(const short *msg)
+{
+	if (nheld < 16)
+		memcpy(held[nheld++], msg, 16);
+}
+
+/* PEOPLE (answer.c): the accessory, while ECONTACT.PRG runs, hands it
+   on, as twin_pass does VA_START; the answer goes from the program to
+   the asker (msg[1] stays the asker's) */
+static int people_pass(const char *s, short from)
+{
+	static char pass[2][1024];
+	static int k;
+	short msg[8], id;
+	char *p;
+	if (!is_acc || (id = twin_prg()) < 0)
+		return 0;
+	p = pass[k = !k];
+	str_copy(p, s, sizeof(pass[0]));
+	memset(msg, 0, sizeof(msg));
+	msg[0] = 0x4E43;		/* PEOPLE */
+	msg[1] = from;
+	msg[3] = (short)((unsigned long)p >> 16);
+	msg[4] = (short)(unsigned long)p;
+	appl_write(id, 16, msg);
+	return 1;
+}
+
+static void people_got(const char *s, short from)
+{
+	if (!people_pass(s, from))
+		answer_message(s, from, data_ready);
+}
 
 static unsigned long quiet_at;	/* its last event call */
 
@@ -1167,8 +1282,9 @@ static void quiet_idle(void)
 {
 	short msg[8];
 	AEVENT ev;
-	if (evnt_multi_(MU_MESAG | MU_TIMER, 0, 0, 0, 5, msg, &ev) & MU_MESAG) {
-		if (nheld < 4)
+	if ((evnt_multi_(MU_MESAG | MU_TIMER, 0, 0, 0, 5, msg, &ev) & MU_MESAG) && !av_modal_message(msg)) {
+		/* (PEOPLE is answered at once: av_people_hook) */
+		if (nheld < 16)
 			memcpy(held[nheld++], msg, sizeof(msg));
 		conn_stop = 1;		/* the window may be wanted: the sync stops */
 	}
@@ -1586,7 +1702,12 @@ int main(void)
 		acc_heap();
 		/* nothing read until START= says (the guidelines, 2.2) */
 		bg_init(bg_parse(boot_start));
-	} else {
+	}
+	/* EMail and ECal asking about people (the guidelines, 4.1) */
+	answer_init();
+	av_people_hook = people_got;
+	busy_message = busy_hold;
+	if (!is_acc) {
 		long st = (long)Malloc(-1L), tt = (long)Mxalloc(-1L, 1);
 		answer_budget(tt > st ? tt : st);
 		/* the menu bar (the accessory has the toolbar's menu) */
@@ -1602,7 +1723,7 @@ int main(void)
 
 	while (!quit_now) {
 		short flags = MU_MESAG | MU_TIMER, which;
-		unsigned long wait = sync_pending ? 150 : card_photo_pending() ? 100 : 1000;
+		unsigned long wait = sync_pending ? 150 : card_photo_pending() || answer_busy() ? 100 : 1000;
 		if (is_acc)
 			wait = bg_timer(bg_pending(), wait);
 		if (win_h > 0)
@@ -1623,6 +1744,9 @@ int main(void)
 		if (is_acc)
 			bg_tick();
 		aes_profile_tag("idle");
+		answer_poll(data_ready);
+		if (pick_new)
+			pick_start();
 		if (which & MU_MESAG) {
 			const char *va;
 			aes_profile_tag(msg[0] == WM_REDRAW ? "redraw" : "message");
@@ -1645,6 +1769,8 @@ int main(void)
 				break;
 			case AC_CLOSE:
 				twin_reset();		/* another program in front */
+				if (picking)
+					pick_finish(0, 0);	/* the window goes with it */
 				if (win_h <= 0 && data_ready && (quiet_syncing() || books_loading()))
 					quiet_abort();
 				/* the program in front started or ended: the AES took
@@ -1669,10 +1795,15 @@ int main(void)
 				switch (dd_message(msg, DD_WANT_FILES, &d)) {
 				case DD_FILES: av_start(d.data); break;
 				case DD_NONE:
-					if (av_message(msg, &va) == AV_START && !(is_acc && twin_pass(va)))
-						av_start(va);
-					else
-						win_message(msg);
+					switch (av_message(msg, &va)) {
+					case AV_START:
+						if (!(is_acc && twin_pass(va)))
+							av_start(va);
+						break;
+					case AV_PEOPLE: people_got(va, msg[1]); break;
+					case AV_DONE: break;
+					default: win_message(msg);
+					}
 				}
 				dd_done(&d);
 			}

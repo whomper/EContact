@@ -92,7 +92,7 @@ def main():
                 while time.time() - t0 < 900:
                     time.sleep(2)
                     t = open(log, encoding="latin-1").read() if os.path.exists(log) else ""
-                    if t.count("CONTACTS.TXT") >= run:
+                    if t.count("the list sorted") >= run:
                         break
                 loaded = time.time() - t0
                 time.sleep(3)
@@ -135,7 +135,7 @@ def main():
             t0 = time.time()
             while time.time() - t0 < 600:
                 time.sleep(2)
-                if open(log, encoding="latin-1").read().count("CONTACTS.TXT") >= 3:
+                if open(log, encoding="latin-1").read().count("the list sorted") >= 3:
                     break
             time.sleep(4)
             r.shot("%s-3-opened-while-reading" % machine)

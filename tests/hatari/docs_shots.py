@@ -6,7 +6,7 @@ sample contacts (tests/hatari/sample.vcf, made-up people):
 
     tests/hatari/docs_shots.py WORK etos512us.img [--email DIR] [--ecal DIR] [--update]
 
---email names a checkout of EMail with integration/EMAIL.patch applied
+--email names a checkout of EMail (1.35 or later: it asks with PEOPLE)
 and built, --ecal one of ECal (2.5 or later), for the shots of them
 working together. They land in WORK/*/shots; --update copies them into docs/.
 """

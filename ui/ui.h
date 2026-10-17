@@ -79,6 +79,9 @@ short sel_color(void);		/* the selected row: the Mac's blue, black without colou
 extern short win_h;		/* AES handle, -1 when closed */
 extern short win_iconified;	/* shown as the icon */
 extern short win_hold;		/* nothing drawn: the AES asks for all of it soon */
+extern short picking;		/* choosing people for EMail or ECal (pick:) */
+void pick_end(int choose);	/* Choose (1) or Cancel (0) */
+void win_search_set(void);	/* search_text was set: the list again */
 void icon_window(GRECT *area);	/* the iconified window: icon and how many */
 extern GRECT work;		/* its work area */
 void win_open(void);

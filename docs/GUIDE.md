@@ -36,7 +36,6 @@ C:\ECONTACT\              EContact's folder (or another one):
     ECONTACT.PRG          the program, if you use it
     ECONTACT.KEY          the key the passwords in ECONTACT.INF are encrypted with
     CACHE\                a copy of every address book (BOOKnnnn.DAT)
-    CONTACTS.TXT          everyone's addresses and the groups, for EMail and ECal
     ECONTACT.FNT          which GDOS fonts are fixed-width (made by Font...)
     CACERT.PEM            Falcon mode: root certificates (copy them here)
     ROOTS.DAT             Falcon mode: the same, decoded ahead of time
@@ -279,18 +278,21 @@ window to import them. Running as an accessory, EContact tells the
 desktop about its window, so Thing and the like can drop .vcf files on
 it there too.
 
-EContact writes `CONTACTS.TXT` in its folder whenever the contacts change
-(and at the start, when it's out of date):
-every email address with its name, and the groups. EMail with the patch
-in `integration/` applied, and ECal 2.5 and later, use it:
+EMail and ECal ask EContact for people (the PEOPLE message): the names
+behind the addresses they show, and people chosen in EContact's window.
+EContact answers from the contacts it holds, so the accessory must be
+installed (or ECONTACT.PRG running); without it they show the addresses.
+When EMail or ECal asks you to choose, EContact's window opens with
+**Cancel** and **Choose** in place of Refresh and the menu: click people
+to tick them (a double click chooses at once), or choose a group on the
+left, then **Choose** (Return); **Cancel** (Esc), closing the window or
+quitting chooses no one. In EMail 1.35 and ECal's next releases:
 
-- **EMail**: in a new message, ^B (Message > Address book) lists
-  EContact's people and groups, then the addresses EMail remembers. Type
-  the beginning of a name on the To:, Cc: or Bcc: line first ("gr") and
-  ^B shows only those; with one match it is filled in at once. A group
-  puts all its members on the line.
+- **EMail**: the addresses it shows carry EContact's names, and its
+  address book picks people or a group in EContact's window.
 - **ECal**: an event's **Invitees** line takes addresses; **Add...** picks
-  people or a group from EContact, completing a name begun on the line.
+  people or a group in EContact's window, searching for a name begun on
+  the line.
   The invitations are written as the event's attendees, with you (the
   account's Apple ID or email user name) as organizer, and iCloud sends
   them. An invitation you received shows who it is from.

@@ -306,7 +306,9 @@ void list_draw(GRECT *clip)
 				flags = TX_INVERSE;
 				srow = (short)i;
 			}
-			draw_name(c, r_list.x + cw, y + 1, cols, flags);
+			draw_name(c, r_list.x + cw, y + 1, cols - (picking ? 2 : 0), flags);
+			if (picking && c->mark)
+				text_at(r_list.x + r_list.w - 2 * cw, y + 1, "\x08", 1, 1, TX_LTR | flags);	/* a tick */
 			if (opt.me[0] && c->uid && !strcmp(c->uid, opt.me))
 				text_at(r_list.x + r_list.w - 4 * cw, y + 1, "me", 2, 2, TX_LTR | (flags ? flags : TX_GREY));
 		}
@@ -504,6 +506,18 @@ int list_click(short mx, short my, short clicks, short button, short kstate)
 		CONTACT *c = listed[rows[i].contact];
 		if (c != sel_contact())
 			select_contact(c);
+		if (picking && !(button & 2)) {
+			/* choosing for EMail or ECal: a click ticks or unticks,
+			   a double click chooses */
+			if (clicks == 2) {
+				c->mark = 1;
+				pick_end(1);
+			} else {
+				c->mark = !c->mark;
+				win_redraw(&r_list);
+			}
+			return 1;
+		}
 		if (button & 2)
 			contact_menu(mx, my, sel_contact());
 		else if (clicks == 2)

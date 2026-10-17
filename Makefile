@@ -50,7 +50,7 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
 CORE    := util charset conn tls bidi secret futil ctime xml inflate http vcard carddav abook photo jpegdc pfkeep
 ATARI   := libc tos plat_tos net_tos sting gem dsprsa
-UI      := main win draw popup dsp sidebar list card editor dialogs field about font help av alert aboutbox iconify clip dd mbar twin busy bgwork
+UI      := main win draw popup dsp sidebar list card editor dialogs field about font help av alert aboutbox iconify clip dd mbar twin busy bgwork people_ask answer
 
 OBJDIR  := build
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash.o $(OBJDIR)/crash_s.o \
@@ -198,11 +198,12 @@ $(OBJDIR)/libbearssl-host.a: $(HBSSLOBJ)
 	rm -f $@
 	ar rcs $@ $^
 
-$(OBJDIR)/card-cli: tests/host/card_cli.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
-	$(HOSTCC) $(HOSTCFLAGS) -I$(BSSL)/inc -o $@ tests/host/card_cli.c $(HOSTSRC) $(HOSTLIB)
-
-$(OBJDIR)/people-cli: tests/host/people_cli.c share/people.c share/people.h $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
-	$(HOSTCC) $(HOSTCFLAGS) -Ishare -I$(BSSL)/inc -o $@ tests/host/people_cli.c share/people.c $(HOSTSRC) $(HOSTLIB)
+# PEOPLE's answers (ui/answer.c, common/ui/people_ask.c) built in too,
+# with common/tests/people's stand-ins for the AES (card-cli ask)
+ASKSRC  := ui/answer.c common/ui/people_ask.c
+$(OBJDIR)/card-cli: tests/host/card_cli.c $(HOSTSRC) $(ASKSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
+	$(HOSTCC) $(HOSTCFLAGS) -Icommon/tests/people/stub -Icommon/ui -Iui -I$(BSSL)/inc -o $@ tests/host/card_cli.c \
+	  $(HOSTSRC) $(ASKSRC) $(HOSTLIB)
 
 $(OBJDIR)/unit: tests/unit.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
 	$(HOSTCC) $(HOSTCFLAGS) -I$(BSSL)/inc -o $@ tests/unit.c $(HOSTSRC) $(HOSTLIB)
@@ -228,6 +229,13 @@ $(OBJDIR)/fakeguide.acc: tests/atari/fakeguide.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.
 	$(CC) $(LDFLAGS) -o $(OBJDIR)/fakeguide.elf $(OBJDIR)/crt0.o $(OBJDIR)/fakeguide.o \
 		$(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
 	python3 common/tools/elf2tos.py $(OBJDIR)/fakeguide.elf $@
+
+# a stand-in for EMail asking about people, for tests/hatari/people_ask.py
+ASKOBJ := $(addprefix $(OBJDIR)/,crt0.o gem.o libc.o tos.o nf.o av.o people_ask.o)
+$(OBJDIR)/ASKER.PRG: tests/atari/asker.c $(ASKOBJ)
+	$(CC) $(CFLAGS) -c -o $(OBJDIR)/asker.o $<
+	$(CC) $(LDFLAGS) -o $(OBJDIR)/asker.elf $(OBJDIR)/crt0.o $(OBJDIR)/asker.o $(filter-out %crt0.o,$(ASKOBJ)) -lgcc
+	python3 common/tools/elf2tos.py $(OBJDIR)/asker.elf $@
 
 # ---- fuzzing (the AERA guidelines, 7.1): what servers send, from
 # libFuzzer, with AddressSanitizer and UBSan. The network is
@@ -292,7 +300,7 @@ dist: all help
 	cd dist/zip && zip -q -9 -r ../ECONTACT-$(VERSION_STR).zip .
 	rm -rf dist/zip
 
-itest: $(OBJDIR)/card-cli $(OBJDIR)/people-cli
+itest: $(OBJDIR)/card-cli
 	tests/integration.sh
 
 clean:

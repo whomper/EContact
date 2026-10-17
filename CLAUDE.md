@@ -57,12 +57,14 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   that repository's owner session, and bring it here with
   `tools/sync-gateway.sh`; `GATEWAY=gateway/ecalgate.py make itest` tests
   through it.
-- `share/people.c` is also compiled into EMail and ECal (`src/people.c`
-  there). ECal (2.5 and later) carries its copy and its invitees itself:
-  when people.c changes, tell ECal's session. `integration/EMAIL.patch` is
-  the change to EMail: when it or EMail changes, regenerate it from a
-  checkout of EMail's `main` (`git diff -- . ':!VERSION'`) and check it
-  applies and builds.
+- EMail and ECal ask EContact about people with PEOPLE (the guidelines,
+  4.1; docs/INTEGRATION.md): ui/answer.c answers names: and pick: from
+  the contacts in memory (no file read, no alert, no mouse form) and
+  sends changed: when people_names_stamp moves and when the background
+  load ends; the window's choose mode is main.c's pick_start/pick_end.
+  The accessory hands PEOPLE on to a running ECONTACT.PRG (people_pass).
+  No program reads another's files: there is no CONTACTS.TXT. `make
+  itest` checks the answers through card-cli ask.
 - Where the accessory and the program find ECONTACT.INF and the folder
   follows ECal (ui/main.c: find_workdir, move_inf, locate_folder);
   `tests/hatari/placement.py WORK etos512us.img` checks it.
@@ -128,7 +130,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (cw_open does).
 - The accessory's quiet start (the guidelines, 2.2): before its first
   event call it only finds ECONTACT.INF (FOLDER=, START=) and takes its
-  memory. Reading the books (abook.c books_load_*), the sort, CONTACTS.TXT
+  memory. Reading the books (abook.c books_load_*), the sort, the names stamp
   and the refresh with the window closed (quiet_sync_*) run in steps
   from ui/main.c bg_step through common/ui/bgwork.c, and no alert, busy
   bee or drawing happens until the window opens. A step must stay short
