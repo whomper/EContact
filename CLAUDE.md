@@ -79,7 +79,10 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   `make dist` fail when it doesn't say the program's version:
   `common/tools/build-hcp.sh DIR` builds hcp from github.com/th-otto/hypview
   (the release workflow does the same); put it on the PATH or pass
-  `HCP=`. `tests/hatari/help_key.py` checks the Help key.
+  `HCP=`. Its first page is the family's front page (the guidelines,
+  4.3): common/tools/helpfront.py makes it from docs/front.json, with
+  docs/help/WINDOW.IMG (made once with `helpfront.py thumb` from
+  docs/window.png). `tests/hatari/help_key.py` checks the Help key.
 - The UI is checked in Hatari: `tests/hatari/docs_shots.py WORK etos512us.img`
   takes the screenshots in docs/ (EmuTOS 512k, sourceforge.net/projects/emutos).
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);

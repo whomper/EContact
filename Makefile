@@ -75,8 +75,10 @@ all: $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/ECONTST.ACC $(BIN)/ROOTS.DAT
 help: $(BIN)/ECONTACT.HYP
 
 # ECONTACT.REF (the pages' names, for ST-Guide's index) is written with it
-$(BIN)/ECONTACT.HYP: docs/GUIDE.md tools/mkhelp.py VERSION | $(OBJDIR) $(BIN)
+$(BIN)/ECONTACT.HYP: docs/GUIDE.md tools/mkhelp.py VERSION docs/front.json docs/help/WINDOW.IMG \
+                     common/help/ECONTACT.IMG common/tools/helpfront.py common/tools/gemimg.py | $(OBJDIR) $(BIN)
 	python3 tools/mkhelp.py docs/GUIDE.md VERSION $(OBJDIR)/ECONTACT.STG
+	python3 common/tools/helpfront.py page docs/front.json $(OBJDIR)/ECONTACT.STG $(OBJDIR)/ECONTACT.STG
 	$(HCP) -q -o $@ $(OBJDIR)/ECONTACT.STG >/dev/null
 	test -s $(BIN)/ECONTACT.REF
 
