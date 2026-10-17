@@ -267,6 +267,21 @@ int main(int argc, char **argv)
 			fprintf(stderr, "sync: %s\n", ab_err);
 			ok = 0;
 		}
+	} else if (!strcmp(cmd, "quiet-sync")) {
+		/* the accessory's refresh in the background, its window closed
+		   (ui/main.c): one exchange a step, then sorted in steps */
+		int steps = 0, loads = 0;
+		long budget = carddav_budget;
+		carddav_budget = 32L * 1024;
+		if (quiet_sync_begin())
+			while (quiet_sync_step())
+				steps++;
+		while (books_load_run(0))
+			loads++;
+		if (store_unsaved)
+			store_save_settings();	/* as the window's opening does */
+		carddav_budget = budget;
+		printf("%d steps, %d book%s changed\n", steps, quiet_sync_changed(), quiet_sync_changed() == 1 ? "" : "s");
 	} else if (!strcmp(cmd, "accessory")) {
 		/* the accessory on single TOS: what it read stays in memory
 		   while the program runs (here: until a line comes on stdin);

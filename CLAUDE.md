@@ -121,3 +121,22 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   the index: reading every card again takes 13 s for 600 on a Falcon.
   Contacts that don't fit are counted (contacts_lost) and the user is
   told, never left out quietly.
+- The index also names the copy of BOOKnnnn.DAT it was made from (the
+  number on the DAT's first line, or its size and date): then nothing is
+  hashed and the cards are found by where they are. Anything that writes
+  the DAT other than by adding to its end must give it a new number
+  (cw_open does).
+- The accessory's quiet start (the guidelines, 2.2): before its first
+  event call it only finds ECONTACT.INF (FOLDER=, START=) and takes its
+  memory. Reading the books (abook.c books_load_*), the sort, CONTACTS.TXT
+  and the refresh with the window closed (quiet_sync_*) run in steps
+  from ui/main.c bg_step through common/ui/bgwork.c, and no alert, busy
+  bee or drawing happens until the window opens. A step must stay short
+  on a 68000 (a card parsed is about 70 ms, four records hashed 35 ms, a
+  24 KB memcpy 30 ms): new work goes in steps too, never a loop over all
+  the contacts at once. A file is opened and closed within a step (the
+  reader opens it again where it was): an accessory's handles belong to
+  the program in front, which may end while we wait, so the background
+  refresh keeps what came in memory and writes it with no event call
+  between open and close. `tests/hatari/quiet_start.py` and
+  `quiet_sync.py` check it with an AES_PROFILE build (README, Tests).

@@ -39,6 +39,7 @@
 #include "dd.h"
 #include "mbar.h"
 #include "twin.h"
+#include "bgwork.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 short gl_wchar, gl_hchar, ap_id, is_acc, ncolors, hebrew_kbd, quit_now;
@@ -50,6 +51,7 @@ static void files_left(void);
 static char workdir[160];	/* EContact's folder: address books, keys, certificates, log */
 static char inf_file[40];	/* ECONTACT.INF, in the root of the boot drive */
 static unsigned long last_refresh, last_minute;
+static int synced_once;		/* refreshed since the start (SYNC_AFTER=) */
 
 /* ---------------- small things ---------------- */
 
@@ -187,6 +189,8 @@ static int warned_lost;
 static void memory_check(void)
 {
 	int lost = contacts_lost();
+	if (win_h <= 0)
+		return;			/* said when the window opens: no alerts in the background */
 	if (lost <= 0 || !data_ready) {
 		warned_lost = lost > 0 ? warned_lost : 0;
 		return;
@@ -307,6 +311,7 @@ static void refresh(int force, int quiet)
 	pf_keep(0);
 	busy(0);
 	last_refresh = pf_ms();
+	synced_once = 1;
 	if (r >= 0)
 		updated_now();
 	after_change();
@@ -865,12 +870,13 @@ void cmd_menu(short x, short y)
    EMail and ECal can always find it; FOLDER= in it says where the rest
    of EContact's files are. */
 
-static void inf_folder(const char *inf, char *out, int size)
+/* KEY= from the start of ECONTACT.INF ("folder=", "start="), read
+   without malloc: the accessory calls this before its heap is taken */
+static void inf_value(const char *inf, const char *key, char *out, int size)
 {
-	/* read without malloc: the accessory calls this before its heap is taken */
 	static char t[4096];
 	char *k;
-	int h = pf_open(inf, PF_READ);
+	int h = pf_open(inf, PF_READ), kl = (int)strlen(key);
 	long n;
 	out[0] = 0;
 	if (h < 0)
@@ -878,19 +884,26 @@ static void inf_folder(const char *inf, char *out, int size)
 	n = pf_read(h, t, sizeof(t) - 1);
 	pf_close(h);
 	t[n > 0 ? n : 0] = 0;
-	for (k = t; (k = (char *)str_istr(k, "folder=")); k += 7)
+	for (k = t; (k = (char *)str_istr(k, key)); k += kl)
 		if (k == t || k[-1] == '\n') {
-			char *e = k + 7 + strcspn(k + 7, "\r\n");
+			char *e = k + kl + strcspn(k + kl, "\r\n");
 			*e = 0;
-			str_copy(out, k + 7, size);
+			str_copy(out, k + kl, size);
 			break;
 		}
+}
+
+static void inf_folder(const char *inf, char *out, int size)
+{
+	inf_value(inf, "folder=", out, size);
 	{
 		int n2 = (int)strlen(out);
 		while (n2 > 3 && (out[n2 - 1] == '\\' || out[n2 - 1] == ' '))
 			out[--n2] = 0;
 	}
 }
+
+static char boot_start[12];	/* START= as ECONTACT.INF had it at boot */
 
 static void find_workdir(void)
 {
@@ -899,6 +912,7 @@ static void find_workdir(void)
 	snprintf(inf_file, sizeof(inf_file), "%c:\\ECONTACT.INF", 'A' + boot);
 	if (is_acc) {
 		inf_folder(inf_file, workdir, sizeof(workdir));
+		inf_value(inf_file, "start=", boot_start, sizeof(boot_start));
 		if (!pf_exists(inf_file)) {
 			/* settings in the folder instead (copied there, or written
 			   by card-cli): taken to the root at the first opening */
@@ -1033,15 +1047,51 @@ static void acc_heap(void)
 }
 
 static int settings_ready;
+static int fonts_ready;
 static int sync_pending;
 
-static void load_settings(void)
+/* said when the window opens, not in the background */
+static int lost_untold, plain_untold;
+static char plain_key[120];
+
+static void warn_later(const char *keyfile)
+{
+	str_copy(plain_key, keyfile, sizeof(plain_key));
+	plain_untold = 1;
+}
+
+static void tell_untold(void)
+{
+	if (plain_untold) {
+		plain_untold = 0;
+		warn_plain(plain_key);
+	}
+	if (lost_untold) {
+		lost_untold = 0;
+		alert(1, "[1][ECONTACT.KEY is missing or new: type the passwords again (right-click an account).][ OK ]");
+	}
+}
+
+/* quiet: the accessory in the background, its window closed: the fonts
+   wait for the window, and what would be an alert is said then */
+static int store_ready;		/* ECONTACT.INF read (the first half) */
+
+static void load_store(int quiet)
 {
 	if (!workdir[0])
 		locate_folder();
-	secret_warn = warn_plain;	/* before anything is saved */
+	secret_warn = quiet ? warn_later : warn_plain;	/* before anything is saved */
 	move_inf();
 	store_init(workdir, inf_file);
+	store_ready = 1;
+}
+
+static void load_settings(int quiet)
+{
+	if (!store_ready)
+		load_store(quiet);
+	store_ready = 0;
+	secret_warn = quiet ? warn_later : warn_plain;
 	if (strcasecmp(opt.folder, workdir))
 		store_save_settings();	/* FOLDER= as it is now */
 	path_join(conn_cacert, sizeof(conn_cacert), workdir, "CACERT.PEM");
@@ -1055,21 +1105,14 @@ static void load_settings(void)
 	falcon_dsp_init();
 	if (store_plain_passwords && !store_lost_passwords)
 		store_save_settings();
+	secret_warn = warn_plain;
 	hebrew_kbd = opt.hebrew;
-	font_apply();
+	fonts_ready = 0;
+	if (!quiet) {
+		font_apply();
+		fonts_ready = 1;
+	}
 	settings_ready = 1;
-}
-
-static void load_contacts(void)
-{
-	busy(1);
-	status("Reading your contacts...");
-	book_load_all();
-	list_invalidate();
-	busy(0);
-	data_ready = 1;
-	if (store_lost_passwords)
-		alert(1, "[1][ECONTACT.KEY is missing or new: type the passwords again (right-click an account).][ OK ]");
 }
 
 /* The accessory's files as it left them. On single TOS its memory
@@ -1079,6 +1122,226 @@ static void load_contacts(void)
    reads them all again, as at the first opening. */
 static unsigned long files_stamp;
 static int files_known;
+
+/* the accessory reading its books in the background, after START=
+   (common/ui/bgwork.c): the files as they were when it began */
+static unsigned long load_stamp;
+static int load_quiet;		/* the settings were read in the background */
+
+static void loaded(void)
+{
+	list_invalidate();
+	data_ready = 1;
+	lost_untold = store_lost_passwords;
+	if (is_acc && load_quiet) {
+		/* the files it read are those of when it began */
+		files_stamp = load_stamp;
+		files_known = 1;
+	}
+	load_quiet = 0;
+}
+
+static void load_contacts(void)
+{
+	busy(1);
+	status("Reading your contacts...");
+	if (!books_loading())
+		books_load_begin();
+	books_load_run(0);		/* what is left of a load in the background, or all */
+	busy(0);
+	loaded();
+}
+
+/* The accessory brings its books up to date with its window closed too
+   (REFRESH=, SYNC_AFTER=): one exchange with a server a step (abook.c
+   quiet_sync), every message that comes meanwhile held for the main
+   loop, and the sync stopped by it */
+static short held[4][8];
+static int nheld;
+static void (*was_idle)(void);
+static long was_budget;
+
+static unsigned long quiet_at;	/* its last event call */
+
+static void quiet_idle(void)
+{
+	short msg[8];
+	AEVENT ev;
+	if (evnt_multi_(MU_MESAG | MU_TIMER, 0, 0, 0, 5, msg, &ev) & MU_MESAG) {
+		if (nheld < 4)
+			memcpy(held[nheld++], msg, sizeof(msg));
+		conn_stop = 1;		/* the window may be wanted: the sync stops */
+	}
+	quiet_at = pf_ms();
+}
+
+/* an answer read as it keeps arriving, or many cards in one: an event
+   call at least every 30 ms */
+static void quiet_yield(void)
+{
+	if (pf_ms() - quiet_at >= 30UL)
+		quiet_idle();
+}
+
+static int quiet_due(void)
+{
+	unsigned long now = pf_ms();
+	if (!is_acc || win_h > 0 || !data_ready || !naccts || opt.offline)
+		return 0;
+	if (opt.refresh > 0 && now - last_refresh >= (unsigned long)opt.refresh * 60000UL)
+		return 1;
+	return opt.sync_after > 0 && !synced_once && now >= (unsigned long)opt.sync_after * 60000UL;
+}
+
+static void quiet_begin(void)
+{
+	synced_once = 1;
+	last_refresh = pf_ms();
+	/* the program changed the files meanwhile: read again at the opening
+	   (files_check), not written over now */
+	if (files_known && store_stamp() != files_stamp)
+		return;
+	if (!quiet_sync_begin())
+		return;
+	conn_log("EContact", "--", "refreshing in the background", 28L);
+	was_idle = pf_idle;
+	was_budget = carddav_budget;
+	pf_idle = quiet_idle;
+	http_yield = quiet_yield;
+	quiet_at = pf_ms();
+	carddav_budget = 32L * 1024;	/* a few cards an answer */
+}
+
+static unsigned long sync_stamp;	/* the files as the refresh left them */
+
+static void quiet_end(void)
+{
+	pf_idle = was_idle;
+	http_yield = 0;
+	carddav_budget = was_budget;
+	sync_stamp = store_stamp();
+	if (!quiet_sync_changed())
+		files_left();
+}
+
+/* the books sorted again after it: what it wrote is its own (noted as
+   it ended: the program may have run while they were sorted) */
+static void quiet_sorted(void)
+{
+	list_invalidate();
+	updated_now();
+	last_refresh = pf_ms();
+	if (is_acc && data_ready) {
+		files_stamp = sync_stamp;
+		files_known = 1;
+	}
+}
+
+/* a program started or ended (AC_CLOSE) while it refreshed or sorted:
+   it may be ECONTACT.PRG, which changes the same files. Stopped, and
+   all read again at the opening */
+static void quiet_abort(void)
+{
+	if (quiet_syncing()) {
+		quiet_sync_cancel();
+		pf_idle = was_idle;
+		http_yield = 0;
+		carddav_budget = was_budget;
+	}
+	books_load_cancel();
+	files_stamp = 0;		/* never the files' */
+	files_known = 1;
+}
+
+/* work the accessory has while its window is closed */
+static int bg_pending(void)
+{
+	if (!is_acc || win_h > 0 || !workdir[0])
+		return 0;
+	return !data_ready || books_loading() || quiet_syncing() || quiet_due();
+}
+
+/* A slice's steps (common/ui/bgwork.c): the next one is begun only when
+   the slice has room for one as long as the longest so far (parsing a
+   card takes a Falcon about 17 ms), so the event calls stay within 50 ms
+   (100 on a 68000) of each other */
+static unsigned long slice_at, step_at, step_ms, slice_ms;
+static int slice_over;
+
+static void bg_slice(void)
+{
+	bg_begin();
+	slice_at = step_at = pf_ms();
+	step_ms = 0;
+	slice_over = 0;
+	slice_ms = get_cookie(0x5F435055L) >= 20 ? BG_SLICE_030 : BG_SLICE_000;	/* _CPU */
+}
+
+static int bg_more_step(void)
+{
+	static const char *was;
+	const char *what = books_load_what();
+	unsigned long now = pf_ms();
+	if (now - step_at > step_ms)
+		step_ms = now - step_at;
+	step_at = now;
+	/* a step of another kind (parsing after the records) may be far
+	   longer: it begins a slice of its own. A quarter of the slice at
+	   least for the next */
+	if (slice_over)
+		return 0;
+	if (what != was && now != slice_at) {
+		was = what;
+		slice_over = 1;
+		return 0;
+	}
+	was = what;
+	if (!bg_more() || now - slice_at + (step_ms > slice_ms / 4 ? step_ms : slice_ms / 4) > slice_ms) {
+		slice_over = 1;
+		return 0;
+	}
+	aes_profile_tag(what);			/* the step next, should it be long */
+	return 1;
+}
+
+/* one step of it */
+static void bg_step(void)
+{
+	if (!settings_ready) {
+		if (!store_ready) {
+			aes_profile_tag("settings-inf");
+			load_store(1);	/* in two steps: ECONTACT.INF, then the rest */
+			return;
+		}
+		aes_profile_tag("settings-rest");
+		load_settings(1);
+		load_quiet = 1;
+		load_stamp = store_stamp();
+		return;
+	}
+	if (!data_ready) {
+		if (!books_loading())
+			books_load_begin();
+		if (!books_load_run(bg_more_step))
+			loaded();
+		return;
+	}
+	if (books_loading()) {
+		/* sorted again after a sync */
+		if (!books_load_run(bg_more_step))
+			quiet_sorted();
+		return;
+	}
+	if (!quiet_syncing()) {
+		quiet_begin();
+		if (!quiet_syncing())
+			return;
+	}
+	aes_profile_tag(quiet_sync_what());
+	quiet_at = pf_ms();
+	if (!quiet_sync_step())
+		quiet_end();
+}
 
 static void files_left(void)
 {
@@ -1091,12 +1354,31 @@ static void files_left(void)
 static void files_check(void)
 {
 	static const char m[] = "the files changed since the window closed: reading them again";
-	if (!is_acc || !data_ready || !files_known || store_stamp() == files_stamp)
+	static const char m2[] = "the files changed while they were read: reading them again";
+	unsigned long was;
+	if (!is_acc)
+		return;
+	if (store_ready && !settings_ready) {
+		store_release();	/* half read in the background: read whole now */
+		store_ready = 0;
+		return;
+	}
+	if (data_ready && files_known)
+		was = files_stamp;
+	else if (!data_ready && settings_ready && load_quiet)
+		was = load_stamp;	/* a load in the background, part done */
+	else
+		return;
+	if (store_stamp() == was)
 		return;
 	files_known = 0;
-	conn_log("EContact", "--", m, (long)(sizeof(m) - 1));
+	load_quiet = 0;
+	if (data_ready)
+		conn_log("EContact", "--", m, (long)(sizeof(m) - 1));
+	else
+		conn_log("EContact", "--", m2, (long)(sizeof(m2) - 1));
 	http_close_all();
-	store_release();
+	store_release();		/* and the load, part done */
 	list_invalidate();
 	settings_ready = 0;
 	data_ready = 0;
@@ -1109,17 +1391,45 @@ static void open_window(void)
 	if (!screen_check("EContact", scr_w))	/* not in ST low (the accessory) */
 		return;
 	int first = win_h <= 0;
+	aes_profile_tag("open");
+	bg_opened();
+	if (first && quiet_syncing()) {
+		/* a refresh in the background: what came is kept, the rest
+		   left for the refresh at the opening */
+		quiet_sync_stop();
+		quiet_end();
+		if (quiet_sync_changed())
+			quiet_sorted();
+	}
 	if (first)
 		files_check();
 	if (!settings_ready)
-		load_settings();
+		load_settings(0);
+	aes_profile_tag("open-window");
+	if (!fonts_ready) {
+		font_apply();
+		fonts_ready = 1;
+	}
 	win_open();
 	if (win_h <= 0 || !first)
 		return;
+	if (data_ready && books_loading()) {
+		books_load_run(0);	/* sorted again, at once */
+		quiet_sorted();
+	}
+	if (store_unsaved) {
+		store_save_settings();	/* what a refresh in the background found */
+		files_left();
+	}
 	if (!data_ready) {
 		win_redraw(0);
 		load_contacts();
+	} else {
+		/* read in the background: drawn once, when the AES asks for the
+		   new window (WM_REDRAW), not for each thing set up here */
+		win_hold = 1;
 	}
+	aes_profile_tag("open-select");
 	/* the timed refresh counts from now: the 200 Hz timer counts from
 	   when the Atari was switched on, and the window may have been
 	   closed for hours (only "refresh when the window opens" refreshes
@@ -1133,7 +1443,12 @@ static void open_window(void)
 		else
 			list_step(1);
 	}
+	aes_profile_tag("open-after");
 	after_change();
+	win_hold = 0;
+	if (plain_untold || lost_untold || !naccts)
+		win_redraw(0);		/* behind the alert */
+	tell_untold();
 	if (!naccts) {
 		alert(1, "[1][Welcome to EContact!||Let's add your iCloud or other contacts.][ OK ]");
 		dlg_add_account();
@@ -1269,6 +1584,8 @@ int main(void)
 	}
 	if (is_acc) {
 		acc_heap();
+		/* nothing read until START= says (the guidelines, 2.2) */
+		bg_init(bg_parse(boot_start));
 	} else {
 		long st = (long)Malloc(-1L), tt = (long)Mxalloc(-1L, 1);
 		answer_budget(tt > st ? tt : st);
@@ -1286,22 +1603,34 @@ int main(void)
 	while (!quit_now) {
 		short flags = MU_MESAG | MU_TIMER, which;
 		unsigned long wait = sync_pending ? 150 : card_photo_pending() ? 100 : 1000;
+		if (is_acc)
+			wait = bg_timer(bg_pending(), wait);
 		if (win_h > 0)
 			flags |= MU_KEYBD | MU_BUTTON;
 		conn_stop = 0;		/* a stop is for one operation */
 		/* a key typed while busy comes first, as if typed now */
 		if (win_h > 0 && busy_key(&ev))
 			which = MU_KEYBD;
-		else
+		else if (nheld) {
+			/* one that came while the background refresh waited */
+			memcpy(msg, held[0], sizeof(held[0]));
+			memmove(held[0], held[1], sizeof(held[0]) * --nheld);
+			which = MU_MESAG;
+		} else
 			which = evnt_multi_(flags, is_acc ? 0x102 : 0x101, 3, 0, wait, msg, &ev);
 		if (win_iconified)	/* an icon takes no keys or clicks (taken, not left for later) */
 			which &= ~(MU_KEYBD | MU_BUTTON);
+		if (is_acc)
+			bg_tick();
+		aes_profile_tag("idle");
 		if (which & MU_MESAG) {
 			const char *va;
+			aes_profile_tag(msg[0] == WM_REDRAW ? "redraw" : "message");
 			switch (msg[0]) {
 			case AC_OPEN:
 				/* from the Desk menu (or another program, with -1) */
 				if (msg[4] == menu_id || msg[4] == -1) {
+					aes_profile_tag("open");
 					if (twin_pass(""))	/* ECONTACT.PRG runs: its window to the front */
 						break;
 					av_init("ECONTACT|ECONTST");	/* a desktop started since */
@@ -1316,6 +1645,8 @@ int main(void)
 				break;
 			case AC_CLOSE:
 				twin_reset();		/* another program in front */
+				if (win_h <= 0 && data_ready && (quiet_syncing() || books_loading()))
+					quiet_abort();
 				/* the program in front started or ended: the AES took
 				   our window, if it was open. The files are noted only
 				   then: on single TOS this comes when ECONTACT.PRG ends
@@ -1381,6 +1712,14 @@ int main(void)
 		if ((which & MU_TIMER) && sync_pending && win_h > 0) {
 			sync_pending = 0;
 			refresh(0, 0);
+		}
+		/* the accessory's work with its window closed, a slice at a time */
+		if (bg_pending() && bg_may_work()) {
+			aes_profile_tag("bg-load");
+			bg_slice();
+			do
+				bg_step();
+			while (bg_pending() && bg_more_step());
 		}
 		if ((which & MU_TIMER) && data_ready && win_h > 0) {
 			unsigned long now = pf_ms();

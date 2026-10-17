@@ -10,6 +10,15 @@ EContact is a desk accessory: TOS loads it at boot from the root of the
 boot drive, and it waits in the Desk menu as **EContact** until you
 choose it.
 
+**A quiet start.** At boot the accessory only takes its memory. A minute
+later it reads your address books, a little at a time between the other
+programs' turns (never more than 50 ms in one go on a Falcon, 100 ms on
+an ST), and waits while you move the mouse or type, or while
+`ECONTACT.PRG` runs. So the first opening is at once. `START=` in
+`ECONTACT.INF` says when it begins: a number of seconds after the Atari
+starts (60), `now`, or `opened` (not until you first open it). Opened
+before it is done, it reads the rest at once.
+
 | Your Atari        | Copy to `C:\`    | Connects                        |
 |-------------------|------------------|---------------------------------|
 | Falcon, TT        | `ECONTACT.ACC`   | by itself (Falcon mode) or through the Pi |
@@ -239,9 +248,16 @@ Right-click your own card > **Make This My Card**. The list marks it
   "Last, First", which address book new contacts go into, where the font
   has its Hebrew letters, starting with the Hebrew keyboard, and showing
   photos.
-- **Refresh**: refresh all every 15 minutes, hour or day (counted from
-  when the window opened), or only by hand (^R, the Refresh button); and
-  when the window opens, unless that is turned off.
+- **Refresh**: refresh all every 15 minutes, hour or day, or only by
+  hand (^R, the Refresh button); when the window opens, unless that is
+  turned off; and, for the accessory, **Once at start**: 2, 5 or 15
+  minutes after the Atari started. The accessory refreshes with its window closed too, in
+  the background: one exchange with the server at a time, only the
+  contacts that changed fetched and added to the copy on disk, and
+  nothing at all while you move the mouse or type. An address book whose
+  copy has to be written anew, and a new account's books, wait for a
+  refresh with the window open. Opening the window stops a refresh in
+  the background; what it had fetched is kept.
 - **Connection**: Falcon mode and the DSP, the Pi gateway, and the log.
 
 Settings opens with Options > **Settings...** (^,), or from the menu in

@@ -219,6 +219,13 @@ name, a company, one or two emails, two phones, some with an address, birthday o
   gives the `HEAPKB=` to set. `CONTACTS.TXT` is then left as it was, so EMail and ECal keep everyone.
   Once memory is full, the rest are counted, not read only to be let go: 1,500 contacts on a 1 MB ST
   start in 15 s, not 28.
+- **The accessory reads its books in the background** a minute after boot (`START=`), in steps of
+  at most 50 ms on a Falcon and 100 ms on an ST between the other programs' turns, so the first
+  opening is at once. Measured in Hatari with 600 contacts and an AES_PROFILE build
+  (`tests/hatari/quiet_start.py`): the whole read takes 4.4 s of an 8 MHz ST's time (1.1 s on a
+  16 MHz Falcon), spread over 8 s; the longest stretch between event calls is 95 ms on the ST and
+  under 50 ms on the Falcon. When the copy on disk is the one the index was made from, nothing is
+  hashed (the cards are found by where they are).
 - **Start-up reads parsed contacts** from `CACHE\BOOKnnnn.IDX`: a card is parsed (about 85 ms on an
   8 MHz ST) only the first time, and after it changes; the rest take about 18 ms each. A new version
   keeps the index unless its card parser changed; then the first start parses everything once (2,500
@@ -298,7 +305,8 @@ make itest      # card-cli against a real CardDAV server (Radicale: pip install
                 # radicale): sync, add, change, groups both ways, import,
                 # export, delete, the people list EMail and ECal read, photos
                 # and their cache, partial retrieval (tests/host/partialproxy.py),
-                # little memory, and converting 1.9's cache
+                # little memory, converting 1.9's cache, the index found by
+                # where the cards are, and the refresh in the background
 GATEWAY=gateway/ecalgate.py make itest            # the same through the Pi gateway
 tests/hatari/docs_shots.py WORK etos512us.img     # the screenshots, in Hatari
 tests/hatari/placement.py WORK etos512us.img      # where the accessory and the program
@@ -310,6 +318,13 @@ tests/hatari/help_key.py WORK etos512us.img       # the Help key, with a stand-i
                                                   # ST-Guide (make build/fakeguide.acc)
 tests/hatari/stop_test.py WORK etos512us.img      # Esc stops a server that says nothing
                                                   # (FAKESTNG and the serial bridge from ECal)
+make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \
+     WORK/bin/ECONTACT.ACC WORK/bin/ECONTST.ACC   # an edition that times its event calls
+tests/hatari/quiet_start.py WORK etos512us.img    # the accessory's quiet start: 600 contacts
+                                                  # read in the background, at most 50 ms
+                                                  # (Falcon) or 100 ms (ST) between event calls
+tests/hatari/quiet_sync.py WORK etos512us.img     # its refresh with the window closed, through
+                                                  # the gateway (FAKESTNG and the bridge too)
 ```
 
 The Hatari rigs run [EmuTOS](https://sourceforge.net/projects/emutos/) (`etos512us.img`) under Xvfb,

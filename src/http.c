@@ -337,6 +337,8 @@ static int body_add(BODY *b, const char *d, long n)
    was (static: one request at a time, and the accessory's stack is small) */
 static char rbuf[16384];
 
+void (*http_yield)(void);
+
 static int read_n(CONN *c, BODY *b, long n, HTTPRESP *rs)
 {
 	char *tmp = rbuf;
@@ -348,6 +350,8 @@ static int read_n(CONN *c, BODY *b, long n, HTTPRESP *rs)
 		if (!body_add(b, tmp, k))
 			return 0;
 		n -= k;
+		if (http_yield)
+			http_yield();
 	}
 	return 1;
 }
@@ -476,6 +480,8 @@ static int exchange(const HTTPREQ *rq, const URL *u, const char *auth, HTTPRESP 
 			rs->length += k;
 			if (!body_add(&b, rbuf, k))
 				goto body_err;
+			if (http_yield)
+				http_yield();
 		}
 		h->close_after = 1;
 		ok = 1;

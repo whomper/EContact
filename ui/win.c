@@ -26,6 +26,7 @@ static GRECT but[NBUT];
 static const char *const blabel[NBUT] = { " ", "Refresh", "\xF0" };
 
 short win_iconified;	/* shown as EContact's icon (WM_ICONIFY) */
+short win_hold;
 
 /* with the iconifier when the AES can iconify (common/ui/iconify.c) */
 static short kind(void)
@@ -276,7 +277,7 @@ static void draw_all(GRECT *clip)
 void win_redraw(GRECT *area)
 {
 	GRECT box, full;
-	if (win_h <= 0)
+	if (win_h <= 0 || win_hold)
 		return;
 	if (win_iconified) {
 		icon_window(area);	/* over the small window, not the old work area */

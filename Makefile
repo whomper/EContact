@@ -31,6 +31,9 @@ CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -DCAL_TOS -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
            -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc \
            -DTLS_FULL_EDITION=\"ECONTACT.ACC\" -Ithird_party/tjpgd
+# `make EXTRA_CFLAGS=-DAES_PROFILE`: stretches between event calls over 50 ms
+# to the emulator's console (common/atari/gem.c)
+CFLAGS  += $(EXTRA_CFLAGS)
 LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
            -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments
 
@@ -47,7 +50,7 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
 CORE    := util charset conn tls bidi secret futil ctime xml inflate http vcard carddav abook photo jpegdc pfkeep
 ATARI   := libc tos plat_tos net_tos sting gem dsprsa
-UI      := main win draw popup dsp sidebar list card editor dialogs field about font help av alert aboutbox iconify clip dd mbar twin busy
+UI      := main win draw popup dsp sidebar list card editor dialogs field about font help av alert aboutbox iconify clip dd mbar twin busy bgwork
 
 OBJDIR  := build
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash.o $(OBJDIR)/crash_s.o \

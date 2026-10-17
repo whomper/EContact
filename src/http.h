@@ -36,6 +36,10 @@ typedef struct {
 	unsigned short gateport;	/* 8180 by default */
 } HTTPCFG;
 extern HTTPCFG http_cfg;
+/* called after each piece of an answer is read (0: none): an accessory
+   working in the background makes an event call there now and then, as
+   an answer that keeps arriving would otherwise hold the machine */
+extern void (*http_yield)(void);
 
 typedef struct {
 	int status;			/* 200, 207, 404 ... */

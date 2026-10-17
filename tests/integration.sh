@@ -504,6 +504,57 @@ head -c 5000 "$IDX" > "$IDX.x" && mv "$IDX.x" "$IDX"
 R=$($CLI "$M" list | md5sum)
 if [ "$R" = "$BEFORE" ]; then ok "cut short: the same"; else bad "cut cache changed the list"; fi
 if [ "$(stat -c %s "$IDX")" -gt 1000 ]; then ok "and written again"; else bad "not written again"; fi
+# made from this copy of BOOKnnnn.DAT (the number on its first line):
+# the cards found by where they are, nothing hashed
+DAT=${IDX%.IDX}.DAT
+R=$(CARD_LOG=$W/idx1.log $CLI "$M" list | md5sum)
+if [ "$R" = "$BEFORE" ]; then ok "from the same file: the same"; else bad "the list changed"; fi
+expect "and not hashed" "(not hashed)" "$(grep -a "Many: " "$W/idx1.log")"
+# another copy (its number changed): hashed, then written again for it
+python3 -c "import sys; d=bytearray(open(sys.argv[1],'rb').read()); assert d[:12]==b'CARDCACHE 2 '; d[12:20]=b'0BADCAFE'; open(sys.argv[1],'wb').write(d)" "$DAT"
+R=$(CARD_LOG=$W/idx2.log $CLI "$M" list | md5sum)
+if [ "$R" = "$BEFORE" ]; then ok "another copy: the same"; else bad "another copy changed the list"; fi
+absent "and hashed" "(not hashed)" "$(grep -a "Many: " "$W/idx2.log")"
+expect "and the index written again" "the index written" "$(grep -a "Many: " "$W/idx2.log")"
+R=$(CARD_LOG=$W/idx3.log $CLI "$M" list | md5sum)
+expect "then not hashed again" "(not hashed)" "$(grep -a "Many: " "$W/idx3.log")"
+# a card changed on the server: added to the end of the file, which keeps
+# its number, and the index finds it by where it is too
+"${CURL[@]}" -X PUT "$BASE/alice/many/m200-with-a-long-name-like-icloud-ones.vcf" -H "Content-Type: text/vcard" \
+  --data-binary $'BEGIN:VCARD\r\nVERSION:3.0\r\nN:Again;Club;;;\r\nFN:Club Again\r\nUID:MANY-200\r\nEND:VCARD\r\n' >/dev/null
+CARD_BUDGET=20000 $CLI "$M" sync >/dev/null
+R=$(CARD_LOG=$W/idx7.log $CLI "$M" list)
+expect "a changed card" "Club Again" "$R"
+absent "its old self" "Club Member200" "$R"
+expect "added to: not hashed" "(not hashed)" "$(grep -a "Many: " "$W/idx7.log")"
+expect "nothing parsed" " 0 parsed" "$(grep -a "Many: " "$W/idx7.log")"
+BEFORE=$($CLI "$M" list | md5sum)
+# 1.39's file, without a number: its size and date instead
+python3 -c "import sys; d=open(sys.argv[1],'rb').read(); i=d.index(b'\n'); open(sys.argv[1],'wb').write(b'CARDCACHE 2'+d[i:])" "$DAT"
+R=$(CARD_LOG=$W/idx4.log $CLI "$M" list | md5sum)
+if [ "$R" = "$BEFORE" ]; then ok "without a number: the same"; else bad "without a number: the list changed"; fi
+absent "hashed" "(not hashed)" "$(grep -a "Many: " "$W/idx4.log")"
+R=$(CARD_LOG=$W/idx5.log $CLI "$M" list | md5sum)
+if [ "$R" = "$BEFORE" ]; then ok "then by its size and date: the same"; else bad "by size and date: the list changed"; fi
+expect "and not hashed" "(not hashed)" "$(grep -a "Many: " "$W/idx5.log")"
+# 1.39's index (CARDIDX, no offsets): read by the hashes, written anew
+python3 - "$IDX" <<'PY'
+import sys, struct
+d = open(sys.argv[1], 'rb').read()
+# this machine's (the host's) layout: 8-byte longs; the entry's off last
+H, E = 8 + 8 + 16, 8 * 3 + 2 + 2 + 4
+out, i = [b"CARDIDX\n" + d[8:H]], H + 24
+while i + E + 8 <= len(d):
+    blen = struct.unpack("<q", d[i + 16:i + 24])[0]
+    n = blen + (blen & 1)
+    out.append(d[i:i + E] + d[i + E + 8:i + E + 8 + n])
+    i += E + 8 + n
+open(sys.argv[1], "wb").write(b"".join(out))
+PY
+R=$(CARD_LOG=$W/idx6.log $CLI "$M" list | md5sum)
+if [ "$R" = "$BEFORE" ]; then ok "1.39's index: the same"; else bad "1.39's index changed the list"; fi
+expect "used" " 0 parsed" "$(grep -a "Many: " "$W/idx6.log")"
+if head -c 8 "$IDX" | grep -q CARDIDX2; then ok "and written anew"; else bad "1.39's index kept"; fi
 
 echo "the accessory while the program runs (single TOS)"
 # the accessory read the files; ECONTACT.PRG then ran and synced, writing
@@ -553,6 +604,40 @@ echo go >&3
 exec 3>&-
 wait $APID
 expect "nothing changed: kept" "the files as they were" "$(cat "$W/acc2.out")"
+
+echo "refreshing in the background (the accessory, its window closed)"
+"${BOB[@]}" -X MKCOL "$BASE/bob/quiet/" -H "Content-Type: application/xml" --data-binary @- >/dev/null <<XML
+<?xml version="1.0" encoding="utf-8"?>
+<D:mkcol xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav"><D:set><D:prop>
+<D:resourcetype><D:collection/><C:addressbook/></D:resourcetype><D:displayname>Quiet</D:displayname>
+</D:prop></D:set></D:mkcol>
+XML
+qcard() { printf 'BEGIN:VCARD\r\nVERSION:3.0\r\nN:%s;%s;;;\r\nFN:%s %s\r\nEMAIL:%s@example.net\r\nUID:Q-%s\r\nEND:VCARD\r\n' "$1" "$2" "$2" "$1" "$1" "$1" |
+  "${BOB[@]}" -X PUT "$BASE/bob/quiet/$1.vcf" -H "Content-Type: text/vcard" --data-binary @- >/dev/null; }
+for n in Ann Ben Cat Dan; do qcard $n Quiet; done
+Q=$W/quiet
+$CLI "$Q" carddav Bob "$BASE/" bob builder >/dev/null
+QDAT=$(ls "$Q"/CACHE/BOOK*.DAT | head -1)
+for f in "$Q"/CACHE/BOOK*.DAT; do grep -q "Q-Ann" "$f" && QDAT=$f; done
+GEN=$(head -1 "$QDAT")
+"${BOB[@]}" -X DELETE "$BASE/bob/quiet/Ben.vcf" >/dev/null
+qcard Cat Catherine
+qcard Eve Quiet
+R=$($CLI "$Q" quiet-sync)
+expect "a book changed" "1 book changed" "$R"
+R=$($CLI "$Q" list)
+expect "the new one" "Quiet Eve | Eve@example.net" "$R"
+expect "the changed one" "Catherine Cat | Cat@example.net" "$R"
+absent "its old self" "Quiet Cat |" "$R"
+absent "the gone one" "Quiet Ben" "$R"
+expect "the others kept" "Quiet Dan | Dan@example.net" "$R"
+expect "added to the cache, not written anew" "$GEN" "$(head -1 "$QDAT")"
+expect "CONTACTS.TXT made again" "Eve@example.net" "$(cat "$Q/CONTACTS.TXT")"
+R=$($CLI "$Q" quiet-sync)
+expect "nothing changed: nothing done" "0 books changed" "$R"
+R=$($CLI "$Q" sync && $CLI "$Q" list)
+expect "a sync after it: the same" "Catherine Cat | Cat@example.net" "$R"
+absent "and Ben still gone" "Quiet Ben" "$R"
 
 echo "On My Atari"
 $CLI "$D" local Notes

@@ -20,6 +20,7 @@
  * that sends the photos anyway has them kept as they come.
  */
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -91,15 +92,19 @@ static void defaults(void)
 	opt.sync_open = 1;
 	opt.photos = 1;
 	opt.default_book = -1;
+	str_copy(opt.start, "60", sizeof(opt.start));
+	opt.sync_after = 0;
 }
 
 static void set_opt(const char *k, const char *v)
 {
-#define S(name) if (!strcasecmp(k, #name)) { str_copy(opt.name, v, sizeof(opt.name)); return; }
-#define I(name) if (!strcasecmp(k, #name)) { opt.name = (short)atoi(v); return; }
-	S(gate) S(folder) S(me)
+	/* the first letter first: strcasecmp on each costs a 68000 */
+	int c = *k | 0x20;
+#define S(name) if (c == #name[0] && !strcasecmp(k, #name)) { str_copy(opt.name, v, sizeof(opt.name)); return; }
+#define I(name) if (c == #name[0] && !strcasecmp(k, #name)) { opt.name = (short)atoi(v); return; }
+	S(gate) S(folder) S(me) S(start)
 	I(falcon) I(dsp) I(log) I(font_id) I(font_pt) I(hebfont) I(win_x) I(win_y) I(win_w) I(win_h)
-	I(sidebar) I(sort_first) I(last_first) I(refresh) I(sync_open) I(photos) I(offline) I(hebrew) I(heapkb) I(default_book)
+	I(sidebar) I(sort_first) I(last_first) I(refresh) I(sync_open) I(sync_after) I(photos) I(offline) I(hebrew) I(heapkb) I(default_book)
 	if (!strcasecmp(k, "gateport")) {
 		opt.gateport = (unsigned short)atoi(v);
 		return;
@@ -184,7 +189,9 @@ void store_init(const char *dir, const char *inf)
 			*nl = 0;
 		if (nl && nl > line && nl[-1] == '\r')
 			nl[-1] = 0;
-		if (!strcasecmp(line, "[options]")) {
+		if (*line == ';' || !*line) {
+			/* a note: passed at once (each line costs an ST a millisecond) */
+		} else if (!strcasecmp(line, "[options]")) {
 			a = 0;
 			b = 0;
 		} else if (!strcasecmp(line, "[account]")) {
@@ -222,27 +229,41 @@ void store_init(const char *dir, const char *inf)
 }
 
 /* each setting with a note, so the file explains itself (as ECal's) */
+/* (appended, not printf'ed: formatting the notes took an ST 200 ms) */
 static void note(SBUF *b, const char *text)
 {
-	if (*text)
-		sb_printf(b, "; %s\r\n", text);
+	if (*text) {
+		sb_adds(b, "; ");
+		sb_adds(b, text);
+		sb_adds(b, "\r\n");
+	}
 }
 
 static void kv(SBUF *b, const char *text, const char *key, const char *value)
 {
 	note(b, text);
-	sb_printf(b, "%s=%s\r\n\r\n", key, value);
+	sb_adds(b, key);
+	sb_adds(b, "=");
+	sb_adds(b, value);
+	sb_adds(b, "\r\n\r\n");
 }
 
 static void kn(SBUF *b, const char *text, const char *key, long value)
 {
-	char v[16];
-	snprintf(v, sizeof(v), "%ld", value);
-	kv(b, text, key, v);
+	char v[16], *p = v + sizeof(v) - 1;
+	unsigned long u = value < 0 ? -(unsigned long)value : (unsigned long)value;
+	*p = 0;
+	do
+		*--p = (char)('0' + u % 10);
+	while (u /= 10);
+	if (value < 0)
+		*--p = '-';
+	kv(b, text, key, p);
 }
 
 void store_save_settings(void)
 {
+	store_unsaved = 0;
 	SBUF b;
 	int i, j;
 	char enc[200];
@@ -250,21 +271,24 @@ void store_save_settings(void)
 	sb_adds(&b, "; EContact settings, written by ECONTACT.ACC / ECONTACT.PRG. Lines starting with ; are notes.\r\n"
 		    "; Most of these are set in the menu > Settings; see docs/GUIDE.md.\r\n"
 		    "; 1 means on, 0 means off. Keys may be in any case.\r\n\r\n[OPTIONS]\r\n");
-#define S(key, name, text) note(&b, text); sb_printf(&b, key "=%s\r\n\r\n", opt.name);
-#define I(key, name, text) note(&b, text); sb_printf(&b, key "=%d\r\n\r\n", opt.name);
+#define S(key, name, text) kv(&b, text, key, opt.name);
+#define I(key, name, text) kn(&b, text, key, opt.name);
 	/* first: the accessory, EMail and ECal read it from the start of the file */
-	sb_printf(&b, "; EContact's folder, with its address books, keys and certificates, and\r\n"
-		    "; CONTACTS.TXT for EMail and ECal; ECONTACT.PRG writes where it was started from\r\nFOLDER=%s\r\n\r\n",
-		  opt.workdir);
+	sb_adds(&b, "; EContact's folder, with its address books, keys and certificates, and\r\n"
+		    "; CONTACTS.TXT for EMail and ECal; ECONTACT.PRG writes where it was started from\r\nFOLDER=");
+	sb_adds(&b, opt.workdir);
+	sb_adds(&b, "\r\n\r\n");
 	I("HEAPKB", heapkb, "memory the accessory takes at boot, in KB (about 1 KB a contact); 0: 1.5 MB on a Falcon/TT, half the free memory on an ST")
+	S("START", start, "when the accessory reads the address books after the Atari starts, a little at a time: now, opened (when its window first opens), or seconds after boot")
 	I("FALCON", falcon, "Falcon mode: TLS on this Atari (Falcon, TT); 0: through the Pi gateway")
 	I("DSP", dsp, "check certificates on the Falcon's DSP56001")
 	S("GATE", gate, "the Raspberry Pi gateway's address (Settings > Connection); ECal's gateway serves both")
 	sb_printf(&b, "; the gateway's port\r\nGATEPORT=%u\r\n\r\n", opt.gateport);
 	I("OFFLINE", offline, "work offline: no connections at all (the menu > Work offline)")
 	I("LOG", log, "write the conversation with the servers to ECONTACT.LOG (passwords left out)")
-	I("REFRESH", refresh, "minutes between refreshes of all address books; 0: only by hand")
+	I("REFRESH", refresh, "minutes between refreshes of all address books (the accessory's in the background too, its window closed); 0: only by hand")
 	I("SYNC_OPEN", sync_open, "refresh when the window opens")
+	I("SYNC_AFTER", sync_after, "the accessory: refresh once in the background, this many minutes after the Atari starts; 0: no")
 	I("PHOTOS", photos, "show contacts' photos (kept small in CACHE\\PHOTOS)")
 	I("SORT_FIRST", sort_first, "sort by first name; 0: by last name")
 	I("LAST_FIRST", last_first, "show names as Last, First; 0: First Last")
@@ -332,6 +356,84 @@ static void people_sort(void)
 			break;
 	if (i < npeople)
 		qsort(people, npeople, sizeof(CONTACT *), cmp_people);
+}
+
+/* The same in steps, for a load in the background: a look whether they
+   are in order (they are when read from the parsed cache, which is
+   written in order), else a merge sort, a few compares at a time */
+static struct {
+	CONTACT **tmp;
+	int st, n, i, w, lo, a, ae, b, be, o;
+} srt;
+
+static void sort_cancel(void)
+{
+	free(srt.tmp);
+	memset(&srt, 0, sizeof(srt));
+}
+
+static void sort_begin(void)
+{
+	sort_cancel();
+	srt.i = 1;
+	srt.st = 1;
+}
+
+/* 1 while there is more to do */
+static int sort_step(void)
+{
+	int k = 0;
+	switch (srt.st) {
+	case 1:
+		while (srt.i < npeople) {
+			if (cmp_people(&people[srt.i - 1], &people[srt.i]) > 0)
+				break;
+			srt.i++;
+			if (++k >= 128)
+				return 1;
+		}
+		if (srt.i >= npeople)
+			break;
+		srt.n = npeople;
+		srt.tmp = malloc(srt.n * sizeof(CONTACT *));
+		if (!srt.tmp) {
+			qsort(people, npeople, sizeof(CONTACT *), cmp_people);
+			break;
+		}
+		srt.w = 1;
+		srt.lo = 0;
+		srt.st = 2;
+		return 1;
+	case 2:
+		/* the next two runs of w, merged into tmp */
+		if (srt.lo >= srt.n) {
+			memcpy(people, srt.tmp, srt.n * sizeof(CONTACT *));
+			srt.w *= 2;
+			srt.lo = 0;
+			if (srt.w >= srt.n)
+				break;
+			return 1;
+		}
+		srt.a = srt.o = srt.lo;
+		srt.ae = srt.b = srt.lo + srt.w < srt.n ? srt.lo + srt.w : srt.n;
+		srt.be = srt.lo + 2 * srt.w < srt.n ? srt.lo + 2 * srt.w : srt.n;
+		srt.st = 3;
+		/* fall through */
+	case 3:
+		while (srt.a < srt.ae || srt.b < srt.be) {
+			if (srt.b >= srt.be || (srt.a < srt.ae && cmp_people(&people[srt.a], &people[srt.b]) <= 0))
+				srt.tmp[srt.o++] = people[srt.a++];
+			else
+				srt.tmp[srt.o++] = people[srt.b++];
+			if (++k >= 64)
+				return 1;
+		}
+		srt.lo += 2 * srt.w;
+		srt.st = 2;
+		return 1;
+	}
+	sort_cancel();
+	return 0;
 }
 
 static int people_add(CONTACT *c)
@@ -473,6 +575,8 @@ void acct_delete(int a)
 void store_release(void)
 {
 	int i;
+	books_load_cancel();		/* a load in steps, part done */
+	quiet_sync_cancel();		/* and a sync */
 	for (i = 0; i < nbooks; i++)
 		book_free(&books[i]);
 	for (i = 0; i < npeople; i++)
@@ -599,20 +703,58 @@ int acct_discover(int a)
 
 /* ---------------- the cache files ---------------- */
 
-/* a buffered reader that knows where it is */
+/* a buffered reader that knows where it is. Its file is opened when a
+   read needs it and closed between the steps of a load (fr_park): an
+   accessory's files belong to the program in front, and must not be
+   kept open across an event call */
 typedef struct {
-	int h;
+	int h;			/* -1: closed, opened again at off */
+	char path[200];
 	char buf[16384];	/* big reads: each GEMDOS call costs, on a floppy most */
 	int pos, len;
 	long off;		/* file offset of buf[pos] */
+	int chunk;		/* how much a read takes (0: all of buf) */
 } FR;
+
+static void fr_open(FR *f, const char *path)
+{
+	f->h = -1;
+	str_copy(f->path, path, sizeof(f->path));
+	f->pos = f->len = 0;
+	f->off = 0;
+}
+
+/* the file closed; the next read opens it again where it was */
+static void fr_park(FR *f)
+{
+	if (f->h >= 0 && f->path[0])	/* (one never opened is all 0) */
+		pf_close(f->h);
+	f->h = -1;
+}
+
+static void fr_close(FR *f)
+{
+	fr_park(f);
+	f->path[0] = 0;
+	f->pos = f->len = 0;
+}
 
 static int fr_fill(FR *f)
 {
 	if (f->pos < f->len)
 		return 1;
-	f->len = (int)pf_read(f->h, f->buf, sizeof(f->buf));
+	if (f->h < 0) {
+		if (!f->path[0] || (f->h = pf_open(f->path, PF_READ)) < 0)
+			return 0;
+		if (f->off && pf_seek(f->h, f->off) != f->off) {
+			fr_close(f);
+			return 0;
+		}
+	}
+	f->len = (int)pf_read(f->h, f->buf, f->chunk > 0 && f->chunk < (int)sizeof(f->buf) ? f->chunk : (int)sizeof(f->buf));
 	f->pos = 0;
+	if (f->len < 0)
+		f->len = 0;
 	return f->len > 0;
 }
 
@@ -759,15 +901,8 @@ static void kill_res(BOOK *b, int r)
 
 /* a contact read from the cache into the list */
 /* 1 added, 0 not a card, -1 no memory for it (counted as lost) */
-static int add_contact(BOOK *b, int r, const char *raw, long len)
+static int add_parsed(BOOK *b, int r, CONTACT *c)
 {
-	CONTACT *c = vcard_parse(raw, len);
-	if (!c) {
-		if (!vcard_nomem)
-			return 0;
-		b->lost++;
-		return -1;
-	}
 	c->book = (short)(b - books);
 	c->res = (short)r;
 	if (opt.sort_first)
@@ -778,6 +913,18 @@ static int add_contact(BOOK *b, int r, const char *raw, long len)
 		return -1;
 	}
 	return 1;
+}
+
+static int add_contact(BOOK *b, int r, const char *raw, long len)
+{
+	CONTACT *c = vcard_parse(raw, len);
+	if (!c) {
+		if (!vcard_nomem)
+			return 0;
+		b->lost++;
+		return -1;
+	}
+	return add_parsed(b, r, c);
 }
 
 int contacts_lost(void)
@@ -855,6 +1002,7 @@ static int res_add(BOOK *b, const char *etag, const char *href, long off, long l
    card is gone. EContact 1.9's cache ("CARDCACHE 1": photos in the cards,
    no last three fields) is written anew the first time it is read. */
 static int parse_old;
+static void load_one(BOOK *b);
 static int cache_rewrite(BOOK *b, int drop, const char *href, const char *etag, const char *raw, long len,
 			 int partial);
 
@@ -866,37 +1014,61 @@ static int cache_rewrite(BOOK *b, int drop, const char *href, const char *etag, 
  * written again. Changes add to its end. Only for this layout and this
  * parser: the header has VC_PACK_ID and parse_id (the Makefile's sum of
  * the parser's sources), so a new version whose parser is the same
- * keeps it. */
-#define IDX_MAGIC "CARDIDX\n"
+ * keeps it.
+ * Hashing every card's text costs an ST seconds, so the header also says
+ * which BOOKnnnn.DAT it was made from: the number on its first line
+ * (written anew each time the whole file is, and only added to between),
+ * or, for a file without one, its size and date. When it is that file,
+ * each card is found by where it is in it, its hash taken from here,
+ * and nothing is hashed. EContact 1.39's index (CARDIDX, without the
+ * offsets) is still read, by the hashes, and written anew. */
+#define IDX_MAGIC_OLD "CARDIDX\n"
+#define IDX_MAGIC "CARDIDX2"
 
 typedef struct {
 	char magic[8];
 	long packid;
 	char version[16];	/* parse_id */
+	unsigned long gen;	/* BOOKnnnn.DAT's number, 0: none */
+	long datsize;		/* and its size and date when it has none */
+	unsigned long datstamp;
 } IDXHEAD;
+
+#define IDXHEAD_OLD ((long)offsetof(IDXHEAD, gen))	/* the first three */
 
 typedef struct {
 	unsigned long th;	/* its text's hash and length, */
 	long tlen, blen;
 	unsigned short hh;	/* and its href's: the same card, unchanged */
 	short pad;
+	long off;		/* where its text is in BOOKnnnn.DAT */
 } IDXENT;
 
-static int idx_head_ok(const IDXHEAD *h)
+#define IDXENT_OLD ((long)offsetof(IDXENT, off))	/* without off */
+
+/* 2: this kind, 1: 1.39's, 0: neither or another parser's */
+static int idx_kind(const IDXHEAD *h)
 {
-	return !memcmp(h->magic, IDX_MAGIC, 8) && h->packid == VC_PACK_ID &&
-	       !strncmp(h->version, parse_id, sizeof(h->version));
+	int k = !memcmp(h->magic, IDX_MAGIC, 8) ? 2 : !memcmp(h->magic, IDX_MAGIC_OLD, 8) ? 1 : 0;
+	return k && h->packid == VC_PACK_ID && !strncmp(h->version, parse_id, sizeof(h->version)) ? k : 0;
 }
 
-static void idx_head(IDXHEAD *h)
+/* the book's parsed cache is this kind, to be added to */
+static int idx_current(BOOK *b)
 {
-	memset(h, 0, sizeof(*h));
-	memcpy(h->magic, IDX_MAGIC, 8);
-	h->packid = VC_PACK_ID;
-	str_copy(h->version, parse_id, sizeof(h->version));
+	char path[200];
+	IDXHEAD hd;
+	int h, ok;
+	cache_path(b, "IDX", path, sizeof(path));
+	h = pf_open(path, PF_READ);
+	if (h < 0)
+		return 0;
+	ok = pf_read(h, &hd, sizeof(hd)) == (long)sizeof(hd) && idx_kind(&hd) == 2;
+	pf_close(h);
+	return ok;
 }
 
-static int idx_put(int h, const CONTACT *c, unsigned long th, long tlen, unsigned short hh)
+static int idx_put(int h, const CONTACT *c, const RESOURCE *r)
 {
 	static char *buf;
 	static long cap;
@@ -914,100 +1086,12 @@ static int idx_put(int h, const CONTACT *c, unsigned long th, long tlen, unsigne
 		return 1;		/* not kept: parsed next time */
 	buf[c->bsize] = 0;
 	memset(&e, 0, sizeof(e));
-	e.th = th;
-	e.tlen = tlen;
+	e.th = r->th;
+	e.tlen = r->len;
 	e.blen = c->bsize;
-	e.hh = hh;
+	e.hh = r->hh;
+	e.off = r->off;
 	return pf_write(h, &e, sizeof(e)) == (long)sizeof(e) && pf_write(h, buf, n) == n;
-}
-
-static void idx_write(BOOK *b)
-{
-	char path[200];
-	IDXHEAD hd;
-	int h, i, bi = (int)(b - books), ok;
-	cache_path(b, "IDX", path, sizeof(path));
-	h = pf_open(path, PF_WRITE);
-	if (h < 0)
-		return;
-	idx_head(&hd);
-	ok = pf_write(h, &hd, sizeof(hd)) == (long)sizeof(hd);
-	for (i = 0; i < npeople && ok; i++) {
-		CONTACT *c = people[i];
-		if (c->book == bi && c->res >= 0 && c->res < b->nres)
-			ok = idx_put(h, c, b->res[c->res].th, b->res[c->res].len, b->res[c->res].hh);
-	}
-	pf_close(h);
-	if (!ok)
-		pf_remove(path);
-}
-
-static void idx_read(BOOK *b, FR *f, int *used, int *stale)
-{
-	char path[200];
-	IDXHEAD hd;
-	IDXENT e;
-	short head[64], *next;
-	int r;
-	*used = *stale = 0;
-	cache_path(b, "IDX", path, sizeof(path));
-	memset(f, 0, sizeof(*f));
-	f->h = pf_open(path, PF_READ);
-	if (f->h < 0)
-		return;
-	next = malloc((b->nres + 1) * sizeof(short));
-	if (!next || !fr_bytes(f, (char *)&hd, sizeof(hd)) || !idx_head_ok(&hd)) {
-		free(next);
-		pf_close(f->h);
-		return;
-	}
-	/* the cards to find, by hash */
-	for (r = 0; r < 64; r++)
-		head[r] = -1;
-	for (r = b->nres - 1; r >= 0; r--)
-		if (!b->res[r].dead) {
-			next[r] = head[b->res[r].th & 63];
-			head[b->res[r].th & 63] = (short)r;
-		}
-	while (fr_bytes(f, (char *)&e, sizeof(e))) {
-		long n = e.blen + (e.blen & 1);
-		char *blk;
-		CONTACT *c;
-		if (e.blen < (long)sizeof(CONTACT) || e.blen > 262144L)
-			break;
-		for (r = head[e.th & 63]; r >= 0; r = next[r])
-			if (b->res[r].th == e.th && b->res[r].len == e.tlen && b->res[r].hh == e.hh && !b->res[r].done)
-				break;
-		if (r < 0 || !(blk = malloc(e.blen))) {
-			(*stale)++;
-			if (!fr_bytes(f, 0, n))
-				break;
-			continue;
-		}
-		if (!fr_bytes(f, blk, e.blen) || (n > e.blen && !fr_bytes(f, 0, 1))) {
-			free(blk);
-			break;
-		}
-		c = vcard_unpack(blk, e.blen);
-		if (!c) {
-			free(blk);
-			(*stale)++;
-			continue;
-		}
-		c->book = (short)(b - books);
-		c->res = (short)r;
-		vcard_sort_key(c, opt.sort_first);
-		if (!people_add(c)) {
-			free(c);
-			b->lost++;
-			b->res[r].done = 1;	/* not parsed again to fail again */
-		} else {
-			b->res[r].done = 1;
-			(*used)++;
-		}
-	}
-	free(next);
-	pf_close(f->h);
 }
 
 /* "1.23 s" */
@@ -1017,33 +1101,153 @@ static char *secs_of(unsigned long ms, char *out)
 	return out;
 }
 
-static void load_one(BOOK *b)
+/* ---- reading the books, in steps ----
+ * A book is read in four passes: the records alone (a card changed since
+ * the file was written is in it twice, and only the later copy is read),
+ * the parsed cache, the cards it didn't have, parsed, and the parsed
+ * cache written again when that parsed some. Then the list is sorted, its
+ * groups collected, and CONTACTS.TXT made again. Each step is short (a
+ * few records, one card), so the accessory can read its books between
+ * event calls (common/ui/bgwork.c); book_load_all does all the steps at
+ * once. */
+enum { LB_IDLE, LB_START, LB_REC, LB_TRIM, LB_IDX, LB_PARSE, LB_END, LB_SORT, LB_WRITE, LB_GROUPS, LB_EXPORT };
+
+typedef struct {
+	int phase, bi, last, all;	/* the book read, the last one; all: then sorted */
+	int begun;			/* the pass has opened its file */
+	int used, stale, parsed, full, wrote, trust, kind, inend, quiet;
+	unsigned long gen, datstamp;
+	long datsize, esize;
+	unsigned long at, t[LB_EXPORT + 1], t0, tsort;	/* the work's time in each pass */
+	int r, wi, wh, wok;
+	long wneed;			/* the books whose parsed cache is written after the sort */
+	unsigned long wgen[MAXBOOK], wstamp[MAXBOOK];
+	long wsize[MAXBOOK];
+	char *raw;
+	long max;
+	short head[64], *next;
+	RESOURCE *trim;			/* the list of records, no bigger than it is */
+} LD;
+
+static LD ld = { .wh = -1 };
+static void sort_begin(void);
+static int sort_step(void);
+static void sort_cancel(void);
+static void export_begin(void);
+static int export_step(void);
+static void export_cancel(void);
+static FR lf;			/* 16 KB: not on the accessory's stack */
+
+/* the time since the last look, to the pass it went to */
+static void ld_clock(void)
+{
+	unsigned long now = pf_ms();
+	ld.t[ld.phase] += now - ld.at;
+	ld.at = now;
+}
+
+static void ld_to(int phase)
+{
+	ld_clock();
+	ld.phase = phase;
+	ld.begun = 0;
+}
+
+static unsigned ent_bucket(const LD *l, unsigned long th, long off)
+{
+	return (unsigned)((l->trust ? (unsigned long)off ^ ((unsigned long)off >> 6) : th) & 63);
+}
+
+static void ld_book(int bi)
 {
 	char path[200], line[700];
-	static FR f;		/* 16 KB: not on the accessory's stack */
-	int used = 0, stale = 0, parsed = 0, wrote = 0, full = 0;
-	unsigned long t0 = pf_ms(), t_rec = 0, t_idx = 0, t_parse = 0, t_write = 0;
-	people_drop((int)(b - books), -1);
+	BOOK *b = &books[bi];
+	IDXHEAD hd;
+	int h, k;
+	memset(ld.t, 0, sizeof(ld.t));
+	ld.t0 = pf_ms();
+	ld.used = ld.stale = ld.parsed = ld.full = ld.wrote = ld.trust = ld.kind = ld.quiet = 0;
+	ld.gen = 0;
+	ld.bi = bi;
+	ld_to(LB_START);
+	if (ld.all)
+		status("Reading %s...", b->name);
+	people_drop(bi, -1);
 	book_free(b);
 	b->ver = 0;
 	b->lost = 0;
 	cache_path(b, "DAT", path, sizeof(path));
-	memset(&f, 0, sizeof(f));
-	f.h = pf_open(path, PF_READ);
-	if (f.h < 0)
-		return;
-	if (!fr_line(&f, line, sizeof(line)) || strncmp(line, "CARDCACHE ", 10) ||
+	fr_open(&lf, path);
+	if (!fr_line(&lf, line, sizeof(line)) || strncmp(line, "CARDCACHE ", 10) ||
 	    (b->ver = (short)atoi(line + 10)) < 1 || b->ver > CACHE_VER) {
 		b->ver = 0;
-		pf_close(f.h);
+		fr_close(&lf);
+		ld.quiet = 1;		/* nothing to say */
+		ld_to(LB_END);
 		return;
 	}
-	/* first the records alone: a card changed since the file was written
-	   is in it twice, and only the later copy is read */
-	while (fr_line(&f, line, sizeof(line))) {
+	/* "CARDCACHE 2 1A2B3C4D": the number of this copy of the file */
+	{
+		const char *p = line + 10;
+		while (*p >= '0' && *p <= '9')
+			p++;
+		ld.gen = *p == ' ' ? strtoul(p + 1, 0, 16) : 0;
+	}
+	ld.datsize = pf_size(path);
+	ld.datstamp = pf_stamp(path);
+	{
+		/* room for about as many records as the file holds (a card is
+		   rarely under 400 bytes): growing the list would copy it, a long
+		   stretch for a 68000. The room left is given back after */
+		long est = ld.datsize / 400 + 16;
+		RESOURCE *r;
+		if (est > 32000)
+			est = 32000;
+		if (est > b->maxres && (r = malloc(est * sizeof(RESOURCE))) != 0) {
+			free(b->res);
+			b->res = r;
+			b->maxres = (int)est;
+		}
+	}
+	/* the parsed cache made from this file: nothing is hashed */
+	cache_path(b, "IDX", path, sizeof(path));
+	if (b->ver == CACHE_VER && !parse_old && (h = pf_open(path, PF_READ)) >= 0) {
+		memset(&hd, 0, sizeof(hd));
+		k = (int)pf_read(h, &hd, sizeof(hd));
+		pf_close(h);
+		if (k >= IDXHEAD_OLD)
+			ld.kind = idx_kind(&hd);
+		if (ld.kind == 2 && k == (int)sizeof(hd))
+			ld.trust = ld.gen ? hd.gen == ld.gen
+					  : !hd.gen && hd.datsize == ld.datsize && hd.datstamp == ld.datstamp && ld.datsize > 0;
+	}
+	ld_to(LB_REC);
+}
+
+static void ld_after_records(void);
+
+static void ld_next_book(void)
+{
+	if (ld.bi < ld.last)
+		ld_book(ld.bi + 1);
+	else if (ld.all)
+		ld_to(LB_SORT);
+	else
+		ld_to(LB_IDLE);
+}
+
+/* up to 4 records (hashing them takes a 68000 about 10 ms each) */
+static void ld_records(void)
+{
+	BOOK *b = &books[ld.bi];
+	char line[700];
+	int n;
+	for (n = 0; n < 4; n++) {
 		char *fld[6], *p;
 		long len, poff = -1, plen = 0;
 		int k, partial = 0, old;
+		if (!fr_line(&lf, line, sizeof(line)))
+			break;
 		if (line[0] == 'X' && line[1] == ' ') {
 			/* a contact deleted since the file was written */
 			old = live_res(b, line + 2);
@@ -1070,99 +1274,309 @@ static void load_one(BOOK *b)
 		old = live_res(b, fld[1]);
 		if (old >= 0)
 			dead_res(b, old);	/* a newer copy, appended when it changed */
-		k = res_add(b, fld[0], fld[1], f.off, len, poff, plen, partial);
+		k = res_add(b, fld[0], fld[1], lf.off, len, poff, plen, partial);
 		if (k < 0) {
 			b->lost++;		/* no memory: counted, the rest still looked at */
-			if (!fr_bytes(&f, 0, len + 1))
+			if (!fr_bytes(&lf, 0, len + 1))
+				break;
+		} else if (ld.trust) {
+			if (!fr_bytes(&lf, 0, len + 1))	/* its hash comes from the index */
 				break;
 		} else {
 			TH t = { 0, 0 };
-			if (!fr_hash(&f, len, &t) || !fr_bytes(&f, 0, 1))
+			if (!fr_hash(&lf, len, &t) || !fr_bytes(&lf, 0, 1))
 				break;
 			b->res[k].th = th_end(&t);
 		}
 	}
-	/* the list of records no bigger than it is: the room it leaves is
-	   taken by the cards read next */
-	if (b->maxres > b->nres + b->nres / 8 + 8) {
-		RESOURCE *n = malloc((b->nres + 8) * sizeof(RESOURCE));
-		if (n) {
-			memcpy(n, b->res, b->nres * sizeof(RESOURCE));
-			free(b->res);
-			b->res = n;
-			b->maxres = b->nres + 8;
-		}
+	if (n == 4)
+		return;
+	fr_close(&lf);
+	/* the list of them no bigger than it is: the room it leaves is taken
+	   by the cards read next. Copied a part at a time (24 KB for 600
+	   takes an ST 30 ms) */
+	if (b->maxres > b->nres + b->nres / 8 + 8 && (ld.trim = malloc((b->nres + 8) * sizeof(RESOURCE))) != 0) {
+		ld.r = 0;
+		ld_to(LB_TRIM);
+		return;
 	}
-	t_rec = pf_ms() - t0;
-	/* the cards as they were parsed before, where their text is the same */
-	if (b->ver == CACHE_VER && !parse_old) {
-		pf_close(f.h);
-		idx_read(b, &f, &used, &stale);
-		f.h = pf_open(path, PF_READ);
-	}
-	t_idx = pf_ms() - t0 - t_rec;
-	/* then the rest, parsed (the old kind are only listed here: read
-	   after they are written anew) */
-	if (f.h >= 0 && (b->ver == CACHE_VER || parse_old) && pf_seek(f.h, 0) == 0) {
-		int r;
-		char *raw = 0;
-		long max = 0;
-		f.pos = f.len = 0;
-		f.off = 0;
-		for (r = 0; r < b->nres; r++) {
-			RESOURCE *rs = &b->res[r];
-			if (rs->dead || rs->done || rs->len >= 262144L)
-				continue;
-			if (full) {
-				/* memory is full: the rest counted as left out, not
-				   parsed at every start only to be let go again */
-				b->lost++;
-				continue;
-			}
-			if (rs->len + 1 > max) {
-				free(raw);
-				max = rs->len + 1 > 4096 ? rs->len + 1 : 4096;
-				raw = malloc(max);
-				if (!raw) {
-					max = 0;
-					b->lost++;
-					continue;
+	ld_after_records();
+}
+
+static void ld_trim(void)
+{
+	BOOK *b = &books[ld.bi];
+	int n = b->nres - ld.r < 128 ? b->nres - ld.r : 128;
+	memcpy(ld.trim + ld.r, b->res + ld.r, n * sizeof(RESOURCE));
+	ld.r += n;
+	if (ld.r < b->nres)
+		return;
+	free(b->res);
+	b->res = ld.trim;
+	b->maxres = b->nres + 8;
+	ld.trim = 0;
+	ld_after_records();
+}
+
+static void ld_after_records(void)
+{
+	BOOK *b = &books[ld.bi];
+	if (b->ver != CACHE_VER && !parse_old)
+		ld_to(LB_END);		/* the old kind is only listed: read after it is written anew */
+	else
+		ld_to(ld.kind ? LB_IDX : LB_PARSE);
+}
+
+/* the cards as they were parsed before, where their text is the same:
+   up to 8 of them */
+static void ld_index(void)
+{
+	BOOK *b = &books[ld.bi];
+	IDXHEAD hd;
+	IDXENT e;
+	int n, r;
+	if (!ld.begun) {
+		char path[200];
+		ld.begun = 1;
+		cache_path(b, "IDX", path, sizeof(path));
+		fr_open(&lf, path);
+		ld.esize = ld.kind == 2 ? (long)sizeof(IDXENT) : IDXENT_OLD;
+		ld.next = malloc((b->nres + 1) * sizeof(short));
+		if (!ld.next || !fr_bytes(&lf, (char *)&hd, ld.kind == 2 ? (long)sizeof(hd) : IDXHEAD_OLD)) {
+			ld.esize = 0;	/* ends at once */
+		} else {
+			/* the cards to find, by hash, or by where they are */
+			for (r = 0; r < 64; r++)
+				ld.head[r] = -1;
+			for (r = b->nres - 1; r >= 0; r--)
+				if (!b->res[r].dead) {
+					unsigned k = ent_bucket(&ld, b->res[r].th, b->res[r].off);
+					ld.next[r] = ld.head[k];
+					ld.head[k] = (short)r;
 				}
-			}
-			/* forward to it, past the copies that aren't read */
-			if (rs->off < f.off || !fr_bytes(&f, 0, rs->off - f.off))
+		}
+	}
+	for (n = 0; n < 8; n++) {
+		long sz;
+		char *blk;
+		CONTACT *c;
+		memset(&e, 0, sizeof(e));
+		if (!ld.esize || !fr_bytes(&lf, (char *)&e, ld.esize))
+			break;
+		sz = e.blen + (e.blen & 1);
+		if (e.blen < (long)sizeof(CONTACT) || e.blen > 262144L)
+			break;
+		for (r = ld.head[ent_bucket(&ld, e.th, e.off)]; r >= 0; r = ld.next[r]) {
+			RESOURCE *rs = &b->res[r];
+			if (rs->len == e.tlen && rs->hh == e.hh && !rs->done &&
+			    (ld.trust ? rs->off == e.off : rs->th == e.th))
 				break;
-			if (!fr_bytes(&f, raw, rs->len))
+		}
+		if (r < 0 || !(blk = malloc(e.blen))) {
+			ld.stale++;
+			if (!fr_bytes(&lf, 0, sz))
 				break;
-			raw[rs->len] = 0;
-			switch (add_contact(b, r, raw, rs->len)) {
-			case 1: parsed++; break;
-			case -1: full = 1; break;
+			continue;
+		}
+		if (!fr_bytes(&lf, blk, e.blen) || (sz > e.blen && !fr_bytes(&lf, 0, 1))) {
+			free(blk);
+			break;
+		}
+		c = vcard_unpack(blk, e.blen);
+		if (!c) {
+			free(blk);
+			ld.stale++;
+			continue;
+		}
+		if (ld.trust)
+			b->res[r].th = e.th;
+		c->book = (short)ld.bi;
+		c->res = (short)r;
+		vcard_sort_key(c, opt.sort_first);
+		b->res[r].done = 1;	/* when it doesn't fit, not parsed again to fail again */
+		if (!people_add(c)) {
+			free(c);
+			b->lost++;
+		} else {
+			ld.used++;
+		}
+	}
+	if (n == 8)
+		return;
+	free(ld.next);
+	ld.next = 0;
+	fr_close(&lf);
+	ld_to(LB_PARSE);
+}
+
+/* then the rest, parsed: one card */
+static void ld_parse(void)
+{
+	BOOK *b = &books[ld.bi];
+	RESOURCE *rs;
+	if (!ld.begun) {
+		char path[200];
+		ld.begun = 1;
+		cache_path(b, "DAT", path, sizeof(path));
+		fr_open(&lf, path);
+		ld.r = 0;
+		ld.raw = 0;
+		ld.max = 0;
+		return;			/* a step of its own */
+	}
+	for (; ld.r < b->nres; ld.r++) {
+		rs = &b->res[ld.r];
+		if (rs->dead || rs->done || rs->len >= 262144L)
+			continue;
+		if (ld.full) {
+			/* memory is full: the rest counted as left out, not
+			   parsed at every start only to be let go again */
+			b->lost++;
+			continue;
+		}
+		break;
+	}
+	if (ld.r < b->nres) {
+		rs = &b->res[ld.r];
+		if (rs->len + 1 > ld.max) {
+			free(ld.raw);
+			ld.max = rs->len + 1 > 4096 ? rs->len + 1 : 4096;
+			ld.raw = malloc(ld.max);
+			if (!ld.raw) {
+				ld.max = 0;
+				b->lost++;
+				ld.r++;
+				return;
 			}
 		}
-		free(raw);
+		/* forward to it, past the copies that aren't read */
+		if (rs->off >= lf.off && fr_bytes(&lf, 0, rs->off - lf.off) && fr_bytes(&lf, ld.raw, rs->len)) {
+			ld.raw[rs->len] = 0;
+			if (ld.trust) {
+				/* not in the index: hashed now */
+				TH t = { 0, 0 };
+				th_add(&t, ld.raw, rs->len);
+				rs->th = th_end(&t);
+			}
+			switch (add_contact(b, ld.r, ld.raw, rs->len)) {
+			case 1: ld.parsed++; break;
+			case -1: ld.full = 1; break;
+			}
+			ld.r++;
+			return;
+		}
 	}
-	if (f.h >= 0)
-		pf_close(f.h);
-	t_parse = pf_ms() - t0 - t_rec - t_idx;
-	/* the parsed cache written again when cards were parsed, or when it
-	   holds many that are gone */
-	if (b->ver == CACHE_VER && !parse_old && (parsed > 0 || (stale > 16 && stale > used / 4))) {
-		idx_write(b);
-		wrote = 1;
+	free(ld.raw);
+	ld.raw = 0;
+	fr_close(&lf);
+	/* the parsed cache written again when cards were parsed, when it
+	   holds many that are gone, or was made from another copy of the
+	   file (or is 1.39's) */
+	if (b->ver == CACHE_VER && !parse_old && ld.used + ld.parsed > 0 &&
+	    (ld.parsed > 0 || (ld.stale > 16 && ld.stale > ld.used / 4) || !ld.trust)) {
+		/* the file as it was when the book was begun */
+		ld.wgen[ld.bi] = ld.gen;
+		ld.wsize[ld.bi] = ld.gen ? 0 : ld.datsize;
+		ld.wstamp[ld.bi] = ld.gen ? 0 : ld.datstamp;
+		if (ld.all) {
+			/* after the sort: in order, so the next start needn't sort */
+			ld.wneed |= 1L << ld.bi;
+			ld_to(LB_END);
+		} else {
+			ld_to(LB_WRITE);
+		}
+	} else {
+		ld_to(LB_END);
 	}
-	t_write = pf_ms() - t0 - t_rec - t_idx - t_parse;
-	{
+}
+
+/* the next book whose parsed cache is to be written, after the sort */
+static void ld_next_write(void)
+{
+	int i;
+	for (i = 0; i < nbooks; i++)
+		if (ld.wneed & (1L << i)) {
+			ld.wneed &= ~(1L << i);
+			ld.bi = i;
+			ld_to(LB_WRITE);
+			return;
+		}
+	ld_to(LB_GROUPS);
+}
+
+/* the parsed cache written again: up to 4 contacts */
+static void ld_write(void)
+{
+	BOOK *b = &books[ld.bi];
+	char path[200];
+	int n = 0;
+	cache_path(b, "IDX", path, sizeof(path));
+	if (!ld.begun) {
+		IDXHEAD hd;
+		ld.begun = 1;
+		ld.wi = 0;
+		ld.wok = 1;
+		ld.wrote = 1;
+		ld.t[LB_WRITE] = 0;
+		ld.wh = pf_open(path, PF_WRITE);
+		memset(&hd, 0, sizeof(hd));
+		memcpy(hd.magic, IDX_MAGIC, 8);
+		hd.packid = VC_PACK_ID;
+		str_copy(hd.version, parse_id, sizeof(hd.version));
+		hd.gen = ld.wgen[ld.bi];
+		hd.datsize = ld.wsize[ld.bi];
+		hd.datstamp = ld.wstamp[ld.bi];
+		ld.wok = ld.wh >= 0 && pf_write(ld.wh, &hd, sizeof(hd)) == (long)sizeof(hd);
+	} else if (ld.wh < 0 && ld.wok) {
+		ld.wh = pf_open(path, PF_APPEND);
+		ld.wok = ld.wh >= 0;
+	}
+	for (; ld.wi < npeople && ld.wok && n < 4; ld.wi++) {
+		CONTACT *c = people[ld.wi];
+		if (c->book == ld.bi && c->res >= 0 && c->res < b->nres) {
+			ld.wok = idx_put(ld.wh, c, &b->res[c->res]);
+			n++;
+		}
+	}
+	if (ld.wok && ld.wi < npeople)
+		return;
+	if (ld.wh >= 0)
+		pf_close(ld.wh);
+	ld.wh = -1;
+	if (!ld.wok)
+		pf_remove(path);
+	if (ld.all) {
+		char m[100], a[16];
+		ld_clock();
+		snprintf(m, sizeof(m), "%.40s: the index written %s", b->name, secs_of(ld.t[LB_WRITE], a));
+		conn_log("Contacts", " -- ", m, (long)strlen(m));
+		ld_next_write();
+	} else {
+		ld_to(LB_END);
+	}
+}
+
+static void ld_end(void)
+{
+	BOOK *b = &books[ld.bi];
+	if (!ld.quiet) {
 		/* in the log: where the start-up's time goes */
-		char m[300], a[16], r[16], i[16], p[16], w[16];
-		int k = snprintf(m, sizeof(m), "%.40s: %d cards in %s: the records %s, %d from the index %s, %d parsed %s%s%s",
-				 b->name, used + parsed, secs_of(pf_ms() - t0, a), secs_of(t_rec, r), used, secs_of(t_idx, i),
-				 parsed, secs_of(t_parse, p), wrote ? ", the index written " : "", wrote ? secs_of(t_write, w) : "");
+		char m[340], a[16], r[16], i[16], p[16], w[16];
+		unsigned long all = ld.t[LB_START] + ld.t[LB_REC] + ld.t[LB_IDX] + ld.t[LB_PARSE] + ld.t[LB_WRITE];
+		int k = snprintf(m, sizeof(m), "%.40s: %d cards in %s: the records %s%s, %d from the index %s, %d parsed %s%s%s",
+				 b->name, ld.used + ld.parsed, secs_of(all, a), secs_of(ld.t[LB_START] + ld.t[LB_REC], r),
+				 ld.trust ? " (not hashed)" : "", ld.used, secs_of(ld.t[LB_IDX], i), ld.parsed,
+				 secs_of(ld.t[LB_PARSE], p),
+				 ld.wrote ? ", the index written " : (ld.wneed & (1L << ld.bi)) ? ", the index written after the sort" : "",
+				 ld.wrote ? secs_of(ld.t[LB_WRITE], w) : "");
 		if (b->lost && k > 0 && k < (int)sizeof(m))
-			snprintf(m + k, sizeof(m) - k, "; %d left out, no memory for them", b->lost);
+			k += snprintf(m + k, sizeof(m) - k, "; %d left out, no memory for them", b->lost);
+		if (pf_ms() - ld.t0 > all + 1000UL && k > 0 && k < (int)sizeof(m))
+			snprintf(m + k, sizeof(m) - k, "; in steps over %s", secs_of(pf_ms() - ld.t0, a));
 		conn_log("Contacts", " -- ", m, (long)strlen(m));
 	}
-	if (b->ver != CACHE_VER && !parse_old) {
+	ld.inend = 1;			/* a load from here (cache_rewrite's) is its own */
+	if (b->ver && b->ver != CACHE_VER && !parse_old) {
 		status("Converting %s...", b->name);
 		if (!cache_rewrite(b, -1, 0, 0, 0, 0, 0)) {
 			/* the disk is full: read as it is, written anew another time */
@@ -1171,6 +1585,132 @@ static void load_one(BOOK *b)
 			parse_old = 0;
 		}
 	}
+	ld.inend = 0;
+	ld_next_book();
+}
+
+static void ld_step(void)
+{
+	switch (ld.phase) {
+	case LB_START: ld_book(ld.bi); break;
+	case LB_REC: ld_records(); break;
+	case LB_TRIM: ld_trim(); break;
+	case LB_IDX: ld_index(); break;
+	case LB_PARSE: ld_parse(); break;
+	case LB_WRITE: ld_write(); break;
+	case LB_END: ld_end(); break;
+	case LB_SORT:
+		if (!ld.begun) {
+			ld.begun = 1;
+			people_serial++;
+			sort_begin();
+		}
+		if (!sort_step()) {
+			count_books();
+			ld_next_write();
+		}
+		break;
+	case LB_GROUPS:
+		groups_collect();
+		ld_to(LB_EXPORT);
+		break;
+	case LB_EXPORT: {
+		/* CONTACTS.TXT made again, as the contacts are now (people_export
+		   leaves it when nothing changed, and when some are left out) */
+		char m[60], a[16];
+		if (!ld.begun) {
+			ld.begun = 1;
+			export_begin();	/* a step of its own */
+			break;
+		}
+		if (export_step())
+			break;
+		ld_to(LB_IDLE);
+		snprintf(m, sizeof(m), "CONTACTS.TXT for EMail and ECal: %s",
+			 secs_of(ld.t[LB_SORT] + ld.t[LB_GROUPS] + ld.t[LB_EXPORT], a));
+		/* (the sort's time, and the groups', with it) */
+		conn_log("Contacts", " -- ", m, (long)strlen(m));
+		conn_log_flush();
+		status_clear();
+		break;
+	}
+	default:
+		ld_to(LB_IDLE);
+	}
+}
+
+/* the steps until there are none left, or more() says the time is up */
+static int ld_run(int (*more)(void))
+{
+	ld.at = pf_ms();
+	/* in steps, 4 KB a read: 16 KB would take an ST's disk a step of its
+	   own (at once, the fewer calls the better) */
+	lf.chunk = more ? 4096 : 0;
+	while (ld.phase != LB_IDLE && (!more || more()))
+		ld_step();
+	fr_park(&lf);
+	if (ld.wh >= 0) {
+		pf_close(ld.wh);
+		ld.wh = -1;
+	}
+	ld_clock();
+	return ld.phase != LB_IDLE;
+}
+
+void books_load_begin(void)
+{
+	books_load_cancel();
+	ld.all = 1;
+	ld.last = nbooks - 1;
+	ld.bi = 0;
+	ld.wh = -1;
+	if (nbooks > 0) {
+		status("Reading your contacts...");
+		ld.phase = LB_START;
+	} else {
+		ld.phase = LB_SORT;
+	}
+}
+
+int books_load_run(int (*more)(void))
+{
+	return ld.phase != LB_IDLE && ld_run(more);
+}
+
+int books_loading(void)
+{
+	return ld.phase != LB_IDLE;
+}
+
+/* what was read so far stays, to be let go (store_release) or read again */
+void books_load_cancel(void)
+{
+	fr_close(&lf);
+	if (ld.phase != LB_IDLE) {
+		if (ld.wh >= 0)
+			pf_close(ld.wh);
+		free(ld.next);
+		free(ld.raw);
+		free(ld.trim);
+	}
+	memset(&ld, 0, sizeof(ld));
+	ld.wh = -1;
+	sort_cancel();
+	export_cancel();
+}
+
+static void load_one(BOOK *b)
+{
+	LD keep;
+	if (ld.phase != LB_IDLE && !ld.inend)
+		ld_run(0);		/* a load in steps finished first */
+	keep = ld;
+	memset(&ld, 0, sizeof(ld));
+	ld.wh = -1;
+	ld.bi = ld.last = (int)(b - books);
+	ld.phase = LB_START;
+	ld_run(0);
+	ld = keep;
 }
 
 void book_load(BOOK *b)
@@ -1181,22 +1721,8 @@ void book_load(BOOK *b)
 
 void book_load_all(void)
 {
-	int i;
-	for (i = 0; i < nbooks; i++) {
-		status("Reading %s...", books[i].name);
-		load_one(&books[i]);
-	}
-	/* CONTACTS.TXT made again, as the contacts are now (people_export
-	   leaves it when nothing changed, and when some are left out) */
-	{
-		unsigned long t = pf_ms();
-		char m[60], a[16];
-		people_changed(1);
-		snprintf(m, sizeof(m), "CONTACTS.TXT for EMail and ECal: %s", secs_of(pf_ms() - t, a));
-		conn_log("Contacts", " -- ", m, (long)strlen(m));
-		conn_log_flush();
-	}
-	status_clear();
+	books_load_begin();
+	ld_run(0);
 }
 
 /* A card into the files: its PHOTO line to the end of the photo file
@@ -1275,7 +1801,17 @@ static int cw_open(CW *w, BOOK *b)
 	w->old = pf_open(path, PF_READ);
 	cache_path(b, "PHO", path, sizeof(path));
 	w->oldp = pf_open(path, PF_READ);
-	pf_write(w->h, "CARDCACHE 2\n", 12);
+	{
+		/* a new number for this copy of the file (the parsed cache says
+		   which it was made from) */
+		unsigned char g[4];
+		char head[24];
+		unsigned long gen;
+		pf_entropy(g, 4);
+		gen = ((unsigned long)g[0] << 24 | (unsigned long)g[1] << 16 | (unsigned)g[2] << 8 | g[3]) & 0xFFFFFFFFUL;
+		snprintf(head, sizeof(head), "CARDCACHE 2 %08lX\n", gen ? gen : 1UL);
+		pf_write(w->h, head, (long)strlen(head));
+	}
 	return 1;
 }
 
@@ -1407,9 +1943,9 @@ static int aw_open(AW *w, BOOK *b)
 	if (w->psize < 0)
 		w->psize = 0;
 	w->ph = pf_open(path, PF_APPEND);
-	/* the parsed cache is added to only when it is there, whole */
+	/* the parsed cache is added to only when it is there, and this kind */
 	cache_path(b, "IDX", path, sizeof(path));
-	w->ih = pf_size(path) >= (long)sizeof(IDXHEAD) ? pf_open(path, PF_APPEND) : -1;
+	w->ih = idx_current(b) ? pf_open(path, PF_APPEND) : -1;
 	w->ok = 1;
 	return 1;
 }
@@ -1424,19 +1960,24 @@ static void aw_drop(AW *w, int r)
 	kill_res(w->b, r);
 }
 
-static int aw_add(AW *w, const char *href, const char *etag, const char *raw, long len, int partial)
+/* pre: the card parsed already (it is taken), or 0 */
+static int aw_add_pre(AW *w, const char *href, const char *etag, const char *raw, long len, int partial,
+		      CONTACT *pre)
 {
 	char path[200];
 	long at, n, plen;
 	int old, r;
-	if (!w->ok)
+	unsigned long th;
+	if (!w->ok) {
+		free(pre);
 		return 0;
+	}
 	old = live_res(w->b, href);
 	if (old >= 0)
 		kill_res(w->b, old);
-	unsigned long th;
 	if (!rec_write(w->h, w->ph, w->psize, href, etag, raw, len, &partial, &at, &n, &plen, &th)) {
 		w->ok = 0;
+		free(pre);
 		return 0;
 	}
 	r = res_add(w->b, etag, href, w->size + at, n, plen ? w->psize : -1L, plen, partial);
@@ -1445,16 +1986,26 @@ static int aw_add(AW *w, const char *href, const char *etag, const char *raw, lo
 	if (r >= 0) {
 		int before = npeople;
 		w->b->res[r].th = th;
-		add_contact(w->b, r, raw, len);
+		if (pre)
+			add_parsed(w->b, r, pre);
+		else
+			add_contact(w->b, r, raw, len);
+		pre = 0;
 		/* and its parsed self at the end of the parsed cache */
-		if (w->ih >= 0 && npeople > before && !idx_put(w->ih, people[npeople - 1], th, n, w->b->res[r].hh)) {
+		if (w->ih >= 0 && npeople > before && !idx_put(w->ih, people[npeople - 1], &w->b->res[r])) {
 			pf_close(w->ih);
 			w->ih = -1;
 			cache_path(w->b, "IDX", path, sizeof(path));
 			pf_remove(path);
 		}
 	}
+	free(pre);			/* not used: no room in the list */
 	return 1;
+}
+
+static int aw_add(AW *w, const char *href, const char *etag, const char *raw, long len, int partial)
+{
+	return aw_add_pre(w, href, etag, raw, len, partial, 0);
 }
 
 /* 0: the disk refused the end of a file: the caller writes it all again */
@@ -1594,11 +2145,21 @@ static int same_etag(const char *a, const char *b)
 	return la == lb && !strncmp(a, b, la) && la > 0;
 }
 
+/* a card that came, kept in memory until it is written (quiet_sync) */
+typedef struct {
+	char *href, *etag, *data;	/* one block */
+	long len;
+	int partial;
+	CONTACT *c;			/* parsed before it is written */
+} QCARD;
+
 typedef struct {
 	CW *w;
 	AW *aw;
 	BOOK *b;
 	int n, of;
+	QCARD *q;		/* neither file: into this list */
+	int nq, maxq;
 } MG;
 
 static int mget_cb(void *ud, const char *href, const char *etag, const char *data, long len, int partial)
@@ -1608,8 +2169,38 @@ static int mget_cb(void *ud, const char *href, const char *etag, const char *dat
 		status("%s: %d of %d...", m->b->name, m->n, m->of);
 	if (m->aw)
 		return aw_add(m->aw, href, etag, data, len, partial);
-	cw_add(m->w, href, etag, data, len, partial);
-	return !m->w->failed;
+	if (m->w) {
+		cw_add(m->w, href, etag, data, len, partial);
+		return !m->w->failed;
+	}
+	{
+		long hl = (long)strlen(href), el = (long)strlen(etag ? etag : "");
+		QCARD *c;
+		if (m->nq >= m->maxq) {
+			int mx = m->maxq ? m->maxq * 2 : 8;
+			QCARD *nq = realloc(m->q, mx * sizeof(QCARD));
+			if (!nq)
+				return 0;
+			m->q = nq;
+			m->maxq = mx;
+		}
+		c = &m->q[m->nq];
+		if (!(c->href = malloc(hl + el + len + 3)))
+			return 0;
+		memcpy(c->href, href, hl + 1);
+		c->etag = c->href + hl + 1;
+		memcpy(c->etag, etag ? etag : "", el + 1);
+		c->data = c->etag + el + 1;
+		memcpy(c->data, data, len);
+		c->data[len] = 0;
+		c->len = len;
+		c->partial = partial;
+		c->c = 0;
+		m->nq++;
+		if (http_yield)
+			http_yield();	/* (an answer of many cards is read at once) */
+		return 1;
+	}
 }
 
 /* the server's list, compared with the cache as it comes: only the
@@ -1882,6 +2473,303 @@ int sync_all(int force)
 	http_close_all();
 	conn_log_flush();
 	return failed ? -1 : changed;
+}
+
+/* ---- bringing the books up to date in the background ----
+ * The accessory, its window closed (ui/main.c, common/ui/bgwork.c): one
+ * exchange with a server a step, its answer kept in memory (a few cards
+ * at a time, within carddav_budget), and the files opened only while it
+ * is written, with no event call between: an accessory's files belong
+ * to the program in front, which may end while the network is waited
+ * for. Only what changed is added to the end of the cache and read; a
+ * book whose cache must be written anew, or the list of books, wait for
+ * a sync with the window open. */
+enum { QS_IDLE, QS_BOOK, QS_LIST, QS_FETCH, QS_PARSE, QS_WRITE, QS_END };
+static int qs_last;
+
+static struct {
+	int st, bi, changed, failed, dropped, skipped;
+	char ctag[100];
+	LCMP l;
+	int pi, wi;			/* the next of l.part, l.whole to fetch */
+	MG m;				/* the cards that came, */
+	int qi, n, partial;		/* the next to parse or write; how many asked */
+} qs;
+
+static void qs_cards_free(void)
+{
+	int i;
+	for (i = 0; i < qs.m.nq; i++) {
+		free(qs.m.q[i].c);
+		free(qs.m.q[i].href);
+	}
+	free(qs.m.q);
+	memset(&qs.m, 0, sizeof(qs.m));
+}
+
+static void qs_book_done(void)
+{
+	qs_cards_free();
+	lcmp_free(&qs.l);
+	memset(&qs.l, 0, sizeof(qs.l));
+	qs.bi++;
+	qs.st = QS_BOOK;
+}
+
+int quiet_sync_begin(void)
+{
+	quiet_sync_cancel();
+	if (opt.offline || !naccts)
+		return 0;
+	qs.st = QS_BOOK;
+	return 1;
+}
+
+void quiet_sync_cancel(void)
+{
+	if (qs.st != QS_IDLE) {
+		lcmp_free(&qs.l);
+		qs_cards_free();
+	}
+	memset(&qs, 0, sizeof(qs));
+}
+
+int quiet_syncing(void)
+{
+	return qs.st != QS_IDLE;
+}
+
+/* the cards that came, into the cache's end; first the ones the server
+   no longer has */
+static int qs_gone(BOOK *b, int i)
+{
+	const char *h;
+	int j;
+	if (b->res[i].dead || qs.l.keep[i])
+		return 0;
+	h = res_href(b, &b->res[i]);
+	for (j = 0; j < qs.l.npart; j++)
+		if (!strcmp(qs.l.part[j], h))
+			return 0;
+	for (j = 0; j < qs.l.nwhole; j++)
+		if (!strcmp(qs.l.whole[j], h))
+			return 0;
+	return 1;
+}
+
+/* the cards that came, into the cache's end (one at a time, parsed
+   already: files open only while they are written); first the ones the
+   server no longer has. 1 ok */
+static int qs_write(BOOK *b)
+{
+	AW w;
+	int i, ok, gone = 0, k;
+	if (!qs.dropped)
+		for (i = 0; i < b->nres && !gone; i++)
+			gone = qs_gone(b, i);
+	if (!gone && qs.qi >= qs.m.nq) {
+		qs.dropped = 1;
+		return 1;		/* nothing to write */
+	}
+	if (!aw_open(&w, b))
+		return 0;
+	if (!qs.dropped) {
+		/* (a write of their own) */
+		qs.dropped = 1;
+		for (i = 0; i < b->nres; i++)
+			if (qs_gone(b, i))
+				aw_drop(&w, i);
+		k = 1;
+	} else {
+		k = 0;
+	}
+	for (; k < 1 && qs.qi < qs.m.nq; k++, qs.qi++) {
+		QCARD *q = &qs.m.q[qs.qi];
+		aw_add_pre(&w, q->href, q->etag, q->data, q->len, q->partial, q->c);
+		q->c = 0;		/* taken */
+	}
+	ok = aw_close(&w);
+	if (!ok)
+		load_one(b);		/* as the files are; written anew with the window open */
+	return ok;
+}
+
+/* one step: 1 while there is more */
+int quiet_sync_step(void)
+{
+	BOOK *b = qs.bi < nbooks ? &books[qs.bi] : 0;
+	DAVAUTH au;
+	switch (qs.st) {
+	case QS_BOOK:
+		/* the next book, if its ctag moved */
+		if (!b) {
+			qs.st = QS_END;
+			qs.dropped = qs.skipped = 0;	/* (QS_END's steps) */
+			return 1;
+		}
+		if (accts[b->acct].kind != AK_CARDDAV || !b->ver) {
+			qs.bi++;
+			return 1;
+		}
+		au = auth_of(b->acct);
+		ab_err[0] = 0;
+		if (!carddav_ctag(b->url, &au, qs.ctag, sizeof(qs.ctag), ab_err, sizeof(ab_err))) {
+			qs.failed++;
+			qs.bi++;
+			return 1;
+		}
+		if (qs.ctag[0] && !strcmp(qs.ctag, b->ctag) && b->synced) {
+			qs.bi++;
+			return 1;
+		}
+		/* changes are added to the end; when the file is to be written
+		   anew, that waits for the window */
+		if (b->ver != CACHE_VER || (b->ndead >= 32 && 2 * b->ndead > b->nres)) {
+			qs.bi++;
+			return 1;
+		}
+		qs.st = QS_LIST;
+		return 1;
+	case QS_LIST:
+		au = auth_of(b->acct);
+		memset(&qs.l, 0, sizeof(qs.l));
+		qs.l.b = b;
+		qs.l.keep = calloc(b->nres + 1, 1);
+		if (!qs.l.keep || !carddav_list(b->url, &au, list_cmp, &qs.l, ab_err, sizeof(ab_err))) {
+			qs.failed++;
+			qs_book_done();
+			return 1;
+		}
+		qs.pi = qs.wi = 0;
+		qs.dropped = 0;
+		qs.skipped = 0;
+		if (!qs.l.npart && !qs.l.nwhole) {
+			/* nothing new: only the ones gone */
+			qs.n = 0;
+			qs.qi = 0;
+			qs.st = QS_WRITE;
+			return 1;
+		}
+		qs.st = QS_FETCH;
+		return 1;
+	case QS_FETCH:
+		/* a few at a time, the ones we have in part first: the
+		   answer is kept in memory, no file open while it comes */
+		qs_cards_free();
+		if (qs.pi < qs.l.npart) {
+			qs.n = qs.l.npart - qs.pi < 8 ? qs.l.npart - qs.pi : 8;
+			qs.partial = 1;
+		} else {
+			qs.n = qs.l.nwhole - qs.wi < 4 ? qs.l.nwhole - qs.wi : 4;
+			qs.partial = 0;
+		}
+		qs.m.b = b;
+		qs.qi = 0;
+		au = auth_of(b->acct);
+		if (qs.n > 0) {
+			if (!carddav_multiget(b->url, &au, qs.partial ? qs.l.part + qs.pi : qs.l.whole + qs.wi, qs.n,
+					      qs.partial, mget_cb, &qs.m, ab_err, sizeof(ab_err))) {
+				qs.failed++;
+				qs_book_done();
+				return 1;
+			}
+			qs.skipped += carddav_skipped;
+		}
+		qs.st = QS_PARSE;
+		return 1;
+	case QS_PARSE:
+		/* one card a step, as at start-up */
+		if (qs.qi < qs.m.nq) {
+			QCARD *q = &qs.m.q[qs.qi++];
+			q->c = vcard_parse(q->data, q->len);
+			return 1;
+		}
+		qs.qi = 0;
+		qs.st = QS_WRITE;
+		return 1;
+	case QS_WRITE:
+		if (!qs_write(b)) {
+			qs.failed++;
+			qs_book_done();
+			return 1;
+		}
+		if (qs.qi < qs.m.nq)
+			return 1;
+		if (qs.partial)
+			qs.pi += qs.n;
+		else
+			qs.wi += qs.n;
+		qs.st = QS_FETCH;
+		if (qs.pi < qs.l.npart || qs.wi < qs.l.nwhole)
+			return 1;
+		/* a card too big to fetch: the ctag not taken, so it is tried again */
+		str_copy(b->ctag, qs.skipped ? "" : qs.ctag, sizeof(b->ctag));
+		b->synced = now_local();
+		qs.changed++;
+		qs_book_done();
+		return 1;
+	case QS_END:
+		/* in two steps: the connection, the log. ECONTACT.INF (the
+		   new ctags) is written when the window opens (store_unsaved):
+		   writing it takes an ST over 100 ms, and a ctag not kept only
+		   costs the next refresh a look at the list */
+		if (!qs.dropped) {
+			qs.dropped = 1;
+			http_close_all();
+			return 1;
+		}
+		if (qs.changed)
+			store_unsaved = 1;
+		conn_log_flush();
+		{
+			int changed = qs.changed;
+			quiet_sync_cancel();
+			qs_last = changed;
+			if (changed) {
+				/* sorted again, CONTACTS.TXT made again: in steps too */
+				books_load_cancel();
+				ld.all = 1;
+				ld.phase = LB_SORT;
+			}
+		}
+		return 0;
+	}
+	return 0;
+}
+
+/* stopped where it is (the window opens): what came is kept, and sorted
+   at once */
+void quiet_sync_stop(void)
+{
+	int changed;
+	if (qs.st == QS_IDLE)
+		return;
+	changed = qs.changed || qs.dropped || qs.pi || qs.wi;
+	quiet_sync_cancel();
+	qs_last = changed;
+	http_close_all();
+	if (changed) {
+		store_save_settings();
+		people_changed(1);
+	}
+}
+
+int store_unsaved;
+
+/* the step next, for AES_PROFILE's notes */
+const char *quiet_sync_what(void)
+{
+	static const char *const n[] = { "sync", "sync-ctag", "sync-list", "sync-fetch", "sync-parse", "sync-write",
+					  "sync-end" };
+	if (qs.st == QS_END)
+		return !qs.dropped ? "sync-end-close" : "sync-end-log";
+	return n[qs.st];
+}
+
+/* the books the last one changed */
+int quiet_sync_changed(void)
+{
+	return qs_last;
 }
 
 /* ---------------- changing contacts ---------------- */
@@ -2569,22 +3457,41 @@ static unsigned long people_stamp(void)
 	return h;
 }
 
-void people_export(void)
-{
+/* CONTACTS.TXT made in steps (a load in the background): a few contacts
+   at a time, written to CONTACTS.TMP a piece at a time, and then put in
+   its place, so EMail or ECal, running meanwhile, never read half of it */
+enum { EX_IDLE, EX_PEOPLE, EX_GROUPS, EX_SAME, EX_WRITE };
+
+static struct {
+	int st, i, k, first;
+	long pos;
 	SBUF b;
-	char path[200], name[160], mark[40];
-	int i, j, k;
+	char path[200], tmp[200];
+} ex;
+
+static void export_cancel(void)
+{
+	if (ex.st != EX_IDLE)
+		sb_free(&ex.b);
+	ex.st = EX_IDLE;
+}
+
+static void export_begin(void)
+{
+	char mark[40];
+	export_cancel();
 	/* with contacts left out for lack of memory, EMail and ECal keep the
 	   whole list they have */
 	if (!opt.workdir[0] || contacts_lost())
 		return;
-	path_join(path, sizeof(path), opt.workdir, "CONTACTS.TXT");
+	path_join(ex.path, sizeof(ex.path), opt.workdir, "CONTACTS.TXT");
+	path_join(ex.tmp, sizeof(ex.tmp), opt.workdir, "CONTACTS.TMP");
 	snprintf(mark, sizeof(mark), "; made from %08lX\r\n", people_stamp());
 	{
 		/* made from the same contacts: as it is (EMail and ECal read only
 		   the P and G lines) */
 		char head[400];
-		int h = pf_open(path, PF_READ);
+		int h = pf_open(ex.path, PF_READ);
 		long n = h >= 0 ? pf_read(h, head, sizeof(head) - 1) : -1;
 		if (h >= 0)
 			pf_close(h);
@@ -2594,46 +3501,129 @@ void people_export(void)
 				return;
 		}
 	}
-	sb_init(&b);
-	sb_adds(&b, "; EContact's people, for EMail and ECal. Written by EContact whenever the\r\n"
-		    "; contacts change: don't edit it here, change the contacts in EContact.\r\n"
-		    "; P<tab>name<tab>email<tab>label    one line for each email address\r\n"
-		    "; G<tab>group<tab>Name <email>, Name <email>...\r\n");
-	sb_adds(&b, mark);
-	for (i = 0; i < npeople; i++) {
-		CONTACT *c = people[i];
-		if (c->group || !c->nemail)
-			continue;
-		vcard_display_name(c, 0, name, sizeof(name));
-		for (j = 0; j < c->nemail; j++)
-			sb_printf(&b, "P\t%s\t%s\t%s\r\n", name, c->email[j].value, c->email[j].label);
+	sb_init(&ex.b);
+	{
+		/* its room taken at once: growing it would copy it, a long
+		   stretch for a 68000 */
+		long need = 400;
+		int i;
+		for (i = 0; i < npeople; i++)
+			need += 110L * people[i]->nemail;
+		sb_reserve(&ex.b, need);
 	}
-	for (k = 0; k < ngroups; k++) {
-		int first = 1;
-		for (i = 0; i < npeople; i++) {
-			CONTACT *c = people[i];
-			if (!c->nemail || !group_has(&groups[k], c))
+	sb_adds(&ex.b, "; EContact's people, for EMail and ECal. Written by EContact whenever the\r\n"
+		       "; contacts change: don't edit it here, change the contacts in EContact.\r\n"
+		       "; P<tab>name<tab>email<tab>label    one line for each email address\r\n"
+		       "; G<tab>group<tab>Name <email>, Name <email>...\r\n");
+	sb_adds(&ex.b, mark);
+	ex.i = 0;
+	ex.st = EX_PEOPLE;
+}
+
+/* 1 while there is more to do */
+static int export_step(void)
+{
+	char name[160];
+	int n = 0, j;
+	switch (ex.st) {
+	case EX_PEOPLE:
+		for (; ex.i < npeople && n < 4; ex.i++) {
+			CONTACT *c = people[ex.i];
+			if (c->group || !c->nemail)
 				continue;
-			if (first)
-				sb_printf(&b, "G\t%s\t", groups[k].name);
 			vcard_display_name(c, 0, name, sizeof(name));
-			sb_printf(&b, "%s%s <%s>", first ? "" : ", ", name, c->email[0].value);
-			first = 0;
+			for (j = 0; j < c->nemail; j++)
+				sb_printf(&ex.b, "P\t%s\t%s\t%s\r\n", name, c->email[j].value, c->email[j].label);
+			n++;
 		}
-		if (!first)
-			sb_adds(&b, "\r\n");
-	}
-	/* written only when it says something new */
-	if (pf_size(path) == b.len) {
-		long n = 0;
-		char *old = pf_load(path, &n);
-		int same = old && n == b.len && (!n || !memcmp(old, b.s, n));
-		free(old);
-		if (same) {
-			sb_free(&b);
-			return;
+		if (ex.i < npeople)
+			return 1;
+		ex.k = ex.i = 0;
+		ex.first = 1;
+		ex.st = EX_GROUPS;
+		return 1;
+	case EX_GROUPS:
+		/* each group's line: its members, looked for a few hundred at a time */
+		if (ex.k < ngroups) {
+			for (; ex.i < npeople && n < 128; ex.i++, n++) {
+				CONTACT *c = people[ex.i];
+				if (!c->nemail || !group_has(&groups[ex.k], c))
+					continue;
+				if (ex.first)
+					sb_printf(&ex.b, "G\t%s\t", groups[ex.k].name);
+				vcard_display_name(c, 0, name, sizeof(name));
+				sb_printf(&ex.b, "%s%s <%s>", ex.first ? "" : ", ", name, c->email[0].value);
+				ex.first = 0;
+			}
+			if (ex.i < npeople)
+				return 1;
+			if (!ex.first)
+				sb_adds(&ex.b, "\r\n");
+			ex.k++;
+			ex.i = 0;
+			ex.first = 1;
+			return 1;
 		}
+		ex.pos = 0;
+		/* written only when it says something new */
+		ex.st = pf_size(ex.path) == ex.b.len ? EX_SAME : EX_WRITE;
+		return 1;
+	case EX_SAME: {
+		/* the old one compared, 8 KB at a time */
+		static char old[8192];
+		long k = ex.b.len - ex.pos < (long)sizeof(old) ? ex.b.len - ex.pos : (long)sizeof(old);
+		int h = pf_open(ex.path, PF_READ), same;
+		same = h >= 0 && pf_seek(h, ex.pos) == ex.pos && pf_read(h, old, k) == k && !memcmp(old, ex.b.s + ex.pos, k);
+		if (h >= 0)
+			pf_close(h);
+		ex.pos += k;
+		if (!same) {
+			ex.pos = 0;
+			ex.st = EX_WRITE;
+			return 1;
+		}
+		if (ex.pos < ex.b.len)
+			return 1;
+		break;			/* the same */
 	}
-	pf_save(path, b.s ? b.s : "", b.len);
-	sb_free(&b);
+	case EX_WRITE: {
+		long k = ex.b.len - ex.pos < 8192L ? ex.b.len - ex.pos : 8192L;
+		int h = pf_open(ex.tmp, ex.pos ? PF_APPEND : PF_WRITE), ok;
+		ok = h >= 0 && (!k || pf_write(h, ex.b.s + ex.pos, k) == k);
+		if (h >= 0)
+			pf_close(h);
+		ex.pos += k;
+		if (!ok) {
+			pf_remove(ex.tmp);
+			break;
+		}
+		if (ex.pos < ex.b.len)
+			return 1;
+		pf_remove(ex.path);
+		pf_rename(ex.tmp, ex.path);
+		break;
+	}
+	default:
+		return 0;
+	}
+	export_cancel();
+	return 0;
+}
+
+void people_export(void)
+{
+	export_begin();
+	while (export_step())
+		;
+}
+
+/* the step next, for AES_PROFILE's notes */
+const char *books_load_what(void)
+{
+	static const char *const n[] = { "idle", "load-start", "load-records", "load-trim", "load-index", "load-parse",
+					  "load-end", "load-sort", "load-write", "load-groups", "load-export" };
+	static const char *const e[] = { "export-begin", "export-people", "export-groups", "export-same", "export-write" };
+	if (ld.phase == LB_EXPORT && ld.begun)
+		return e[ex.st];
+	return n[ld.phase];
 }

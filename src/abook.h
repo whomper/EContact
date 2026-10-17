@@ -70,6 +70,7 @@ typedef struct {
 	short last_first;	/* show "Last, First" (else "First Last") */
 	short refresh;		/* minutes between automatic refreshes; 0 = by hand */
 	short sync_open;	/* refresh when the window opens */
+	short sync_after;	/* the accessory: once, minutes after boot (0: no) */
 	short photos;		/* show contacts' photos */
 	short offline;		/* Work offline: no connections */
 	short hebrew;		/* start with the Hebrew keyboard */
@@ -78,6 +79,7 @@ typedef struct {
 	char me[80];		/* the UID of "my card" */
 	char workdir[160];	/* EContact's folder in use: CACHE, ECONTACT.KEY, the log... */
 	char folder[160];	/* FOLDER= as ECONTACT.INF had it */
+	char start[12];		/* START=: when the accessory reads its books after boot */
 } OPT;
 
 #define HEB_ATARI 0	/* where the font has Hebrew (draw.c) */
@@ -110,6 +112,25 @@ void store_save_settings(void);
 void store_release(void);		/* all of it let go, to be read again */
 unsigned long store_stamp(void);	/* changes when the files do */
 void book_load_all(void);
+/* the same in short steps, for an accessory between its event calls:
+   begin, then run until it returns 0 (more(), asked before each step,
+   says when a slice is up) */
+void books_load_begin(void);
+int  books_load_run(int (*more)(void));
+int  books_loading(void);
+const char *books_load_what(void);
+void books_load_cancel(void);		/* store_release does it */
+/* the books brought up to date in steps, one exchange with a server a
+   step (the accessory with its window closed): begin (0: nothing to do),
+   then step until it returns 0; then books_load_run sorts them again */
+int  quiet_sync_begin(void);
+int  quiet_sync_step(void);
+int  quiet_syncing(void);
+int  quiet_sync_changed(void);		/* the books the last one changed */
+const char *quiet_sync_what(void);
+void quiet_sync_cancel(void);
+void quiet_sync_stop(void);		/* where it is, what came sorted in */
+extern int store_unsaved;		/* it changed ECONTACT.INF's ctags: not written yet */
 /* contacts in the caches that couldn't be read for lack of memory */
 int  contacts_lost(void);
 void book_load(BOOK *b);

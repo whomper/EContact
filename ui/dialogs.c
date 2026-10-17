@@ -228,6 +228,10 @@ static const char *const refresh_items[] = {
 	"  Never", "  Every 15 minutes", "  Every hour", "  Every day"
 };
 static const short refresh_min[] = { 0, 15, 60, 1440 };
+static const char *const after_items[] = {
+	"  No", "  2 minutes after", "  5 minutes after", "  15 minutes after"
+};
+static const short after_min[] = { 0, 2, 5, 15 };
 static const char *const sort_items[] = { "  Last name", "  First name" };
 static const char *const show_items[] = { "  First Last", "  Last, First" };
 static const char *const heb_items[] = { "  Atari (standard)", "  ISO-8859-8 font", "  PC (code page 862)" };
@@ -243,7 +247,7 @@ static const char *const section_names[] = { "General", "Refresh", "Connection" 
 static void settings(short first)
 {
 	enum { L1, F1, L2, F2, L3, F3, L4, F4, F5, L6, F6,
-	       L11, F11, F12,
+	       L11, F11, F12, L13, F13, N3,
 	       C1, C2, N1, L7, C3, L8, C4, N2, C7,
 	       BCAN, BOK, N };
 	FIELD f[N];
@@ -318,7 +322,17 @@ static void settings(short first)
 	row++;
 	put(&f[F12], FT_CHECK, 0, VX, row, 30, "When the window opens");
 	f[F12].val = opt.sync_open;
-	for (i = L11; i <= F12; i++)
+	row += 2;
+	put(&f[L13], FT_LABEL, 0, CX, row, 0, "Once at start:");
+	put(&f[F13], FT_POPUP, 0, VX, row, 22, 0);
+	f[F13].items = after_items;
+	f[F13].nitems = 4;
+	for (i = 0; i < 4; i++)
+		if (after_min[i] == opt.sync_after)
+			f[F13].val = i;
+	row++;
+	put(&f[N3], FT_LABEL, FF_LTR, CX, row, 0, "The accessory: with its window closed too");
+	for (i = L11; i <= N3; i++)
 		f[i].page = S_REFRESH;
 
 	/* Connection */
@@ -380,6 +394,7 @@ static void settings(short first)
 	set_hebrew_kbd(opt.hebrew);
 	opt.refresh = refresh_min[f[F11].val];
 	opt.sync_open = f[F12].val;
+	opt.sync_after = after_min[f[F13].val];
 	str_copy(opt.gate, gate, sizeof(opt.gate));
 	opt.gateport = (unsigned short)(atoi(port) > 0 ? atoi(port) : 8180);
 	opt.dsp = f[C2].val;
