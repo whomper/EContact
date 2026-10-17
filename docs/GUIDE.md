@@ -125,7 +125,9 @@ settings or delete it from this Atari (nothing is deleted on the server).
 - **In the middle**: the people, sorted by last name under letter
   headings. Click one to see their card; the arrow keys move up and down,
   Clr/Home goes to the first (Shift: the last).
-- **Search**: just type. The list keeps those whose name, company, email,
+- **Search**: click in the field at the top of the list, or just type:
+  the field takes the focus (a black frame and the cursor) until you
+  click elsewhere. The list keeps those whose name, company, email,
   phone number, address or note has what you typed ("0170 123" finds
   "0170 1234567"); Backspace takes a letter back, ^X or the clear button
   in the field takes it all (Esc leaves it as it is).
@@ -325,7 +327,7 @@ next time EContact saves its settings.
 | ↑ ↓ | the contact above, below |
 | Clr/Home, Shift+Clr/Home | the first, the last |
 | Return, ^E | edit the card |
-| Delete | delete the card |
+| Delete | delete the card (not while the search field has the focus: a click in the list, or an arrow key, gives it back to the list) |
 | ^N | a new contact |
 | ^G | a new group |
 | typing | search |

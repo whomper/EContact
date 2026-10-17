@@ -32,6 +32,9 @@ static const char *label(int i)
 }
 
 short win_iconified;	/* shown as EContact's icon (WM_ICONIFY) */
+/* the search field has the focus: clicked or typed into, until a click
+   elsewhere in the window */
+static short search_focus;
 short win_hold;
 
 /* with the iconifier when the AES can iconify (common/ui/iconify.c) */
@@ -168,7 +171,8 @@ static void draw_button(int i)
 }
 
 /* the search field: a rounded box, a magnifying glass, the text or
-   "Search" in grey, and a clear button while there is text */
+   "Search" in grey, and a clear button while there is text; with the
+   focus a black frame and the text cursor */
 void win_search_draw(void)
 {
 	GRECT r = r_search, in;
@@ -176,7 +180,15 @@ void win_search_draw(void)
 	if (r.w < 6 * cw)
 		return;
 	fill(&r, 0);
-	frame(&r, ncolors >= 16 ? grey_color() : 1);
+	frame(&r, ncolors >= 16 && !search_focus ? grey_color() : 1);
+	if (search_focus) {
+		GRECT f = r;
+		f.x++;
+		f.y++;
+		f.w -= 2;
+		f.h -= 2;
+		frame(&f, 1);
+	}
 	/* the corners rounded off */
 	{
 		GRECT c;
@@ -211,7 +223,9 @@ void win_search_draw(void)
 	in.w -= 3 * cw;
 	cols = in.w / cw;
 	if (!n) {
-		text_at(in.x, r.y + 1, "Search", 6, cols, TX_LTR | TX_GREY);
+		text_at(in.x + (search_focus ? cw / 2 : 0), r.y + 1, "Search", 6, cols, TX_LTR | TX_GREY);
+		if (search_focus)
+			line_col(in.x, r.y + 2, in.x, r.y + r.h - 3, 1);
 	} else {
 		const char *s = search_text;
 		if (n > cols - 1) {
@@ -220,7 +234,7 @@ void win_search_draw(void)
 		}
 		text_at(in.x, r.y + 1, s, n, cols, line_rtl(s, n) ? TX_RIGHT : TX_LTR);
 		/* the cursor, and the clear button at the right */
-		if (!line_rtl(s, n))
+		if (search_focus && !line_rtl(s, n))
 			line_col(in.x + n * cw, r.y + 2, in.x + n * cw, r.y + r.h - 3, 1);
 		{
 			short cx = r.x + r.w - cw - 2, cy = r.y + r.h / 2, k = ch >= 16 ? 3 : 2;
@@ -337,6 +351,7 @@ void win_open(void)
 	}
 	win_h = wind_create(kind(), desk_x, desk_y, desk_w, desk_h);
 	win_iconified = 0;
+	search_focus = 0;
 	if (win_h <= 0) {
 		win_h = -1;
 		alert(1, "[3][No window left for EContact:|close one and try again.][ OK ]");
@@ -499,6 +514,23 @@ static void toggle_sidebar(void)
 
 static void search_changed(void);
 
+static void search_redraw(void)
+{
+	GRECT r = r_search;
+	r.w++;
+	r.h++;
+	win_redraw(&r);
+}
+
+/* the focus to the search field (1) or away from it (0) */
+static void search_focus_set(short on)
+{
+	if (search_focus == on)
+		return;
+	search_focus = on;
+	search_redraw();
+}
+
 void win_search_set(void)
 {
 	search_changed();
@@ -510,12 +542,7 @@ static void search_changed(void)
 	list_invalidate();
 	list_fix_selection();
 	status_updated();		/* "2 of 21 contacts" */
-	{
-		GRECT r = r_search;
-		r.w++;
-		r.h++;
-		win_redraw(&r);
-	}
+	search_redraw();
 	win_redraw(&r_list);
 	win_redraw(&r_card);
 }
@@ -544,14 +571,21 @@ int win_mouse(short mx, short my, short button, short clicks, short kstate)
 				cmd_menu(but[B_MENU].x, but[B_MENU].y + but[B_MENU].h);
 			break;
 		default:
-			/* the clear button in the search field */
-			if (rect_hit(&r_search, mx, my) && search_text[0] && mx >= r_search.x + r_search.w - 2 * cw) {
-				search_text[0] = 0;
-				search_changed();
+			/* a click in the search field gives it the focus; the
+			   clear button at its right takes the text out */
+			if (rect_hit(&r_search, mx, my)) {
+				search_focus_set(1);
+				if (search_text[0] && mx >= r_search.x + r_search.w - 2 * cw) {
+					search_text[0] = 0;
+					search_changed();
+				}
+			} else {
+				search_focus_set(0);
 			}
 		}
 		return 1;
 	}
+	search_focus_set(0);
 	if (r_side.w && rect_hit(&r_side, mx, my))
 		return side_click(mx, my, clicks, button);
 	if (rect_hit(&r_list, mx, my))
@@ -578,6 +612,7 @@ static int search_clip(int what)
 				search_text[n++] = *p;
 		search_text[n] = 0;
 	}
+	search_focus = 1;
 	search_changed();
 	return 1;
 }
@@ -608,6 +643,7 @@ static int search_key(short kstate, short key)
 	} else {
 		return 0;
 	}
+	search_focus = 1;
 	search_changed();
 	return 1;
 }
@@ -616,6 +652,7 @@ static int search_key(short kstate, short key)
 void win_find(void)
 {
 	search_text[0] = 0;
+	search_focus = 1;
 	search_changed();
 	status("Type to search: names, companies, emails, phones, notes");
 }
@@ -661,7 +698,15 @@ int win_key(short kstate, short key)
 		case 0x01: case 0x61: pick_end(0); return 1;	/* Esc, Undo: Cancel */
 		}
 	}
-	if (list_key(kstate, key))
+	/* in the search field Delete takes what is after the cursor: there
+	   is nothing (the cursor is at the end), and never the contact */
+	if (search_focus && scan == 0x53 && !(kstate & (K_CTRL | K_ALT)))
 		return 1;
+	if (list_key(kstate, key)) {
+		/* up, down and Clr/Home go on in the list, as on the Mac */
+		if (scan == 0x48 || scan == 0x50 || scan == 0x47)
+			search_focus_set(0);
+		return 1;
+	}
 	return search_key(kstate, key);
 }

@@ -323,6 +323,7 @@ tests/hatari/quiet_start.py WORK etos512us.img    # the accessory's quiet start:
 tests/hatari/quiet_sync.py WORK etos512us.img     # its refresh with the window closed, through
                                                   # the gateway (FAKESTNG and the bridge too)
 tests/hatari/esc_test.py WORK etos512us.img       # Esc and Undo cancel dialogs and alerts (3.5)
+tests/hatari/search_click.py WORK etos512us.img   # a click gives the search field the focus
 make build/ASKER.PRG && tests/hatari/people_ask.py WORK etos512us.img
                                                   # PEOPLE: a stand-in for EMail asks for a name
                                                   # at boot and picks someone in the window
