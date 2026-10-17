@@ -27,7 +27,7 @@ CC      := $(CROSS)gcc
 GCCINC  := $(shell $(CC) -print-file-name=include 2>/dev/null)
 CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -fno-pic -fno-pie -fno-tree-loop-distribute-patterns -fno-store-merging \
-           -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
+           -fno-expensive-optimizations -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
            -DCAL_TOS -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
            -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc \
            -DTLS_FULL_EDITION=\"ECONTACT.ACC\" -Ithird_party/tjpgd
@@ -45,6 +45,10 @@ BSSLDEF := -DBR_USE_URANDOM=0 -DBR_USE_GETENTROPY=0 -DBR_USE_UNIX_TIME=0 \
 BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
            -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables -w \
            -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include -I$(BSSL)/inc -I$(BSSL)/src $(BSSLDEF)
+# the same for the ST edition's few BearSSL files (MD5 and its byte order),
+# built for the 68000: no byte reads joined into word reads (the guidelines,
+# The machines)
+BSSLST  := $(subst -m68030,-m68000,$(BSSLCF)) -fno-store-merging -fno-expensive-optimizations
 BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
 HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
@@ -98,10 +102,10 @@ $(OBJDIR)/econtst.elf: $(STOBJS) common/atari/link.ld
 
 $(OBJDIR)/st/%.o: $(BSSL)/src/hash/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(subst -m68030,-m68000,$(BSSLCF)) -c -o $@ $<
+	$(CC) $(BSSLST) -c -o $@ $<
 $(OBJDIR)/st/%.o: $(BSSL)/src/codec/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(subst -m68030,-m68000,$(BSSLCF)) -c -o $@ $<
+	$(CC) $(BSSLST) -c -o $@ $<
 
 # one program, two names: it sees at start-up whether TOS loaded it as
 # an accessory or started it as an application
