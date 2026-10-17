@@ -15,28 +15,46 @@ Python only.
 """
 import os
 import sys
+import urllib.error
 import urllib.request
 
 OWNER = "whomper"
 
 
-def latest(app):
-    """the tag of the latest release: GitHub redirects .../latest to it"""
-    with urllib.request.urlopen("https://github.com/%s/%s/releases/latest" % (OWNER, app)) as r:
-        url = r.geturl()
-    if "/releases/tag/" not in url:
-        sys.exit("%s: no release found" % app)
-    return url.rsplit("/", 1)[1]
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k):
+        return None
+
+
+def latest(app, name):
+    """the tag of the latest release: GitHub answers
+    .../releases/latest/download/NAME with a redirect to
+    .../releases/download/vX.Y/NAME (the release pages themselves may be
+    refused by a proxy that lets downloads through)"""
+    url = "https://github.com/%s/%s/releases/latest/download/%s" % (OWNER, app, name)
+    try:
+        urllib.request.build_opener(_NoRedirect).open(urllib.request.Request(url, method="HEAD"))
+    except urllib.error.HTTPError as e:
+        loc = e.headers.get("Location", "")
+        if e.code in (301, 302, 303, 307, 308) and "/releases/download/" in loc:
+            return loc.split("/releases/download/", 1)[1].split("/", 1)[0]
+        sys.exit("%s: no release with %s (%s)" % (app, name, e))
+    sys.exit("%s: no release found" % app)
 
 
 def fetch(spec, d, names):
     app, _, tag = spec.partition("@")
-    tag = tag or latest(app)
+    tag = tag or latest(app, names[0])
     os.makedirs(d, exist_ok=True)
     for n in names:
         url = "https://github.com/%s/%s/releases/download/%s/%s" % (OWNER, app, tag, n)
-        with urllib.request.urlopen(url) as r, open(os.path.join(d, n), "wb") as f:
-            f.write(r.read())
+        try:
+            with urllib.request.urlopen(url) as r:
+                data = r.read()
+        except urllib.error.HTTPError as e:
+            sys.exit("%s %s: no %s (%s)" % (app, tag, n, e))
+        with open(os.path.join(d, n), "wb") as f:
+            f.write(data)
     with open(os.path.join(d, app.upper() + ".VERSION"), "w") as f:
         f.write(tag + "\n")
     print("%s %s: %s" % (app, tag, " ".join(names)))
