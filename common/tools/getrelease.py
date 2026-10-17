@@ -14,6 +14,8 @@ release they came from (a rig prints it, so a report names it). Standard
 Python only.
 """
 import os
+import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -38,8 +40,26 @@ def latest(app, name):
         loc = e.headers.get("Location", "")
         if e.code in (301, 302, 303, 307, 308) and "/releases/download/" in loc:
             return loc.split("/releases/download/", 1)[1].split("/", 1)[0]
-        sys.exit("%s: no release with %s (%s)" % (app, name, e))
-    sys.exit("%s: no release found" % app)
+        if e.code == 404:
+            sys.exit("%s: no release with %s (%s)" % (app, name, e))
+    except urllib.error.URLError:
+        pass
+    return highest_tag(app)
+
+
+def highest_tag(app):
+    """the highest vX.Y tag, through git (a cloud session's proxy refuses
+    .../releases/latest but lets git through); the Release workflow makes
+    a tag only with a release"""
+    try:
+        out = subprocess.run(["git", "ls-remote", "--tags", "https://github.com/%s/%s" % (OWNER, app)],
+                             capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError) as e:
+        sys.exit("%s: no release found (%s)" % (app, e))
+    tags = re.findall(r"refs/tags/(v(\d+)\.(\d+))$", out, re.M)
+    if not tags:
+        sys.exit("%s: no release found" % app)
+    return max(tags, key=lambda t: (int(t[1]), int(t[2])))[0]
 
 
 def fetch(spec, d, names):
