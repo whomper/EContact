@@ -207,6 +207,22 @@ runs. It allocates nothing, so an accessory may use it at any time. Built with `
 300 ms, and 3 s of work through bgwork never held the machine longer than 85 ms on an ST (80 ms
 slices) and 40 ms on a Falcon (40 ms slices).
 
+## People from EContact (17 Oct 2026)
+
+EMail and ECal show people by name and let the user pick them in EContact by asking EContact, with
+the family's one message besides the AV protocol's, PEOPLE (0x4E43, guideline 4.1). CONTACTS.TXT
+and EContact's integration patches go; nothing reads another app's files.
+- `ui/av.c`: `av_people(id, text)` sends a PEOPLE string (laid out as VA_START, answered with
+  AV_STARTED, one at a time, lost after 3 s); `av_message()` hands PEOPLE strings over as
+  `AV_PEOPLE`; `av_name()` is the name the AES knows us by.
+- `ui/people_ask.c`: the asker's side (`people_name(addr)` gives the name at once, or 0 while it is
+  being asked; `people_pick()`; `people_message()`; `people_poll()` each turn; a callback when names
+  come or change) and EContact's (`people_question()`, `people_next()`, `people_answer()`, which cuts
+  answers into whole commands of at most 1 KB). Memory is taken once, in `people_init()`.
+
+`tests/people`: `make test`, the asker against a pretend EContact and EContact's side (seven planted
+bugs, all caught); `tests/av` checks PEOPLE in and out.
+
 ## Coming next
 
 | Area | Files | Plan |
