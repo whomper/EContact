@@ -167,7 +167,7 @@ void dlg_add_account(void)
 			}
 			if (try_account(ai))
 				break;
-			if (alert(2, "[2][Try again with other settings?][Edit|Give up]") != 1) {
+			if (alert(2, "[2][Try again with other settings?][Edit|Cancel]") != 1) {
 				acct_delete(ai);
 				store_save_settings();
 				after_change();

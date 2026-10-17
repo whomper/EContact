@@ -768,7 +768,10 @@ short dlg_run(DLG *d)
 			if (scan == 0x44) {			/* F10: the Hebrew keyboard */
 				set_hebrew_kbd(!hebrew_kbd);
 				draw_all(d);
-			} else if (scan == 0x01) {		/* Esc */
+			} else if (scan == 0x01 || scan == 0x61) {
+				/* Esc, Undo: as Cancel, in a text field too (the
+				   guidelines, 3.5); without a Cancel, no button at
+				   all: nothing is done */
 				result = find_flag(d, FF_CANCEL);
 				if (result < 0)
 					result = -1;
@@ -929,7 +932,7 @@ short dlg_pick(const char *title, const char *const *items, short n, short sel)
 		if (e.which & MU_KEYBD) {
 			short sc = KEY_SCAN(e.kreturn);
 			unsigned char a = KEY_ASCII(e.kreturn);
-			if (sc == 0x01)
+			if (sc == 0x01 || sc == 0x61)		/* Esc, Undo: none */
 				res = -1;
 			else if (sc == 0x1c || sc == 0x72)
 				res = sel;

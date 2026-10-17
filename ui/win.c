@@ -660,7 +660,7 @@ int win_key(short kstate, short key)
 	if (picking && !(kstate & (K_CTRL | K_ALT))) {
 		switch (scan) {
 		case 0x1c: case 0x72: pick_end(1); return 1;	/* Return: Choose */
-		case 0x01: pick_end(0); return 1;		/* Esc: Cancel */
+		case 0x01: case 0x61: pick_end(0); return 1;	/* Esc, Undo: Cancel */
 		}
 	}
 	if (list_key(kstate, key))

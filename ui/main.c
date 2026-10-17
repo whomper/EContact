@@ -694,7 +694,7 @@ void cmd_sync_photos(void)
 	if (!npeople)
 		return;
 	if (opt.offline &&
-	    alert(1, "[2][EContact is working offline: only the photos already on this Atari are made.][Go on|Cancel]") != 1)
+	    alert(2, "[2][EContact is working offline: only the photos already on this Atari are made.][Go on|Cancel]") != 1)
 		return;
 	memset(&p, 0, sizeof(p));
 	p.t0 = pf_ms();
@@ -1027,18 +1027,21 @@ static void move_inf(void)
 	free(t);
 }
 
-/* the accessory without its folder: the user shows it where it is */
-static void locate_folder(void)
+/* the accessory without its folder: the user shows it where it is. 0:
+   Cancel (the window doesn't open) */
+static int locate_folder(void)
 {
 	char path[200], name[20] = "", why[200];
 	short button = 0, boot = boot_drive();
 	inf_folder(inf_file, why, sizeof(why));
 	for (;;) {
-		short k = why[0] ? alert(1, "[2][EContact's folder is not at|%s.|Show me where it is?][Locate...|%c:\\ECONTACT]",
+		short k = why[0] ? alert(1, "[2][EContact's folder is not at|%s.|Show me where it is?][Locate...|%c:\\ECONTACT|Cancel]",
 					 why, 'A' + boot)
-				 : alert(1, "[2][Where is EContact's folder,|with its address books, keys|and certificates?][Locate...|%c:\\ECONTACT]",
+				 : alert(1, "[2][Where is EContact's folder,|with its address books, keys|and certificates?][Locate...|%c:\\ECONTACT|Cancel]",
 					 'A' + boot);
 		char *e;
+		if (k == 3 || k <= 0)
+			return 0;
 		if (k != 1)
 			break;
 		snprintf(path, sizeof(path), "%c:\\*.*", 'A' + boot);
@@ -1051,11 +1054,12 @@ static void locate_folder(void)
 			strcat(path, "\\");
 		if (pf_exists(path) || strlen(path) == 3) {
 			str_copy(workdir, path, sizeof(workdir));
-			return;
+			return 1;
 		}
 	}
 	snprintf(workdir, sizeof(workdir), "%c:\\ECONTACT", 'A' + boot);
 	pf_mkdir(workdir);
+	return 1;
 }
 
 /* how much of a server's answer to ask for at a time: an eighth of the
@@ -1155,20 +1159,22 @@ static void tell_untold(void)
    wait for the window, and what would be an alert is said then */
 static int store_ready;		/* ECONTACT.INF read (the first half) */
 
-static void load_store(int quiet)
+static int load_store(int quiet)
 {
-	if (!workdir[0])
-		locate_folder();
+	if (!workdir[0] && !locate_folder())
+		return 0;		/* (only when the window is to open: quiet has the folder) */
 	secret_warn = quiet ? warn_later : warn_plain;	/* before anything is saved */
 	move_inf();
 	store_init(workdir, inf_file);
 	store_ready = 1;
+	return 1;
 }
 
-static void load_settings(int quiet)
+/* 0: there is no folder (the user cancelled locating it) */
+static int load_settings(int quiet)
 {
-	if (!store_ready)
-		load_store(quiet);
+	if (!store_ready && !load_store(quiet))
+		return 0;
 	store_ready = 0;
 	secret_warn = quiet ? warn_later : warn_plain;
 	if (strcasecmp(opt.folder, workdir))
@@ -1192,6 +1198,7 @@ static void load_settings(int quiet)
 		fonts_ready = 1;
 	}
 	settings_ready = 1;
+	return 1;
 }
 
 /* The accessory's files as it left them. On single TOS its memory
@@ -1520,7 +1527,8 @@ static void open_window(void)
 	if (first)
 		files_check();
 	if (!settings_ready)
-		load_settings(0);
+		if (!load_settings(0))
+			return;		/* no folder: cancelled */
 	aes_profile_tag("open-window");
 	if (!fonts_ready) {
 		font_apply();
