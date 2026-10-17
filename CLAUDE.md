@@ -99,9 +99,10 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (see its README.txt): keep them if it is ever updated. Code that runs on
   an ST must not let GCC merge byte reads into word reads at odd addresses
   (an address error on a 68000): every 68000 build has -fno-store-merging
-  and -fno-expensive-optimizations (GCC 13's bswap pass, the guidelines,
-  The machines), and `-fdump-tree-bswap-details` must leave no "load in
-  target endianness". 32-bit `*` and `/` are software routines there: keep them out of
+  and -fdisable-tree-bswap (GCC 13's bswap pass, the guidelines, The
+  machines; not -fno-expensive-optimizations, which GCC 13.3 miscompiles
+  with), and `-fdump-tree-bswap-details` must leave no "load in target
+  endianness". GCC notes each file's disabled pass on stderr: not a warning. 32-bit `*` and `/` are software routines there: keep them out of
   per-pixel loops (photo.c, draw.c's draw_photo). src/jpegdc.c reads two
   bytes through a volatile pointer for the same reason (rd16): check the
   sample formats in Hatari on an ST after touching it.

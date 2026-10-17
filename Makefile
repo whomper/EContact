@@ -26,8 +26,8 @@ CROSS   ?= m68k-linux-gnu-
 CC      := $(CROSS)gcc
 GCCINC  := $(shell $(CC) -print-file-name=include 2>/dev/null)
 CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
-           -fno-pic -fno-pie -fno-tree-loop-distribute-patterns -fno-store-merging \
-           -fno-expensive-optimizations -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
+           -fno-pic -fno-pie -fno-tree-loop-distribute-patterns -fno-store-merging -fdisable-tree-bswap \
+           -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
            -DCAL_TOS -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
            -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc \
            -DTLS_FULL_EDITION=\"ECONTACT.ACC\" -Ithird_party/tjpgd
@@ -48,7 +48,7 @@ BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
 # the same for the ST edition's few BearSSL files (MD5 and its byte order),
 # built for the 68000: no byte reads joined into word reads (the guidelines,
 # The machines)
-BSSLST  := $(subst -m68030,-m68000,$(BSSLCF)) -fno-store-merging -fno-expensive-optimizations
+BSSLST  := $(subst -m68030,-m68000,$(BSSLCF)) -fno-store-merging -fdisable-tree-bswap
 BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
 HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
