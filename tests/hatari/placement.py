@@ -6,7 +6,7 @@ in Hatari on an ST (ECONTST.ACC, ECONTACT.PRG):
 
     tests/hatari/placement.py WORK etos512us.img
 
-1. the accessory, nothing there yet: it asks, and C:\\ECONTACT is made,
+1. the accessory, nothing there yet: it asks, Use C: makes C:\\ECONTACT,
    with FOLDER=C:\\ECONTACT in C:\\ECONTACT.INF
 2. the program, started from C:\\APPS\\CONTACTS: its folder is that one,
    written into FOLDER=; then the accessory, booted on the same disk,
@@ -70,7 +70,7 @@ def main():
     shutil.rmtree(w, ignore_errors=True)
     os.makedirs(os.path.join(w, "hd"))
     shutil.copy(acc, os.path.join(w, "hd", "ECONTACT.ACC"))
-    boot(w, tos, "", desk_contacts() + [(375, 248), 4])	# "C:\ECONTACT"
+    boot(w, tos, "", desk_contacts() + [(318, 248), 4])	# "Use C:"
     check("FOLDER=C:\\ECONTACT", folder_of(os.path.join(w, "hd")) == "C:\\ECONTACT")
     check("the folder made, the key in it", os.path.exists(os.path.join(w, "hd", "ECONTACT", "ECONTACT.KEY")))
 

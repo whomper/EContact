@@ -61,7 +61,8 @@ C:\ECONTACT\              EContact's folder (or another one):
 - **The accessory** reads `FOLDER=` when it starts. If it's empty, or
   the folder isn't there any more, the first time you open Contacts it
   asks where the folder is: **Locate...** opens the file selector (pick
-  any file in the folder), or use `C:\ECONTACT`. The answer is kept in
+  any file in the folder), **Use C:** makes and uses `C:\ECONTACT`,
+  **Cancel** leaves the window closed. The answer is kept in
   `FOLDER=`.
 - Settings kept in the folder instead (`C:\ECONTACT\ECONTACT.INF`, or
   `ECONTACT.INF` next to the program) are copied to the root the first

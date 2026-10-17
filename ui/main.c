@@ -1035,10 +1035,11 @@ static int locate_folder(void)
 	short button = 0, boot = boot_drive();
 	inf_folder(inf_file, why, sizeof(why));
 	for (;;) {
-		short k = why[0] ? alert(1, "[2][EContact's folder is not at|%s.|Show me where it is?][Locate...|%c:\\ECONTACT|Cancel]",
-					 why, 'A' + boot)
-				 : alert(1, "[2][Where is EContact's folder,|with its address books, keys|and certificates?][Locate...|%c:\\ECONTACT|Cancel]",
-					 'A' + boot);
+		/* the path in the text: a button holds 10 characters (6.2) */
+		short k = why[0] ? alert(1, "[2][EContact's folder is not at|%s.|Show me where it is, or use|%c:\\ECONTACT?][Locate...|Use %c:|Cancel]",
+					 why, 'A' + boot, 'A' + boot)
+				 : alert(1, "[2][Where is EContact's folder,|with its address books, keys|and certificates? Or use|%c:\\ECONTACT?][Locate...|Use %c:|Cancel]",
+					 'A' + boot, 'A' + boot);
 		char *e;
 		if (k == 3 || k <= 0)
 			return 0;
