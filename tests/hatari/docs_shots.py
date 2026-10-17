@@ -11,7 +11,8 @@ sample contacts (tests/hatari/sample.vcf, made-up people):
 later: it asks with PEOPLE) and ECal (2.5 or later): their latest
 releases, what Erez runs (the guidelines, 1.2), or the one named, fetched
 by common/tools/getrelease.py; the shots' folders say which (*.VERSION).
---ecal-src names a checkout of ECal (../ecal if not given) for its test
+--ecal-src names a checkout of ECal (../ecal if not given, with its
+build/cal-cli made) for its test
 data only: ui_tour.seed() writes the calendar the shots show.
 They land in WORK/*/shots; --update copies them into docs/.
 """
@@ -168,18 +169,14 @@ def with_ecal(work, tos, spec, ecal_src):
         r.ctrl("n")
         time.sleep(2)
         r.type("Atari meet", pace=0.07)
-        r.key(K["TAB"])
-        r.key(K["TAB"])
-        r.type("ma", pace=0.1)
-        r.click(515, 114)               # Add...
+        r.click(505, 125)               # People: Add...
         time.sleep(2)
+        r.type("ma", pace=0.1)          # Name or address
+        r.key(K["RETURN"])              # OK: ECal asks EContact (PEOPLE pick:)
+        time.sleep(8)                   # EContact's window, choosing, and its photo
         r.shot("ecal-invite")
-        r.key(K["RETURN"])
-        time.sleep(1.5)
-        r.click(515, 114)
-        time.sleep(2)
-        r.key(K["RETURN"])              # the Atari Club group, all of it
-        time.sleep(1.5)
+        r.key(K["RETURN"])              # Choose: the one chosen
+        time.sleep(4)
         r.shot("ecal-invitees")
         r.key(K["ESC"])
     finally:

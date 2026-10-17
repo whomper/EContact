@@ -132,14 +132,14 @@ EContact is the address book of the other two:
 - **EMail**: the addresses it shows carry EContact's names, and its address book picks people or a
   group in EContact's window (Choose or Cancel in the toolbar). EContact's **mail** button, or a double-click on an address, opens a new message to that
   person in EMail.
-- **ECal**: an event has **Invitees**; **Add...** picks people or a whole group from EContact (or type
-  addresses). iCloud and other CalDAV servers that do scheduling (RFC 6638) send the invitations by
+- **ECal**: an event has **People**; **Add...** picks people or a whole group from EContact (or takes
+  an address). iCloud and other CalDAV servers that do scheduling (RFC 6638) send the invitations by
   email. An invitation from someone else shows who sent it.
 - Both have **Contacts...** in their menu to open EContact's window.
 
-![EMail's ^B in a new message: "gr" on the To: line offers the Atari Club group and Grace Baker from EContact](docs/email-complete.png) ![ECal's New Event dialog with Priya Patel on the Invitees line, picked from EContact with Add...](docs/ecal-invitees.png)
+![EMail's ^B in a new message: "gr" on the To: line opens EContact's window to choose, with Grace Baker found](docs/email-complete.png) ![ECal's New Event dialog with Maya Carter under People, chosen in EContact's window with Add...](docs/ecal-invitees.png)
 
-They ask EContact with the family's PEOPLE message (EMail 1.35 and ECal's next releases):
+They ask EContact with the family's PEOPLE message (EMail 1.35 and ECal 2.5 or later):
 [docs/INTEGRATION.md](docs/INTEGRATION.md) describes how the three talk, so other programs can use
 EContact too.
 

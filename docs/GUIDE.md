@@ -290,13 +290,14 @@ When EMail or ECal asks you to choose, EContact's window opens with
 **Cancel** and **Choose** in place of Refresh and the menu: click people
 to tick them (a double click chooses at once), or choose a group on the
 left, then **Choose** (Return); **Cancel** (Esc), closing the window or
-quitting chooses no one. In EMail 1.35 and ECal's next releases:
+quitting chooses no one. In EMail 1.35 and ECal 2.5 or later:
 
-- **EMail**: the addresses it shows carry EContact's names, and its
-  address book picks people or a group in EContact's window.
-- **ECal**: an event's **Invitees** line takes addresses; **Add...** picks
-  people or a group in EContact's window, searching for a name begun on
-  the line.
+- **EMail**: the addresses it shows carry EContact's names; ^B on a To:
+  line, and its address book, pick people or a group in EContact's
+  window, searching for the name begun on the line.
+- **ECal**: **Add...** by an event's **People** asks for a name or an
+  address, and EContact's window opens searching for it: choose people
+  or a group there.
   The invitations are written as the event's attendees, with you (the
   account's Apple ID or email user name) as organizer, and iCloud sends
   them. An invitation you received shows who it is from.
