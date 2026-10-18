@@ -17,10 +17,10 @@ other CardDAV servers.
 - **The address book of [EMail](https://github.com/whomper/EMail) and
   [ECal](https://github.com/whomper/ECal):** pick people to write to and to invite
 - **Modern but Atari:** a desk accessory that opens from the Desk menu over whatever program you're
-  in, or a program; right-click menus, .vcf files dropped on the window, iconify, and the Help key
-  opens the guide in ST-Guide or EHypView
-- **Secure:** TLS 1.2 on the Falcon and TT, with RSA on the DSP; the ST and STE through ECal's
-  Raspberry Pi gateway
+  in, or a program; right-click menus, .vcf files dropped on the window, iconify, Esc cancels any
+  dialog, and the Help key opens the guide in EHypView or ST-Guide
+- **Secure:** TLS 1.2 on the Falcon and TT, with RSA on the DSP; the ST and STE through the AERA
+  Raspberry Pi gateway, the one ECal uses
 - **Hebrew** throughout: names and notes right to left, the Israeli keyboard (F10)
 - **Works offline** from its own copy; vCard import and export
 
@@ -40,7 +40,7 @@ and all of them together in `ECONTACT-x.y.zip`.
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode |
 | `ECONTACT.HYP` | the user guide for ST-Guide or EHypView: in EContact's folder, the Help key opens it |
 | `ECONTACT.REF` | its pages' names, for ST-Guide's index (`ALL.REF`): goes with the .HYP |
-| `ECONTACT.RSC`, `ECONTACT.DEF`, `ECONTACT.ICN`, `ECONTMSK.ICN` | the desktop icon, in the zip's `icons/` folder: `ECONTACT.RSC` (black-and-white and 16-colour), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
+| `ECONTACT.RSC`, `ECONTACT.DEF`, `ECONTACT.ICN`, `ECONTMSK.ICN` | the desktop icon (on their own, and in the zip's `icons/` folder): `ECONTACT.RSC` (black-and-white and 16-colour), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
 | `ECONTACT-x.y.zip` | all of the above |
 
 **The desktop icon.** Copy the icons from `ECONTACT.RSC` into your desktop's icon file
@@ -50,22 +50,30 @@ file with EContact's added (it says which number), for the root of the boot driv
 **Options > Install icon**. `tools/icon/make_rsc.py` makes the files from `tools/icon/make_icon.py`.
 
 1. Copy `ECONTACT.ACC` (Falcon/TT) or `ECONTST.ACC` (ST/STE, renamed to `ECONTACT.ACC` or not) to
-   the root of your boot drive, e.g. `C:\`. For Falcon mode, make a folder `C:\ECONTACT` and put
-   `CACERT.PEM` and `ROOTS.DAT` in it, and `ECONTACT.HYP` for the Help key (EContact keeps its own
-   files there too). The folder can be anywhere: the settings, `C:\ECONTACT.INF`, say where in
-   `FOLDER=`; start `ECONTACT.PRG` from the folder once, or show the accessory where it is when it
-   asks.
-2. For an ST, set up the gateway on a Raspberry Pi: in a clone of this repository (or of
-   [AERA-Gateway](https://github.com/whomper/AERA-Gateway)), `sudo gateway/aera-gateway install dav`.
-   ECal uses the same one: if it already works through your Pi, there is nothing to do.
-3. Reboot, choose **EContact** in the Desk menu, and add your iCloud account with an
+   the root of your boot drive (e.g. `C:\`): TOS loads accessories only from there.
+2. Choose a folder for EContact, anywhere on any drive, and put the rest in it: `CACERT.PEM` and
+   `ROOTS.DAT` for Falcon mode, `ECONTACT.HYP` and `ECONTACT.REF` for the Help key, and
+   `ECONTACT.PRG` if you want the program. EContact keeps its address books there too. No folder
+   has to exist beforehand, and none has a fixed name: the settings, `ECONTACT.INF` in the boot
+   drive's root, say where it is in `FOLDER=`. Start `ECONTACT.PRG` from the folder once and it
+   writes it there; or the first time you open the accessory it asks: **Locate...** (pick any file
+   in the folder) or **Use C:** (the boot drive), which makes `C:\ECONTACT` for you.
+3. For an ST or STE (or a Falcon or TT without Falcon mode), set up the gateway on a Raspberry Pi:
+   in a clone of this repository (or of [AERA-Gateway](https://github.com/whomper/AERA-Gateway)),
+   `sudo gateway/aera-gateway install dav`. ECal uses the same one: if it already works through
+   your Pi, there is nothing to do.
+4. Reboot, choose **EContact** in the Desk menu, and add your iCloud account with an
    [app-specific password](https://support.apple.com/en-us/102654).
-4. Press **Help** in EContact for the guide (with ST-Guide or EHypView installed); the
-   [user guide](docs/GUIDE.md) describes the rest.
+5. Press **Help** in EContact for the guide (with EHypView or ST-Guide installed as an accessory);
+   the [user guide](docs/GUIDE.md) describes the rest.
+
+**Updating:** copy the new release's files over the old ones (the accessory to the root, the rest
+into EContact's folder) and reboot. The settings, the accounts and the copies of your address books
+stay as they are.
 
 **Needs:** TOS 1.04 to 4.x, EmuTOS, MagiC or MiNT; ST high, ST medium, TT or Falcon resolution; 1 MB
 of RAM or more (a 512 KB ST can't run it: see [How many contacts](#how-many-contacts)), and TT/Fast RAM
-is used where there is some; STinG or MiNTnet; on an ST or STE, ECal's Raspberry Pi gateway.
+is used where there is some; STinG or MiNTnet; on an ST or STE, the AERA Raspberry Pi gateway.
 
 ## How it reaches the servers
 
@@ -76,8 +84,8 @@ ST, STE:     Atari (ECONTST.ACC) --plain HTTP, home LAN--> Raspberry Pi (ecalgat
 Falcon, TT:  Atari (ECONTACT.ACC, TLS 1.2, RSA on the DSP) -----------------------------HTTPS--> the server
 ```
 
-- **Through the Pi.** ECal's gateway serves EContact as it is, and `ECONTACT.ACC` can use it too, on
-  any Atari. If ECal already works through your Pi, type the same address and port in
+- **Through the Pi.** The AERA gateway's `dav` service (`ecalgate.py`) serves EContact as it serves
+  ECal, and `ECONTACT.ACC` can use it too, on any Atari. If ECal already works through your Pi, type the same address and port in
   **Settings > Connection**.
 - **Falcon mode.** TLS 1.2 on the Falcon or TT with BearSSL, the server's RSA signature checked on
   the DSP56001, as in EMail and ECal.
@@ -129,17 +137,18 @@ under a search field, the chosen person's card on the right.
 
 EContact is the address book of the other two:
 
-- **EMail**: the addresses it shows carry EContact's names, and its address book picks people or a
-  group in EContact's window (Choose or Cancel in the toolbar). EContact's **mail** button, or a double-click on an address, opens a new message to that
-  person in EMail.
+- **EMail**: the addresses it shows carry EContact's names, and its **Address book...** (^B) picks
+  people or a group in EContact's window (Choose or Cancel in the toolbar). EContact's **mail**
+  button, or a double-click on an address, opens a new message to that person in EMail.
 - **ECal**: an event has **People**; **Add...** picks people or a whole group from EContact (or takes
   an address). iCloud and other CalDAV servers that do scheduling (RFC 6638) send the invitations by
-  email. An invitation from someone else shows who sent it.
-- Both have **Contacts...** in their menu to open EContact's window.
+  email. An invitation from someone else shows who sent it. ECal's **Contacts...** in its menu
+  opens EContact's window.
 
 ![EMail's ^B in a new message: "gr" on the To: line opens EContact's window to choose, with Grace Baker found](docs/email-complete.png) ![ECal's New Event dialog with Maya Carter under People, chosen in EContact's window with Add...](docs/ecal-invitees.png)
 
-They ask EContact with the family's PEOPLE message (EMail 1.35 and ECal 2.5 or later):
+They ask EContact with the family's PEOPLE message (EMail 1.35 and ECal 2.8 or later; no program
+reads another's files):
 [docs/INTEGRATION.md](docs/INTEGRATION.md) describes how the three talk, so other programs can use
 EContact too.
 

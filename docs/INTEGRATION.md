@@ -1,9 +1,9 @@
 # EContact and other programs
 
 EContact is the address book of EMail and ECal, and any GEM program can
-use it the same way. There are three pieces: a file to read, the message
-that opens EContact's window (or imports vCards), and the message
-EContact sends to write to someone.
+use it the same way. There are three pieces: the PEOPLE message that
+asks EContact about people, the message that opens EContact's window (or
+imports vCards), and the message EContact sends to write to someone.
 
 ## PEOPLE: asking EContact about people
 

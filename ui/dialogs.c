@@ -99,7 +99,7 @@ static int edit_carddav(ACCOUNT *a, int is_new, int icloud)
 	row += 2;
 	put(&f[N1], FT_LABEL, FF_LTR, 0, row, 0, icloud ? "iCloud needs an app-specific password: make one at"
 						    : "e.g. https://carddav.fastmail.com/  https://cloud.example.org/remote.php/dav");
-	put(&f[N2], FT_LABEL, FF_LTR, 0, row + 1, 0, icloud ? "appleid.apple.com > Sign-In and Security >"
+	put(&f[N2], FT_LABEL, FF_LTR, 0, row + 1, 0, icloud ? "account.apple.com > Sign-In and Security >"
 							: "or the address of one address book. Google wants OAuth,");
 	put(&f[N3], FT_LABEL, FF_LTR, 0, row + 2, 0, icloud ? "App-Specific Passwords, and type it here."
 							: "which EContact can't do: export a .vcf and import it.");
@@ -300,7 +300,7 @@ static void settings(short first)
 	f[F4].nitems = 3;
 	f[F4].val = opt.hebfont;
 	row++;
-	put(&f[F5], FT_CHECK, 0, VX, row, 32, "Start with the Hebrew keyboard");
+	put(&f[F5], FT_CHECK, 0, VX, row, 32, "Start with Hebrew keyboard");
 	f[F5].val = opt.hebrew;
 	row++;
 	row++;
@@ -352,7 +352,7 @@ static void settings(short first)
 	put(&f[L8], FT_LABEL, 0, CX + 34, row, 0, "Port:");
 	text(&f[C4], FF_LTR | FF_DIGITS, CX + 40, row, 6, port, 6);
 	row++;
-	put(&f[N2], FT_LABEL, FF_LTR, CX + 12, row, 0, "ECal's gateway/install.sh on the Pi");
+	put(&f[N2], FT_LABEL, FF_LTR, CX + 12, row, 0, "aera-gateway install dav");
 	row++;
 	put(&f[C7], FT_CHECK, 0, CX, row, 40, "Write a log (ECONTACT.LOG)");
 	f[C7].val = opt.log;
@@ -435,7 +435,7 @@ void dlg_keys(void)
 		{ 4, 1, "^G", "a new group" },
 		{ 5, -1, "Search", 0 },
 		{ 6, 0, "Typing", "searches as you type" },
-		{ 6, 1, "Esc  ^F", "a new search" },
+		{ 6, 1, "^F", "a new search" },
 		{ 7, 0, "Backspace", "a letter back" },
 		{ 7, 1, "F10", "Hebrew keyboard" },
 		{ 8, -1, "Commands", 0 },
@@ -445,7 +445,7 @@ void dlg_keys(void)
 		{ 10, 1, "^W  ^Q", "close the window" },
 		{ 11, 0, "Double-click", "edit; an email: write" },
 		{ 11, 1, "Right-click", "more choices" },
-		{ 12, 0, "Help", "the guide, in ST-Guide" },
+		{ 12, 0, "Help", "the guide, in a viewer" },
 		{ 12, 1, "^C", "copy Name <email>" },
 		{ 13, 0, "^V  ^X", "paste, cut the search" },
 		{ 13, 1, "^C ^X ^V", "in a dialog's field" },

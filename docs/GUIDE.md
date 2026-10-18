@@ -8,7 +8,8 @@ alone, with EMail and ECal finding the people in it.
 
 EContact is a desk accessory: TOS loads it at boot from the root of the
 boot drive, and it waits in the Desk menu as **EContact** until you
-choose it.
+choose it. It needs TOS 1.04 or later (EmuTOS, MagiC and MiNT too), 1 MB
+of memory or more, and STinG or MiNTnet for the network.
 
 **A quiet start.** At boot the accessory only takes its memory. A minute
 later it reads your address books, a little at a time between the other
@@ -19,31 +20,41 @@ an ST), and waits while you move the mouse or type, or while
 starts (60), `now`, or `opened` (not until you first open it). Opened
 before it is done, it reads the rest at once.
 
-| Your Atari        | Copy to `C:\`    | Connects                        |
+| Your Atari        | Copy to the root | Connects                        |
 |-------------------|------------------|---------------------------------|
 | Falcon, TT        | `ECONTACT.ACC`   | by itself (Falcon mode) or through the Pi |
 | ST, STE, Mega ST  | `ECONTST.ACC`    | through the Raspberry Pi gateway |
 
+`ECONTST.ACC` may be renamed `ECONTACT.ACC`; either name works.
+
 The settings are in `ECONTACT.INF` in the root of the boot drive, where
-the accessory, EMail and ECal can always find them. Everything else is in
-EContact's folder, which can be anywhere: `FOLDER=` in `ECONTACT.INF`
-says where.
+the accessory can always find them at boot. Everything else is in
+EContact's folder. It can be any folder on any drive, with any name, and
+you don't have to make it first: `FOLDER=` in `ECONTACT.INF` says where
+it is (see below for how EContact learns it). Here it is `C:\ECONTACT`:
 
 ```
 C:\ECONTACT.ACC
 C:\ECONTACT.INF           settings, accounts, address books; FOLDER= names the folder
-C:\ECONTACT\              EContact's folder (or another one):
+C:\ECONTACT\              EContact's folder (any folder will do):
     ECONTACT.PRG          the program, if you use it
     ECONTACT.KEY          the key the passwords in ECONTACT.INF are encrypted with
-    CACHE\                a copy of every address book (BOOKnnnn.DAT)
+    CACHE\                a copy of every address book: BOOKnnnn.DAT the cards,
+                          .PHO their photos, .IDX the contacts ready to read
+    CACHE\PHOTOS\         the photos, made small for the screen
     ECONTACT.FNT          which GDOS fonts are fixed-width (made by Font...)
     CACERT.PEM            Falcon mode: root certificates (copy them here)
     ROOTS.DAT             Falcon mode: the same, decoded ahead of time
+    SEED.DAT              Falcon mode: randomness kept for the next start
     ECONTACT.LOG          with Write a log on
     CRASH.LOG             what happened, if ECONTACT.PRG ever crashes
     ECONTACT.HYP          this guide, for EHypView or ST-Guide: the Help key opens it
     ECONTACT.REF          its pages' names, for ST-Guide's index
 ```
+
+`ECONTACT.HYP` can also go in your help viewer's own folder of guides
+(e.g. `C:\GUIDES`) instead: the Help key looks in EContact's folder
+first, then asks the viewer to find it.
 
 - **`ECONTACT.PRG`** is the same program, to start from the desktop or a
   shell; it ends when its window closes. It has a menu bar (**File**,
@@ -59,11 +70,11 @@ C:\ECONTACT\              EContact's folder (or another one):
   accessory runs beside the programs, starting `ECONTACT.PRG` opens the
   accessory instead.
 - **The accessory** reads `FOLDER=` when it starts. If it's empty, or
-  the folder isn't there any more, the first time you open Contacts it
+  the folder isn't there any more, the first time you open EContact it
   asks where the folder is: **Locate...** opens the file selector (pick
-  any file in the folder), **Use C:** makes and uses `C:\ECONTACT`,
-  **Cancel** leaves the window closed. The answer is kept in
-  `FOLDER=`.
+  any file in the folder), **Use C:** (the boot drive) makes and uses
+  `C:\ECONTACT`, **Cancel** leaves the window closed. The answer is kept
+  in `FOLDER=`.
 - Settings kept in the folder instead (`C:\ECONTACT\ECONTACT.INF`, or
   `ECONTACT.INF` next to the program) are copied to the root the first
   time, when there are none there.
@@ -86,13 +97,23 @@ at most half of what's free). The About box says "TT RAM" when EContact
 runs there, and with **Write a log** on, the log's first line says where
 the program and its memory are.
 
+## Updating
+
+Copy the new release's files over the old ones, `ECONTACT.ACC` (or
+`ECONTST.ACC`) to the root of the boot drive and the rest into
+EContact's folder, and reboot. The settings, the accounts and the
+copies of your address books are kept. Now and then a new version reads
+every card once more at its first start (when the way cards are read
+has changed): 600 contacts take about 13 seconds on a Falcon. The
+About box says which version is running.
+
 ## Accounts
 
 File > **Add account...** (in the accessory, the menu: the button at the
 top right):
 
 - **iCloud**: your Apple ID and an **app-specific password** (make one at
-  appleid.apple.com > Sign-In and Security > App-Specific Passwords; your
+  account.apple.com > Sign-In and Security > App-Specific Passwords; your
   own password doesn't work for other programs). EContact finds your
   address book at contacts.icloud.com.
 - **Other CardDAV account**: the server's address (for instance
@@ -114,6 +135,10 @@ here. `gateway/README.md` tells the rest.
 
 Right-click an account's name on the left to refresh it, change its
 settings or delete it from this Atari (nothing is deleted on the server).
+An On My Atari account's menu makes more address books (**New Address
+Book...**). Right-click an address book to make a group in it, import
+into it, export it, make it the one new contacts go into, and refresh
+it (a server's) or delete it (one on this Atari).
 
 ## The window
 
@@ -261,7 +286,8 @@ Right-click your own card > **Make This My Card**. The list marks it
   copy has to be written anew, and a new account's books, wait for a
   refresh with the window open. Opening the window stops a refresh in
   the background; what it had fetched is kept.
-- **Connection**: Falcon mode and the DSP, the Pi gateway, and the log.
+- **Connection**: Falcon mode and the DSP, the Pi gateway's address and
+  port, and the log.
 
 Settings opens with Options > **Settings...** (^,), or from the menu in
 the accessory. The Options menu also has **Work offline** (no
@@ -290,19 +316,19 @@ When EMail or ECal asks you to choose, EContact's window opens with
 **Cancel** and **Choose** in place of Refresh and the menu: click people
 to tick them (a double click chooses at once), or choose a group on the
 left, then **Choose** (Return); **Cancel** (Esc), closing the window or
-quitting chooses no one. In EMail 1.35 and ECal 2.5 or later:
+quitting chooses no one. In EMail 1.35 and ECal 2.8 or later:
 
 - **EMail**: the addresses it shows carry EContact's names; ^B on a To:
-  line, and its address book, pick people or a group in EContact's
-  window, searching for the name begun on the line.
+  line, and its **Address book...** (^B, in the Message menu), pick people
+  or a group in EContact's window, searching for the name begun on the
+  line.
 - **ECal**: **Add...** by an event's **People** asks for a name or an
   address, and EContact's window opens searching for it: choose people
   or a group there.
   The invitations are written as the event's attendees, with you (the
   account's Apple ID or email user name) as organizer, and iCloud sends
   them. An invitation you received shows who it is from.
-- **Contacts...** in EMail's File menu and ECal's menu opens EContact's
-  window.
+- **Contacts...** in ECal's menu opens EContact's window.
 
 See [INTEGRATION.md](INTEGRATION.md) for how the programs talk.
 
@@ -323,6 +349,8 @@ next time EContact saves its settings.
 
 ## Keys
 
+^ means Control: ^N is Control and N together.
+
 | Key | Does |
 |-----|------|
 | ↑ ↓ | the contact above, below |
@@ -341,6 +369,7 @@ next time EContact saves its settings.
 | ^, | Settings |
 | F10 | Hebrew keyboard |
 | ^W, ^Q | close the window (^Q also quits the program) |
+| Esc, Undo | in a dialog or an alert: Cancel (nothing is changed) |
 | Help | this guide in EHypView, ST-Guide or HypView (without one: how to get one, or the keys) |
 | Double-click | edit; on an email: write to it |
 | Right-click | more choices |

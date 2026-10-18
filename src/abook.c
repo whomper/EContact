@@ -269,7 +269,7 @@ void store_save_settings(void)
 	char enc[200];
 	sb_init(&b);
 	sb_adds(&b, "; EContact settings, written by ECONTACT.ACC / ECONTACT.PRG. Lines starting with ; are notes.\r\n"
-		    "; Most of these are set in the menu > Settings; see docs/GUIDE.md.\r\n"
+		    "; Most of these are set in the menu > Settings; see the guide (the Help key).\r\n"
 		    "; 1 means on, 0 means off. Keys may be in any case.\r\n\r\n[OPTIONS]\r\n");
 #define S(key, name, text) kv(&b, text, key, opt.name);
 #define I(key, name, text) kn(&b, text, key, opt.name);
@@ -278,7 +278,7 @@ void store_save_settings(void)
 		    "; ECONTACT.PRG writes where it was started from\r\nFOLDER=");
 	sb_adds(&b, opt.workdir);
 	sb_adds(&b, "\r\n\r\n");
-	I("HEAPKB", heapkb, "memory the accessory takes at boot, in KB (about 1 KB a contact); 0: 1.5 MB on a Falcon/TT, half the free memory on an ST")
+	I("HEAPKB", heapkb, "memory the accessory takes at boot, in KB (about half a KB a contact); 0: 1.5 MB on a Falcon/TT (4 MB in TT RAM), half the free memory on an ST (at most 2 MB)")
 	S("START", start, "when the accessory reads the address books after the Atari starts, a little at a time: now, opened (when its window first opens), or seconds after boot")
 	I("FALCON", falcon, "Falcon mode: TLS on this Atari (Falcon, TT); 0: through the Pi gateway")
 	I("DSP", dsp, "check certificates on the Falcon's DSP56001")

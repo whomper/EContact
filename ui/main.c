@@ -314,7 +314,7 @@ int falcon_mode_set(int on)
 			return 0;
 		}
 		if (!pf_exists(conn_cacert)) {
-			alert(1, "[3][Falcon mode needs the root certificates: put CACERT.PEM and ROOTS.DAT in the ECONTACT folder.][ OK ]");
+			alert(1, "[3][Falcon mode needs the root certificates: put CACERT.PEM and ROOTS.DAT in EContact's folder.][ OK ]");
 			return 0;
 		}
 	}
@@ -918,7 +918,7 @@ void cmd_menu(short x, short y)
 		{ "-", 0 },
 		{ "  Settings...          ^,", C_SET },
 		{ "  Font...", C_FONT },
-		{ "  Keys...             Help", C_KEYS },
+		{ "  Keys...", C_KEYS },
 		{ "  About EContact...", C_ABOUT },
 		{ "-", 0 },
 		{ "  Quit                  ^Q", C_QUIT },
