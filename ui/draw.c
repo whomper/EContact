@@ -653,10 +653,37 @@ void disc(short cx, short cy, short rx, short ry, short color)
 #define PH_MAXW 160
 #define PH_MAXH 128
 
+#define PH_NONE 255			/* in ph_lut: not looked up yet */
+
 static unsigned char ph_lut[4096];	/* RGB 4-4-4 -> pen */
 static unsigned char ph_rgb[256][3];
 static short ph_npal = -1;
 static long ph_palsum;
+
+/* the pen nearest RGB 4-4-4 colour i, kept in ph_lut. 16-bit
+   differences: each square is one muls.w, and a pen out of the running
+   is left after its first channel */
+static short ph_pen(short i)
+{
+	short r = ((i >> 8) & 15) * 17, g = ((i >> 4) & 15) * 17, b = (i & 15) * 17, k, pick = 0;
+	long best = 0x7fffffffL;
+	for (k = 0; k < ph_npal; k++) {
+		short dr = r - ph_rgb[k][0], dg = g - ph_rgb[k][1], db = b - ph_rgb[k][2];
+		long d = (long)dr * dr * 3;
+		if (d >= best)
+			continue;
+		d += (long)dg * dg * 4;
+		if (d >= best)
+			continue;
+		d += (long)db * db * 2;
+		if (d < best) {
+			best = d;
+			pick = k;
+		}
+	}
+	ph_lut[i] = (unsigned char)pick;
+	return pick;
+}
 
 static void photo_palette(void)
 {
@@ -680,20 +707,37 @@ static void photo_palette(void)
 	ph_palsum = sum;
 	if (n == 2)
 		return;			/* black and white: no table, a threshold */
-	/* the nearest pen for each of 4096 colours, once */
-	for (i = 0; i < 4096; i++) {
-		long r = ((i >> 8) & 15) * 17, g = ((i >> 4) & 15) * 17, b = (i & 15) * 17, best = 0x7fffffffL;
-		short k, pick = 0;
-		for (k = 0; k < n; k++) {
-			long dr = r - ph_rgb[k][0], dg = g - ph_rgb[k][1], db = b - ph_rgb[k][2];
-			long d = dr * dr * 3 + dg * dg * 4 + db * db * 2;
-			if (d < best) {
-				best = d;
-				pick = k;
-			}
-		}
-		ph_lut[i] = (unsigned char)pick;
-	}
+	/* each colour's nearest pen is looked up when a photo first has it
+	   (ph_pen): all 4096 against 255 pens took 18 s on a Falcon in 256
+	   colours, and a photo has a few hundred of them */
+	memset(ph_lut, PH_NONE, sizeof(ph_lut));
+}
+
+/* one pen's pixels of rows y0 to y1 (bits, wpl words a row) copied to
+   the screen, transparent, where the photo shows (vis) */
+static void ph_copy(unsigned short *bits, short wpl, const GRECT *vis, short cx, short cy, short rx,
+                    short ry, short y0, short y1, short pen)
+{
+	short pxy[8], colors[2];
+	MFDB src, dst;
+	memset(&src, 0, sizeof(src));
+	memset(&dst, 0, sizeof(dst));
+	src.fd_addr = bits;
+	src.fd_w = wpl * 16;
+	src.fd_h = y1 - y0;
+	src.fd_wdwidth = wpl;
+	src.fd_nplanes = 1;
+	pxy[0] = vis->x - (cx - rx);
+	pxy[1] = 0;
+	pxy[2] = pxy[0] + vis->w - 1;
+	pxy[3] = y1 - y0 - 1;
+	pxy[4] = vis->x;
+	pxy[5] = cy - ry + y0;
+	pxy[6] = vis->x + vis->w - 1;
+	pxy[7] = cy - ry + y1 - 1;
+	colors[0] = pen;
+	colors[1] = 0;
+	vrt_cpyfm(vdi_h, 2, pxy, &src, &dst, colors);	/* transparent */
 }
 
 void draw_photo(const unsigned short *px, int serial, short cx, short cy, short rx, short ry, const GRECT *clip)
@@ -701,6 +745,11 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 	static unsigned char *pens;
 	static short pw, ph, pserial = -1, pnpal;
 	static unsigned char used[256];
+	/* with many pens (256 colours), each pen's pixels in a list, so
+	   drawing a pen goes through its own pixels and not the whole
+	   picture once a pen: (y << 8) | x, pen by pen, from ph_first[pen] */
+	static unsigned short *at, first[257];
+	static short lists;
 	short W, H, x, y, k, wpl;
 	GRECT vis;
 	if (rx > PH_MAXW / 2)
@@ -760,7 +809,14 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 					short v = c[q] + (e0[x + 1][q] >> 4);
 					c[q] = v < 0 ? 0 : v > 255 ? 255 : v;
 				}
-				pen = grey ? (c[0] < 128) : ph_lut[((c[0] >> 4) << 8) | ((c[1] >> 4) << 4) | (c[2] >> 4)];
+				if (grey) {
+					pen = c[0] < 128;
+				} else {
+					short i = ((c[0] >> 4) << 8) | ((c[1] >> 4) << 4) | (c[2] >> 4);
+					pen = ph_lut[i];
+					if (pen == PH_NONE)
+						pen = ph_pen(i);
+				}
 				/* outside the ellipse: not drawn (255) */
 				if (x < lo || x > hi) {
 					out[x] = 255;
@@ -781,6 +837,29 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 		pw = W;
 		ph = H;
 		pnpal = ph_npal;
+		lists = 0;
+		if (ph_npal > 16 && (at || (at = malloc((long)PH_MAXW * PH_MAXH * 2)) != 0)) {
+			/* how many each pen has, where each one's list starts,
+			   then the pixels in order: the lists come out top to bottom */
+			static unsigned short fill[256];
+			memset(fill, 0, sizeof(fill));
+			for (y = 0; y < H; y++)
+				for (x = 0; x < W; x++)
+					if (pens[(long)y * W + x] != 255)
+						fill[pens[(long)y * W + x]]++;
+			first[0] = 0;
+			for (k = 0; k < 256; k++) {
+				first[k + 1] = first[k] + fill[k];
+				fill[k] = first[k];
+			}
+			for (y = 0; y < H; y++)
+				for (x = 0; x < W; x++) {
+					short pn = pens[(long)y * W + x];
+					if (pn != 255)
+						at[fill[pn]++] = (unsigned short)((y << 8) | x);
+				}
+			lists = 1;
+		}
 	}
 	/* where it shows: the VDI's raster copy may not clip, so by hand */
 	vis.x = cx - rx;
@@ -790,14 +869,38 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 	if (!rect_and(&vis, clip))
 		return;
 	wpl = (W + 15) / 16;
+	if (lists) {
+		short top = vis.y - (cy - ry), bottom = top + vis.h, strip = (short)(1024 / (wpl * 2));
+		for (k = 1; k < ph_npal; k++) {		/* pen 0 is the white under it */
+			const unsigned short *p = at + first[k], *end = at + first[k + 1];
+			short y0, y1;
+			while (p < end && (short)(*p >> 8) < top)
+				p++;
+			for (y0 = top; y0 < bottom && p < end; y0 = y1) {
+				unsigned short *bits;
+				y1 = y0 + strip < bottom ? y0 + strip : bottom;
+				if ((short)(*p >> 8) >= y1)
+					continue;	/* none in these rows */
+				bits = st_ram((long)wpl * 2 * strip);
+				if (!bits)
+					return;
+				memset(bits, 0, (size_t)wpl * 2 * (y1 - y0));
+				for (; p < end && (short)(*p >> 8) < y1; p++) {
+					short col = *p & 0xFF;
+					bits[(long)((*p >> 8) - y0) * wpl + (col >> 4)] |= 0x8000 >> (col & 15);
+				}
+				ph_copy(bits, wpl, &vis, cx, cy, rx, ry, y0, y1, k);
+			}
+		}
+		return;
+	}
 	for (k = 1; k < ph_npal; k++) {		/* pen 0 is the white under it */
 		short y0, strip = (short)(1024 / (wpl * 2));
 		if (!used[k])
 			continue;
 		for (y0 = vis.y - (cy - ry); y0 < vis.y - (cy - ry) + vis.h; y0 += strip) {
-			short y1 = y0 + strip, any = 0, pxy[8], colors[2];
+			short y1 = y0 + strip, any = 0;
 			unsigned short *bits = st_ram((long)wpl * 2 * strip);
-			MFDB src, dst;
 			if (!bits)
 				return;
 			if (y1 > vis.y - (cy - ry) + vis.h)
@@ -818,26 +921,8 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 					}
 				}
 			}
-			if (!any)
-				continue;
-			memset(&src, 0, sizeof(src));
-			memset(&dst, 0, sizeof(dst));
-			src.fd_addr = bits;
-			src.fd_w = wpl * 16;
-			src.fd_h = y1 - y0;
-			src.fd_wdwidth = wpl;
-			src.fd_nplanes = 1;
-			pxy[0] = vis.x - (cx - rx);
-			pxy[1] = 0;
-			pxy[2] = pxy[0] + vis.w - 1;
-			pxy[3] = y1 - y0 - 1;
-			pxy[4] = vis.x;
-			pxy[5] = cy - ry + y0;
-			pxy[6] = vis.x + vis.w - 1;
-			pxy[7] = cy - ry + y1 - 1;
-			colors[0] = k;
-			colors[1] = 0;
-			vrt_cpyfm(vdi_h, 2, pxy, &src, &dst, colors);	/* transparent */
+			if (any)
+				ph_copy(bits, wpl, &vis, cx, cy, rx, ry, y0, y1, k);
 		}
 	}
 }

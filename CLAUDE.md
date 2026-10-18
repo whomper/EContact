@@ -106,7 +106,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   machines; not -fno-expensive-optimizations, which GCC 13.3 miscompiles
   with), and `-fdump-tree-bswap-details` must leave no "load in target
   endianness". GCC notes each file's disabled pass on stderr: not a warning. 32-bit `*` and `/` are software routines there: keep them out of
-  per-pixel loops (photo.c, draw.c's draw_photo). src/jpegdc.c reads two
+  per-pixel loops (photo.c, draw.c's draw_photo). draw_photo finds a
+  colour's nearest pen the first time a photo has it (ph_pen: the whole
+  table took 18 s in 256 colours) and, with more than 16 pens, draws each
+  pen from its own list of pixels rather than scanning the photo once a
+  pen; a change there must leave the photos as they were, pixel for pixel. src/jpegdc.c reads two
   bytes through a volatile pointer for the same reason (rd16): check the
   sample formats in Hatari on an ST after touching it.
 - Photo failures say why (photo_why, PW_...): the status line, the alert
