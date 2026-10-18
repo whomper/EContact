@@ -325,6 +325,8 @@ tests/hatari/quiet_sync.py WORK [MACHINE]         # its refresh with the window 
                                                   # the gateway (FAKESTNG and the bridge too)
 tests/hatari/esc_test.py WORK [MACHINE]           # Esc and Undo cancel dialogs and alerts (3.5)
 tests/hatari/search_click.py WORK [MACHINE]       # a click gives the search field the focus
+tests/hatari/busy_keys.py WORK [MACHINE]          # ^N typed while busy still opens New Contact
+                                                  # (3.2: key_ctrl, not kstate alone)
 make build/ASKER.PRG && tests/hatari/people_ask.py WORK [MACHINE]
                                                   # PEOPLE: a stand-in for EMail asks for a name
                                                   # at boot and picks someone in the window

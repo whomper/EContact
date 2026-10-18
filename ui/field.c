@@ -581,7 +581,7 @@ static int edit_key(DLG *d, FIELD *f, short kstate, short key)
 	short scan = KEY_SCAN(key), n = (short)strlen(f->buf);
 	unsigned char a = key_char(kstate, key);
 	short rtl = field_rtl(f, f->buf, n);
-	if ((kstate & K_CTRL) && clip_key(key))
+	if (key_ctrl(kstate, key) && clip_key(key))
 		return clip_field(d, f, clip_key(key));
 	switch (scan) {
 	case 0x0e:		/* Backspace */

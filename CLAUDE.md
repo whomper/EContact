@@ -96,6 +96,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   and ECal's latest releases (getrelease.py). The rigs' stand-ins (fakeguide for ST-Guide, ASKER.PRG
   for EMail) are EContact's own test programs; `quiet_sync.py` uses
   common's FAKESTNG and serial bridge (common/tools/fakesting).
+- Control shortcuts test `key_ctrl(kstate, key)` (common/atari/gem.h, the
+  guidelines, 3.2), never `kstate & K_CTRL` alone: a key typed while
+  EContact is busy comes with Control already let go.
+  `tests/hatari/busy_keys.py` checks it. (Ctrl+Return in a multi-line
+  field still needs K_CTRL: Return's code says nothing.)
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000

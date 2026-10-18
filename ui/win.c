@@ -625,9 +625,9 @@ static int search_key(short kstate, short key)
 	short scan = KEY_SCAN(key);
 	unsigned char a = key_char(kstate, key);
 	int n = (int)strlen(search_text);
-	if ((kstate & K_CTRL) && (clip_key(key) == CLIP_CUT || clip_key(key) == CLIP_PASTE))
+	if (key_ctrl(kstate, key) && (clip_key(key) == CLIP_CUT || clip_key(key) == CLIP_PASTE))
 		return search_clip(clip_key(key));
-	if (kstate & (K_CTRL | K_ALT))
+	if (key_ctrl(kstate, key) || (kstate & K_ALT))
 		return 0;
 	if (scan == 0x0e) {			/* Backspace */
 		if (!n)
@@ -660,7 +660,9 @@ void win_find(void)
 int win_key(short kstate, short key)
 {
 	short scan = KEY_SCAN(key);
-	if (kstate & K_CTRL) {
+	/* key_ctrl: a shortcut typed while EContact was busy comes with the
+	   Control key already let go (the guidelines, 3.2) */
+	if (key_ctrl(kstate, key)) {
 		switch (scan) {
 		case 0x31: cmd_new_contact(); return 1;			/* ^N */
 		case 0x13: cmd_refresh(kstate & (K_LSHIFT | K_RSHIFT)); return 1;	/* ^R */
@@ -692,7 +694,7 @@ int win_key(short kstate, short key)
 			return 1;
 		}
 	}
-	if (picking && !(kstate & (K_CTRL | K_ALT))) {
+	if (picking && !key_ctrl(kstate, key) && !(kstate & K_ALT)) {
 		switch (scan) {
 		case 0x1c: case 0x72: pick_end(1); return 1;	/* Return: Choose */
 		case 0x01: case 0x61: pick_end(0); return 1;	/* Esc, Undo: Cancel */
@@ -700,7 +702,7 @@ int win_key(short kstate, short key)
 	}
 	/* in the search field Delete takes what is after the cursor: there
 	   is nothing (the cursor is at the end), and never the contact */
-	if (search_focus && scan == 0x53 && !(kstate & (K_CTRL | K_ALT)))
+	if (search_focus && scan == 0x53 && !key_ctrl(kstate, key) && !(kstate & K_ALT))
 		return 1;
 	if (list_key(kstate, key)) {
 		/* up, down and Clr/Home go on in the list, as on the Mac */

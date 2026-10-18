@@ -530,7 +530,7 @@ int list_click(short mx, short my, short clicks, short button, short kstate)
 int list_key(short kstate, short key)
 {
 	short scan = KEY_SCAN(key);
-	if (kstate & (K_CTRL | K_ALT))
+	if (key_ctrl(kstate, key) || (kstate & K_ALT))
 		return 0;
 	switch (scan) {
 	case 0x48: list_step(-1); return 1;			/* up */
