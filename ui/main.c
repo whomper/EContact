@@ -300,6 +300,21 @@ void after_change(void)
 	memory_check();
 }
 
+/* how many files a sync opened, in the log: TOS's internal pool is
+   small (pfkeep.c), and the accessory opens its files again after every
+   event call (pf_park) */
+static void opens_note(int start)
+{
+	static long at;
+	char t[60];
+	if (start) {
+		at = pf_opens;
+		return;
+	}
+	snprintf(t, sizeof(t), "%ld files opened", pf_opens - at);
+	conn_log("EContact", "--", t, (long)strlen(t));
+}
+
 /* ---------------- Falcon mode ---------------- */
 
 int falcon_mode_set(int on)
@@ -387,8 +402,10 @@ static void refresh(int force, int quiet)
 	busy(1);
 	status("Updating...");
 	pf_keep(1);		/* the cache and the log stay open while it runs */
+	opens_note(1);
 	r = sync_all(force);
 	pf_keep(0);
+	opens_note(0);
 	busy(0);
 	last_refresh = pf_ms();
 	synced_once = 1;
@@ -701,8 +718,10 @@ void cmd_sync_photos(void)
 	p.t0 = pf_ms();
 	prog_open("Sync Contact Photos");
 	pf_keep(1);		/* the cache and the log stay open while it runs */
+	opens_note(1);
 	made = photo_sync_all(photo_progress, &p, &failed);
 	pf_keep(0);
+	opens_note(0);
 	prog_close();
 	http_close_all();
 	conn_log_flush();
@@ -954,7 +973,7 @@ void cmd_menu(short x, short y)
    without malloc: the accessory calls this before its heap is taken */
 static void inf_value(const char *inf, const char *key, char *out, int size)
 {
-	static char t[4096];
+	static char t[8192];
 	char *k;
 	int h = pf_open(inf, PF_READ), kl = (int)strlen(key);
 	long n;
@@ -984,6 +1003,7 @@ static void inf_folder(const char *inf, char *out, int size)
 }
 
 static char boot_start[12];	/* START= as ECONTACT.INF had it at boot */
+static char boot_font[8];	/* FONT_ID=: the GDOS fonts loaded at boot or never */
 
 static void find_workdir(void)
 {
@@ -993,6 +1013,7 @@ static void find_workdir(void)
 	if (is_acc) {
 		inf_folder(inf_file, workdir, sizeof(workdir));
 		inf_value(inf_file, "start=", boot_start, sizeof(boot_start));
+		inf_value(inf_file, "font_id=", boot_font, sizeof(boot_font));
 		if (!pf_exists(inf_file)) {
 			/* settings in the folder instead (copied there, or written
 			   by card-cli): taken to the root at the first opening */
@@ -1688,6 +1709,8 @@ int main(void)
 	cw = gl_wchar;
 	ch = gl_hchar;
 	vdi_h = v_opnvwk_(vdi_h, work_out);
+	if (is_acc)
+		font_boot(boot_font[0] ? (short)atoi(boot_font) : 1);	/* before the first event call */
 	scr_w = work_out[0] + 1;
 	scr_h = work_out[1] + 1;
 	ncolors = work_out[13];

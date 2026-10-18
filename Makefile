@@ -37,6 +37,10 @@ CFLAGS  += $(EXTRA_CFLAGS)
 LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
            -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments
 
+# the AES calls that may let another program run: the accessory lets go
+# of its files first (ui/evwrap.c, the guidelines 2.2)
+EVWRAP  := -Wl,--wrap=evnt_multi_,--wrap=evnt_timer_,--wrap=form_do,--wrap=form_alert,--wrap=fsel_exinput
+
 # BearSSL 0.6 for Falcon mode, built for the 68030 (the rest stays 68000 code)
 BSSL    := common/third_party/bearssl
 BSSLSRC := $(wildcard $(BSSL)/src/*/*.c)
@@ -54,7 +58,7 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
 CORE    := util charset conn tls bidi secret futil ctime xml inflate http vcard carddav abook photo jpegdc pfkeep
 ATARI   := libc tos plat_tos net_tos sting gem dsprsa
-UI      := main win draw popup dsp sidebar list card editor dialogs field about font help av av_people alert dialog aboutbox iconify clip dd mbar twin busy bgwork people_ask answer
+UI      := main evwrap win draw popup dsp sidebar list card editor dialogs field about font help av av_people alert dialog aboutbox iconify clip dd mbar twin busy bgwork people_ask answer
 
 OBJDIR  := build
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash.o $(OBJDIR)/crash_s.o \
@@ -99,7 +103,7 @@ $(BIN)/ECONTST.ACC: $(OBJDIR)/econtst.elf common/tools/elf2tos.py | $(BIN)
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
 
 $(OBJDIR)/econtst.elf: $(STOBJS) common/atari/link.ld
-	$(CC) $(LDFLAGS) -o $@ $(STOBJS) -lgcc
+	$(CC) $(LDFLAGS) $(EVWRAP) -o $@ $(STOBJS) -lgcc
 
 $(OBJDIR)/st/%.o: $(BSSL)/src/hash/%.c
 	@mkdir -p $(dir $@)
@@ -116,7 +120,7 @@ $(BIN)/ECONTACT.PRG: $(BIN)/ECONTACT.ACC
 	cp $< $@
 
 $(OBJDIR)/contact.elf: $(OBJS) $(OBJDIR)/libbearssl.a common/atari/link.ld
-	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(OBJDIR)/libbearssl.a -lgcc
+	$(CC) $(LDFLAGS) $(EVWRAP) -o $@ $(OBJS) $(OBJDIR)/libbearssl.a -lgcc
 
 $(OBJDIR)/bssl/%.o: $(BSSL)/src/%.c
 	@mkdir -p $(dir $@)

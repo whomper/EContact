@@ -197,6 +197,7 @@ void dlg_about(void);
 void dlg_keys(void);
 void win_find(void);			/* ^F: a new search */
 void font_apply(void);
+void font_boot(short id);	/* the accessory, before its first event call */
 void font_menu(void);
 void font_reselect(void);
 #define HM_MAP     0

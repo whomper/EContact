@@ -348,6 +348,10 @@ tests/hatari/falcon_tls.py WORK [MACHINE] [--no-dsp]
                                                   # Falcon mode against an HTTPS Radicale with an
                                                   # ECDSA certificate: the curves on the DSP,
                                                   # SIGS.DAT, ROOTS.DAT dated in place
+tests/hatari/acc_files.py WORK [MACHINE] [cards]  # the accessory's refresh and Sync Contact Photos:
+                                                  # no file open across an event call (2.2), from
+                                                  # Hatari's GEMDOS and AES trace; what it wrote
+                                                  # reads back whole
 tests/hatari/esc_test.py WORK [MACHINE]           # Esc and Undo cancel dialogs and alerts (3.5)
 tests/hatari/search_click.py WORK [MACHINE]       # a click gives the search field the focus
 tests/hatari/busy_keys.py WORK [MACHINE]          # ^N typed while busy still opens New Contact

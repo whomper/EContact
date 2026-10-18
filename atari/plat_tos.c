@@ -25,10 +25,11 @@ int os_open(const char *path, int mode)
 	return (int)h;
 }
 
-long pf_read(int h, void *buf, long n) { return Fread((short)h, n, buf); }
-long pf_write(int h, const void *buf, long n) { return Fwrite((short)h, n, buf); }
+long os_read(int h, void *buf, long n) { return Fread((short)h, n, buf); }
+long os_write(int h, const void *buf, long n) { return Fwrite((short)h, n, buf); }
 void os_close(int h) { Fclose((short)h); }
-long pf_seek(int h, long off) { return Fseek(off, (short)h, 0); }
+long os_seek(int h, long off) { return Fseek(off, (short)h, 0); }
+long os_tell(int h) { return Fseek(0, (short)h, 1); }
 long os_seek_end(int h) { return Fseek(0, (short)h, 2); }
 
 static DTA dta;

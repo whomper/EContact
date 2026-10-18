@@ -14,6 +14,8 @@
 #include "util.h"
 #include "photo.h"
 #include "photo_vec.h"
+#include "plat.h"
+#include <unistd.h>
 
 static int fails, checks;
 
@@ -702,6 +704,54 @@ static void test_photo_folds(void)
 	}
 }
 
+/* pfkeep.c: files let go before an event call (pf_park, the guidelines
+   2.2) are opened again where they were; kept ones are closed */
+static void test_park(void)
+{
+	char dir[] = "/tmp/econtact-parkXXXXXX", w[300], r[300], buf[32];
+	int hw, hr, hk;
+	long n, opens;
+	char *t;
+	CHECK(mkdtemp(dir) != 0);
+	snprintf(w, sizeof(w), "%s/W.DAT", dir);
+	snprintf(r, sizeof(r), "%s/R.DAT", dir);
+	pf_save(r, "0123456789", 10);
+	hw = pf_open(w, PF_WRITE);
+	hr = pf_open(r, PF_READ);
+	CHECK(hw >= 0 && hr >= 0);
+	CHECK(pf_write(hw, "abc", 3) == 3);
+	CHECK(pf_read(hr, buf, 4) == 4 && !memcmp(buf, "0123", 4));
+	opens = pf_opens;
+	pf_park();
+	CHECK(pf_size(w) == 3);			/* closed: its length written */
+	CHECK(pf_write(hw, "def", 3) == 3);	/* opened again at its end */
+	CHECK(pf_read(hr, buf, 6) == 6 && !memcmp(buf, "456789", 6));
+	CHECK(pf_opens == opens + 2);
+	pf_park();
+	CHECK(pf_seek(hw, 1) == 1 && pf_write(hw, "B", 1) == 1);
+	pf_close(hw);
+	pf_close(hr);
+	t = pf_load(w, &n);
+	CHECK(t && n == 6 && !memcmp(t, "aBcdef", 6));
+	free(t);
+	/* kept while a sync runs: parked means closed, and opened anew */
+	pf_keep(1);
+	hk = pf_open(r, PF_READ);
+	pf_close(hk);
+	opens = pf_opens;
+	hk = pf_open(r, PF_READ);
+	CHECK(pf_opens == opens);		/* the kept handle */
+	pf_close(hk);
+	pf_park();
+	hk = pf_open(r, PF_READ);
+	CHECK(pf_opens == opens + 1 && pf_read(hk, buf, 2) == 2 && !memcmp(buf, "01", 2));
+	pf_close(hk);
+	pf_keep(0);
+	pf_remove(w);
+	pf_remove(r);
+	rmdir(dir);
+}
+
 int main(void)
 {
 	test_parse_icloud();
@@ -715,6 +765,7 @@ int main(void)
 	test_photo_split();
 	test_photo_folds();
 	test_pack();
+	test_park();
 	printf("%d checks, %d failed\n", checks, fails);
 	return fails != 0;
 }

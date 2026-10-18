@@ -154,6 +154,22 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   a long Sync Contact Photos. TOS writes a file's length only when it is
   closed, so code must ask for sizes and dates, remove and rename through
   pf_* (they close a kept file first), never through GEMDOS directly.
+- No file open across an event call in the accessory (the guidelines,
+  2.2): its files belong to the program in front, whose end closes them
+  and gives their numbers to the next files opened. pf_open's handles
+  are pfkeep.c's own (FH + an entry); ui/evwrap.c, linked with
+  `--wrap` (the Makefile's EVWRAP), calls pf_park before every
+  evnt_multi, evnt_timer, form_do, form_alert and fsel_exinput, which
+  closes every file, and each is opened again where it was at its next
+  read, write or seek. Read and write files only through pf_*. The log
+  says how many files a sync opened; `tests/hatari/acc_files.py WORK
+  [MACHINE]` checks it all from Hatari's GEMDOS and AES trace.
+- The accessory loads GDOS fonts only before its first event call, and
+  only when FONT_ID= names one (font_boot; the guidelines, 2.2): their
+  memory is the program in front's after that. Its Font... lists the
+  fonts ECONTACT.FNT knows (with their ids), and one chosen is used from
+  the next start. FONT_ID= is near the INF's start, where inf_value
+  reads it at boot.
 - Memory on an ST is the limit (README "How many contacts"). Reading a
   card leaves nothing in memory but its CONTACT (vcard_parse keeps its
   scratch from card to card): small mallocs left between contacts make

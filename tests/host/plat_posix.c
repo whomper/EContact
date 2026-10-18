@@ -29,10 +29,11 @@ int os_open(const char *path, int mode)
 	return open(path, fl, 0644);
 }
 
-long pf_read(int h, void *buf, long n) { return read(h, buf, n); }
-long pf_write(int h, const void *buf, long n) { return write(h, buf, n); }
+long os_read(int h, void *buf, long n) { return read(h, buf, n); }
+long os_write(int h, const void *buf, long n) { return write(h, buf, n); }
 void os_close(int h) { close(h); }
-long pf_seek(int h, long off) { return (long)lseek(h, off, SEEK_SET); }
+long os_seek(int h, long off) { return (long)lseek(h, off, SEEK_SET); }
+long os_tell(int h) { return (long)lseek(h, 0, SEEK_CUR); }
 long os_seek_end(int h) { return (long)lseek(h, 0, SEEK_END); }
 
 long os_size(const char *path)

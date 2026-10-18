@@ -38,10 +38,21 @@ int  pf_rename(const char *from, const char *to);
    takes an entry in TOS's small internal pool, and a long Sync Contact
    Photos opened them hundreds of times. 1 on, 0 off (all closed) */
 void pf_keep(int on);
+/* every file closed now, those in use too: each opened again where it
+   was at its next read, write or seek. The accessory calls it before
+   every event call (ui/evwrap.c): its files belong to the program in
+   front, whose end would close them and give their numbers to others
+   (the guidelines, 2.2) */
+void pf_park(void);
+extern long pf_opens;		/* files opened (GEMDOS calls), for the log */
 /* the machine's own calls under pf_open...pf_rename (atari/plat_tos.c,
    tests/host/plat_posix.c) */
 int  os_open(const char *path, int mode);
+long os_read(int h, void *buf, long n);
+long os_write(int h, const void *buf, long n);
 void os_close(int h);
+long os_seek(int h, long off);
+long os_tell(int h);
 long os_seek_end(int h);
 long os_size(const char *path);
 unsigned long os_stamp(const char *path);

@@ -19,6 +19,13 @@
  * have them. A vector font (Speedo, TrueType, Type 1) is asked through
  * NVDI for its Hebrew letters by Unicode; when it has none, they are
  * drawn in the system font in the same cells.
+ *
+ * The accessory loads GDOS fonts only as the Atari starts, before its
+ * first event call, and only when ECONTACT.INF names one (FONT_ID=,
+ * font_boot): later, FONTGDOS and SpeedoGDOS would give their memory to
+ * the program in front, which frees it when it ends (the guidelines,
+ * 2.2). Without them its selector lists the fonts ECONTACT.FNT knows,
+ * and one chosen there is used from the next start.
  */
 #include <string.h>
 #include <stdio.h>
@@ -32,6 +39,7 @@
 typedef struct {
 	short id, format;	/* VDI font id; 1 bitmap, 2 Speedo, 4 TrueType, 8 Type 1 */
 	signed char mono;	/* -1: not looked at yet */
+	char later;		/* the accessory, fonts not loaded: from ECONTACT.FNT */
 	char name[33];
 } FAM;
 
@@ -135,18 +143,28 @@ void font_reselect(void)
 	ch = keep_ch;
 }
 
+/* the accessory, before its first event call: the GDOS fonts when its
+   settings name one, else never */
+void font_boot(short id)
+{
+	if (id > 1 && vq_gdos())
+		gdos_fonts = vst_load_fonts(vdi_h, 0);
+}
+
 void font_apply(void)
 {
 	if (sys_depth) {
 		use_sys();
 		return;
 	}
-	if (opt.font_id != 1 && gdos_fonts < 0 && vq_gdos())
+	if (opt.font_id != 1 && gdos_fonts < 0 && vq_gdos() && !is_acc)
 		gdos_fonts = vst_load_fonts(vdi_h, 0);
 	if (!set_font(opt.font_id, opt.font_pt)) {
-		opt.font_id = 1;
-		opt.font_pt = 0;
-		set_font(1, 0);
+		if (!is_acc || gdos_fonts >= 0) {
+			opt.font_id = 1;	/* not there */
+			opt.font_pt = 0;
+		}
+		set_font(1, 0);		/* (the accessory: from the next start) */
 	}
 }
 
@@ -201,7 +219,7 @@ static void keep_monospaced(void)
 	for (i = 1; i < nfam; i++) {
 		fam[i].mono = -1;
 		for (line = known; line && *line; line = strchr(line, '\n') ? strchr(line, '\n') + 1 : 0) {
-			size_t len = strcspn(line + 2, "\r\n");
+			size_t len = strcspn(line + 2, "\t\r\n");
 			if (line[1] == ' ' && len == strlen(fam[i].name) && !strncmp(line + 2, fam[i].name, len)) {
 				fam[i].mono = line[0] == '1';
 				break;
@@ -210,7 +228,7 @@ static void keep_monospaced(void)
 		if (fam[i].mono < 0)
 			todo++;
 	}
-	if (todo) {
+	if (todo || (known && !strchr(known, '\t'))) {	/* (an older one: without the ids) */
 		busy(1);
 		for (i = 1; i < nfam; i++)
 			if (fam[i].mono < 0) {
@@ -223,7 +241,7 @@ static void keep_monospaced(void)
 		status_updated();
 		sb_init(&out);
 		for (i = 1; i < nfam; i++)
-			sb_printf(&out, "%d %s\r\n", fam[i].mono, fam[i].name);
+			sb_printf(&out, "%d %s\t%d\r\n", fam[i].mono, fam[i].name, fam[i].id);
 		if (out.s)
 			pf_save(path, out.s, out.len);
 		sb_free(&out);
@@ -252,6 +270,33 @@ static short format_of(short id)
 	return 1;
 }
 
+/* the accessory without the GDOS fonts: the fixed-width ones
+   ECONTACT.FNT knows ("1 Courier 10 Pitch<tab>5"), written when they were
+   last loaded (by the program, or at a start with one chosen) */
+static void known_families(void)
+{
+	char path[220], *known, *line;
+	path_join(path, sizeof(path), opt.workdir, "ECONTACT.FNT");
+	known = vq_gdos() ? pf_load(path, 0) : 0;
+	for (line = known; line && *line && nfam < MAXFAM;
+	     line = strchr(line, '\n') ? strchr(line, '\n') + 1 : 0) {
+		size_t len = strcspn(line + 2, "\t\r\n");
+		FAM *f = &fam[nfam];
+		if (line[0] != '1' || line[1] != ' ' || line[2 + len] != '\t' || len >= sizeof(f->name))
+			continue;
+		f->id = (short)atoi(line + 3 + len);
+		if (f->id <= 1)
+			continue;
+		memcpy(f->name, line + 2, len);
+		f->name[len] = 0;
+		f->format = 0;
+		f->mono = 1;
+		f->later = 1;
+		nfam++;
+	}
+	free(known);
+}
+
 /* names only: quick, whatever the number of fonts */
 static void list_families(void)
 {
@@ -263,6 +308,10 @@ static void list_families(void)
 	fam[0].mono = 1;
 	strcpy(fam[0].name, "System font");
 	nfam = 1;
+	if (gdos_fonts < 0 && is_acc) {
+		known_families();	/* not loaded: none after the first event call */
+		return;
+	}
 	if (gdos_fonts < 0) {
 		busy(1);
 		gdos_fonts = vq_gdos() ? vst_load_fonts(vdi_h, 0) : 0;
@@ -283,6 +332,7 @@ static void list_families(void)
 			f->name[n] = 0;
 		f->format = vqt_font_format(vdi_h, i);
 		f->mono = -1;
+		f->later = 0;
 		nfam++;
 	}
 	keep_monospaced();
@@ -300,6 +350,15 @@ static void look_at(FAM *f)
 		sizes[1] = 16;
 		strcpy(size_label[1], "8 x 16");
 		nsizes = 2;
+		return;
+	}
+	if (f->later) {
+		static const short usual[] = { 8, 9, 10, 11, 12, 14, 16, 18, 20, 24 };
+		for (i = 0; i < (short)(sizeof(usual) / sizeof(usual[0])); i++) {
+			sizes[nsizes] = usual[i];
+			snprintf(size_label[nsizes], sizeof(size_label[0]), "%d pt", usual[i]);
+			nsizes++;
+		}
 		return;
 	}
 	busy(1);
@@ -551,7 +610,13 @@ static void draw_preview(void)
 	graf_mouse(M_OFF, 0);
 	clip_on(&r);
 	fill(&r, 0);
-	if (fam[lf.sel].mono && set_font(fam[lf.sel].id, chosen_pt())) {
+	if (fam[lf.sel].later) {
+		use_sys();
+		text_at(r.x + gl_wchar, r.y + 2, "Used from the next start: the accessory", 39,
+			(r.w - 2 * gl_wchar) / gl_wchar, TX_LTR);
+		text_at(r.x + gl_wchar, r.y + 2 + gl_hchar, "loads its fonts only as the Atari starts.", 41,
+			(r.w - 2 * gl_wchar) / gl_wchar, TX_LTR);
+	} else if (fam[lf.sel].mono && set_font(fam[lf.sel].id, chosen_pt())) {
 		opt.hebfont = sel_heb;
 		text_at(r.x + cw, r.y + 2, l1, strlen(l1), (r.w - 2 * cw) / cw, TX_LTR);
 		text_at(r.x + cw, r.y + 4 + ch, l2, strlen(l2), (r.w - 2 * cw) / cw, TX_LTR);
@@ -570,7 +635,9 @@ static void draw_type(void)
 	FAM *f = &fam[lf.sel];
 	short x, y, n;
 	GRECT r;
-	if (f->id != 1 && f->format != 1) {
+	if (f->later) {
+		snprintf(type_line, sizeof(type_line), "GDOS font, from the next start");
+	} else if (f->id != 1 && f->format != 1) {
 		/* setting it says where its Hebrew comes from */
 		set_font(f->id, chosen_pt() ? chosen_pt() : 12);
 		snprintf(type_line, sizeof(type_line), "%s, Hebrew %s", format_name(f),
@@ -814,5 +881,8 @@ void font_menu(void)
 		settings_later();
 		win_layout();
 		win_redraw(0);
+		if (fam[lf.sel].later)
+			alert(1, "[1][EContact uses %s|from the next start: the accessory|loads its fonts only as the Atari|starts.][ OK ]",
+			      fam[lf.sel].name);
 	}
 }

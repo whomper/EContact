@@ -307,6 +307,15 @@ connections at all: everything shown comes from the copy on disk; a
 server's address book can't be changed until you're online again) and
 **Font...**; Help has **Keys...**, and the EContact menu **About**.
 
+**Fonts in the accessory.** With a GDOS (NVDI, SpeedoGDOS, FontGDOS), the
+accessory loads its fonts only as the Atari starts, and only when a GDOS
+font is chosen; later, their memory would belong to whichever program
+is in front, and be freed when it ends. So a GDOS font chosen in the
+accessory's **Font...** is used from the next start (it says so), and
+the list shows the fixed-width fonts EContact has seen before (when
+`ECONTACT.PRG` or an earlier start loaded them). `ECONTACT.PRG` loads
+fonts whenever it needs them, as before.
+
 ## With EMail and ECal
 
 **mail** in EContact opens a new message in EMail, to the person or the
