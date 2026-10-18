@@ -71,13 +71,13 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   itest` checks the answers through card-cli ask.
 - Where the accessory and the program find ECONTACT.INF and the folder
   follows ECal (ui/main.c: find_workdir, move_inf, locate_folder);
-  `tests/hatari/placement.py WORK etos512us.img` checks it.
+  `tests/hatari/placement.py WORK [MACHINE]` checks it.
 - The accessory's memory outlives its window: when ECONTACT.INF, the key
   or a book's cache changed while it was closed (store_stamp), it lets
   everything go (store_release) and reads it all again (ui/main.c
   files_check). Anything new kept between openings must be let go there
   too. `make itest` (card-cli accessory) and
-  `tests/hatari/acc_reread.py WORK etos512us.img` check it.
+  `tests/hatari/acc_reread.py WORK [MACHINE]` check it.
 - `binary/ECONTACT.HYP` (the Help key's ST-Guide guide) is made from
   docs/GUIDE.md by `make` when `hcp` is installed, and `make test` and
   `make dist` fail when it doesn't say the program's version:
@@ -87,10 +87,13 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   4.3): common/tools/helpfront.py makes it from docs/front.json, with
   docs/help/WINDOW.IMG (made once with `helpfront.py thumb` from
   docs/window.png). `tests/hatari/help_key.py` checks the Help key.
-- The UI is checked in Hatari: `tests/hatari/docs_shots.py WORK etos512us.img`
-  takes the screenshots in docs/ (EmuTOS 512k, sourceforge.net/projects/emutos);
-  with `--email` and `--ecal` it fetches EMail's and ECal's latest releases
-  (getrelease.py). The rigs' stand-ins (fakeguide for ST-Guide, ASKER.PRG
+- The UI is checked in Hatari. The rigs take a machine of the family's
+  (`ST`, `ST-1`, `TT`, `Falcon`, a screen after a colon: common/tools/machines.py,
+  the guidelines, The machines) and get Hatari's arguments, the TOS and the
+  network from it (tests/hatari/rig.py), never their own options.
+  `tests/hatari/docs_shots.py WORK` takes the screenshots in docs/ (on
+  Falcon:16 and ST:mono); with `--email` and `--ecal` it fetches EMail's
+  and ECal's latest releases (getrelease.py). The rigs' stand-ins (fakeguide for ST-Guide, ASKER.PRG
   for EMail) are EContact's own test programs; `quiet_sync.py` uses
   common's FAKESTNG and serial bridge (common/tools/fakesting).
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);

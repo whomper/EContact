@@ -3,12 +3,22 @@
 """Drive EContact in the Hatari emulator: an X display (Xvfb), Hatari's
 command FIFO for keys and screenshots, xdotool for the mouse.
 Adapted from Claude ST's recording rig (whomper/atari_claude).
+
+The machine is one of the family's (common/tools/machines.py, the
+guidelines, The machines): "ST", "ST-1", "TT" or "Falcon", with a screen
+after a colon ("ST:mono", "Falcon:256"); machines.py gives Hatari's
+arguments, the TOS (EmuTOS 1.4, or Erez's own in ~/.aera/tos) and, with
+network=True, FAKESTNG and its serial bridge.
 """
 import os
 import shutil
 import stat
 import subprocess
+import sys
 import time
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "common", "tools"))
+import machines  # noqa: E402
 
 # ST scancodes (US layout)
 SCAN = {c: i for i, c in enumerate("1234567890-=", 2)}
@@ -25,11 +35,24 @@ K = dict(RETURN=0x1c, ESC=0x01, TAB=0x0f, BACKSPACE=0x0e, DELETE=0x53, UP=0x48, 
          LEFT=0x4b, RIGHT=0x4d, HOME=0x47, HELP=0x62, UNDO=0x61, F10=0x44, CTRL=0x1d, SHIFT=0x2a, ALT=0x38)
 
 
+def machine_arg(argv, i, default):
+    """the machine named on a rig's command line (argv[i]), or its default;
+    a TOS image there is the old way (machines.py chooses the TOS now)"""
+    m = argv[i] if len(argv) > i else default
+    if m.lower().endswith(".img"):
+        sys.exit("give a machine (%s), not a TOS image: machines.py chooses the TOS"
+                 % ", ".join(machines.MACHINES))
+    return m
+
+
 class Rig:
-    def __init__(self, work, tos, machine="falcon", display=":99", serial=None, extra=(),
-                 auto="C:\\ECONTACT.PRG"):
-        self.work, self.tos, self.display = work, tos, display
-        self.env = dict(os.environ, DISPLAY=display, SDL_AUDIODRIVER="dummy")
+    def __init__(self, work, machine="ST", display=":99", extra=(), auto="C:\\ECONTACT.PRG",
+                 network=False):
+        """Hatari as MACHINE with WORK/hd as C:; screenshots in WORK/shots"""
+        self.work, self.display = work, display
+        self.machine = machines.Machine(machine, os.path.join(work, "hd"))
+        self.env = self.machine.env(dict(os.environ, DISPLAY=display, SDL_VIDEODRIVER="x11",
+                                         SDL_AUDIODRIVER="dummy"))
         self.fifo = os.path.join(work, "cmd.fifo")
         self.shots = os.path.join(work, "shots")
         os.makedirs(self.shots, exist_ok=True)
@@ -39,18 +62,16 @@ class Rig:
             self.xvfb = subprocess.Popen(["Xvfb", display, "-screen", "0", "1024x768x24"],
                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             time.sleep(1)
-        args = ["hatari", "-w", "--statusbar", "no", "--borders", "no", "--zoom", "1",
-                "--confirm-quit", "no", "--tos", tos, "--machine", machine,
-                "--harddrive", os.path.join(work, "hd"), "--fast-boot", "yes", "--sound", "off",
-                "--natfeats", "yes", "--cmd-fifo", self.fifo, "--screenshot-dir", self.shots,
-                "--log-level", "warn"]
+        args = ["hatari"] + self.machine.args() + [
+            "-w", "--statusbar", "no", "--borders", "no", "--zoom", "1", "--fast-boot", "yes",
+            "--natfeats", "yes", "--cmd-fifo", self.fifo, "--screenshot-dir", self.shots,
+            "--log-level", "warn"]
+        if network:
+            args += self.machine.network()
         if auto:
             args += ["--auto", auto]
-        if machine == "falcon":
-            args += ["--monitor", "vga", "--dsp", "none"]
-        if serial:
-            args += ["--rs232-out", serial[0], "--rs232-in", serial[1]]
         args += list(extra)
+        print("  on", self.machine.describe())
         self.log = open(os.path.join(work, "hatari.log"), "w")
         self.proc = subprocess.Popen(args, env=self.env, stdout=self.log, stderr=subprocess.STDOUT)
 
@@ -176,5 +197,6 @@ class Rig:
             self.proc.wait(5)
         except Exception:
             self.proc.kill()
+        self.machine.stop()
         if self.xvfb:
             self.xvfb.terminate()

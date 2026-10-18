@@ -305,34 +305,40 @@ make itest      # card-cli against a real CardDAV server (Radicale: pip install
                 # where the cards are, the refresh in the background, and
                 # PEOPLE's answers (card-cli ask)
 GATEWAY=gateway/ecalgate.py make itest            # the same through the Pi gateway
-tests/hatari/docs_shots.py WORK etos512us.img     # the screenshots, in Hatari (--email,
+tests/hatari/docs_shots.py WORK                   # the screenshots, in Hatari (--email,
                                                   # --ecal: with their latest releases)
-tests/hatari/placement.py WORK etos512us.img      # where the accessory and the program
+tests/hatari/placement.py WORK [MACHINE]          # where the accessory and the program
                                                   # find their settings and folder
-tests/hatari/acc_reread.py WORK etos512us.img     # the accessory after the program changed
+tests/hatari/acc_reread.py WORK [MACHINE]         # the accessory after the program changed
                                                   # the files: read again
-tests/hatari/twin_test.py WORK etos512us.img      # the program with the accessory installed
-tests/hatari/help_key.py WORK etos512us.img       # the Help key, with a stand-in for
+tests/hatari/twin_test.py WORK [MACHINE]          # the program with the accessory installed
+tests/hatari/help_key.py WORK [MACHINE]           # the Help key, with a stand-in for
                                                   # ST-Guide (make build/fakeguide.acc)
-tests/hatari/stop_test.py WORK etos512us.img      # Esc stops a server that says nothing
+tests/hatari/stop_test.py WORK [MACHINE]          # Esc stops a server that says nothing
                                                   # (FAKESTNG and the serial bridge from common/)
 make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \
      WORK/bin/ECONTACT.ACC WORK/bin/ECONTST.ACC   # an edition that times its event calls
-tests/hatari/quiet_start.py WORK etos512us.img    # the accessory's quiet start: 600 contacts
-                                                  # read in the background, at most 50 ms
-                                                  # (Falcon) or 100 ms (ST) between event calls
-tests/hatari/quiet_sync.py WORK etos512us.img     # its refresh with the window closed, through
+tests/hatari/quiet_start.py WORK [MACHINE]        # the accessory's quiet start: 600 contacts
+                                                  # read in the background, at most 100 ms
+                                                  # (ST) or 50 ms (TT, Falcon) between event calls
+tests/hatari/quiet_sync.py WORK [MACHINE]         # its refresh with the window closed, through
                                                   # the gateway (FAKESTNG and the bridge too)
-tests/hatari/esc_test.py WORK etos512us.img       # Esc and Undo cancel dialogs and alerts (3.5)
-tests/hatari/search_click.py WORK etos512us.img   # a click gives the search field the focus
-make build/ASKER.PRG && tests/hatari/people_ask.py WORK etos512us.img
+tests/hatari/esc_test.py WORK [MACHINE]           # Esc and Undo cancel dialogs and alerts (3.5)
+tests/hatari/search_click.py WORK [MACHINE]       # a click gives the search field the focus
+make build/ASKER.PRG && tests/hatari/people_ask.py WORK [MACHINE]
                                                   # PEOPLE: a stand-in for EMail asks for a name
                                                   # at boot and picks someone in the window
 ```
 
-The Hatari rigs run [EmuTOS](https://sourceforge.net/projects/emutos/) (`etos512us.img`) under Xvfb,
-with xdotool for the mouse: an emulated Falcon with 14 MB for the colour screenshots and
-`twin_test.py`, a 4 MB Mega ST or ST in high resolution for the rest.
+The Hatari rigs run under Xvfb, with xdotool for the mouse, on the family's test machines
+(AERA-Atari's guidelines, The machines; `common/tools/machines.py list`): `ST` (Erez's 1040 ST,
+4 MB), `ST-1` (1 MB), `TT` and `Falcon` (Erez's, with the DFB1: 32 MHz, 14 MB ST RAM, 128 MB TT
+RAM), with a screen after a colon (`ST:mono`, `Falcon:256`). MACHINE is the ST in high
+resolution by default, the Falcon in 16 colours for `twin_test.py` and the colour screenshots,
+and `quiet_start.py` runs on both. machines.py gives each Hatari its arguments and its own
+settings, and the TOS: EmuTOS 1.4, fetched and checked once, or Erez's own TOS when
+`~/.aera/tos` has it. `quiet_sync.py` and `stop_test.py` reach the network through its
+FAKESTNG and serial bridge (common/tools/fakesting).
 
 ## Licence
 

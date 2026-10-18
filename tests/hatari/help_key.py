@@ -5,7 +5,7 @@
 (build/fakeguide.acc, `make build/fakeguide.acc`) that writes what a
 VA_START names into C:\\VASTART.TXT:
 
-    tests/hatari/help_key.py WORK etos512us.img
+    tests/hatari/help_key.py WORK [MACHINE]
 
 1. the accessory, ECONTACT.HYP in its folder: ST-Guide is sent its path
 2. the same without ECONTACT.HYP: *:\\ECONTACT.HYP sent, for ST-Guide's
@@ -21,7 +21,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
-from rig import Rig, K  # noqa: E402
+from rig import Rig, machine_arg, K  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 BIN = os.path.join(ROOT, "binary")
@@ -63,13 +63,13 @@ def sent(hd):
 
 
 def main():
-    work, tos = sys.argv[1], sys.argv[2]
+    work, machine = sys.argv[1], machine_arg(sys.argv, 2, "ST:mono")
 
     print("1. the accessory, with ECONTACT.HYP")
     w = os.path.join(work, "acc")
     hd, folder = disk(w)
     shutil.copy(os.path.join(BIN, "ECONTST.ACC"), os.path.join(hd, "ECONTACT.ACC"))
-    r = Rig(w, tos, machine="megast", extra=["--memsize", "4", "--monitor", "mono"], auto="")
+    r = Rig(w, machine, auto="")
     try:
         time.sleep(15)
         r.click(30, 8)		# Desk
@@ -96,8 +96,7 @@ def main():
     w = os.path.join(work, "prg")
     hd, folder = disk(w)
     shutil.copy(os.path.join(BIN, "ECONTACT.PRG"), folder)
-    r = Rig(w, tos, machine="megast", extra=["--memsize", "4", "--monitor", "mono"],
-            auto="C:\\ECONTACT\\ECONTACT.PRG")
+    r = Rig(w, machine, auto="C:\\ECONTACT\\ECONTACT.PRG")
     try:
         time.sleep(22)
         r.key(K["HELP"])

@@ -4,8 +4,12 @@
 """The screenshots in docs/ and the README, taken in Hatari with the
 sample contacts (tests/hatari/sample.vcf, made-up people):
 
-    tests/hatari/docs_shots.py WORK etos512us.img [--email [EMail@vX.Y]] [--ecal [ECal@vX.Y]]
-                               [--ecal-src DIR] [--update]
+    tests/hatari/docs_shots.py WORK [--email [EMail@vX.Y]] [--ecal [ECal@vX.Y]]
+                               [--ecal-src DIR] [--falcon M] [--st M] [--update]
+
+On the family's machines (common/tools/machines.py): the Falcon at 640x480
+in 16 colours (--falcon names another, Falcon:256 say) and the ST in mono
+(--st).
 
 --email and --ecal take the shots of EContact working with EMail (1.35 or
 later: it asks with PEOPLE) and ECal (2.5 or later): their latest
@@ -59,15 +63,14 @@ def as_accessory(hd):
     shutil.copy(os.path.join(BIN, "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
 
 
-def program(work, tos, machine, shots):
+def program(work, machine, shots):
     """ECONTACT.PRG on its own"""
     hd = os.path.join(work, "hd")
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(hd)
     seed(hd)
     shutil.copy(os.path.join(BIN, "ECONTACT.PRG"), os.path.join(hd, "ECONTACT.PRG"))
-    extra = ["--memsize", "14"] if machine == "falcon" else ["--memsize", "4", "--monitor", "mono"]
-    r = Rig(work, tos, machine="megast" if machine == "st" else machine, extra=extra)
+    r = Rig(work, machine)
     try:
         time.sleep(16)
         shots(r)
@@ -120,7 +123,7 @@ def st_shots(r):
     r.shot("st-mono")
 
 
-def with_email(work, tos, spec):
+def with_email(work, machine, spec):
     """EContact as an accessory over EMail: ^B completes a name"""
     hd = os.path.join(work, "hd")
     shutil.rmtree(work, ignore_errors=True)
@@ -131,7 +134,7 @@ def with_email(work, tos, spec):
     with open(os.path.join(hd, "EMAIL.INF"), "w", newline="") as f:
         f.write("[OPTIONS]\r\nOFFLINE=1\r\n\r\n[ACCOUNT]\r\nNAME=Home\r\nFULLNAME=Erez Yaary\r\n"
                 "EMAIL=erez@example.com\r\nIN=imap\r\nHOST=192.168.1.2\r\nPORT=143\r\nUSER=erez\r\n")
-    r = Rig(work, tos, machine="falcon", extra=["--memsize", "14"], auto="C:\\EMAIL.PRG")
+    r = Rig(work, machine, auto="C:\\EMAIL.PRG")
     try:
         time.sleep(18)
         r.click(30, 8)
@@ -152,7 +155,7 @@ def with_email(work, tos, spec):
     return os.path.join(work, "shots")
 
 
-def with_ecal(work, tos, spec, ecal_src):
+def with_ecal(work, machine, spec, ecal_src):
     """ECal's invitations from EContact's people"""
     hd = os.path.join(work, "hd")
     shutil.rmtree(work, ignore_errors=True)
@@ -163,7 +166,7 @@ def with_ecal(work, tos, spec, ecal_src):
     sys.path.insert(0, os.path.join(ecal_src, "tests", "hatari"))
     import ui_tour  # ECal's: its seed() writes an On My Atari calendar
     ui_tour.seed(hd, english=True)
-    r = Rig(work, tos, machine="falcon", extra=["--memsize", "14"], auto="C:\\ECAL.PRG")
+    r = Rig(work, machine, auto="C:\\ECAL.PRG")
     try:
         time.sleep(18)
         r.ctrl("n")
@@ -187,18 +190,19 @@ def with_ecal(work, tos, spec, ecal_src):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("work")
-    ap.add_argument("tos")
+    ap.add_argument("--falcon", default="Falcon:16")
+    ap.add_argument("--st", default="ST:mono")
     ap.add_argument("--email", nargs="?", const="EMail")
     ap.add_argument("--ecal", nargs="?", const="ECal")
     ap.add_argument("--ecal-src", default=os.path.join(ROOT, "..", "ecal"))
     ap.add_argument("--update", action="store_true", help="copy them into docs/")
     a = ap.parse_args()
-    dirs = [program(os.path.join(a.work, "falcon"), a.tos, "falcon", falcon_shots),
-            program(os.path.join(a.work, "st"), a.tos, "st", st_shots)]
+    dirs = [program(os.path.join(a.work, "falcon"), a.falcon, falcon_shots),
+            program(os.path.join(a.work, "st"), a.st, st_shots)]
     if a.email:
-        dirs.append(with_email(os.path.join(a.work, "email"), a.tos, a.email))
+        dirs.append(with_email(os.path.join(a.work, "email"), a.falcon, a.email))
     if a.ecal:
-        dirs.append(with_ecal(os.path.join(a.work, "ecal"), a.tos, a.ecal, a.ecal_src))
+        dirs.append(with_ecal(os.path.join(a.work, "ecal"), a.falcon, a.ecal, a.ecal_src))
     for d in dirs:
         for f in sorted(os.listdir(d)):
             if not f.endswith(".png") or f.startswith("grab"):

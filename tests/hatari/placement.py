@@ -4,7 +4,7 @@
 """Where EContact finds its settings and its folder, as ECal does, checked
 in Hatari on an ST (ECONTST.ACC, ECONTACT.PRG):
 
-    tests/hatari/placement.py WORK etos512us.img
+    tests/hatari/placement.py WORK [MACHINE]
 
 1. the accessory, nothing there yet: it asks, Use C: makes C:\\ECONTACT,
    with FOLDER=C:\\ECONTACT in C:\\ECONTACT.INF
@@ -21,7 +21,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
-from rig import Rig  # noqa: E402
+from rig import Rig, machine_arg  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 BIN = os.path.join(ROOT, "binary")
@@ -44,8 +44,8 @@ def folder_of(hd):
     return ""
 
 
-def boot(work, tos, auto, steps):
-    r = Rig(work, tos, machine="megast", extra=["--memsize", "4", "--monitor", "mono"], auto=auto)
+def boot(work, machine, auto, steps):
+    r = Rig(work, machine, auto=auto)
     try:
         time.sleep(15)
         for s in steps:
@@ -62,7 +62,7 @@ def desk_contacts():
 
 
 def main():
-    work, tos = sys.argv[1], sys.argv[2]
+    work, machine = sys.argv[1], machine_arg(sys.argv, 2, "ST:mono")
     acc = os.path.join(BIN, "ECONTST.ACC")
 
     print("1. the accessory, from nothing")
@@ -70,7 +70,7 @@ def main():
     shutil.rmtree(w, ignore_errors=True)
     os.makedirs(os.path.join(w, "hd"))
     shutil.copy(acc, os.path.join(w, "hd", "ECONTACT.ACC"))
-    boot(w, tos, "", desk_contacts() + [(318, 248), 4])	# "Use C:"
+    boot(w, machine, "", desk_contacts() + [(318, 248), 4])	# "Use C:"
     check("FOLDER=C:\\ECONTACT", folder_of(os.path.join(w, "hd")) == "C:\\ECONTACT")
     check("the folder made, the key in it", os.path.exists(os.path.join(w, "hd", "ECONTACT", "ECONTACT.KEY")))
 
@@ -80,11 +80,11 @@ def main():
     app = os.path.join(w, "hd", "APPS", "CONTACTS")
     os.makedirs(app)
     shutil.copy(os.path.join(BIN, "ECONTACT.PRG"), app)
-    boot(w, tos, "C:\\APPS\\CONTACTS\\ECONTACT.PRG", [6])
+    boot(w, machine, "C:\\APPS\\CONTACTS\\ECONTACT.PRG", [6])
     check("FOLDER= the program's", folder_of(os.path.join(w, "hd")) == "C:\\APPS\\CONTACTS")
     check("its files next to it", os.path.exists(os.path.join(app, "ECONTACT.KEY")))
     shutil.copy(acc, os.path.join(w, "hd", "ECONTACT.ACC"))
-    boot(w, tos, "", desk_contacts())
+    boot(w, machine, "", desk_contacts())
     check("the accessory kept it", folder_of(os.path.join(w, "hd")) == "C:\\APPS\\CONTACTS")
     check("and made no folder of its own", not os.path.exists(os.path.join(w, "hd", "ECONTACT")))
 
@@ -98,7 +98,7 @@ def main():
     subprocess.run([cli, folder, "import", "Contacts", os.path.join(ROOT, "tests", "hatari", "sample.vcf")],
                    check=True, stdout=subprocess.DEVNULL)
     shutil.copy(acc, os.path.join(w, "hd", "ECONTACT.ACC"))
-    boot(w, tos, "", desk_contacts() + [6])
+    boot(w, machine, "", desk_contacts() + [6])
     check("copied to the root, FOLDER=C:\\ECONTACT", folder_of(os.path.join(w, "hd")) == "C:\\ECONTACT")
     check("the book with it", "[BOOK]" in open(os.path.join(w, "hd", "ECONTACT.INF"), encoding="latin-1").read())
 

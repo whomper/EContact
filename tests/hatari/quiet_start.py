@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""The accessory's quiet start (the guidelines, 2.2), in Hatari on an ST
-and a Falcon (16 MHz; falcon32: at 32, as common/tests/bgwork), with an edition built to time the stretches between its
-event calls:
+"""The accessory's quiet start (the guidelines, 2.2), in Hatari on the
+family's ST and Falcon (common/tools/machines.py; or the one named), with
+an edition built to time the stretches between its event calls:
 
     make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \\
         WORK/bin/ECONTACT.ACC WORK/bin/ECONTST.ACC
-    tests/hatari/quiet_start.py WORK etos512us.img [st|falcon|falcon32] [contacts]
+    tests/hatari/quiet_start.py WORK [MACHINE] [contacts]
 
 600 contacts (by default) and START=5: the accessory reads them in the
 background a few seconds after boot, its window closed, then is opened.
@@ -15,7 +15,8 @@ Twice: the first time every card is parsed (card-cli's index is the
 host's), the second they come from the index. Each stretch of 50 ms or
 more goes to Hatari's console as "AESGAP <ms> ms <tag>" (common/atari/
 gem.c); at boot, in the background and when idle none may be longer
-than 50 ms on the Falcon or 100 ms on the ST. The first opening and its
+than 100 ms on a 68000 (ST, ST-1: ECONTST.ACC) or 50 ms on a 68030 (TT,
+Falcon: ECONTACT.ACC). The first opening and its
 drawing, which the user asked for, are reported (tags open-* and redraw).
 """
 import os
@@ -27,7 +28,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
-from rig import Rig  # noqa: E402
+from rig import Rig, machine_arg  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CLI = os.path.join(ROOT, "build", "card-cli")
@@ -59,12 +60,13 @@ def cards(path, n):
 
 
 def main():
-    work, tos = os.path.abspath(sys.argv[1]), sys.argv[2]
-    machines = [sys.argv[3]] if len(sys.argv) > 3 else ["st", "falcon", "falcon32"]
-    n = int(sys.argv[4]) if len(sys.argv) > 4 else 600
+    work = os.path.abspath(sys.argv[1])
+    machines = [machine_arg(sys.argv, 2, "")] if len(sys.argv) > 2 else ["ST", "Falcon"]
+    n = int(sys.argv[3]) if len(sys.argv) > 3 else 600
     for machine in machines:
-        limit = 100 if machine == "st" else 50
-        d = os.path.join(work, machine)
+        st = machine.startswith("ST")          # a 68000: the ST edition
+        limit = 100 if st else 50
+        d = os.path.join(work, machine.replace(":", "-"))
         shutil.rmtree(d, ignore_errors=True)
         hd = os.path.join(d, "hd")
         folder = os.path.join(hd, "ECONTACT")
@@ -79,14 +81,11 @@ def main():
         inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
         os.remove(os.path.join(folder, "ECONTACT.INF"))
         open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
-        acc = "ECONTST.ACC" if machine == "st" else "ECONTACT.ACC"
+        acc = "ECONTST.ACC" if st else "ECONTACT.ACC"
         shutil.copy(os.path.join(work, "bin", acc), os.path.join(hd, "ECONTACT.ACC"))
         log = os.path.join(folder, "ECONTACT.LOG")
-        extra = ["--memsize", "4", "--monitor", "mono"] if machine == "st" else ["--memsize", "14"]
-        if machine == "falcon32":
-            extra += ["--cpuclock", "32"]
         for run in (1, 2):
-            r = Rig(d, tos, machine="megast" if machine == "st" else "falcon", extra=extra, auto="")
+            r = Rig(d, machine, auto="")
             try:
                 t0 = time.time()
                 while time.time() - t0 < 900:
@@ -100,7 +99,7 @@ def main():
                 time.sleep(1.5)
                 r.click(60, 59)		# EContact
                 time.sleep(10)
-                r.shot("%s-%d-open" % (machine, run))
+                r.shot("%d-open" % run)
             finally:
                 r.stop()
             con = open(os.path.join(d, "hatari.log"), encoding="latin-1").read()
@@ -126,7 +125,7 @@ def main():
         for f in os.listdir(os.path.join(folder, "CACHE")):
             if f.endswith(".IDX"):
                 os.remove(os.path.join(folder, "CACHE", f))
-        r = Rig(d, tos, machine="megast" if machine == "st" else "falcon", extra=extra, auto="")
+        r = Rig(d, machine, auto="")
         try:
             time.sleep(14)
             r.click(30, 8)
@@ -138,7 +137,7 @@ def main():
                 if open(log, encoding="latin-1").read().count("the list sorted") >= 3:
                     break
             time.sleep(4)
-            r.shot("%s-3-opened-while-reading" % machine)
+            r.shot("3-opened-while-reading")
         finally:
             r.stop()
         t = open(log, encoding="latin-1").read()

@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""Esc stops the network (the AERA guidelines, 7.1): ECONTST.ACC syncs
+"""Esc stops the network (the AERA guidelines, 7.1): the accessory syncs
 through a "gateway" that takes the connection and never answers, as a
 server can. Esc while the busy bee shows must end the wait at once, not
 after the 60 s timeout, and EContact must carry on.
 
 Hatari has no network card: FAKESTNG.PRG carries the Atari's TCP
 connections over the emulated serial port to serial_bridge.py; both are
-common's (common/tools/fakesting; FAKESTNG.PRG is built when it isn't there).
+common's, set up by machines.py's network() (common/tools).
 
-    tests/hatari/stop_test.py WORKDIR etos512us.img
+    tests/hatari/stop_test.py WORKDIR [MACHINE]       (ST:mono by default)
 """
 import os
 import shutil
 import socket
-import subprocess
 import sys
 import threading
 import time
@@ -26,7 +25,6 @@ from rig import K  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
-FAKE = os.path.join(ROOT, "common", "tools", "fakesting")    # FAKESTNG.PRG and its serial bridge
 GW = 18182
 
 
@@ -50,10 +48,9 @@ def silent_server(stop):
 
 
 def main():
-    work, tos = os.path.abspath(sys.argv[1]), sys.argv[2]
+    work, machine = os.path.abspath(sys.argv[1]), rig.machine_arg(sys.argv, 2, "ST:mono")
     shutil.rmtree(work, ignore_errors=True)
     hd = os.path.join(work, "hd")
-    os.makedirs(os.path.join(hd, "AUTO"))
     os.makedirs(os.path.join(hd, "ECONTACT"))
     fails = []
 
@@ -64,21 +61,13 @@ def main():
 
     stop = threading.Event()
     threading.Thread(target=silent_server, args=(stop,), daemon=True).start()
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTST.ACC"), os.path.join(hd, "ECONTACT.ACC"))
-    if not os.path.exists(os.path.join(FAKE, "FAKESTNG.PRG")):
-        subprocess.run(["make", "-s", "-C", FAKE], check=True)
-    shutil.copy(os.path.join(FAKE, "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
+    acc = "ECONTST.ACC" if machine.startswith("ST") else "ECONTACT.ACC"
+    shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "ECONTACT.ACC"))
     with open(os.path.join(hd, "ECONTACT", "ECONTACT.INF"), "w", newline="") as f:
         f.write("gate=127.0.0.1\r\ngateport=%d\r\n"
                 "sync_open=1\r\nlog=1\r\n[account]\r\nname=Server\r\nkind=0\r\n"
                 "url=http://127.0.0.1:15232/\r\nuser=alice\r\npass=wonderland\r\n" % GW)
-    fifo_out, fifo_in = os.path.join(work, "st_out"), os.path.join(work, "st_in")
-    for p in (fifo_out, fifo_in):
-        os.mkfifo(p)
-    bridge = subprocess.Popen([sys.executable, os.path.join(FAKE, "serial_bridge.py"), fifo_out, fifo_in],
-                              stderr=open(os.path.join(work, "bridge.log"), "w"))
-    r = rig.Rig(work, tos, machine="st", serial=(fifo_out, fifo_in),
-                extra=["--memsize", "4", "--monitor", "mono"], auto=None)
+    r = rig.Rig(work, machine, auto=None, network=True)
     log = os.path.join(hd, "ECONTACT", "ECONTACT.LOG")
     try:
         time.sleep(18)
@@ -104,7 +93,6 @@ def main():
     finally:
         r.stop()
         stop.set()
-        bridge.terminate()
     text = open(log, encoding="latin-1").read() if os.path.exists(log) else ""
     check("no timeout", "timed out" not in text)
     print("screenshots in", os.path.join(work, "shots"))

@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
 """The accessory's refresh with its window closed (SYNC_AFTER=, REFRESH=),
-in Hatari on an ST, with an edition built to time the stretches between
-its event calls (see quiet_start.py):
+in Hatari on the family's ST (common/tools/machines.py; or the machine
+named), with an edition built to time the stretches between its event
+calls (see quiet_start.py):
 
-    make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE WORK/bin/ECONTST.ACC
-    tests/hatari/quiet_sync.py WORK etos512us.img [contacts]
+    make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \\
+        WORK/bin/ECONTST.ACC WORK/bin/ECONTACT.ACC
+    tests/hatari/quiet_sync.py WORK [MACHINE] [contacts]
 
 A Radicale with 40 contacts (by default) behind the gateway
 (gateway/ecalgate.py); card-cli fetches them, then on the server some
@@ -14,9 +16,9 @@ change, some go and some are new. The accessory reads its books in the
 background after boot (START=5) and a minute later refreshes them
 (SYNC_AFTER=1), its window closed: what changed must be in the cache,
 added to its end, and no stretch between event calls longer than 100 ms
-but the exchanges with the server. Hatari has no network card: FAKESTNG.PRG
-and serial_bridge.py are common's (common/tools/fakesting: built here with
-`make -C common/tools/fakesting` when FAKESTNG.PRG isn't there). FAKESTNG
+on a 68000 (50 on a 68030) but the exchanges with the server. Hatari has
+no network card: machines.py's network() puts common's FAKESTNG.PRG in
+C:\\AUTO and starts its serial_bridge.py (common/tools/fakesting). FAKESTNG
 reads and sends each byte through the emulated serial port, waiting in
 the ROM (seconds for a list of contacts), so the exchanges' stretches
 here are the line's, reported but not judged; with STinG the answer is
@@ -34,11 +36,10 @@ import time
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(__file__))
-from rig import Rig  # noqa: E402
+from rig import Rig, machine_arg  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
-FAKE = os.path.join(ROOT, "common", "tools", "fakesting")    # FAKESTNG.PRG and its serial bridge
 CLI = os.path.join(ROOT, "build", "card-cli")
 fails = 0
 
@@ -58,15 +59,15 @@ def free_port():
 
 
 def main():
-    work, tos = os.path.abspath(sys.argv[1]), sys.argv[2]
+    work = os.path.abspath(sys.argv[1])
+    machine = machine_arg(sys.argv, 2, "ST:mono")
     n = int(sys.argv[3]) if len(sys.argv) > 3 else 40
-    if not os.path.exists(os.path.join(FAKE, "FAKESTNG.PRG")):
-        subprocess.run(["make", "-s", "-C", FAKE], check=True)
-    shutil.rmtree(work + "/st", ignore_errors=True)
-    d = os.path.join(work, "st")
+    st = machine.startswith("ST")          # a 68000: the ST edition
+    limit = 100 if st else 50
+    d = os.path.join(work, machine.replace(":", "-"))
+    shutil.rmtree(d, ignore_errors=True)
     hd = os.path.join(d, "hd")
     folder = os.path.join(hd, "ECONTACT")
-    os.makedirs(os.path.join(hd, "AUTO"))
     os.makedirs(folder)
     procs = []
     rport, gport = free_port(), 18183
@@ -126,16 +127,10 @@ def main():
         inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
         os.remove(os.path.join(folder, "ECONTACT.INF"))
         open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
-        shutil.copy(os.path.join(work, "bin", "ECONTST.ACC"), os.path.join(hd, "ECONTACT.ACC"))
-        shutil.copy(os.path.join(FAKE, "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
-        fifo_out, fifo_in = os.path.join(d, "st_out"), os.path.join(d, "st_in")
-        for p in (fifo_out, fifo_in):
-            os.mkfifo(p)
-        procs.append(subprocess.Popen([sys.executable, os.path.join(FAKE, "serial_bridge.py"),
-                                       fifo_out, fifo_in], stderr=open(os.path.join(d, "bridge.log"), "w")))
+        shutil.copy(os.path.join(work, "bin", "ECONTST.ACC" if st else "ECONTACT.ACC"),
+                    os.path.join(hd, "ECONTACT.ACC"))
         log = os.path.join(folder, "ECONTACT.LOG")
-        r = Rig(d, tos, machine="megast", serial=(fifo_out, fifo_in), extra=["--memsize", "4", "--monitor", "mono"],
-                auto=None)
+        r = Rig(d, machine, auto=None, network=True)
         try:
             t0 = time.time()
             done = False
@@ -150,7 +145,7 @@ def main():
             time.sleep(1.5)
             r.click(60, 59)
             time.sleep(10)
-            r.shot("st-open-after-sync")
+            r.shot("open-after-sync")
         finally:
             r.stop()
     finally:
@@ -160,22 +155,22 @@ def main():
     gaps = {}
     for m in re.finditer(r"AESGAP (\d+) ms (\S+)", con):
         gaps.setdefault(m.group(2), []).append(int(m.group(1)))
-    print("st: refreshed %s, %.0f s after boot" % ("in the background" if done else "NOT", took))
+    print("%s: refreshed %s, %.0f s after boot" % (machine, "in the background" if done else "NOT", took))
     t = open(log, encoding="latin-1").read()
     for l in t.splitlines():
         if "Contacts --" in l or "background" in l:
             print("   " + l)
     for tag, g in sorted(gaps.items()):
-        print("   %-14s %3d over 50 ms, %3d over 100, the longest %d ms"
-              % (tag, len(g), len([x for x in g if x > 100]), max(g)))
+        print("   %-14s %3d over 50 ms, %3d over %d, the longest %d ms"
+              % (tag, len(g), len([x for x in g if x > limit]), limit, max(g)))
     # the exchanges with the server: FAKESTNG sends each byte through the
     # emulated serial port at 19,200 baud, waiting in the ROM, so their
     # time here is mostly the line's (with STinG a send is buffered)
     net = ("sync-ctag", "sync-list", "sync-fetch")
     quiet = [g for tg, v in gaps.items() if not tg.startswith("open") and tg != "redraw" and tg not in net for g in v]
     check("refreshed with the window closed", done)
-    check("no stretch over 100 ms but the opening's and the serial line's (%s)"
-          % ("the longest %d ms" % max(quiet) if quiet else "none reached 50 ms"), max(quiet or [0]) <= 100)
+    check("no stretch over %d ms but the opening's and the serial line's (%s)"
+          % (limit, "the longest %d ms" % max(quiet) if quiet else "none reached 50 ms"), max(quiet or [0]) <= limit)
     check("added to the cache, not written anew", open(dat[0], "rb").readline() == gen)
     shutil.copy(os.path.join(hd, "ECONTACT.INF"), os.path.join(folder, "ECONTACT.INF"))	# for card-cli
     out = subprocess.run([CLI, folder, "list"], check=True, capture_output=True, text=True).stdout

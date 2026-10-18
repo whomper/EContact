@@ -12,7 +12,7 @@
     changed ECONTACT.INF), and shows no sidebar either.
 Screenshots in WORK/shots; the checks read C:\\ECONTACT\\ECONTACT.LOG.
 
-    tests/hatari/twin_test.py WORK etos512us.img
+    tests/hatari/twin_test.py WORK [MACHINE]
 """
 import os
 import re
@@ -22,7 +22,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
-from rig import Rig  # noqa: E402
+from rig import Rig, machine_arg  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CLI = os.path.join(ROOT, "build", "card-cli")
@@ -47,7 +47,7 @@ def same(a, b):
 
 
 def main():
-    work, tos = sys.argv[1], sys.argv[2]
+    work, machine = sys.argv[1], machine_arg(sys.argv, 2, "Falcon:16")
     shutil.rmtree(work, ignore_errors=True)
     hd = os.path.join(work, "hd")
     folder = os.path.join(hd, "ECONTACT")
@@ -69,7 +69,7 @@ def main():
     shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRG"))
     log = os.path.join(folder, "ECONTACT.LOG")
     shots = os.path.join(work, "shots")
-    r = Rig(work, tos, extra=["--memsize", "14"], auto="")
+    r = Rig(work, machine, auto="")
     try:
         time.sleep(16)
         r.click(18, 8)                  # the desktop's Desk menu: EContact

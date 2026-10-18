@@ -3,7 +3,7 @@
 # Copyright (C) 2026 AERA | Erez Yaary
 """The search field takes a click, in Hatari on an ST with ECONTACT.PRG:
 
-    tests/hatari/search_click.py WORK etos512us.img
+    tests/hatari/search_click.py WORK [MACHINE]
 
 - a click in the field gives it the focus: a black frame and the cursor;
 - what is typed goes into it, and Delete there deletes no contact;
@@ -20,7 +20,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
-from rig import Rig, K  # noqa: E402
+from rig import Rig, machine_arg, K  # noqa: E402
 from esc_test import same  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -38,7 +38,7 @@ def check(what, ok):
 
 
 def main():
-    work, tos = os.path.abspath(sys.argv[1]), sys.argv[2]
+    work, machine = os.path.abspath(sys.argv[1]), machine_arg(sys.argv, 2, "ST:mono")
     shutil.rmtree(work, ignore_errors=True)
     hd = os.path.join(work, "hd")
     folder = os.path.join(hd, "ECONTACT")
@@ -57,8 +57,7 @@ def main():
         return len(out.splitlines())
 
     before = count()
-    r = Rig(work, tos, machine="megast", extra=["--memsize", "4", "--monitor", "mono"],
-            auto="C:\\ECONTACT\\ECONTACT.PRG")
+    r = Rig(work, machine, auto="C:\\ECONTACT\\ECONTACT.PRG")
     try:
         time.sleep(25)
         r.shot("0-start")

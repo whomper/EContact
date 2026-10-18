@@ -4,7 +4,7 @@
 """The accessory while the program changes its files, on single TOS,
 checked in Hatari on an ST (ECONTST.ACC):
 
-    tests/hatari/acc_reread.py WORK etos512us.img
+    tests/hatari/acc_reread.py WORK [MACHINE]
 
 The accessory's memory outlives its window: it is opened (the contacts
 read), closed, and while it waits in the Desk menu card-cli plays
@@ -21,7 +21,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
-from rig import Rig  # noqa: E402
+from rig import Rig, machine_arg  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CLI = os.path.join(ROOT, "build", "card-cli")
@@ -35,7 +35,7 @@ def check(what, ok):
 
 
 def main():
-    work, tos = sys.argv[1], sys.argv[2]
+    work, machine = sys.argv[1], machine_arg(sys.argv, 2, "ST:mono")
     shutil.rmtree(work, ignore_errors=True)
     hd = os.path.join(work, "hd")
     folder = os.path.join(hd, "ECONTACT")
@@ -58,7 +58,7 @@ def main():
             return 0
         return open(log, encoding="latin-1").read().count("reading them again")
 
-    r = Rig(work, tos, machine="megast", extra=["--memsize", "4", "--monitor", "mono"], auto="")
+    r = Rig(work, machine, auto="")
     try:
         def open_acc(wait):
             r.click(30, 8)		# Desk

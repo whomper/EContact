@@ -5,7 +5,7 @@
 (tests/atari/asker.c, make build/ASKER.PRG) and asks the accessory
 (ECONTST.ACC) at boot for the name behind an address:
 
-    tests/hatari/people_ask.py WORK etos512us.img
+    tests/hatari/people_ask.py WORK [MACHINE]
 
 The accessory hasn't read its books yet (START=5), so the first answer
 is an empty name; when it has, it says changed:, the asker asks again
@@ -20,7 +20,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
-from rig import Rig, K  # noqa: E402
+from rig import Rig, machine_arg, K  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CLI = os.path.join(ROOT, "build", "card-cli")
@@ -34,7 +34,7 @@ def check(what, ok):
 
 
 def main():
-    work, tos = os.path.abspath(sys.argv[1]), sys.argv[2]
+    work, machine = os.path.abspath(sys.argv[1]), machine_arg(sys.argv, 2, "ST:mono")
     shutil.rmtree(work, ignore_errors=True)
     hd = os.path.join(work, "hd")
     folder = os.path.join(hd, "ECONTACT")
@@ -55,7 +55,7 @@ def main():
     def text():
         return open(said, encoding="latin-1").read() if os.path.exists(said) else ""
 
-    r = Rig(work, tos, machine="megast", extra=["--memsize", "4", "--monitor", "mono"], auto="C:\\ASKER.PRG")
+    r = Rig(work, machine, auto="C:\\ASKER.PRG")
     try:
         t0 = time.time()
         while time.time() - t0 < 300 and "pick sent" not in text():
