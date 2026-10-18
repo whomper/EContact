@@ -58,10 +58,19 @@ file with EContact's added (it says which number), for the root of the boot driv
    drive's root, say where it is in `FOLDER=`. Start `ECONTACT.PRG` from the folder once and it
    writes it there; or the first time you open the accessory it asks: **Locate...** (pick any file
    in the folder) or **Use C:** (the boot drive), which makes `C:\ECONTACT` for you.
-3. For an ST or STE (or a Falcon or TT without Falcon mode), set up the gateway on a Raspberry Pi:
-   in a clone of this repository (or of [AERA-Gateway](https://github.com/whomper/AERA-Gateway)),
-   `sudo gateway/aera-gateway install dav`. ECal uses the same one: if it already works through
-   your Pi, there is nothing to do.
+3. For an ST or STE (or a Falcon or TT without Falcon mode), set up the gateway on a Raspberry Pi
+   from [AERA-Gateway](https://github.com/whomper/AERA-Gateway)'s own copy, at its latest release
+   (the copy in this repository is for EContact's tests):
+
+   ```
+   git clone https://github.com/whomper/AERA-Gateway
+   cd AERA-Gateway
+   ./update-pi.sh
+   sudo gateway/aera-gateway install dav
+   ```
+
+   `./update-pi.sh` in that folder updates it later, keeping its settings. ECal uses the same
+   gateway: if it already works through your Pi, there is nothing to do.
 4. Reboot, choose **EContact** in the Desk menu, and add your iCloud account with an
    [app-specific password](https://support.apple.com/en-us/102654).
 5. Press **Help** in EContact for the guide (with EHypView or ST-Guide installed as an accessory);

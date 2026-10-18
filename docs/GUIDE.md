@@ -127,11 +127,20 @@ Servers want a secure connection: in **Settings > Connection** either
 type the address of the Raspberry Pi gateway or, on a Falcon or TT, turn
 on **Falcon mode**.
 
-The gateway is the `dav` service of the AERA gateways. On the Pi, in a
-clone of EContact, ECal or AERA-Gateway, `sudo gateway/aera-gateway
-install dav` sets it up, on port 8180. One Pi serves ECal and EContact
-alike: if ECal already works through it, type the same address and port
-here. `gateway/README.md` tells the rest.
+The gateway is the `dav` service of the AERA gateways, set up on the Pi
+from AERA-Gateway's own copy at its latest release:
+
+```
+git clone https://github.com/whomper/AERA-Gateway
+cd AERA-Gateway
+./update-pi.sh
+sudo gateway/aera-gateway install dav
+```
+
+It listens on port 8180; `./update-pi.sh` in that folder updates it
+later, keeping its settings. One Pi serves ECal and EContact alike: if
+ECal already works through it, type the same address and port here.
+AERA-Gateway's README (github.com/whomper/AERA-Gateway) tells the rest.
 
 Right-click an account's name on the left to refresh it, change its
 settings or delete it from this Atari (nothing is deleted on the server).
