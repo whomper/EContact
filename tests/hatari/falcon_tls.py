@@ -99,7 +99,9 @@ def main():
     procs = [subprocess.Popen([sys.executable, "-m", "radicale", "--server-hosts", "127.0.0.1:%d" % hport] + common,
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL),
              subprocess.Popen([sys.executable, "-m", "radicale", "--server-hosts", "127.0.0.1:%d" % sport,
-                               "--server-ssl", "--server-certificate", chain, "--server-key", key] + common,
+                               "--server-ssl", "--server-certificate", chain, "--server-key", key,
+                               # 30 s by default: the 68030 alone takes about that for the P-384 check
+                               "--server-timeout", "180"] + common,
                               stdout=subprocess.DEVNULL, stderr=open(os.path.join(d, "radicale-tls.log"), "w"))]
     base = "http://127.0.0.1:%d/alice/" % hport
     auth = "Basic " + base64.b64encode(b"alice:wonderland").decode()
