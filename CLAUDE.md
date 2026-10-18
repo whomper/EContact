@@ -49,6 +49,14 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 - **README:** keep the section order from the template (Highlights, Getting started, How it reaches the
   servers, Building, Source, Tests, Licence, family footer). Use British English.
 
+## Talking with Erez
+
+- No progress or in-between messages: write to him only when he has to
+  decide something, with a short context and the decision.
+- Analysis or findings: the information, your assessment, and what he
+  should do. Nothing more. (Messages to the hub stay complete, with the
+  evidence.)
+
 ## EContact
 
 - **A release** carries `ECONTACT.ACC`, `ECONTACT.PRG`, `ECONTST.ACC`, `ECONTACT.HYP` and `.REF`,
