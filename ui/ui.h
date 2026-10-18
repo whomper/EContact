@@ -232,6 +232,10 @@ void closing_down(int quitting);
 unsigned char key_char(short kstate, short key);
 void falcon_dsp_init(void);
 const char *falcon_dsp_state(void);
+/* the curves of Falcon mode's handshakes on the DSP (common/ui/dsp_ec.c;
+   the ST edition: dsp_ec_none.c) */
+void falcon_dsp_ec_init(void);
+const char *falcon_dsp_ec_state(void);
 int  falcon_mode_set(int on);
 extern short quit_now;
 void set_logging(void);

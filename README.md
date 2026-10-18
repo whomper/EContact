@@ -19,7 +19,7 @@ other CardDAV servers.
 - **Modern but Atari:** a desk accessory that opens from the Desk menu over whatever program you're
   in, or a program; right-click menus, .vcf files dropped on the window, iconify, Esc cancels any
   dialog, and the Help key opens the guide in EHypView or ST-Guide
-- **Secure:** TLS 1.2 on the Falcon and TT, with RSA on the DSP; the ST and STE through the AERA
+- **Secure:** TLS 1.2 on the Falcon and TT, with RSA and the elliptic curves on the Falcon's DSP; the ST and STE through the AERA
   Raspberry Pi gateway, the one ECal uses
 - **Hebrew** throughout: names and notes right to left, the Israeli keyboard (F10)
 - **Works offline** from its own copy; vCard import and export
@@ -90,14 +90,17 @@ Contacts servers want HTTPS. EContact uses ECal's code and ECal's way:
 
 ```
 ST, STE:     Atari (ECONTST.ACC) --plain HTTP, home LAN--> Raspberry Pi (ecalgate.py) --HTTPS--> the server
-Falcon, TT:  Atari (ECONTACT.ACC, TLS 1.2, RSA on the DSP) -----------------------------HTTPS--> the server
+Falcon, TT:  Atari (ECONTACT.ACC, TLS 1.2, RSA and curves on the DSP) --------------------HTTPS--> the server
 ```
 
 - **Through the Pi.** The AERA gateway's `dav` service (`ecalgate.py`) serves EContact as it serves
-  ECal, and `ECONTACT.ACC` can use it too, on any Atari. If ECal already works through your Pi, type the same address and port in
-  **Settings > Connection**.
-- **Falcon mode.** TLS 1.2 on the Falcon or TT with BearSSL, the server's RSA signature checked on
-  the DSP56001, as in EMail and ECal.
+  ECal, and `ECONTACT.ACC` can use it too, on any Atari. If ECal already works through your Pi,
+  type the same address and port in **Settings > Connection**.
+- **Falcon mode.** TLS 1.2 on the Falcon or TT with BearSSL. On a Falcon the DSP56001 does the
+  heavy sums: the server's RSA signature, and the elliptic curves of ECDSA certificates and of the
+  key exchange (P-256, P-384, P-521, X25519), which take the 68030 tens of seconds. A signature
+  once checked is remembered in `SIGS.DAT`, so the next start doesn't check it again (names, dates
+  and the chain still are). A TT, which has no DSP, does it all on its 68030.
 
 The gateway's own README: [gateway/README.md](gateway/README.md).
 
@@ -341,6 +344,10 @@ tests/hatari/quiet_start.py WORK [MACHINE]        # the accessory's quiet start:
                                                   # (ST) or 50 ms (TT, Falcon) between event calls
 tests/hatari/quiet_sync.py WORK [MACHINE]         # its refresh with the window closed, through
                                                   # the gateway (FAKESTNG and the bridge too)
+tests/hatari/falcon_tls.py WORK [MACHINE] [--no-dsp]
+                                                  # Falcon mode against an HTTPS Radicale with an
+                                                  # ECDSA certificate: the curves on the DSP,
+                                                  # SIGS.DAT, ROOTS.DAT dated in place
 tests/hatari/esc_test.py WORK [MACHINE]           # Esc and Undo cancel dialogs and alerts (3.5)
 tests/hatari/search_click.py WORK [MACHINE]       # a click gives the search field the focus
 tests/hatari/busy_keys.py WORK [MACHINE]          # ^N typed while busy still opens New Contact
@@ -357,8 +364,9 @@ RAM), with a screen after a colon (`ST:mono`, `Falcon:256`). MACHINE is the ST i
 resolution by default, the Falcon in 16 colours for `twin_test.py` and the colour screenshots,
 and `quiet_start.py` runs on both. machines.py gives each Hatari its arguments and its own
 settings, and the TOS: EmuTOS 1.4, fetched and checked once, or Erez's own TOS when
-`~/.aera/tos` has it. `quiet_sync.py` and `stop_test.py` reach the network through its
-FAKESTNG and serial bridge (common/tools/fakesting).
+`~/.aera/tos` has it. `quiet_sync.py`, `stop_test.py` and `falcon_tls.py` reach the network
+through its FAKESTNG and serial bridge (common/tools/fakesting). MACHINE is the Falcon in 16
+colours for `falcon_tls.py` too.
 
 ## Licence
 

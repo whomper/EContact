@@ -73,7 +73,7 @@ void pf_keep(int on)
 int pf_open(const char *path, int mode)
 {
 	int i, h, free_i = -1, old_i = -1;
-	if (mode == PF_WRITE || !keeping || strlen(path) >= sizeof(kept[0].path)) {
+	if (mode == PF_WRITE || mode == PF_UPDATE || !keeping || strlen(path) >= sizeof(kept[0].path)) {
 		let_go(path);
 		return os_open(path, mode);
 	}

@@ -321,6 +321,7 @@ int falcon_mode_set(int on)
 	opt.falcon = (short)on;
 	http_close_all();
 	falcon_dsp_init();
+	falcon_dsp_ec_init();
 	store_save_settings();
 	return 1;
 }
@@ -1183,12 +1184,15 @@ static int load_settings(int quiet)
 	path_join(conn_cacert, sizeof(conn_cacert), workdir, "CACERT.PEM");
 	path_join(tls_roots_cache, sizeof(tls_roots_cache), workdir, "ROOTS.DAT");
 	path_join(tls_seed_path, sizeof(tls_seed_path), workdir, "SEED.DAT");
+	path_join(tls_sigs_path, sizeof(tls_sigs_path), workdir, "SIGS.DAT");
+	tls_file_stamp = pf_stamp;	/* ROOTS.DAT told by CACERT.PEM's size and date */
 	set_logging();
 	net_init();
 	pf_idle = busy_idle;
 	ab_status = status;
 	tls_note = status;
 	falcon_dsp_init();
+	falcon_dsp_ec_init();
 	if (store_plain_passwords && !store_lost_passwords)
 		store_save_settings();
 	secret_warn = warn_plain;

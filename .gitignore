@@ -9,5 +9,7 @@ dist/
 .venv/
 *.KEY
 CRASH.LOG
+SEED.DAT
+SIGS.DAT
 tests/**/work/
 *.log

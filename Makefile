@@ -59,7 +59,8 @@ UI      := main win draw popup dsp sidebar list card editor dialogs field about 
 OBJDIR  := build
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI)))
-OBJS    := $(OBJS0) $(OBJDIR)/version.o
+# Falcon mode's curves on the DSP: the TLS editions only
+OBJS    := $(OBJS0) $(OBJDIR)/ecdsp.o $(OBJDIR)/dspec.o $(OBJDIR)/dsp_ec.o $(OBJDIR)/version.o
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h \
            third_party/tjpgd/*.h)
@@ -92,7 +93,7 @@ $(BIN)/ECONTACT.HYP: docs/GUIDE.md tools/mkhelp.py VERSION docs/front.json docs/
 STBSSL  := hash/md5 codec/dec32le codec/enc32le
 STOBJS  := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash_none.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out tls,$(CORE)) $(ATARI) $(UI) tls_none)) \
-           $(addprefix $(OBJDIR)/st/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/version.o
+           $(addprefix $(OBJDIR)/st/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/dsp_ec_none.o $(OBJDIR)/version.o
 
 $(BIN)/ECONTST.ACC: $(OBJDIR)/econtst.elf common/tools/elf2tos.py | $(BIN)
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@

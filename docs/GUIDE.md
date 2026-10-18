@@ -46,6 +46,7 @@ C:\ECONTACT\              EContact's folder (any folder will do):
     CACERT.PEM            Falcon mode: root certificates (copy them here)
     ROOTS.DAT             Falcon mode: the same, decoded ahead of time
     SEED.DAT              Falcon mode: randomness kept for the next start
+    SIGS.DAT              Falcon mode: certificate signatures already checked
     ECONTACT.LOG          with Write a log on
     CRASH.LOG             what happened, if ECONTACT.PRG ever crashes
     ECONTACT.HYP          this guide, for EHypView or ST-Guide: the Help key opens it
@@ -296,7 +297,9 @@ Right-click your own card > **Make This My Card**. The list marks it
   refresh with the window open. Opening the window stops a refresh in
   the background; what it had fetched is kept.
 - **Connection**: Falcon mode and the DSP, the Pi gateway's address and
-  port, and the log.
+  port, and the log. With the DSP on, a Falcon checks the servers'
+  certificates and makes the secure connection's keys there, many
+  times faster than its 68030.
 
 Settings opens with Options > **Settings...** (^,), or from the menu in
 the accessory. The Options menu also has **Work offline** (no

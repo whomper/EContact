@@ -109,6 +109,13 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   EContact is busy comes with Control already let go.
   `tests/hatari/busy_keys.py` checks it. (Ctrl+Return in a multi-line
   field still needs K_CTRL: Return's code says nothing.)
+- Falcon mode's curves go to the DSP (common/ui/dsp_ec.c, common/src/ecdsp.c,
+  common/atari/dspec.c: the TLS editions only; the ST edition links
+  ui/dsp_ec_none.c): falcon_dsp_ec_init() follows every
+  falcon_dsp_init(). tls_sigs_path is SIGS.DAT in the folder,
+  tls_file_stamp is pf_stamp, and PF_UPDATE (plat.h) writes SEED.DAT and
+  ROOTS.DAT in place. `tests/hatari/falcon_tls.py WORK [MACHINE]` checks
+  it against an ECDSA server.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000
