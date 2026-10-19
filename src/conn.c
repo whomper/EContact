@@ -132,18 +132,21 @@ static int loglen, logcap = sizeof(logstat), job_hold;
 
 /* a job's milestones (" -- ") stay in the buffer too until it ends (the
    guidelines, 6.5: a sync that wrote each one opened the log 30 times),
-   in 16 KB while it is held when the memory is there (a sync's headers
-   fill 4 KB fast); errors (" !! ") are still written out at once */
-#define HOLDBUF 16384
+   in conn_log_hold_bytes (16 KB) while it is held when the memory is
+   there (a sync's headers fill 4 KB fast); errors (" !! ") are still
+   written out at once. An app short of heap (an accessory on a 1 MB ST)
+   sets it to 0 and keeps the 4 KB buffer */
+long conn_log_hold_bytes = 16384;
 
 void conn_log_hold(int on)
 {
-	if (on && !job_hold && conn_logfile[0] && logbuf == logstat) {
-		char *b = malloc(HOLDBUF);
+	if (on && !job_hold && conn_logfile[0] && logbuf == logstat &&
+	    conn_log_hold_bytes > (long)sizeof(logstat)) {
+		char *b = malloc(conn_log_hold_bytes);
 		if (b) {
 			memcpy(b, logbuf, loglen);
 			logbuf = b;
-			logcap = HOLDBUF;
+			logcap = (int)conn_log_hold_bytes;
 		}
 	}
 	job_hold = on;
