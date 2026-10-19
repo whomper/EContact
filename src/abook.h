@@ -76,6 +76,7 @@ typedef struct {
 	short offline;		/* Work offline: no connections */
 	short hebrew;		/* start with the Hebrew keyboard */
 	short heapkb;		/* the accessory's memory, KB; 0: chosen */
+	short memkb;		/* what it needed the last time, measured (KB); 0: not known */
 	short default_book;	/* new contacts go here (a BOOK id) */
 	char me[80];		/* the UID of "my card" */
 	char workdir[160];	/* EContact's folder in use: CACHE, ECONTACT.KEY, the log... */

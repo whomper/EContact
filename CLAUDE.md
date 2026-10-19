@@ -135,8 +135,16 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   sample formats in Hatari on an ST after touching it.
 - Photo failures say why (photo_why, PW_...): the status line, the alert
   after Sync Contact Photos, a line each in the log. A failure is kept in
-  the .PIC with the decoder's number (PHOTO_DECODER): raise it when the
-  decoders read more, so old failures are tried again.
+  the pack's entry with the decoder's number (PHOTO_DECODER): raise it when
+  the decoders read more, so old failures are tried again.
+- The pictures are in one file, CACHE\PHOTOS.PAK (src/photopack.c, the
+  guidelines 6.5: many small items in one file with an index): records
+  only ever added after the old index, then a new index and the header in
+  one open, so a reset leaves the old index whole; the index is held in
+  memory, so whether a contact has its picture costs no file. src/photomig.c
+  moves 1.49's CACHE\PHOTOS\*.PIC into it once: TEMPORARY, one call (in
+  photopack.c's load), its test the block marked TEMPORARY in
+  tests/integration.sh; remove all three when the hub asks.
 - The photo cache's rules (photo.h) are tested by `make itest`: a change to
   them needs the tests to say so.
 - Syncing fetches cards without their photos (abook.c, CardDAV partial
@@ -164,6 +172,25 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   read, write or seek. Read and write files only through pf_*. The log
   says how many files a sync opened; `tests/hatari/acc_files.py WORK
   [MACHINE]` checks it all from Hatari's GEMDOS and AES trace.
+- Disk access goes through memory (the guidelines, 6.5): a job (a
+  refresh, Sync Contact Photos, the index written after a load) gathers
+  what it writes in abook.c's OUT buffers and writes each file once, at its
+  end or when ab_out_max is reached, never a write per card or photo; no
+  file is open meanwhile, so pf_park has nothing to reopen. Sync Contact
+  Photos fetches into book_fetch_job's memory, decodes from there
+  (contact_raw reads the job's memory first) and writes at
+  book_fetch_job_end, as many cards a request as ab_job_bytes holds (one
+  on a 1 MB ST). Sizes and dates come from one look (pf_info);
+  ECONTACT.INF is read once at boot (inf_read); reads are ab_read_bytes
+  (16 KB on a 68000, 32 KB on a 68030). The job's log is held
+  (conn_log_hold) and written at its end. `tests/hatari/acc_files.py`
+  fails above each job's budget of opens.
+- The accessory's memory is what it measured (mem_note): common's
+  heap_peak since boot, at least what it holds plus room for a job and a
+  photo shown, and a tenth more, written to ECONTACT.INF as MEMKB= and
+  taken at the next boot (acc_heap; HEAPKB= overrides; the first boot
+  takes the old share). Bulk memory has fixed sizes by the memory free at
+  boot (job_memory), not a share of the heap.
 - The accessory loads GDOS fonts only before its first event call, and
   only when FONT_ID= names one (font_boot; the guidelines, 2.2): their
   memory is the program in front's after that. Its Font... lists the

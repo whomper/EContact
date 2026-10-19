@@ -41,7 +41,7 @@ C:\ECONTACT\              EContact's folder (any folder will do):
     ECONTACT.KEY          the key the passwords in ECONTACT.INF are encrypted with
     CACHE\                a copy of every address book: BOOKnnnn.DAT the cards,
                           .PHO their photos, .IDX the contacts ready to read
-    CACHE\PHOTOS\         the photos, made small for the screen
+    CACHE\PHOTOS.PAK      the photos, made small for the screen, in one file
     ECONTACT.FNT          which GDOS fonts are fixed-width (made by Font...)
     CACERT.PEM            Falcon mode: root certificates (copy them here)
     ROOTS.DAT             Falcon mode: the same, decoded ahead of time
@@ -80,21 +80,24 @@ first, then asks the viewer to find it.
   `ECONTACT.INF` next to the program) are copied to the root the first
   time, when there are none there.
 
-**Memory.** The accessory takes its memory once, at boot: 1.5 MB on a
-Falcon or TT (4 MB from TT/Fast RAM where there is some), half of what's
-free on an ST: about 250 KB on a 1 MB ST (some 490 contacts), 750 KB on
-2 MB (1,500), 1.8 MB on 4 MB (3,700). `HEAPKB=` in ECONTACT.INF sets
-another amount, in kilobytes (`ECONTACT.PRG` takes what it needs from
-all that is free); a contact takes about half a kilobyte, and
-a sync wants a fifth of the memory free besides. If contacts don't fit,
-the window says how many aren't shown and an alert says what to set.
+**Memory.** The accessory takes its memory once, at boot, and only what
+it needs: it measures what its contacts take at their busiest, with room
+for a photo shown and a sync, and writes that to ECONTACT.INF (`MEMKB=`)
+for the next start. 200 contacts take about 200 KB. The first start,
+before it has measured, takes 1.5 MB on a Falcon or TT (4 MB from TT/Fast
+RAM where there is some) and half of what's free on an ST: about 250 KB on
+a 1 MB ST (some 490 contacts), 750 KB on 2 MB (1,500), 1.8 MB on 4 MB
+(3,700). `HEAPKB=` in ECONTACT.INF sets an amount of your own, in
+kilobytes (`ECONTACT.PRG` takes what it needs from all that is free). If
+contacts don't fit, the window says how many aren't shown, and EContact
+takes more the next time the Atari starts.
 
 ![Contacts that don't fit](memory-full.png)
 
 **TT RAM.** On a TT, or a Falcon with an accelerator's Fast RAM, TOS
 loads EContact into TT RAM, and its memory comes from there too, leaving
-ST RAM to the programs that need it. The accessory then takes 4 MB (still
-at most half of what's free). The About box says "TT RAM" when EContact
+ST RAM to the programs that need it. The accessory's memory comes from TT
+RAM then (4 MB the first time, what it measured after). The About box says "TT RAM" when EContact
 runs there, and with **Write a log** on, the log's first line says where
 the program and its memory are.
 
@@ -192,7 +195,7 @@ contacts with photos are about 12 MB), and an ST's memory and a gateway's
 link are small. The first time a card with a photo is shown, the photo is
 fetched and decoded (the busy bee and "Getting the photo..."; a second or
 two on a Falcon, about four seconds on an 8 MHz ST, and the time to
-download it) and kept in `CACHE\PHOTOS`; after that it shows at once,
+download it) and kept in `CACHE\PHOTOS.PAK`; after that it shows at once,
 offline too.
 
 To have them all, choose **Sync Contact Photos...** in the menu (the

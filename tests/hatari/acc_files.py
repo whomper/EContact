@@ -4,7 +4,7 @@
 """The accessory's files across its event calls (the guidelines, 2.2: no
 file open across an event call), in Hatari, through the gateway:
 
-    tests/hatari/acc_files.py WORK [MACHINE] [cards]
+    tests/hatari/acc_files.py WORK [MACHINE] [cards] [photos]
 
 A Radicale behind tests/host/partialproxy.py (a server that leaves the
 photos out when asked) and gateway/ecalgate.py, with cards (40 by
@@ -25,6 +25,7 @@ import os
 import re
 import shutil
 import socket
+import struct
 import subprocess
 import sys
 import time
@@ -72,6 +73,8 @@ def main():
     work = os.path.abspath(args[0])
     machine = machine_arg(["", *args], 2, "Falcon:16")
     n = int(args[2]) if len(args) > 2 else 40
+    nph = int(args[3]) if len(args) > 3 else n // 2
+    step = max(1, n // nph) if nph else 0
     st = machine.startswith("ST")
     d = os.path.join(work, machine.replace(":", "-"))
     shutil.rmtree(d, ignore_errors=True)
@@ -101,7 +104,7 @@ def main():
         return urllib.request.urlopen(rq).read()
 
     def card(i, given="Club"):
-        photo = (pics[i % len(pics)] + "\r\n") if i % 2 == 0 else ""
+        photo = (pics[i % len(pics)] + "\r\n") if step and i % step == 0 and i // step < nph else ""
         return ("BEGIN:VCARD\r\nVERSION:3.0\r\nN:Member%03d;%s;;;\r\nFN:%s Member%03d\r\n"
                 "EMAIL:m%03d@example.org\r\nTEL;type=CELL:+972 54-555-%04d\r\n%sUID:AF-%03d\r\nEND:VCARD\r\n"
                 % (i, given, given, i, i, i, photo, i)).encode()
@@ -187,9 +190,8 @@ def main():
     check("every card (%d)" % (n + 10), len([l for l in out.splitlines() if "Member" in l]) == n + 10)
     check("the changed ones (%d)" % changed, out.count("Changed Member") == changed)
     check("the new ones", out.count("New Member") == 10)
-    pics_made = [f for f in os.listdir(os.path.join(folder, "CACHE", "PHOTOS"))] \
-        if os.path.isdir(os.path.join(folder, "CACHE", "PHOTOS")) else []
-    with_photo = len([i for i in range(n + 10) if i % 2 == 0])
+    pics_made = pack_pictures(os.path.join(folder, "CACHE", "PHOTOS.PAK"))
+    with_photo = len([i for i in range(n + 10) if step and i % step == 0 and i // step < nph])
     check("a picture for every photo (%d of %d)" % (len(pics_made), with_photo), len(pics_made) >= with_photo)
     crash = [os.path.join(dd, f) for dd, _, fs in os.walk(hd) for f in fs if f.upper() == "CRASH.LOG"]
     check("no crash (CRASH.LOG)", not crash)
@@ -203,6 +205,16 @@ def main():
 # where the toolbar's menu button is, and its Sync Contact Photos line
 MENU = (598, 73)
 PHOTOS = (520, 201)
+
+
+def pack_pictures(path):
+    """the pictures made in CACHE\\PHOTOS.PAK (src/photopack.c): its index's
+    entries that aren't failures"""
+    if not os.path.exists(path):
+        return []
+    b = open(path, "rb").read()
+    off, count = struct.unpack(">II", b[8:16])
+    return [i for i in range(count) if not b[off + 28 * i + 22]]
 
 
 EVENTS = re.compile(r"^AES 0x(19|18|32|34|5A|5B) ")

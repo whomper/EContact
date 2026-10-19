@@ -122,7 +122,7 @@ under a search field, the chosen person's card on the right.
   or TT and to black and white on an ST. Syncing leaves them on the server: a photo is fetched when
   its card is opened, or all of them at once with **Sync Contact Photos...** (a progress bar, the time
   left, Cancel, and it goes on where it stopped). Decoded once (a second or two on a Falcon, about
-  four on an 8 MHz ST, as measured in Hatari) and kept in `CACHE\PHOTOS`; a photo changed on the
+  four on an 8 MHz ST, as measured in Hatari) and kept in `CACHE\PHOTOS.PAK`; a photo changed on the
   iPhone is noticed and decoded again (see [Photos and their cache](#photos-and-their-cache)).
 - **Search** as you type: names, companies, emails, phone numbers (with or without spaces and
   dashes), addresses and notes.
@@ -180,9 +180,15 @@ megabyte without them. So:
 - **Before a card fetched in part is changed** (edited, put in a group) it is fetched whole, and the
   change is made to that, so nothing the server has (the photo, related names, social profiles) is
   lost.
-- **Answers are asked for in sizes that fit in memory**: as many cards at a time as fit in an eighth
-  of the memory (the first answer tells how big they are), halved when one is too big anyway; a card
-  too big even alone comes without its photo.
+- **Answers are asked for in sizes that fit in memory**: as many cards at a time as fit in the
+  memory set aside for a sync (32 KB on a 1 MB ST, up to 128 KB on a Falcon; the first answer tells
+  how big they are), halved when one is too big anyway; a card too big even alone comes without its
+  photo.
+- **Few disk accesses** (the family's guidelines, 6.5): a sync gathers what it brings in memory and
+  writes each file once at its end (or when that memory is full), the accessory touches no file while
+  it waits, `ECONTACT.INF` is read once at start-up, and files are read 16 KB at a time on an ST, 32
+  KB on a Falcon. Measured in Hatari with 200 contacts: Sync Contact Photos for 24 photos opened
+  files 151 times in 1.49, and a background refresh with 10 changed cards 63 times.
 - **The cache keeps photos apart**: `CACHE\BOOKnnnn.DAT` has the cards with a stand-in for each photo
   (`X-ECONTACT-PHOTO:` and the photo's fingerprint), `BOOKnnnn.PHO` the photos. Start-up reads only
   the cards: in Hatari, 500 contacts with photos open in 5 seconds on a Falcon (it was 3½ minutes with
@@ -195,8 +201,9 @@ averaged into a 64x64 colour picture. The JPEGs TJpgDec won't take (progressive 
 SOF1, 4:4:0 sampling, unusual table layouts, CMYK) are read by `src/jpegdc.c` from each 8x8 block's
 average alone: a progressive JPEG's first scan has them all, so the rest of the file isn't read. PNG
 and HEIC aren't shown; the reason for each photo that isn't is in the status line, the closing alert
-and the log. That picture is kept in `CACHE\PHOTOS\Pxxxxxxx.PIC` (8 KB) and dithered for the screen
-when shown.
+and the log. That picture (8 KB) is kept in one file for all of them, `CACHE\PHOTOS.PAK`, whose index
+EContact holds in memory, and dithered for the screen when shown. (Up to 1.49 each had a file of its
+own in `CACHE\PHOTOS`; 1.50 moves them into the pack the first time.)
 
 Keeping it right:
 
@@ -229,14 +236,16 @@ name, a company, one or two emails, two phones, some with an address, birthday o
 
 (1 MB and the 4 MB start-up measured; the rest worked out from the size of a contact.)
 
-- **About half a kilobyte a contact** in memory (photos stay on disk). The accessory takes half of
-  the memory free at boot, leaving the other half to the programs you run; `HEAPKB=` in
-  `ECONTACT.INF` sets another amount. A sync needs some room besides (the answers it reads, a few to
-  an eighth of the memory at a time), so keep a fifth of it free.
+- **About half a kilobyte a contact** in memory (photos stay on disk). The accessory takes the
+  memory it measured it needed the last time (`MEMKB=` in `ECONTACT.INF`: its contacts at their
+  busiest, a photo shown, room for a sync and a tenth more), leaving the rest to the programs you run:
+  200 contacts take about 200 KB. The first start, before it has measured, takes half of the memory
+  free (at most 1.5 MB, 4 MB of TT RAM). `HEAPKB=` sets an amount of your own.
 - With more in the address book than fit, a few less show: each card in the cache keeps about 125
   bytes in memory either way (1,000 on a 1 MB ST: 300 shown).
 - **Contacts that don't fit are never left out quietly**: the window says "N not shown" and an alert
-  gives the `HEAPKB=` to set. EMail and ECal then find names only for the contacts EContact holds.
+  says that EContact takes more at the next start (or, when the Atari has no more, the most it can
+  have). EMail and ECal then find names only for the contacts EContact holds.
   Once memory is full, the rest are counted, not read only to be let go: 1,500 contacts on a 1 MB ST
   start in 15 s, not 28.
 - **The accessory reads its books in the background** a minute after boot (`START=`), in steps of

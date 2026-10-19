@@ -264,6 +264,39 @@ static long acc_heap_bytes;	/* the accessory's fixed memory; 0 for the program *
 static long acc_avail;		/* what was free when it took it */
 static int warned_lost;
 
+/* What the accessory needs, as it measured it: the heap at its busiest
+   since boot (common's heap_peak), and at least what it uses now with
+   room for a job and a photo shown it may not have had yet; a tenth
+   more for growth. MEMKB= in ECONTACT.INF, which the next start takes
+   (acc_heap): no more memory than the contacts need (Erez, 19 Oct 2026) */
+static void mem_note(void)
+{
+	long need, kb;
+	if (!is_acc || !acc_heap_bytes || !data_ready)
+		return;
+	need = heap_use + 2 * ab_job_bytes + (opt.photos ? 50L * 1024 : 0L);
+	if (heap_peak > need)
+		need = heap_peak;
+	need += (long)contacts_lost() * 640L;	/* those that didn't fit */
+	kb = need / 1024 + need / 10240 + 16;
+	if (kb > 32000)
+		kb = 32000;
+	{
+		/* in the log: what it holds, its busiest, and what it took */
+		char t[120];
+		snprintf(t, sizeof(t), "memory: %ld KB in use, %ld KB at the most, of %ld KB; next start %ld KB",
+			 heap_use / 1024, heap_peak / 1024, acc_heap_bytes / 1024, kb);
+		conn_log("EContact", "--", t, (long)strlen(t));
+	}
+	if (opt.memkb && kb <= opt.memkb && kb > opt.memkb - opt.memkb / 8)
+		return;			/* near enough: the file not written for it */
+	opt.memkb = (short)kb;
+	if (win_h > 0)
+		settings_later();
+	else
+		store_unsaved = 1;	/* written when the window opens */
+}
+
 static void memory_check(void)
 {
 	int lost = contacts_lost();
@@ -277,12 +310,11 @@ static void memory_check(void)
 		return;
 	warned_lost = lost;
 	if (is_acc && acc_heap_bytes) {
-		/* about half a KB each, and room to sync them */
-		long need = (acc_heap_bytes + (long)lost * 640L) / 1024L * 5L / 4L + 32L;
 		long most = (acc_avail - 160L * 1024L) / 1024L;	/* leaving some for TOS and a program */
-		if (need <= most)
-			alert(1, "[1][%d contact%s can't be shown: EContact's memory is full. Give it more with HEAPKB=%ld in %s and restart the Atari.][ OK ]",
-			      lost, lost == 1 ? "" : "s", need, inf_file);
+		mem_note();		/* what it takes at the next start */
+		if (opt.heapkb <= 0 && opt.memkb <= most)
+			alert(1, "[1][%d contact%s can't be shown: EContact's memory is full. It takes more the next time the Atari starts.][ OK ]",
+			      lost, lost == 1 ? "" : "s");
 		else
 			alert(1, "[1][%d contact%s can't be shown: there isn't memory for all. The most EContact can have: HEAPKB=%ld in %s.][ OK ]",
 			      lost, lost == 1 ? "" : "s", most > acc_heap_bytes / 1024L ? most : acc_heap_bytes / 1024L, inf_file);
@@ -316,6 +348,7 @@ static void opens_note(int start)
 	snprintf(t, sizeof(t), "%ld files opened", pf_opens - at);
 	conn_log("EContact", "--", t, (long)strlen(t));
 	conn_log_hold(0);
+	mem_note();
 }
 
 /* ---------------- Falcon mode ---------------- */
@@ -1107,11 +1140,12 @@ static int locate_folder(void)
    refresh or Sync Contact Photos gathers before it writes, each file's
    write buffer, the photo pack's, and how much of a server's answer to
    ask for at a time (an answer is in memory twice while it is read).
-   heap: the accessory's (0: the program, whose memory grows) */
-static void job_memory(long heap)
+   By the memory free at boot: free, for the accessory (0: the program,
+   whose memory grows) */
+static void job_memory(long free)
 {
-	long job = !heap ? 256L * 1024 : heap >= 1024L * 1024 ? 128L * 1024 : heap >= 384L * 1024 ? 64L * 1024
-												 : 32L * 1024;
+	long job = !free ? 256L * 1024 : free >= 3072L * 1024 ? 128L * 1024 : free >= 1536L * 1024 ? 64L * 1024
+												   : 32L * 1024;
 	ab_read_bytes = get_cookie(0x5F435055L) >= 30 ? 32768L : 16384L;	/* _CPU */
 	ab_job_bytes = job;
 	ab_out_max = job / 2;
@@ -1124,26 +1158,40 @@ static void job_memory(long heap)
 static void acc_heap(void)
 {
 	char v[12];
-	long avail = (long)Malloc(-1L), alt = (long)Mxalloc(-1L, 1), want;
+	long avail = (long)Malloc(-1L), alt = (long)Mxalloc(-1L, 1), want, kb;
 	void *p;
-	/* a Falcon or TT: 1.5 MB (more in TT RAM). An ST: half of what is
-	   free (below), the other half left to the programs run after: about
-	   250 KB on a 1 MB ST, 750 KB on 2 MB, 1.8 MB on 4 MB */
-	want = tls_available && get_cookie(0x5F435055L) >= 30 ? 1536L * 1024 : 2048L * 1024;
 	if (alt == -32 || alt < 0)
 		alt = 0;
-	if (alt >= 256L * 1024) {
-		avail = alt;
-		if (want < 4096L * 1024)
+	if (alt >= 256L * 1024)
+		avail = alt;		/* TT RAM, when there is some */
+	/* (find_workdir read the file) HEAPKB= chosen; else MEMKB=, what it
+	   measured it needed the last time (mem_note) */
+	inf_value("heapkb=", v, sizeof(v));
+	kb = atol(v);
+	if (kb < 64) {
+		inf_value("memkb=", v, sizeof(v));
+		kb = atol(v);
+		if (kb < 32)
+			kb = 0;
+	}
+	if (kb) {
+		want = kb * 1024;
+	} else {
+		/* not known yet: a Falcon or TT 1.5 MB (4 MB in TT RAM), an ST
+		   half of what is free (below), the other half left to the
+		   programs run after: about 250 KB on a 1 MB ST, 750 KB on
+		   2 MB, 1.8 MB on 4 MB */
+		want = tls_available && get_cookie(0x5F435055L) >= 30 ? 1536L * 1024 : 2048L * 1024;
+		if (alt >= 256L * 1024 && want < 4096L * 1024)
 			want = 4096L * 1024;
 	}
-	inf_value("heapkb=", v, sizeof(v));	/* (find_workdir read the file) */
-	if (atol(v) >= 64)
-		want = atol(v) * 1024;
-	if (want > avail / 2)
-		want = avail / 2;
-	if (want < 96L * 1024)
-		want = avail - 32L * 1024;
+	if (want < 64L * 1024)
+		want = 64L * 1024;
+	if (want > avail / 2) {
+		want = avail / 2;	/* the rest left to the programs run after */
+		if (want < 96L * 1024)
+			want = avail - 32L * 1024;
+	}
 	if (want < 32L * 1024)
 		return;
 	p = Mxalloc(want, alt ? 1 : 3);
@@ -1159,7 +1207,7 @@ static void acc_heap(void)
 		heap_add(p, (size_t)want);
 		acc_heap_bytes = want;
 		acc_avail = avail;
-		job_memory(want);
+		job_memory(avail);
 	}
 }
 
@@ -1265,6 +1313,7 @@ static void loaded(void)
 		files_known = 1;
 	}
 	load_quiet = 0;
+	mem_note();
 }
 
 static void load_contacts(void)
@@ -1387,6 +1436,7 @@ static void quiet_end(void)
 	sync_stamp = store_stamp();
 	if (!quiet_sync_changed())
 		files_left();
+	mem_note();
 }
 
 /* the books sorted again after it: what it wrote is its own (noted as
