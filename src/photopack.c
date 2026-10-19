@@ -221,6 +221,8 @@ int pack_put(PKENT *e, const char *head, long hlen, const unsigned char *px, lon
 		char *nb;
 		while (cap < pn + len)
 			cap *= 2;
+		if (cap > pack_buf_max && cap > pn + len)
+			cap = pn + len > pack_buf_max ? pn + len : pack_buf_max;
 		if (!(nb = realloc(pbuf, cap)))
 			return 0;	/* not kept: made again another time */
 		pbuf = nb;
@@ -260,6 +262,11 @@ int pack_batch(int on)
 {
 	int was = batch;
 	batch = on;
+	if (!on && !pn) {
+		free(pbuf);
+		pbuf = 0;
+		pcap = 0;
+	}
 	return was;
 }
 
@@ -345,6 +352,11 @@ int pack_flush(void)
 	pn = 0;
 	dirty = 0;
 	fresh = 0;
+	if (!batch) {
+		free(pbuf);		/* the memory back until the next job */
+		pbuf = 0;
+		pcap = 0;
+	}
 	if (!ok) {
 		/* as the file is now: read again when needed */
 		pack_forget();

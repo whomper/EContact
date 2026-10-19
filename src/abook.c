@@ -776,12 +776,12 @@ static int out_write(OUT *o, const void *d, long n)
 	if (o->n + n > (o->max ? o->max : ab_out_max))
 		return out_put(o, d, n);	/* the buffer full: written, this with it */
 	if (o->n + n > o->cap) {
-		long cap = o->cap ? o->cap : 2048;
+		long cap = o->cap ? o->cap : 2048, lim = o->max ? ab_job_bytes : ab_out_max;
 		char *m;
 		while (cap < o->n + n)
 			cap *= 2;
-		if (!o->max && cap > ab_out_max)
-			cap = ab_out_max;
+		if (cap > lim)
+			cap = lim > o->n + n ? lim : o->n + n + 2048;	/* no more than it needs */
 		if (!(m = realloc(o->m, cap)))
 			return out_put(o, d, n);	/* no room: written now */
 		o->m = m;

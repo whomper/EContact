@@ -750,6 +750,7 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 	   picture once a pen: (y << 8) | x, pen by pen, from ph_first[pen] */
 	static unsigned short *at, first[257];
 	static short lists;
+	static long pcap, acap;		/* what pens and at hold: the picture's size, not the most */
 	short W, H, x, y, k, wpl;
 	GRECT vis;
 	if (rx > PH_MAXW / 2)
@@ -759,10 +760,15 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 	W = 2 * rx + 1;
 	H = 2 * ry + 1;
 	photo_palette();
-	if (!pens)
-		pens = malloc(PH_MAXW * PH_MAXH + 4);
-	if (!pens)
-		return;
+	if ((long)W * H + 4 > pcap) {
+		free(pens);
+		pcap = (long)W * H + 4;
+		if (!(pens = malloc(pcap))) {
+			pcap = 0;
+			return;
+		}
+		pserial = -1;		/* dithered again into it */
+	}
 	if (serial != pserial || W != pw || H != ph || pnpal != ph_npal) {
 		/* dithered again: errors carried to the right and the next row.
 		   Shifts and adds only: a 68000 multiplies and divides 32-bit
@@ -838,7 +844,13 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 		ph = H;
 		pnpal = ph_npal;
 		lists = 0;
-		if (ph_npal > 16 && (at || (at = malloc((long)PH_MAXW * PH_MAXH * 2)) != 0)) {
+		if (ph_npal > 16 && (long)W * H > acap) {
+			free(at);
+			acap = (long)W * H;
+			if (!(at = malloc(acap * 2)))
+				acap = 0;
+		}
+		if (ph_npal > 16 && at) {
 			/* how many each pen has, where each one's list starts,
 			   then the pixels in order: the lists come out top to bottom */
 			static unsigned short fill[256];

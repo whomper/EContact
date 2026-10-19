@@ -1144,12 +1144,13 @@ static int locate_folder(void)
    whose memory grows) */
 static void job_memory(long free)
 {
-	long job = !free ? 256L * 1024 : free >= 3072L * 1024 ? 128L * 1024 : free >= 1536L * 1024 ? 64L * 1024
-												   : 32L * 1024;
+	long job = !free ? 256L * 1024 : free >= 3072L * 1024 ? 64L * 1024 : free >= 1536L * 1024 ? 32L * 1024
+												  : 24L * 1024;
 	ab_read_bytes = get_cookie(0x5F435055L) >= 30 ? 32768L : 16384L;	/* _CPU */
 	ab_job_bytes = job;
-	ab_out_max = job / 2;
-	pack_buf_max = job / 2;
+	/* a 1 MB ST: little each, so a sync's answers still fit */
+	ab_out_max = job >= 32L * 1024 ? job / 2 : 8L * 1024;
+	pack_buf_max = ab_out_max;
 	carddav_budget = job / 2 > 24L * 1024 ? job / 2 : 24L * 1024;
 }
 
