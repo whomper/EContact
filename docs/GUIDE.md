@@ -92,6 +92,12 @@ kilobytes (`ECONTACT.PRG` takes what it needs from all that is free). If
 contacts don't fit, the window says how many aren't shown, and EContact
 takes more the next time the Atari starts.
 
+**With EMail on a 1 MB ST.** The accessory and its memory keep about
+650 KB of a 1 MB ST for as long as the Atari runs, which leaves EMail too
+little to start. On 1 MB, use `ECONTACT.PRG` with EMail instead of the
+accessory (take `ECONTACT.ACC` out of the boot drive's root); EMail
+beside the accessory needs 2 MB or more.
+
 ![Contacts that don't fit](memory-full.png)
 
 **TT RAM.** On a TT, or a Falcon with an accelerator's Fast RAM, TOS
