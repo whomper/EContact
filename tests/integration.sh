@@ -207,8 +207,7 @@ im = Image.open(sys.argv[1]); im.save(sys.argv[2], 'JPEG', quality=85, progressi
   R=$($CLI "$D" photo "Pat Png")
   expect "remembered" "failed cache (a PNG picture)" "$R"
   # a failure from an older decoder is tried again
-  PF=$($CLI "$D" photo-file "Pat Png" | cut -d' ' -f1)
-  sed -i 's/^DEC=.*/DEC=1/' "$PF"
+  $CLI "$D" photo-dec "Pat Png" 1
   R=$($CLI "$D" photo "Pat Png")
   expect "an older decoder's failure tried again" "failed decoded" "$R"
   # as iCloud keeps a photo in the card: a long crop parameter, data:,
@@ -282,12 +281,17 @@ PY
   R=$($CLI "$D" photo "Pat Link" offline)
   expect "offline: the picture it has" "ok cache" "$R"
   # a contact deleted elsewhere: its picture pruned
-  F=$($CLI "$D" photo-file "Pat Link" | cut -d' ' -f1)
+  R=$($CLI "$D" photo-file "Pat Link")
+  expect "its picture in the pack" "PHOTOS.PAK there" "$R"
   "${CURL[@]}" -X DELETE "$BASE/alice/friends/link.vcf" >/dev/null
   $CLI "$D" sync
   R=$($CLI "$D" prune)
   expect "pruned" "1 removed" "$R"
-  if [ -e "$F" ]; then bad "the picture file is still there"; else ok "the picture file is gone"; fi
+  R=$($CLI "$D" prune)
+  expect "and gone from the pack" "0 removed" "$R"
+  if [ -d "$D/CACHE/PHOTOS" ]; then bad "a PHOTOS folder"; else ok "one file, no PHOTOS folder"; fi
+  ls "$D/CACHE" > "$W/cache.ls"
+  expect "the pictures in PHOTOS.PAK" "PHOTOS.PAK" "$(cat "$W/cache.ls")"
 
   echo "photos left for later: cards synced without them (partial retrieval)"
   PPORT=$((PORT + 6))
@@ -361,6 +365,32 @@ PY
   expect "a changed card fetched whole" "REPORT whole 1 hrefs" "$(tr -d '\0' < "$W/proxy.log")"
   R=$($CLI "$P" photo "Pat Many2" offline)
   expect "its new photo, without asking again" "ok decoded TL=blue" "$R"
+
+  # TEMPORARY (src/photomig.c, 1.50): 1.49's CACHE\PHOTOS, a .PIC a
+  # picture, moved into the pack the first time. Goes with photomig.c
+  echo "1.49's pictures moved into PHOTOS.PAK"
+  python3 - "$P/CACHE" <<'PY'
+import os, struct, sys
+cache = sys.argv[1]
+pak = open(os.path.join(cache, "PHOTOS.PAK"), "rb").read()
+off, n = struct.unpack(">II", pak[8:16])
+os.makedirs(os.path.join(cache, "PHOTOS"))
+for i in range(n):
+    name, key, cetag, roff, rlen = struct.unpack(">IIIII", pak[off + 28 * i:off + 28 * i + 20])
+    open(os.path.join(cache, "PHOTOS", "P%07X.PIC" % name), "wb").write(pak[roff:roff + rlen])
+os.remove(os.path.join(cache, "PHOTOS.PAK"))
+print(n)
+PY
+  N=$(ls "$P/CACHE/PHOTOS" | wc -l)
+  if [ "$N" -ge 6 ]; then ok "1.49's files ($N)"; else bad "only $N .PIC files"; fi
+  R=$($CLI "$P" photo "Pat Many3" offline)
+  expect "a picture from 1.49's file, as it was" "ok cache TL=red TR=green BL=blue BR=yellow" "$R"
+  R=$($CLI "$P" photo "Pat Social" offline)
+  expect "and another" "ok cache TL=blue" "$R"
+  if [ -d "$P/CACHE/PHOTOS" ]; then bad "the PHOTOS folder is still there"; else ok "the PHOTOS folder gone"; fi
+  if [ -s "$P/CACHE/PHOTOS.PAK" ]; then ok "PHOTOS.PAK made"; else bad "no PHOTOS.PAK"; fi
+  R=$($CLI "$P" photo-sync)
+  expect "nothing left to make after" "made 0 failed 0" "$R"
 
   echo "a server that refuses partial retrieval; little memory"
   noise() { python3 -c "

@@ -54,6 +54,21 @@ unsigned long os_stamp(const char *path)
 	return r;
 }
 
+/* the date and the size from one look at the folder */
+unsigned long os_info(const char *path, long *size)
+{
+	void *old = Fgetdta();
+	unsigned long r = 0;
+	Fsetdta(&dta);
+	*size = -1;
+	if (Fsfirst(path, 0x07) == 0) {
+		r = (unsigned long)dta.d_date << 16 | dta.d_time;
+		*size = (long)dta.d_length;
+	}
+	Fsetdta(old);
+	return r;
+}
+
 int os_exists(const char *path)
 {
 	void *old = Fgetdta();
@@ -70,6 +85,7 @@ int pf_mkdir(const char *path)
 	return (r == 0 || r == -36 || pf_exists(path)) ? 0 : (int)r;
 }
 
+int pf_rmdir(const char *path) { return (int)Ddelete(path); }
 int os_remove(const char *path) { return (int)Fdelete(path); }
 int os_rename(const char *from, const char *to) { return (int)Frename(from, to); }
 

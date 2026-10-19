@@ -34,6 +34,7 @@
 #include "av.h"
 #include "aboutbox.h"
 #include "../src/photo.h"
+#include "../src/photopack.h"
 #include "../src/carddav.h"
 #include "clip.h"
 #include "dd.h"
@@ -309,10 +310,12 @@ static void opens_note(int start)
 	char t[60];
 	if (start) {
 		at = pf_opens;
+		conn_log_hold(1);	/* the job's log written once, at its end (6.5) */
 		return;
 	}
 	snprintf(t, sizeof(t), "%ld files opened", pf_opens - at);
 	conn_log("EContact", "--", t, (long)strlen(t));
+	conn_log_hold(0);
 }
 
 /* ---------------- Falcon mode ---------------- */
@@ -969,32 +972,45 @@ void cmd_menu(short x, short y)
    EMail and ECal can always find it; FOLDER= in it says where the rest
    of EContact's files are. */
 
-/* KEY= from the start of ECONTACT.INF ("folder=", "start="), read
-   without malloc: the accessory calls this before its heap is taken */
-static void inf_value(const char *inf, const char *key, char *out, int size)
+/* the start of ECONTACT.INF, read once (inf_read) without malloc: the
+   accessory reads it before its heap is taken. -1: there is none */
+static char inf_t[8192];
+static long inf_n = -1;
+
+static void inf_read(const char *inf)
 {
-	static char t[8192];
-	char *k;
-	int h = pf_open(inf, PF_READ), kl = (int)strlen(key);
+	int h = pf_open(inf, PF_READ);
 	long n;
-	out[0] = 0;
+	inf_n = -1;
+	inf_t[0] = 0;
 	if (h < 0)
 		return;
-	n = pf_read(h, t, sizeof(t) - 1);
+	n = pf_read(h, inf_t, sizeof(inf_t) - 1);
 	pf_close(h);
-	t[n > 0 ? n : 0] = 0;
-	for (k = t; (k = (char *)str_istr(k, key)); k += kl)
-		if (k == t || k[-1] == '\n') {
-			char *e = k + kl + strcspn(k + kl, "\r\n");
-			*e = 0;
-			str_copy(out, k + kl, size);
+	inf_n = n > 0 ? n : 0;
+	inf_t[inf_n] = 0;
+}
+
+/* KEY= ("folder=", "start=") in what inf_read read */
+static void inf_value(const char *key, char *out, int size)
+{
+	const char *k;
+	int kl = (int)strlen(key);
+	out[0] = 0;
+	for (k = inf_t; inf_n > 0 && (k = str_istr(k, key)); k += kl)
+		if (k == inf_t || k[-1] == '\n') {
+			int n = (int)strcspn(k + kl, "\r\n");
+			if (n >= size)
+				n = size - 1;
+			memcpy(out, k + kl, n);
+			out[n] = 0;
 			break;
 		}
 }
 
-static void inf_folder(const char *inf, char *out, int size)
+static void inf_folder(char *out, int size)
 {
-	inf_value(inf, "folder=", out, size);
+	inf_value("folder=", out, size);
 	{
 		int n2 = (int)strlen(out);
 		while (n2 > 3 && (out[n2 - 1] == '\\' || out[n2 - 1] == ' '))
@@ -1011,10 +1027,11 @@ static void find_workdir(void)
 	short drv = (short)Dgetdrv(), boot = boot_drive();
 	snprintf(inf_file, sizeof(inf_file), "%c:\\ECONTACT.INF", 'A' + boot);
 	if (is_acc) {
-		inf_folder(inf_file, workdir, sizeof(workdir));
-		inf_value(inf_file, "start=", boot_start, sizeof(boot_start));
-		inf_value(inf_file, "font_id=", boot_font, sizeof(boot_font));
-		if (!pf_exists(inf_file)) {
+		inf_read(inf_file);	/* once: FOLDER=, START=, FONT_ID=, HEAPKB= */
+		inf_folder(workdir, sizeof(workdir));
+		inf_value("start=", boot_start, sizeof(boot_start));
+		inf_value("font_id=", boot_font, sizeof(boot_font));
+		if (inf_n < 0) {
 			/* settings in the folder instead (copied there, or written
 			   by card-cli): taken to the root at the first opening */
 			snprintf(workdir, sizeof(workdir), "%c:\\ECONTACT", 'A' + boot);
@@ -1055,7 +1072,8 @@ static int locate_folder(void)
 {
 	char path[200], name[20] = "", why[200];
 	short button = 0, boot = boot_drive();
-	inf_folder(inf_file, why, sizeof(why));
+	inf_read(inf_file);
+	inf_folder(why, sizeof(why));
 	for (;;) {
 		/* the path in the text: a button holds 10 characters (6.2) */
 		short k = why[0] ? alert(1, "[2][EContact's folder is not at|%s.|Show me where it is, or use|%c:\\ECONTACT?][Locate...|Use %c:|Cancel]",
@@ -1085,25 +1103,28 @@ static int locate_folder(void)
 	return 1;
 }
 
-/* how much of a server's answer to ask for at a time: an eighth of the
-   memory (an answer is in memory twice while it is read, with the rest) */
-static void answer_budget(long heap)
+/* Bulk work's memory (the guidelines, 6.5), of a fixed size: what a
+   refresh or Sync Contact Photos gathers before it writes, each file's
+   write buffer, the photo pack's, and how much of a server's answer to
+   ask for at a time (an answer is in memory twice while it is read).
+   heap: the accessory's (0: the program, whose memory grows) */
+static void job_memory(long heap)
 {
-	long b = heap / 8;
-	if (b < 24L * 1024)
-		b = 24L * 1024;
-	if (b > 400L * 1024)
-		b = 400L * 1024;
-	carddav_budget = b;
+	long job = !heap ? 256L * 1024 : heap >= 1024L * 1024 ? 128L * 1024 : heap >= 384L * 1024 ? 64L * 1024
+												 : 32L * 1024;
+	ab_read_bytes = get_cookie(0x5F435055L) >= 30 ? 32768L : 16384L;	/* _CPU */
+	ab_job_bytes = job;
+	ab_out_max = job / 2;
+	pack_buf_max = job / 2;
+	carddav_budget = job / 2 > 24L * 1024 ? job / 2 : 24L * 1024;
 }
 
 /* an accessory takes its memory once, now: later it would belong to
    whichever program is in front. HEAPKB=n in ECONTACT.INF overrides */
 static void acc_heap(void)
 {
-	static char buf[2048];
-	char inf[200];
-	long avail = (long)Malloc(-1L), alt = (long)Mxalloc(-1L, 1), want, h, n;
+	char v[12];
+	long avail = (long)Malloc(-1L), alt = (long)Mxalloc(-1L, 1), want;
 	void *p;
 	/* a Falcon or TT: 1.5 MB (more in TT RAM). An ST: half of what is
 	   free (below), the other half left to the programs run after: about
@@ -1116,19 +1137,9 @@ static void acc_heap(void)
 		if (want < 4096L * 1024)
 			want = 4096L * 1024;
 	}
-	str_copy(inf, inf_file, sizeof(inf));
-	h = Fopen(inf, 0);
-	if (h >= 0) {
-		n = Fread((short)h, sizeof(buf) - 1, buf);
-		Fclose((short)h);
-		if (n > 0) {
-			char *k;
-			buf[n] = 0;
-			k = (char *)str_istr(buf, "heapkb=");
-			if (k && atol(k + 7) >= 64)
-				want = atol(k + 7) * 1024;
-		}
-	}
+	inf_value("heapkb=", v, sizeof(v));	/* (find_workdir read the file) */
+	if (atol(v) >= 64)
+		want = atol(v) * 1024;
 	if (want > avail / 2)
 		want = avail / 2;
 	if (want < 96L * 1024)
@@ -1148,7 +1159,7 @@ static void acc_heap(void)
 		heap_add(p, (size_t)want);
 		acc_heap_bytes = want;
 		acc_avail = avail;
-		answer_budget(want);
+		job_memory(want);
 	}
 }
 
@@ -1207,6 +1218,9 @@ static int load_settings(int quiet)
 	path_join(tls_seed_path, sizeof(tls_seed_path), workdir, "SEED.DAT");
 	path_join(tls_sigs_path, sizeof(tls_sigs_path), workdir, "SIGS.DAT");
 	tls_file_stamp = pf_stamp;	/* ROOTS.DAT told by CACERT.PEM's size and date */
+	tls_file_info = pf_info;	/* both from one look (6.5) */
+	tls_read_at = pf_read_at;	/* CACERT.PEM never open across pf_idle (2.2) */
+	pf_size_open = pf_size_of;	/* pf_load: one look a file */
 	set_logging();
 	net_init();
 	pf_idle = busy_idle;
@@ -1352,6 +1366,7 @@ static void quiet_begin(void)
 		return;
 	if (!quiet_sync_begin())
 		return;
+	conn_log_hold(1);		/* its log written once, at its end (6.5) */
 	conn_log("EContact", "--", "refreshing in the background", 28L);
 	was_idle = pf_idle;
 	was_budget = carddav_budget;
@@ -1365,6 +1380,7 @@ static unsigned long sync_stamp;	/* the files as the refresh left them */
 
 static void quiet_end(void)
 {
+	conn_log_hold(0);
 	pf_idle = was_idle;
 	http_yield = 0;
 	carddav_budget = was_budget;
@@ -1393,6 +1409,7 @@ static void quiet_abort(void)
 {
 	if (quiet_syncing()) {
 		quiet_sync_cancel();
+		conn_log_hold(0);
 		pf_idle = was_idle;
 		http_yield = 0;
 		carddav_budget = was_budget;
@@ -1744,8 +1761,7 @@ int main(void)
 	av_people_hook = people_got;
 	busy_message = busy_hold;
 	if (!is_acc) {
-		long st = (long)Malloc(-1L), tt = (long)Mxalloc(-1L, 1);
-		answer_budget(tt > st ? tt : st);
+		job_memory(0);
 		/* the menu bar (the accessory has the toolbar's menu) */
 		if (mbar_build(&mb, bar, gl_wchar, gl_hchar, scr_w, scr_h) == 0)
 			has_menu = menu_bar(mb.tree, 1) != 0;

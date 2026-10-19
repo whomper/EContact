@@ -52,10 +52,26 @@ unsigned long os_stamp(const char *path)
 	return (unsigned long)st.st_mtime ^ (unsigned long)st.st_mtim.tv_nsec;
 }
 
+unsigned long os_info(const char *path, long *size)
+{
+	struct stat st;
+	if (stat(path, &st) < 0 || !S_ISREG(st.st_mode)) {
+		*size = -1;
+		return 0;
+	}
+	*size = st.st_size;
+	return (unsigned long)st.st_mtime ^ (unsigned long)st.st_mtim.tv_nsec;
+}
+
 int os_exists(const char *path)
 {
 	struct stat st;
 	return stat(path, &st) == 0;
+}
+
+int pf_rmdir(const char *path)
+{
+	return rmdir(path);
 }
 
 int pf_mkdir(const char *path)

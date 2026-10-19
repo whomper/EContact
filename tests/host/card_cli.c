@@ -485,11 +485,14 @@ int main(int argc, char **argv)
 		fclose(f);
 	} else if (!strcmp(cmd, "photo-file") && argc >= 4) {
 		CONTACT *c = find(argv[3]);
-		char path[300];
 		if (!c)
 			return 1;
-		photo_path(c, path, sizeof(path));
-		printf("%s %s\n", path, pf_exists(path) ? "there" : "missing");
+		printf("PHOTOS.PAK %s\n", photo_cached(c) ? "there" : "missing");
+	} else if (!strcmp(cmd, "photo-dec") && argc >= 5) {
+		/* its picture's record as an older decoder's (the tests) */
+		CONTACT *c = find(argv[3]);
+		if (!c || !photo_test_dec(c, atoi(argv[4])))
+			return 1;
 	} else if (!strcmp(cmd, "cache") && argc >= 4) {
 		/* "partial photo=unknown", "whole photo=1A2B3C4D", "whole photo=none" */
 		CONTACT *c = find(argv[3]);

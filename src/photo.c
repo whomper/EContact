@@ -4,13 +4,14 @@
  * photo.c - contacts' pictures (see photo.h): the PHOTO line taken
  * apart, the JPEG decoded with ChaN's TJpgDec at 1/2, 1/4 or 1/8 of its
  * size (the 1/8 needs no IDCT at all: quick on a 68000) and averaged into
- * PHOTO_N x PHOTO_N, and the cache in CACHE\PHOTOS.
+ * PHOTO_N x PHOTO_N, and the cache in CACHE\PHOTOS.PAK (photopack.c).
  */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
 #include "photo.h"
+#include "photopack.h"
 #include "http.h"
 #include "plat.h"
 #include "util.h"
@@ -18,12 +19,14 @@
 #include "jpegdc.h"
 #include "conn.h"
 
-static char pdir[200];
+static char pdir[200];		/* the cache's folder: "" until set */
 
 void photo_dir(const char *dir)
 {
+	char pack[220];
 	str_copy(pdir, dir, sizeof(pdir));
-	pf_mkdir(pdir);
+	path_join(pack, sizeof(pack), pdir, "PHOTOS.PAK");
+	pack_path(pack);
 }
 
 static unsigned long fnv(const char *s, long n, unsigned long h)
@@ -599,13 +602,14 @@ done:
 #define PHOTO_DECODER 3
 
 typedef struct {
-	int valid, failed, link, why, dec;
+	int valid;
+	PKENT e;		/* the index's: key, book, state, why, decoder, link */
 	char uid[100];
-	short book;
-	unsigned long key;
-	char cetag[100], ietag[100], ilmod[40];
-	long data;		/* where the pixels start */
+	char ietag[100], ilmod[40];
+	int px;			/* its pixels were read (into pxb) */
 } PHDR;
+
+static unsigned char pxb[PHOTO_N * PHOTO_N * 2];	/* a record's pixels, big-endian */
 
 static const char *uid_of(const CONTACT *c)
 {
@@ -623,35 +627,27 @@ static const char *card_etag(const CONTACT *c)
 	return "";
 }
 
-void photo_path(const CONTACT *c, char *out, int size)
+/* c's picture in the pack: its book and UID (a .PIC file had the name) */
+static unsigned long name_of(const CONTACT *c)
 {
-	char n[20], id[12];
+	char id[12];
 	unsigned long h;
 	snprintf(id, sizeof(id), "%d/", c->book >= 0 && c->book < nbooks ? books[c->book].id : 0);
 	h = fnv(id, (long)strlen(id), 2166136261UL);
 	h = fnv(uid_of(c), (long)strlen(uid_of(c)), h);
-	snprintf(n, sizeof(n), "P%07lX.PIC", h & 0xFFFFFFFUL);
-	path_join(out, size, pdir, n);
+	return h & 0xFFFFFFFUL;
 }
 
-static int read_hdr(const char *path, PHDR *h)
+/* the record of c's picture, its pixels with it: one open */
+static int read_hdr(const CONTACT *c, PHDR *h)
 {
-	char buf[1024], *p, *e;
-	int f = pf_open(path, PF_READ);
-	long n;
+	char buf[1024], *p;
+	int r;
 	memset(h, 0, sizeof(*h));
-	if (f < 0)
+	if (!pack_find(name_of(c), &h->e) ||
+	    !(r = pack_read(&h->e, buf, sizeof(buf), h->e.failed ? 0 : pxb, (long)sizeof(pxb))))
 		return 0;
-	n = pf_read(f, buf, sizeof(buf) - 1);
-	pf_close(f);
-	if (n < 12 || strncmp(buf, "ECPHOTO 1\n", 10))
-		return 0;
-	buf[n] = 0;
-	e = strstr(buf, "\n\n");
-	if (!e)
-		return 0;
-	h->data = (long)(e + 2 - buf);
-	*e = 0;
+	h->px = r == 2;
 	for (p = buf + 10; p && *p;) {
 		char *nl = strchr(p, '\n'), *eq = strchr(p, '=');
 		if (nl)
@@ -660,24 +656,10 @@ static int read_hdr(const char *path, PHDR *h)
 			*eq++ = 0;
 			if (!strcmp(p, "UID"))
 				str_copy(h->uid, eq, sizeof(h->uid));
-			else if (!strcmp(p, "BOOK"))
-				h->book = (short)atoi(eq);
-			else if (!strcmp(p, "KEY"))
-				h->key = strtoul(eq, 0, 16);
-			else if (!strcmp(p, "CETAG"))
-				str_copy(h->cetag, eq, sizeof(h->cetag));
 			else if (!strcmp(p, "IETAG"))
 				str_copy(h->ietag, eq, sizeof(h->ietag));
 			else if (!strcmp(p, "ILMOD"))
 				str_copy(h->ilmod, eq, sizeof(h->ilmod));
-			else if (!strcmp(p, "LINK"))
-				h->link = atoi(eq);
-			else if (!strcmp(p, "STATE"))
-				h->failed = !strcmp(eq, "FAIL");
-			else if (!strcmp(p, "WHY"))
-				h->why = atoi(eq);
-			else if (!strcmp(p, "DEC"))
-				h->dec = atoi(eq);
 		}
 		p = nl ? nl + 1 : 0;
 	}
@@ -685,66 +667,88 @@ static int read_hdr(const char *path, PHDR *h)
 	return 1;
 }
 
-/* the pixels in the file are big-endian 5-6-5, whatever the machine */
-static int load_px(const char *path, const PHDR *h, PHOTOIMG *out)
+/* the pixels in the pack are big-endian 5-6-5, whatever the machine */
+static int load_px(const PHDR *h, PHOTOIMG *out)
 {
-	static unsigned char b[PHOTO_N * PHOTO_N * 2];
-	int f = pf_open(path, PF_READ), i;
-	long n = 0;
-	if (f < 0)
-		return 0;
-	if (pf_seek(f, h->data) == h->data)
-		n = pf_read(f, b, sizeof(b));
-	pf_close(f);
-	if (n != (long)sizeof(b))
+	int i;
+	if (!h->px)
 		return 0;
 	for (i = 0; i < PHOTO_N * PHOTO_N; i++)
-		out->px[i] = (unsigned short)((b[2 * i] << 8) | b[2 * i + 1]);
+		out->px[i] = (unsigned short)((pxb[2 * i] << 8) | pxb[2 * i + 1]);
 	return 1;
 }
 
-static int write_cache(const char *path, const CONTACT *c, int link, const char *ietag, const char *ilmod,
-		       const PHOTOIMG *img)
+static int write_cache(const CONTACT *c, int link, const char *ietag, const char *ilmod, const PHOTOIMG *img)
 {
-	static unsigned char b[PHOTO_N * PHOTO_N * 2];
 	char head[600];
-	int f, i, n, ok;
+	int i, n;
+	PKENT k;
 	n = snprintf(head, sizeof(head), "ECPHOTO 1\nUID=%.98s\nBOOK=%d\nKEY=%08lX\nCETAG=%.98s\nIETAG=%.98s\n"
 		     "ILMOD=%.38s\nLINK=%d\nSTATE=%s\nWHY=%d\nDEC=%d\n\n", uid_of(c), books[c->book].id, c->photo_key,
 		     card_etag(c), ietag ? ietag : "", ilmod ? ilmod : "", link, img ? "OK" : "FAIL", img ? 0 : photo_why,
 		     PHOTO_DECODER);
-	f = pf_open(path, PF_WRITE);
-	if (f < 0)
-		return 0;
-	ok = pf_write(f, head, n) == n;
-	if (ok && img) {
+	if (img)
 		for (i = 0; i < PHOTO_N * PHOTO_N; i++) {
-			b[2 * i] = (unsigned char)(img->px[i] >> 8);
-			b[2 * i + 1] = (unsigned char)img->px[i];
+			pxb[2 * i] = (unsigned char)(img->px[i] >> 8);
+			pxb[2 * i + 1] = (unsigned char)img->px[i];
 		}
-		ok = pf_write(f, b, sizeof(b)) == (long)sizeof(b);
-	}
-	pf_close(f);
-	if (!ok)
-		pf_remove(path);
-	return ok;
+	memset(&k, 0, sizeof(k));
+	k.name = name_of(c);
+	k.key = c->photo_key;
+	k.cetag = pack_hash(card_etag(c));
+	k.book = books[c->book].id;
+	k.failed = !img;
+	k.why = (unsigned char)(img ? 0 : photo_why);
+	k.dec = PHOTO_DECODER;
+	k.link = (unsigned char)link;
+	return pack_put(&k, head, n, img ? pxb : 0, img ? (long)sizeof(pxb) : 0L);
 }
 
-/* the cache file is this contact's, with this photo */
+/* the index's entry is this contact's, with this photo (no file read) */
+static int ent_matches(const PKENT *e, const CONTACT *c)
+{
+	return e->key == c->photo_key && e->book == books[c->book].id && !(e->failed && e->dec < PHOTO_DECODER);
+}
+
+/* and the record's UID too */
 static int hdr_matches(const PHDR *h, const CONTACT *c)
 {
-	return h->valid && h->key == c->photo_key && !strcmp(h->uid, uid_of(c)) && h->book == books[c->book].id &&
-	       !(h->failed && h->dec < PHOTO_DECODER);
+	return h->valid && ent_matches(&h->e, c) && !strcmp(h->uid, uid_of(c));
 }
 
 int photo_ready(const CONTACT *c)
 {
-	char path[220];
-	PHDR h;
+	PKENT e;
 	if (!c->photo_key || !pdir[0] || c->book < 0 || c->book >= nbooks)
 		return 0;
-	photo_path(c, path, sizeof(path));
-	return read_hdr(path, &h) && hdr_matches(&h, c) && !h.failed && (!h.link || !strcmp(h.cetag, card_etag(c)));
+	return pack_find(name_of(c), &e) && ent_matches(&e, c) && !e.failed &&
+	       (!e.link || e.cetag == pack_hash(card_etag(c)));
+}
+
+int photo_cached(const CONTACT *c)
+{
+	PKENT e;
+	return pdir[0] && c->book >= 0 && c->book < nbooks && pack_find(name_of(c), &e);
+}
+
+int photo_test_dec(const CONTACT *c, int dec)
+{
+	PHDR h;
+	char head[1024];
+	int was;
+	if (!read_hdr(c, &h) || !pack_read(&h.e, head, sizeof(head), 0, 0))
+		return 0;
+	h.e.dec = (unsigned char)dec;
+	was = pack_batch(0);
+	{
+		char rec[1100];
+		long hl = (long)strlen(head);
+		str_copy(rec, head, sizeof(rec));
+		rec[hl] = '\n';	/* the blank line read cut */
+		pack_put(&h.e, rec, hl + 1, h.px ? pxb : 0, h.px ? (long)sizeof(pxb) : 0L);
+	}
+	pack_batch(was);
+	return 1;
 }
 
 /* send the account's login only to its own server (iCloud's photos are
@@ -868,7 +872,7 @@ int photo_get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how)
 
 static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *cached)
 {
-	char path[220], *raw;
+	char *raw;
 	PHDR h;
 	PHOTOREF ref;
 	long len;
@@ -894,23 +898,22 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 		}
 		completed = 1;
 	}
-	photo_path(c, path, sizeof(path));
-	have = read_hdr(path, &h);
+	have = read_hdr(c, &h);
 	if (!c->photo_key) {
 		/* no photo (any more): its picture goes */
 		if (have)
-			pf_remove(path);
+			pack_drop(name_of(c));
 		return PH_NONE;
 	}
 	if (have && hdr_matches(&h, c)) {
-		int changed = h.link && strcmp(h.cetag, card_etag(c));
+		int changed = h.e.link && h.e.cetag != pack_hash(card_etag(c));
 		if (!changed || !may_fetch) {
 			*cached = 1;
-			if (h.failed) {
-				why(h.why, 0);
+			if (h.e.failed) {
+				why(h.e.why, 0);
 				return PH_FAILED;
 			}
-			return load_px(path, &h, out) ? PH_OK : PH_FAILED;
+			return load_px(&h, out) ? PH_OK : PH_FAILED;
 		}
 		/* the card changed and the photo is a link: has the picture? */
 	} else if (have) {
@@ -928,7 +931,7 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 			snprintf(d, sizeof(d), "the PHOTO line isn't data or a web link: %.60s", ref.head);
 			why(PW_OTHER, d);
 		}
-		write_cache(path, c, 0, 0, 0, 0);
+		write_cache(c, 0, 0, 0, 0);
 		return PH_FAILED;
 	}
 	free(raw);
@@ -936,13 +939,13 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 		unsigned long t = pf_ms();
 		if (photo_decode_jpeg(ref.data, ref.len, &ref, out)) {
 			took.dec = pf_ms() - t;
-			write_cache(path, c, 0, 0, 0, out);
+			write_cache(c, 0, 0, 0, out);
 			took.keep = pf_ms() - t - took.dec;
 			r = PH_OK;
 		} else if (conn_stop) {
 			r = PH_NEEDS_NET;	/* stopped: tried again next time */
 		} else {
-			write_cache(path, c, 0, 0, 0, 0);	/* not again until it changes */
+			write_cache(c, 0, 0, 0, 0);	/* not again until it changes */
 		}
 		if (how)
 			*how = completed ? PHH_FETCHED : PHH_DECODED;
@@ -956,15 +959,15 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 		SBUF body;
 		HTTPRESP rs;
 		int st;
-		const PHDR *old = h.valid && !h.failed ? &h : 0;
+		const PHDR *old = h.valid && !h.e.failed ? &h : 0;
 		unsigned long t = pf_ms();
 		sb_init(&body);
 		st = fetch(c, ref.uri, old, &body, &rs);
 		took.pic = pf_ms() - t;
 		took.bytes = body.len ? body.len : 1;
-		if (st == 304 && old && load_px(path, &h, out)) {
+		if (st == 304 && old && load_px(&h, out)) {
 			/* the same picture: the card's new ETag noted */
-			write_cache(path, c, 1, h.ietag, h.ilmod, out);
+			write_cache(c, 1, h.ietag, h.ilmod, out);
 			if (how)
 				*how = PHH_CHECKED;
 			r = PH_OK;
@@ -972,7 +975,7 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 			t = pf_ms();
 			if (photo_decode_jpeg((unsigned char *)body.s, body.len, &ref, out)) {
 				took.dec = pf_ms() - t;
-				write_cache(path, c, 1, rs.etag, rs.lastmod, out);
+				write_cache(c, 1, rs.etag, rs.lastmod, out);
 				took.keep = pf_ms() - t - took.dec;
 				r = PH_OK;
 			} else if (conn_stop) {
@@ -980,7 +983,7 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 			} else {
 				if (photo_why != PW_OK && !photo_why_detail[0])
 					snprintf(photo_why_detail, sizeof(photo_why_detail), "%.40s, %ld bytes", rs.ctype, body.len);
-				write_cache(path, c, 1, rs.etag, rs.lastmod, 0);
+				write_cache(c, 1, rs.etag, rs.lastmod, 0);
 			}
 			if (how)
 				*how = PHH_FETCHED;
@@ -990,8 +993,8 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 			URL u;
 			snprintf(d, sizeof(d), "HTTP %d from %.60s", st, url_parse(ref.uri, &u) ? u.host : "?");
 			why(PW_REFUSED, d);
-			write_cache(path, c, 1, 0, 0, 0);
-		} else if (old && load_px(path, &h, out)) {
+			write_cache(c, 1, 0, 0, 0);
+		} else if (old && load_px(&h, out)) {
 			r = PH_OK;		/* no answer: the picture we have */
 		} else {
 			if (photo_why != PW_NO_ANSWER)
@@ -1005,85 +1008,55 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 
 /* ---------------- tidying ---------------- */
 
-/* the names first, then the removing: TOS doesn't like a folder changed
-   while it is being listed */
-typedef struct {
-	char (*names)[14];
-	int n, max;
-} PRUNE;
-
-static int list_one(const char *name, long size, void *ud)
-{
-	PRUNE *p = ud;
-	(void)size;
-	if (strlen(name) < 5 || strlen(name) > 12 || strcasecmp(name + strlen(name) - 4, ".PIC"))
-		return 0;
-	if (p->n >= p->max) {
-		int max = p->max ? p->max * 2 : 64;
-		char (*nn)[14] = realloc(p->names, max * sizeof(*nn));
-		if (!nn)
-			return 1;
-		p->names = nn;
-		p->max = max;
-	}
-	str_copy(p->names[p->n++], name, 14);
-	return 0;
-}
-
 static int cmp_names(const void *a, const void *b)
 {
-	return strcasecmp((const char *)a, (const char *)b);
+	unsigned long x = *(const unsigned long *)a, y = *(const unsigned long *)b;
+	return x < y ? -1 : x > y;
 }
 
-/* By name alone, no file opened (an ST takes a while over 500): a
-   picture whose contact is gone, or has no photo, goes. One whose photo
-   changed has the same name and is written over when it is next made. */
+static int unwanted(const PKENT *e, void *ud)
+{
+	const unsigned long *want = ((const unsigned long **)ud)[0];
+	long lo = 0, hi = (long)((const unsigned long *)((const unsigned long **)ud)[1]) - 1;
+	while (lo <= hi) {
+		long mid = (lo + hi) / 2;
+		if (want[mid] == e->name)
+			return 0;
+		if (want[mid] < e->name)
+			lo = mid + 1;
+		else
+			hi = mid - 1;
+	}
+	return 1;
+}
+
+/* From the pack's index alone: a picture whose contact is gone, or has
+   no photo, goes (one open, only when there is one). One whose photo
+   changed is replaced when it is next made. */
 int photo_prune(void)
 {
-	PRUNE p;
-	char (*want)[14];
-	int k, i, nw = 0, removed = 0;
+	unsigned long *want;
+	const void *ud[2];
+	int i, nw = 0, removed;
 	if (!pdir[0])
 		return 0;
-	memset(&p, 0, sizeof(p));
-	pf_list(pdir, list_one, &p);
-	if (!p.n)
-		return 0;
 	want = malloc((npeople + 1) * sizeof(*want));
-	if (!want) {
-		free(p.names);
+	if (!want)
 		return 0;
-	}
 	for (i = 0; i < npeople; i++) {
 		const CONTACT *c = people[i];
-		char path[220], *n;
-		if (!c->photo_key || c->book < 0 || c->book >= nbooks)
-			continue;
-		photo_path(c, path, sizeof(path));
-		n = strrchr(path, PF_SEP);
-		str_copy(want[nw++], n ? n + 1 : path, 14);
+		if (c->photo_key && c->book >= 0 && c->book < nbooks)
+			want[nw++] = name_of(c);
 	}
 	qsort(want, nw, sizeof(*want), cmp_names);
-	for (k = 0; k < p.n; k++) {
-		char path[220];
-		int lo = 0, hi = nw - 1, found = 0;
-		while (lo <= hi && !found) {
-			int mid = (lo + hi) / 2, d = strcasecmp(p.names[k], want[mid]);
-			if (!d)
-				found = 1;
-			else if (d < 0)
-				hi = mid - 1;
-			else
-				lo = mid + 1;
-		}
-		if (found)
-			continue;
-		path_join(path, sizeof(path), pdir, p.names[k]);
-		if (pf_remove(path) == 0)
-			removed++;
-	}
+	ud[0] = want;
+	ud[1] = (const void *)(long)nw;
+	removed = pack_each(unwanted, (void *)ud);
 	free(want);
-	free(p.names);
+	if (removed) {
+		pack_flush();
+		pack_tidy();
+	}
 	return removed;
 }
 
@@ -1101,17 +1074,6 @@ static int cmp_targets(const void *a, const void *b)
 	return x->book != y->book ? x->book - y->book : x->order - y->order;
 }
 
-static int name_in(const PRUNE *p, const char *path)
-{
-	const char *n = strrchr(path, PF_SEP);
-	int k;
-	n = n ? n + 1 : path;
-	for (k = 0; k < p->n; k++)
-		if (!strcasecmp(p->names[k], n))
-			return 1;
-	return 0;
-}
-
 #define PS_CHUNK 8	/* cards fetched whole at a time */
 
 int photo_sync_why[PW_N];
@@ -1119,38 +1081,36 @@ int photo_sync_why[PW_N];
 int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 {
 	PTARGET *t;
-	PRUNE have;
 	PHOTOIMG *img;
-	int nt = 0, i, done = 0, made = 0, bad = 0, stop = 0, net = !opt.offline;
+	int nt = 0, i, done = 0, made = 0, bad = 0, stop = 0, net = !opt.offline, job = -1, was, chunk;
 	*failed = 0;
 	memset(photo_sync_why, 0, sizeof(photo_sync_why));
 	if (!pdir[0])
 		return 0;
-	memset(&have, 0, sizeof(have));
-	pf_list(pdir, list_one, &have);
+	pack_check();			/* another EContact may have added some */
 	t = malloc((npeople + 1) * sizeof(PTARGET));
 	img = malloc(sizeof(PHOTOIMG));
 	if (!t || !img) {
 		free(t);
 		free(img);
-		free(have.names);
 		str_copy(ab_err, "out of memory", sizeof(ab_err));
 		return -1;
 	}
+	/* the cards fetched whole at a time: as many as the job's memory
+	   holds (a photo's card is some 10 to 40 KB), one on a 1 MB ST */
+	chunk = (int)(ab_job_bytes / (24L * 1024));
+	chunk = chunk < 1 ? 1 : chunk > PS_CHUNK ? PS_CHUNK : chunk;
 	/* who still needs one: a card without its photo, or one whose
-	   picture isn't made (a header read only where there is a file) */
+	   picture isn't made (the pack's index says, no file read) */
 	for (i = 0; i < npeople; i++) {
 		const CONTACT *c = people[i];
-		char path[220];
 		if (!c->photo_key || c->book < 0 || c->book >= nbooks)
 			continue;
 		if (c->photo_key == VC_KEY_UNKNOWN) {
 			if (!net)
 				continue;
-		} else {
-			photo_path(c, path, sizeof(path));
-			if (name_in(&have, path) && photo_ready(c))
-				continue;
+		} else if (photo_ready(c)) {
+			continue;
 		}
 		t[nt].book = c->book;
 		t[nt].order = i;
@@ -1158,13 +1118,20 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 		if (t[nt].href)
 			nt++;
 	}
-	free(have.names);
 	qsort(t, nt, sizeof(PTARGET), cmp_targets);
+	/* the cards fetched and the pictures made gather in memory, and go
+	   to the files in one go at the end, or when it is full (6.5) */
+	was = pack_batch(1);
 	for (i = 0; i < nt && !stop;) {
 		int k, j, bi = t[i].book, nh = 0;
 		char *hrefs[PS_CHUNK];
+		if (bi != job) {
+			if (job >= 0)
+				book_fetch_job_end();
+			job = book_fetch_job(bi) ? bi : -1;
+		}
 		/* the next few of one book: those without their photo fetched together */
-		for (k = i; k < nt && k < i + PS_CHUNK && t[k].book == bi; k++) {
+		for (k = i; k < nt && k < i + chunk && t[k].book == bi; k++) {
 			CONTACT *c = contact_by_href(bi, t[k].href);
 			if (c && c->photo_key == VC_KEY_UNKNOWN)
 				hrefs[nh++] = t[k].href;
@@ -1216,6 +1183,13 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 		}
 		i = k;
 	}
+	if (job >= 0 && !book_fetch_job_end() && made >= 0) {
+		made = -1;		/* the cards couldn't be kept: fetched again next time */
+		*failed = bad + nt - done;
+	}
+	pack_flush();
+	pack_tidy();
+	pack_batch(was);
 	if (made >= 0) {
 		cb(ud, done, nt, 0);
 		*failed = bad;

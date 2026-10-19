@@ -29,8 +29,17 @@ void pf_close(int h);
 long pf_seek(int h, long off);			/* from the start; new position or < 0 */
 long pf_size(const char *path);			/* -1 if missing */
 unsigned long pf_stamp(const char *path);	/* when it was last written (date, time); 0 if missing */
+/* both from one look at the folder (the guidelines, 6.5): the date as
+   pf_stamp, the size in *size (-1 if missing) */
+unsigned long pf_info(const char *path, long *size);
+/* an open file's size, its position left at the start (common's
+   pf_size_open: pf_load opens first and looks only when that fails) */
+long pf_size_of(int h);
+/* up to n bytes from off: opened, read and closed (tls_read_at) */
+long pf_read_at(const char *path, long off, void *buf, long n);
 int  pf_exists(const char *path);
 int  pf_mkdir(const char *path);		/* 0 ok or already there */
+int  pf_rmdir(const char *path);		/* an empty folder; 0 ok */
 int  pf_remove(const char *path);
 int  pf_rename(const char *from, const char *to);
 /* While a sync runs, the files it opens again and again (the address
@@ -56,6 +65,7 @@ long os_tell(int h);
 long os_seek_end(int h);
 long os_size(const char *path);
 unsigned long os_stamp(const char *path);
+unsigned long os_info(const char *path, long *size);
 int  os_exists(const char *path);
 int  os_remove(const char *path);
 int  os_rename(const char *from, const char *to);
@@ -64,6 +74,7 @@ int  pf_list(const char *dir, int (*cb)(const char *name, long size, void *ud), 
 
 /* whole-file helpers: pf_load returns a malloc'ed NUL-terminated copy */
 char *pf_load(const char *path, long *len);
+extern long (*pf_size_open)(int h);	/* set: pf_load opens first (pf_size_of) */
 int   pf_save(const char *path, const void *data, long len);
 
 /* ---- time ---- */

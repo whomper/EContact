@@ -29,6 +29,7 @@
 #include "version.h"
 #include "carddav.h"
 #include "photo.h"
+#include "photopack.h"
 #include "http.h"
 #include "conn.h"
 #include "secret.h"
@@ -171,11 +172,7 @@ void store_init(const char *dir, const char *inf)
 		path_join(inf_path, sizeof(inf_path), dir, "ECONTACT.INF");
 	path_join(cache_dir, sizeof(cache_dir), dir, "CACHE");
 	pf_mkdir(cache_dir);
-	{
-		char pd[220];
-		path_join(pd, sizeof(pd), cache_dir, "PHOTOS");
-		photo_dir(pd);
-	}
+	photo_dir(cache_dir);		/* the pictures: CACHE\PHOTOS.PAK */
 	path_join(key, sizeof(key), dir, "ECONTACT.KEY");
 	secret_init(key);
 	text = pf_load(inf_path, &len);
@@ -590,6 +587,7 @@ void store_release(void)
 	nbooks = naccts = 0;
 	groups_collect();
 	store_lost_passwords = store_plain_passwords = 0;
+	pack_forget();
 }
 
 /* the files as they are now: ECONTACT.INF, ECONTACT.KEY and the books'
@@ -606,8 +604,11 @@ unsigned long store_stamp(void)
 			path_join(p, sizeof(p), opt.workdir, "ECONTACT.KEY");
 		else
 			cache_path(&books[i], "DAT", p, sizeof(p));
-		h = (h * 33) ^ pf_stamp(p);
-		h = (h * 33) ^ (unsigned long)pf_size(p);
+		{
+			long size;
+			h = (h * 33) ^ pf_info(p, &size);	/* one look a file */
+			h = (h * 33) ^ (unsigned long)size;
+		}
 	}
 	return h;
 }
@@ -707,6 +708,105 @@ int acct_discover(int a)
 
 /* ---------------- the cache files ---------------- */
 
+/* A file written through memory (the guidelines, 6.5): what a job adds
+   gathers here and goes to the file in one open, at the end (out_flush)
+   or when ab_out_max is reached. No file is open meanwhile, so a job's
+   waits and steps need nothing closed or opened again (2.2). With h set
+   it writes straight to that open file (a cache written anew) */
+typedef struct {
+	char path[200];
+	int h;			/* >= 0: straight to this open file */
+	int fresh;		/* the first write makes the file anew */
+	char *m;
+	long n, cap;
+	int ok;
+	long base;		/* where m's first byte goes in the file */
+} OUT;
+
+long ab_out_max = 32L * 1024;
+long ab_job_bytes = 64L * 1024;
+
+static void out_file(OUT *o, const char *path, int fresh)
+{
+	memset(o, 0, sizeof(*o));
+	str_copy(o->path, path, sizeof(o->path));
+	o->h = -1;
+	o->fresh = fresh;
+	o->ok = 1;
+}
+
+static void out_handle(OUT *o, int h)
+{
+	memset(o, 0, sizeof(*o));
+	o->h = h;
+	o->ok = h >= 0;
+}
+
+/* d (n bytes, may be 0) after what is gathered, in one open */
+static int out_put(OUT *o, const void *d, long n)
+{
+	int h;
+	if (!o->ok)
+		return 0;
+	if (!o->n && !n && !o->fresh)
+		return 1;
+	h = pf_open(o->path, o->fresh ? PF_WRITE : PF_APPEND);
+	o->ok = h >= 0 && (!o->n || pf_write(h, o->m, o->n) == o->n) && (!n || pf_write(h, d, n) == n);
+	if (h >= 0)
+		pf_close(h);
+	o->fresh = 0;
+	o->base += o->n + n;
+	o->n = 0;
+	return o->ok;
+}
+
+static int out_flush(OUT *o)
+{
+	return o->h >= 0 ? o->ok : out_put(o, 0, 0);
+}
+
+static int out_write(OUT *o, const void *d, long n)
+{
+	if (!o->ok)
+		return 0;
+	if (o->h >= 0)
+		return pf_write(o->h, d, n) == n;
+	if (o->n + n > ab_out_max)
+		return out_put(o, d, n);	/* the buffer full: written, this with it */
+	if (o->n + n > o->cap) {
+		long cap = o->cap ? o->cap : 2048;
+		char *m;
+		while (cap < o->n + n)
+			cap *= 2;
+		if (cap > ab_out_max)
+			cap = ab_out_max;
+		if (!(m = realloc(o->m, cap)))
+			return out_put(o, d, n);	/* no room: written now */
+		o->m = m;
+		o->cap = cap;
+	}
+	memcpy(o->m + o->n, d, n);
+	o->n += n;
+	return 1;
+}
+
+/* n bytes from off when they are still in memory: 1 */
+static int out_has(const OUT *o, long off, char *buf, long n)
+{
+	if (o->h >= 0 || !o->m || off < o->base || off + n > o->base + o->n)
+		return 0;
+	memcpy(buf, o->m + (off - o->base), n);
+	return 1;
+}
+
+/* its memory let go (what wasn't flushed is dropped) */
+static void out_done(OUT *o)
+{
+	free(o->m);
+	o->m = 0;
+	o->n = o->cap = 0;
+}
+
 /* a buffered reader that knows where it is. Its file is opened when a
    read needs it and closed between the steps of a load (fr_park): an
    accessory's files belong to the program in front, and must not be
@@ -714,14 +814,24 @@ int acct_discover(int a)
 typedef struct {
 	int h;			/* -1: closed, opened again at off */
 	char path[200];
-	char buf[16384];	/* big reads: each GEMDOS call costs, on a floppy most */
+	char *buf;		/* big reads (6.5): each open and read costs */
+	int bsize;
 	int pos, len;
 	long off;		/* file offset of buf[pos] */
-	int chunk;		/* how much a read takes (0: all of buf) */
 } FR;
+
+/* the reader's buffer: 16 KB, or ab_read_bytes (32 KB on a 68030) from
+   the heap while a file is read */
+long ab_read_bytes = 16384;
+static char fr_small[16384];
+static char *fr_big;
 
 static void fr_open(FR *f, const char *path)
 {
+	if (ab_read_bytes > (long)sizeof(fr_small) && !fr_big)
+		fr_big = malloc(ab_read_bytes);
+	f->buf = fr_big ? fr_big : fr_small;
+	f->bsize = fr_big ? (int)ab_read_bytes : (int)sizeof(fr_small);
 	f->h = -1;
 	str_copy(f->path, path, sizeof(f->path));
 	f->pos = f->len = 0;
@@ -741,6 +851,10 @@ static void fr_close(FR *f)
 	fr_park(f);
 	f->path[0] = 0;
 	f->pos = f->len = 0;
+	if (fr_big) {
+		free(fr_big);
+		fr_big = 0;
+	}
 }
 
 static int fr_fill(FR *f)
@@ -755,7 +869,7 @@ static int fr_fill(FR *f)
 			return 0;
 		}
 	}
-	f->len = (int)pf_read(f->h, f->buf, f->chunk > 0 && f->chunk < (int)sizeof(f->buf) ? f->chunk : (int)sizeof(f->buf));
+	f->len = (int)pf_read(f->h, f->buf, f->bsize);
 	f->pos = 0;
 	if (f->len < 0)
 		f->len = 0;
@@ -1063,16 +1177,19 @@ static int idx_current(BOOK *b)
 	char path[200];
 	IDXHEAD hd;
 	int h, ok;
+	if (b->idxcur)
+		return b->idxcur > 0;	/* known from the load or the last write */
 	cache_path(b, "IDX", path, sizeof(path));
 	h = pf_open(path, PF_READ);
 	if (h < 0)
 		return 0;
 	ok = pf_read(h, &hd, sizeof(hd)) == (long)sizeof(hd) && idx_kind(&hd) == 2;
 	pf_close(h);
+	b->idxcur = ok ? 1 : -1;
 	return ok;
 }
 
-static int idx_put(int h, const CONTACT *c, const RESOURCE *r)
+static int idx_put(OUT *h, const CONTACT *c, const RESOURCE *r)
 {
 	static char *buf;
 	static long cap;
@@ -1095,7 +1212,7 @@ static int idx_put(int h, const CONTACT *c, const RESOURCE *r)
 	e.blen = c->bsize;
 	e.hh = r->hh;
 	e.off = r->off;
-	return pf_write(h, &e, sizeof(e)) == (long)sizeof(e) && pf_write(h, buf, n) == n;
+	return out_write(h, &e, sizeof(e)) && out_write(h, buf, n);
 }
 
 /* "1.23 s" */
@@ -1124,7 +1241,8 @@ typedef struct {
 	long datsize, esize;
 	unsigned long at, t[LB_NAMES + 1], t0, tsort;	/* the work's time in each pass */
 	unsigned long names;		/* the names stamp so far */
-	int r, wi, wh, wok;
+	int r, wi, wok;
+	OUT wo;				/* the parsed cache, written through memory */
 	long wneed;			/* the books whose parsed cache is written after the sort */
 	unsigned long wgen[MAXBOOK], wstamp[MAXBOOK];
 	long wsize[MAXBOOK];
@@ -1134,11 +1252,11 @@ typedef struct {
 	RESOURCE *trim;			/* the list of records, no bigger than it is */
 } LD;
 
-static LD ld = { .wh = -1 };
+static LD ld;
 static void sort_begin(void);
 static int sort_step(void);
 static void sort_cancel(void);
-static FR lf;			/* 16 KB: not on the accessory's stack */
+static FR lf;			/* its buffer not on the accessory's stack */
 
 /* the time since the last look, to the pass it went to */
 static void ld_clock(void)
@@ -1195,8 +1313,7 @@ static void ld_book(int bi)
 			p++;
 		ld.gen = *p == ' ' ? strtoul(p + 1, 0, 16) : 0;
 	}
-	ld.datsize = pf_size(path);
-	ld.datstamp = pf_stamp(path);
+	ld.datstamp = pf_info(path, &ld.datsize);
 	{
 		/* room for about as many records as the file holds (a card is
 		   rarely under 400 bytes): growing the list would copy it, a long
@@ -1219,6 +1336,7 @@ static void ld_book(int bi)
 		pf_close(h);
 		if (k >= IDXHEAD_OLD)
 			ld.kind = idx_kind(&hd);
+		b->idxcur = ld.kind == 2 && k == (int)sizeof(hd) ? 1 : -1;
 		if (ld.kind == 2 && k == (int)sizeof(hd))
 			ld.trust = ld.gen ? hd.gen == ld.gen
 					  : !hd.gen && hd.datsize == ld.datsize && hd.datstamp == ld.datstamp && ld.datsize > 0;
@@ -1520,7 +1638,7 @@ static void ld_write(void)
 		ld.wok = 1;
 		ld.wrote = 1;
 		ld.t[LB_WRITE] = 0;
-		ld.wh = pf_open(path, PF_WRITE);
+		out_file(&ld.wo, path, 1);
 		memset(&hd, 0, sizeof(hd));
 		memcpy(hd.magic, IDX_MAGIC, 8);
 		hd.packid = VC_PACK_ID;
@@ -1528,23 +1646,20 @@ static void ld_write(void)
 		hd.gen = ld.wgen[ld.bi];
 		hd.datsize = ld.wsize[ld.bi];
 		hd.datstamp = ld.wstamp[ld.bi];
-		ld.wok = ld.wh >= 0 && pf_write(ld.wh, &hd, sizeof(hd)) == (long)sizeof(hd);
-	} else if (ld.wh < 0 && ld.wok) {
-		ld.wh = pf_open(path, PF_APPEND);
-		ld.wok = ld.wh >= 0;
+		ld.wok = out_write(&ld.wo, &hd, sizeof(hd));
 	}
 	for (; ld.wi < npeople && ld.wok && n < 4; ld.wi++) {
 		CONTACT *c = people[ld.wi];
 		if (c->book == ld.bi && c->res >= 0 && c->res < b->nres) {
-			ld.wok = idx_put(ld.wh, c, &b->res[c->res]);
+			ld.wok = idx_put(&ld.wo, c, &b->res[c->res]);
 			n++;
 		}
 	}
 	if (ld.wok && ld.wi < npeople)
 		return;
-	if (ld.wh >= 0)
-		pf_close(ld.wh);
-	ld.wh = -1;
+	ld.wok = ld.wok && out_flush(&ld.wo);	/* the file in one go */
+	out_done(&ld.wo);
+	b->idxcur = ld.wok ? 1 : -1;
 	if (!ld.wok)
 		pf_remove(path);
 	if (ld.all) {
@@ -1647,16 +1762,11 @@ static void ld_step(void)
 static int ld_run(int (*more)(void))
 {
 	ld.at = pf_ms();
-	/* in steps, 4 KB a read: 16 KB would take an ST's disk a step of its
-	   own (at once, the fewer calls the better) */
-	lf.chunk = more ? 4096 : 0;
+	/* big reads, in steps too (6.5): 16 KB on a 68000, 32 KB on a 68030,
+	   each about a step's time on the disk */
 	while (ld.phase != LB_IDLE && (!more || more()))
 		ld_step();
 	fr_park(&lf);
-	if (ld.wh >= 0) {
-		pf_close(ld.wh);
-		ld.wh = -1;
-	}
 	ld_clock();
 	return ld.phase != LB_IDLE;
 }
@@ -1667,7 +1777,6 @@ void books_load_begin(void)
 	ld.all = 1;
 	ld.last = nbooks - 1;
 	ld.bi = 0;
-	ld.wh = -1;
 	if (nbooks > 0) {
 		status("Reading your contacts...");
 		ld.phase = LB_START;
@@ -1691,14 +1800,12 @@ void books_load_cancel(void)
 {
 	fr_close(&lf);
 	if (ld.phase != LB_IDLE) {
-		if (ld.wh >= 0)
-			pf_close(ld.wh);
+		out_done(&ld.wo);
 		free(ld.next);
 		free(ld.raw);
 		free(ld.trim);
 	}
 	memset(&ld, 0, sizeof(ld));
-	ld.wh = -1;
 	sort_cancel();
 }
 
@@ -1709,7 +1816,6 @@ static void load_one(BOOK *b)
 		ld_run(0);		/* a load in steps finished first */
 	keep = ld;
 	memset(&ld, 0, sizeof(ld));
-	ld.wh = -1;
 	ld.bi = ld.last = (int)(b - books);
 	ld.phase = LB_START;
 	ld_run(0);
@@ -1731,7 +1837,7 @@ void book_load_all(void)
 /* A card into the files: its PHOTO line to the end of the photo file
    (at poff), a stand-in in its place. *at and *n: where the card starts
    in what was written to h, and its length; *plen: the photo's */
-static int rec_write(int h, int ph, long poff, const char *href, const char *etag, const char *raw, long len,
+static int rec_write(OUT *h, OUT *ph, long poff, const char *href, const char *etag, const char *raw, long len,
 		     int *partial, long *at, long *n, long *plen, unsigned long *th)
 {
 	TH t = { 0, 0 };
@@ -1753,24 +1859,24 @@ static int rec_write(int h, int ph, long poff, const char *href, const char *eta
 	hl = snprintf(head, sizeof(head), "R %s\t%s\t%ld\t%c\t%ld\t%ld\n", etag ? etag : "", href, *n,
 		      *partial ? 'P' : 'W', *plen ? poff : -1L, *plen);
 	*at = hl;
-	if (*plen && (ph < 0 || pf_write(ph, raw + s, *plen) != *plen))
+	if (*plen && (!ph || !out_write(ph, raw + s, *plen)))
 		return 0;
-	if (pf_write(h, head, hl) != hl)
+	if (!out_write(h, head, hl))
 		return 0;
 	if (ml) {
-		if (pf_write(h, raw, s) != s || pf_write(h, mark, ml) != ml || pf_write(h, raw + e, len - e) != len - e)
+		if (!out_write(h, raw, s) || !out_write(h, mark, ml) || !out_write(h, raw + e, len - e))
 			return 0;
 		th_add(&t, raw, s);
 		th_add(&t, mark, ml);
 		th_add(&t, raw + e, len - e);
 	} else {
-		if (pf_write(h, raw, len) != len)
+		if (!out_write(h, raw, len))
 			return 0;
 		th_add(&t, raw, len);
 	}
 	if (th)
 		*th = th_end(&t);
-	return pf_write(h, "\n", 1) == 1;
+	return out_write(h, "\n", 1);
 }
 
 /* writing new cache files: header, then resources one by one */
@@ -1821,7 +1927,10 @@ static int cw_open(CW *w, BOOK *b)
 static void cw_add(CW *w, const char *href, const char *etag, const char *raw, long len, int partial)
 {
 	long at, n, plen;
-	if (!rec_write(w->h, w->ph, w->plen, href, etag, raw, len, &partial, &at, &n, &plen, 0))
+	OUT d, p;
+	out_handle(&d, w->h);
+	out_handle(&p, w->ph);
+	if (!rec_write(&d, &p, w->plen, href, etag, raw, len, &partial, &at, &n, &plen, 0))
 		w->failed = 1;
 	w->plen += plen;
 }
@@ -1919,10 +2028,14 @@ static int cache_rewrite(BOOK *b, int drop, const char *href, const char *etag, 
 }
 
 /* adding to the end of the files: a changed contact, or the whole copies
-   of ones fetched in part. Only those are read again */
+   of ones fetched in part. Only those are read again. What is added
+   gathers in memory and is written at aw_close, one open a file (6.5);
+   no file is open in between, so a session may span a network wait or
+   steps */
 typedef struct {
 	BOOK *b;
-	int h, ph, ih;		/* the cards, the photos, the parsed cache (-1: none) */
+	OUT d, p, i;		/* the cards, the photos, the parsed cache */
+	int idx, want;		/* the parsed cache is added to; it was to be */
 	long size, psize;
 	int ok;
 } AW;
@@ -1932,23 +2045,23 @@ static int aw_open(AW *w, BOOK *b)
 	char path[200];
 	memset(w, 0, sizeof(*w));
 	w->b = b;
-	w->ph = w->ih = -1;
 	cache_path(b, "DAT", path, sizeof(path));
-	w->size = pf_size(path);
+	pf_info(path, &w->size);
 	/* written anew when more than half of it is superseded copies */
 	if (w->size <= 0 || b->ver != CACHE_VER || (b->ndead >= 32 && 2 * b->ndead > b->nres))
 		return 0;
-	w->h = pf_open(path, PF_APPEND);
-	if (w->h < 0)
-		return 0;
+	out_file(&w->d, path, 0);
+	w->d.base = w->size;
 	cache_path(b, "PHO", path, sizeof(path));
-	w->psize = pf_size(path);
+	pf_info(path, &w->psize);
 	if (w->psize < 0)
 		w->psize = 0;
-	w->ph = pf_open(path, PF_APPEND);
+	out_file(&w->p, path, 0);
+	w->p.base = w->psize;
 	/* the parsed cache is added to only when it is there, and this kind */
 	cache_path(b, "IDX", path, sizeof(path));
-	w->ih = idx_current(b) ? pf_open(path, PF_APPEND) : -1;
+	w->idx = w->want = idx_current(b);
+	out_file(&w->i, path, 0);
 	w->ok = 1;
 	return 1;
 }
@@ -1957,7 +2070,7 @@ static void aw_drop(AW *w, int r)
 {
 	char head[700];
 	int n = snprintf(head, sizeof(head), "X %s\n", res_href(w->b, &w->b->res[r]));
-	if (w->ok && pf_write(w->h, head, n) != n)
+	if (w->ok && !out_write(&w->d, head, n))
 		w->ok = 0;
 	w->size += n;
 	kill_res(w->b, r);
@@ -1967,7 +2080,6 @@ static void aw_drop(AW *w, int r)
 static int aw_add_pre(AW *w, const char *href, const char *etag, const char *raw, long len, int partial,
 		      CONTACT *pre)
 {
-	char path[200];
 	long at, n, plen;
 	int old, r;
 	unsigned long th;
@@ -1978,7 +2090,7 @@ static int aw_add_pre(AW *w, const char *href, const char *etag, const char *raw
 	old = live_res(w->b, href);
 	if (old >= 0)
 		kill_res(w->b, old);
-	if (!rec_write(w->h, w->ph, w->psize, href, etag, raw, len, &partial, &at, &n, &plen, &th)) {
+	if (!rec_write(&w->d, &w->p, w->psize, href, etag, raw, len, &partial, &at, &n, &plen, &th)) {
 		w->ok = 0;
 		free(pre);
 		return 0;
@@ -1995,12 +2107,8 @@ static int aw_add_pre(AW *w, const char *href, const char *etag, const char *raw
 			add_contact(w->b, r, raw, len);
 		pre = 0;
 		/* and its parsed self at the end of the parsed cache */
-		if (w->ih >= 0 && npeople > before && !idx_put(w->ih, people[npeople - 1], &w->b->res[r])) {
-			pf_close(w->ih);
-			w->ih = -1;
-			cache_path(w->b, "IDX", path, sizeof(path));
-			pf_remove(path);
-		}
+		if (w->idx && npeople > before && !idx_put(&w->i, people[npeople - 1], &w->b->res[r]))
+			w->idx = 0;	/* removed at aw_close */
 	}
 	free(pre);			/* not used: no room in the list */
 	return 1;
@@ -2011,21 +2119,27 @@ static int aw_add(AW *w, const char *href, const char *etag, const char *raw, lo
 	return aw_add_pre(w, href, etag, raw, len, partial, 0);
 }
 
-/* 0: the disk refused the end of a file: the caller writes it all again */
+/* the session's bytes written, one open a file. 0: the disk refused the
+   end of a file: the caller writes it all again */
 static int aw_close(AW *w)
 {
-	pf_close(w->h);
-	if (w->ph >= 0)
-		pf_close(w->ph);
-	if (w->ih >= 0)
-		pf_close(w->ih);
-	if (!w->psize) {
-		char path[200];
-		cache_path(w->b, "PHO", path, sizeof(path));
-		pf_remove(path);
+	int ok = w->ok;
+	/* the photos first: a card is never there without its photo */
+	ok = out_flush(&w->p) && ok;
+	ok = out_flush(&w->d) && ok;
+	if (w->want && (!w->idx || !out_flush(&w->i))) {
+		/* the parsed cache couldn't be added to: made again next time */
+		pf_remove(w->i.path);
+		w->b->idxcur = -1;
 	}
-	return w->ok;
+	out_done(&w->p);
+	out_done(&w->d);
+	out_done(&w->i);
+	return ok;
 }
+
+static AW fj;			/* the job of fetches (book_fetch_job), in memory */
+static int fj_bi = -1;
 
 /* One contact changed (or gone): the new copy is added to the end of the
    cache file, and only that contact is read again. When superseded
@@ -2078,18 +2192,22 @@ char *contact_raw(const CONTACT *c, long *len)
 	if (!r)
 		return 0;
 	b = &books[c->book];
-	cache_path(b, "DAT", path, sizeof(path));
-	h = pf_open(path, PF_READ);
-	if (h < 0)
-		return 0;
 	raw = malloc(r->len + 1);
-	if (raw && !read_at(h, r->off, raw, r->len)) {
-		free(raw);
-		raw = 0;
-	}
-	pf_close(h);
 	if (!raw)
 		return 0;
+	/* a card the job fetched is still in its memory */
+	if (!(fj_bi == c->book && out_has(&fj.d, r->off, raw, r->len))) {
+		cache_path(b, "DAT", path, sizeof(path));
+		h = pf_open(path, PF_READ);
+		if (!read_at(h, r->off, raw, r->len)) {
+			free(raw);
+			raw = 0;
+		}
+		if (h >= 0)
+			pf_close(h);
+		if (!raw)
+			return 0;
+	}
 	raw[r->len] = 0;
 	n = r->len;
 	/* the stand-in: the photo back in its place, or the line out */
@@ -2106,7 +2224,9 @@ char *contact_raw(const CONTACT *c, long *len)
 		}
 		memcpy(out, raw, m - raw);
 		n = m - raw;
-		if (r->plen > 0) {
+		if (r->plen > 0 && fj_bi == c->book && out_has(&fj.p, r->poff, out + n, r->plen)) {
+			n += r->plen;
+		} else if (r->plen > 0) {
 			cache_path(b, "PHO", path, sizeof(path));
 			h = pf_open(path, PF_READ);
 			if (read_at(h, r->poff, out + n, r->plen))
@@ -2347,9 +2467,47 @@ out:
 	return r;
 }
 
+static int aw_open_anew(AW *w, BOOK *b)
+{
+	if (aw_open(w, b))
+		return 1;
+	/* written anew first (superseded copies, or the old kind) */
+	if (cache_rewrite(b, -1, 0, 0, 0, 0, 0) && aw_open(w, b))
+		return 1;
+	if (!ab_err[0])
+		str_copy(ab_err, "can't write the address book's cache", sizeof(ab_err));
+	return 0;
+}
+
+int book_fetch_job(int bi)
+{
+	book_fetch_job_end();
+	if (bi < 0 || bi >= nbooks || !aw_open_anew(&fj, &books[bi]))
+		return 0;
+	fj_bi = bi;
+	return 1;
+}
+
+int book_fetch_job_end(void)
+{
+	BOOK *b;
+	if (fj_bi < 0)
+		return 1;
+	b = &books[fj_bi];
+	fj_bi = -1;
+	if (!aw_close(&fj)) {
+		load_one(b);
+		cache_rewrite(b, -1, 0, 0, 0, 0, 0);
+		people_changed(1);
+		str_copy(ab_err, "couldn't write the address book's cache (disk full?)", sizeof(ab_err));
+		return 0;
+	}
+	return 1;
+}
+
 int book_fetch_whole(BOOK *b, char **hrefs, int n)
 {
-	AW w;
+	AW w, *wp = &w;
 	MG m;
 	DAVAUTH au;
 	int ok;
@@ -2361,7 +2519,9 @@ int book_fetch_whole(BOOK *b, char **hrefs, int n)
 		str_copy(ab_err, "EContact is working offline", sizeof(ab_err));
 		return -1;
 	}
-	if (!aw_open(&w, b)) {
+	if (fj_bi == (int)(b - books)) {
+		wp = &fj;		/* in the job: written at its end */
+	} else if (!aw_open(&w, b)) {
 		/* written anew first (superseded copies, or the old kind) */
 		if (!cache_rewrite(b, -1, 0, 0, 0, 0, 0) || !aw_open(&w, b)) {
 			if (!ab_err[0])
@@ -2371,9 +2531,13 @@ int book_fetch_whole(BOOK *b, char **hrefs, int n)
 	}
 	au = auth_of(b->acct);
 	memset(&m, 0, sizeof(m));
-	m.aw = &w;
+	m.aw = wp;
 	m.b = b;
 	ok = carddav_multiget(b->url, &au, hrefs, n, 0, mget_cb, &m, ab_err, sizeof(ab_err));
+	if (wp == &fj) {
+		people_changed(0);
+		return ok || m.n ? m.n : -1;
+	}
 	if (!aw_close(&w)) {
 		load_one(b);
 		cache_rewrite(b, -1, 0, 0, 0, 0, 0);
@@ -2495,13 +2659,20 @@ static struct {
 	char ctag[100];
 	LCMP l;
 	int pi, wi;			/* the next of l.part, l.whole to fetch */
-	MG m;				/* the cards that came, */
+	MG m;				/* the cards that came, gathered until written */
 	int qi, n, partial;		/* the next to parse or write; how many asked */
+	long bytes;			/* the cards gathered so far */
+	AW aw;				/* writing them: in memory until aw_close */
+	int writing;
 } qs;
 
 static void qs_cards_free(void)
 {
 	int i;
+	if (qs.writing)
+		out_done(&qs.aw.d), out_done(&qs.aw.p), out_done(&qs.aw.i);	/* dropped */
+	qs.writing = 0;
+	qs.bytes = 0;
 	for (i = 0; i < qs.m.nq; i++) {
 		free(qs.m.q[i].c);
 		free(qs.m.q[i].href);
@@ -2560,41 +2731,47 @@ static int qs_gone(BOOK *b, int i)
 	return 1;
 }
 
-/* the cards that came, into the cache's end (one at a time, parsed
-   already: files open only while they are written); first the ones the
-   server no longer has. 1 ok */
-static int qs_write(BOOK *b)
+/* the cards gathered, into the cache's end: a few a step into memory
+   (aw), then the files written in one go (6.5); first the ones the
+   server no longer has. 1 ok, with *done when all is written */
+static int qs_write(BOOK *b, int *done)
 {
-	AW w;
-	int i, ok, gone = 0, k;
-	if (!qs.dropped)
-		for (i = 0; i < b->nres && !gone; i++)
-			gone = qs_gone(b, i);
-	if (!gone && qs.qi >= qs.m.nq) {
-		qs.dropped = 1;
-		return 1;		/* nothing to write */
+	int i, k, gone = 0;
+	*done = 0;
+	if (!qs.writing) {
+		if (!qs.dropped)
+			for (i = 0; i < b->nres && !gone; i++)
+				gone = qs_gone(b, i);
+		if (!gone && qs.qi >= qs.m.nq) {
+			qs.dropped = 1;
+			*done = 1;
+			return 1;	/* nothing to write */
+		}
+		if (!aw_open(&qs.aw, b))
+			return 0;
+		qs.writing = 1;
+		if (!qs.dropped) {
+			qs.dropped = 1;
+			for (i = 0; i < b->nres; i++)
+				if (qs_gone(b, i))
+					aw_drop(&qs.aw, i);
+			return 1;
+		}
 	}
-	if (!aw_open(&w, b))
-		return 0;
-	if (!qs.dropped) {
-		/* (a write of their own) */
-		qs.dropped = 1;
-		for (i = 0; i < b->nres; i++)
-			if (qs_gone(b, i))
-				aw_drop(&w, i);
-		k = 1;
-	} else {
-		k = 0;
-	}
-	for (; k < 1 && qs.qi < qs.m.nq; k++, qs.qi++) {
+	for (k = 0; k < 4 && qs.qi < qs.m.nq; k++, qs.qi++) {
 		QCARD *q = &qs.m.q[qs.qi];
-		aw_add_pre(&w, q->href, q->etag, q->data, q->len, q->partial, q->c);
+		aw_add_pre(&qs.aw, q->href, q->etag, q->data, q->len, q->partial, q->c);
 		q->c = 0;		/* taken */
 	}
-	ok = aw_close(&w);
-	if (!ok)
+	if (qs.qi < qs.m.nq)
+		return 1;
+	qs.writing = 0;
+	*done = 1;
+	if (!aw_close(&qs.aw)) {
 		load_one(b);		/* as the files are; written anew with the window open */
-	return ok;
+		return 0;
+	}
+	return 1;
 }
 
 /* one step: 1 while there is more */
@@ -2657,8 +2834,8 @@ int quiet_sync_step(void)
 		return 1;
 	case QS_FETCH:
 		/* a few at a time, the ones we have in part first: the
-		   answer is kept in memory, no file open while it comes */
-		qs_cards_free();
+		   answer is kept in memory, no file open while it comes;
+		   the cards gather until the job's memory is full */
 		if (qs.pi < qs.l.npart) {
 			qs.n = qs.l.npart - qs.pi < 8 ? qs.l.npart - qs.pi : 8;
 			qs.partial = 1;
@@ -2667,7 +2844,6 @@ int quiet_sync_step(void)
 			qs.partial = 0;
 		}
 		qs.m.b = b;
-		qs.qi = 0;
 		au = auth_of(b->acct);
 		if (qs.n > 0) {
 			if (!carddav_multiget(b->url, &au, qs.partial ? qs.l.part + qs.pi : qs.l.whole + qs.wi, qs.n,
@@ -2685,26 +2861,37 @@ int quiet_sync_step(void)
 		if (qs.qi < qs.m.nq) {
 			QCARD *q = &qs.m.q[qs.qi++];
 			q->c = vcard_parse(q->data, q->len);
+			qs.bytes += q->len + 64;
+			return 1;
+		}
+		if (qs.partial)
+			qs.pi += qs.n;
+		else
+			qs.wi += qs.n;
+		qs.n = 0;
+		/* more to fetch, and room for them: fetched first */
+		if ((qs.pi < qs.l.npart || qs.wi < qs.l.nwhole) && qs.bytes < ab_job_bytes) {
+			qs.st = QS_FETCH;
 			return 1;
 		}
 		qs.qi = 0;
 		qs.st = QS_WRITE;
 		return 1;
-	case QS_WRITE:
-		if (!qs_write(b)) {
+	case QS_WRITE: {
+		int done;
+		if (!qs_write(b, &done)) {
 			qs.failed++;
 			qs_book_done();
 			return 1;
 		}
-		if (qs.qi < qs.m.nq)
+		if (!done)
 			return 1;
-		if (qs.partial)
-			qs.pi += qs.n;
-		else
-			qs.wi += qs.n;
+		qs_cards_free();
+		qs.qi = 0;
 		qs.st = QS_FETCH;
 		if (qs.pi < qs.l.npart || qs.wi < qs.l.nwhole)
 			return 1;
+		}
 		/* a card too big to fetch: the ctag not taken, so it is tried again */
 		str_copy(b->ctag, qs.skipped ? "" : qs.ctag, sizeof(b->ctag));
 		b->synced = now_local();
@@ -2748,6 +2935,15 @@ void quiet_sync_stop(void)
 	if (qs.st == QS_IDLE)
 		return;
 	changed = qs.changed || qs.dropped || qs.pi || qs.wi;
+	if (qs.writing) {
+		/* cards half added: the rest added and the files written, so
+		   the list and the files agree */
+		BOOK *b = &books[qs.bi];
+		int done = 0;
+		while (qs.writing && qs_write(b, &done) && !done)
+			;
+		qs.writing = 0;		/* (closed, or failed and read again) */
+	}
 	quiet_sync_cancel();
 	qs_last = changed;
 	http_close_all();

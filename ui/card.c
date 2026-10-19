@@ -85,7 +85,14 @@ void card_photo_tick(void)
 		status(opt.offline ? "Reading the photo..." : "Getting the photo...");
 	}
 	img = malloc(sizeof(PHOTOIMG));
-	r = img ? photo_get(c, img, !opt.offline, &how) : PH_FAILED;
+	{
+		/* a card kept in part is fetched whole: kept in memory while
+		   its photo is decoded, then written (one open a file) */
+		int job = img && c->photo_key == VC_KEY_UNKNOWN && !opt.offline && book_fetch_job(c->book);
+		r = img ? photo_get(c, img, !opt.offline, &how) : PH_FAILED;
+		if (job)
+			book_fetch_job_end();
+	}
 	if (!quick) {
 		busy(0);
 		status_updated();

@@ -48,6 +48,7 @@ typedef struct {
 	int ndead;		/* superseded records in the cache file (rewritten when many) */
 	int count;		/* contacts in it (not groups) */
 	int lost;		/* in the cache but not read: no memory for them */
+	signed char idxcur;	/* BOOKnnnn.IDX: 1 this kind (added to), -1 not, 0 not known */
 } BOOK;
 
 typedef struct {
@@ -166,6 +167,13 @@ CONTACT *contact_complete(const CONTACT *c);
 /* the cards of b at these hrefs fetched whole (photo_sync_all, a few at
    a time); how many came, -1 and ab_err if none could */
 int  book_fetch_whole(BOOK *b, char **hrefs, int n);
+/* a job of fetches (Sync Contact Photos): book bi's cards fetched whole
+   gather in memory, read from there, and are written at
+   book_fetch_job_end (or when the job's memory is full): one open a file
+   (6.5). 0 if the cache can't be added to; end: 0 with ab_err when the
+   disk refused (then read again as it is) */
+int  book_fetch_job(int bi);
+int  book_fetch_job_end(void);
 /* save e as a new contact in book (old NULL) or over old; the saved
    contact comes back (the list was read again), NULL with ab_err */
 CONTACT *contact_save(const CEDIT *e, CONTACT *old, int book);
@@ -198,6 +206,14 @@ int  group_remove(GROUP *g, CONTACT *c);
 int  group_new(int book, const char *name);	/* -1 on failure, else its index */
 int  group_rename(GROUP *g, const char *name);
 int  group_delete(GROUP *g);			/* the group, not its members */
+
+/* ---- memory for bulk work (the guidelines, 6.5) ----
+ * ab_job_bytes: what a refresh or a photo sync gathers in memory before
+ * it writes; ab_out_max: each file's write buffer. The UI sets them from
+ * the memory there is (the accessory's heap) */
+extern long ab_job_bytes, ab_out_max;
+/* the cache's reads: 16 KB on a 68000, 32 KB on a 68030 (6.5) */
+extern long ab_read_bytes;
 
 /* ---- for EMail and ECal (PEOPLE, ui/answer.c) ----
  * people_names_stamp: the names and addresses in one number; it changes

@@ -2,8 +2,9 @@
  * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * photo.h - contacts' pictures: the JPEG a vCard carries (or links to),
- * decoded once into a small picture and kept in CACHE\PHOTOS, so a card
- * shows it at once the next time.
+ * decoded once into a small picture and kept in CACHE\PHOTOS.PAK
+ * (photopack.c: one file with an index), so a card shows it at once the
+ * next time.
  *
  * A card's PHOTO is
  *   in the card:  PHOTO;ENCODING=b;TYPE=JPEG:/9j/4AAQ...   (3.0, as the
@@ -67,7 +68,8 @@ extern char photo_why_detail[100];	/* "HTTP 401", the host...: for the log */
 const char *photo_why_text(int why);
 int  photo_kind(const unsigned char *d, long n);	/* PW_OK for a JPEG */
 
-/* where the pictures are kept (store_init sets it: CACHE\PHOTOS) */
+/* the folder the pictures are kept in (store_init sets it: CACHE; the
+   pack is PHOTOS.PAK there) */
 void photo_dir(const char *dir);
 
 /* the picture of c: from the cache when it is still right, else made
@@ -89,7 +91,9 @@ int  photo_sync_all(PHOTO_CB cb, void *ud, int *failed);
 extern int photo_sync_why[];
 /* the pictures of contacts that are gone, or have no photo any more */
 int  photo_prune(void);
-/* the cache file of c (for the tests) */
-void photo_path(const CONTACT *c, char *out, int size);
+/* for the tests: c has a picture (or a failure) in the pack; its
+   record's decoder number made dec */
+int  photo_cached(const CONTACT *c);
+int  photo_test_dec(const CONTACT *c, int dec);
 
 #endif

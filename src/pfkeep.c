@@ -220,6 +220,33 @@ unsigned long pf_stamp(const char *path)
 	return os_stamp(path);
 }
 
+unsigned long pf_info(const char *path, long *size)
+{
+	let_go(path);
+	return os_info(path, size);
+}
+
+long pf_size_of(int h)
+{
+	long n;
+	h = real(h);
+	if (h < 0 || (n = os_seek_end(h)) < 0 || os_seek(h, 0) != 0)
+		return -1;
+	return n;
+}
+
+long pf_read_at(const char *path, long off, void *buf, long n)
+{
+	int h = pf_open(path, PF_READ);
+	long r = -1;
+	if (h < 0)
+		return -1;
+	if (pf_seek(h, off) == off)
+		r = pf_read(h, buf, n);
+	pf_close(h);
+	return r;
+}
+
 int pf_exists(const char *path)
 {
 	let_go(path);
