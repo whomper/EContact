@@ -190,7 +190,7 @@ def main():
     # written (the photos, the cards and the pack through the job's
     # memory: 64 KB on a Falcon or TT, 24 KB on a 1 MB ST, the log 4 KB)
     made = len(pack_pictures(os.path.join(folder, "CACHE", "PHOTOS.PAK")))
-    budget = (16, 8 + made // 2)
+    budget = (16, 12 + made // 2)	# (+ a log written each 16 KB on a long sync)
     if opened and "ACCF_WAIT" not in os.environ:
         check("the refresh within its budget (%s of %d opens)" % (opened[0], budget[0]), int(opened[0]) <= budget[0])
     if len(opened) >= 2 and "ACCF_WAIT" not in os.environ:

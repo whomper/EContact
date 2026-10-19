@@ -13,7 +13,6 @@
 #define ENT 28			/* an index entry in the file */
 #define MAXENT 32000
 
-void photo_migrate(const char *pack);	/* photomig.c: the old CACHE\PHOTOS, once */
 
 long pack_buf_max = 64L * 1024;
 
@@ -91,10 +90,8 @@ static void load(void)
 	if (!ppath[0])
 		return;
 	h = pf_open(ppath, PF_READ);
-	if (h < 0) {
-		photo_migrate(ppath);	/* the old CACHE\PHOTOS, the first time */
+	if (h < 0)
 		return;
-	}
 	size = pf_size_of(h);
 	fresh = 1;		/* written anew unless it reads as it should */
 	if (size >= HEAD && pf_read(h, hd, HEAD) == HEAD && !memcmp(hd, "ECPACK 1", 8)) {

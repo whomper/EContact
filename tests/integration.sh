@@ -366,32 +366,6 @@ PY
   R=$($CLI "$P" photo "Pat Many2" offline)
   expect "its new photo, without asking again" "ok decoded TL=blue" "$R"
 
-  # TEMPORARY (src/photomig.c, 1.50): 1.49's CACHE\PHOTOS, a .PIC a
-  # picture, moved into the pack the first time. Goes with photomig.c
-  echo "1.49's pictures moved into PHOTOS.PAK"
-  python3 - "$P/CACHE" <<'PY'
-import os, struct, sys
-cache = sys.argv[1]
-pak = open(os.path.join(cache, "PHOTOS.PAK"), "rb").read()
-off, n = struct.unpack(">II", pak[8:16])
-os.makedirs(os.path.join(cache, "PHOTOS"))
-for i in range(n):
-    name, key, cetag, roff, rlen = struct.unpack(">IIIII", pak[off + 28 * i:off + 28 * i + 20])
-    open(os.path.join(cache, "PHOTOS", "P%07X.PIC" % name), "wb").write(pak[roff:roff + rlen])
-os.remove(os.path.join(cache, "PHOTOS.PAK"))
-print(n)
-PY
-  N=$(ls "$P/CACHE/PHOTOS" | wc -l)
-  if [ "$N" -ge 6 ]; then ok "1.49's files ($N)"; else bad "only $N .PIC files"; fi
-  R=$($CLI "$P" photo "Pat Many3" offline)
-  expect "a picture from 1.49's file, as it was" "ok cache TL=red TR=green BL=blue BR=yellow" "$R"
-  R=$($CLI "$P" photo "Pat Social" offline)
-  expect "and another" "ok cache TL=blue" "$R"
-  if [ -d "$P/CACHE/PHOTOS" ]; then bad "the PHOTOS folder is still there"; else ok "the PHOTOS folder gone"; fi
-  if [ -s "$P/CACHE/PHOTOS.PAK" ]; then ok "PHOTOS.PAK made"; else bad "no PHOTOS.PAK"; fi
-  R=$($CLI "$P" photo-sync)
-  expect "nothing left to make after" "made 0 failed 0" "$R"
-
   echo "a server that refuses partial retrieval; little memory"
   noise() { python3 -c "
 from PIL import Image; import os, sys

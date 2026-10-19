@@ -190,16 +190,47 @@ void pf_close(int h)
 		drop(e);	/* written into its folder now and then */
 }
 
+/* No transfer bigger than PF_PIECE: a hard disk driver moves one to or
+   from TT/Fast RAM through a bounce buffer in ST RAM (the _FRB cookie's,
+   often 64 KB), and on Erez's Falcon (DFB1) a 256 KB write of
+   PHOTOS.PAK from ECONTACT.PRG crashed TOS in low ST RAM (1.50). The
+   file is still opened once; only the GEMDOS calls are more */
+#define PF_PIECE (32L * 1024)
+
 long pf_read(int h, void *buf, long n)
 {
+	long got = 0, r, k;
 	h = real(h);
-	return h < 0 ? -1 : os_read(h, buf, n);
+	if (h < 0)
+		return -1;
+	while (got < n) {
+		k = n - got < PF_PIECE ? n - got : PF_PIECE;
+		r = os_read(h, (char *)buf + got, k);
+		if (r < 0)
+			return got ? got : r;
+		got += r;
+		if (r < k)
+			break;		/* the end of the file */
+	}
+	return got;
 }
 
 long pf_write(int h, const void *buf, long n)
 {
+	long put = 0, r, k;
 	h = real(h);
-	return h < 0 ? -1 : os_write(h, buf, n);
+	if (h < 0)
+		return -1;
+	while (put < n) {
+		k = n - put < PF_PIECE ? n - put : PF_PIECE;
+		r = os_write(h, (const char *)buf + put, k);
+		if (r < 0)
+			return put ? put : r;
+		put += r;
+		if (r < k)
+			break;		/* the disk is full */
+	}
+	return put;
 }
 
 long pf_seek(int h, long off)

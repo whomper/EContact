@@ -828,6 +828,28 @@ static void test_photopack(void)
 	rmdir(dir);
 }
 
+/* big reads and writes go in pieces (a bounce buffer's size, pfkeep.c):
+   all of it arrives, and a read past the end stops there */
+static void test_pieces(void)
+{
+	char dir[] = "/tmp/econtact-pieceXXXXXX", path[300];
+	static char out[100000], in[100010];
+	long i;
+	int h;
+	CHECK(mkdtemp(dir) != 0);
+	snprintf(path, sizeof(path), "%s/BIG.DAT", dir);
+	for (i = 0; i < (long)sizeof(out); i++)
+		out[i] = (char)(i * 7 + i / 251);
+	h = pf_open(path, PF_WRITE);
+	CHECK(h >= 0 && pf_write(h, out, sizeof(out)) == (long)sizeof(out));
+	pf_close(h);
+	h = pf_open(path, PF_READ);
+	CHECK(h >= 0 && pf_read(h, in, sizeof(in)) == (long)sizeof(out) && !memcmp(in, out, sizeof(out)));
+	pf_close(h);
+	remove(path);
+	rmdir(dir);
+}
+
 int main(void)
 {
 	test_parse_icloud();
@@ -843,6 +865,7 @@ int main(void)
 	test_pack();
 	test_photopack();
 	test_park();
+	test_pieces();
 	printf("%d checks, %d failed\n", checks, fails);
 	return fails != 0;
 }

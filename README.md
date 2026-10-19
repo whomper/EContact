@@ -208,7 +208,7 @@ average alone: a progressive JPEG's first scan has them all, so the rest of the 
 and HEIC aren't shown; the reason for each photo that isn't is in the status line, the closing alert
 and the log. That picture (8 KB) is kept in one file for all of them, `CACHE\PHOTOS.PAK`, whose index
 EContact holds in memory, and dithered for the screen when shown. (Up to 1.49 each had a file of its
-own in `CACHE\PHOTOS`; 1.50 moves them into the pack the first time.)
+own in `CACHE\PHOTOS`: that folder can be deleted, and Sync Contact Photos makes them again.)
 
 Keeping it right:
 

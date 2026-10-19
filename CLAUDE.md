@@ -141,10 +141,8 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   guidelines 6.5: many small items in one file with an index): records
   only ever added after the old index, then a new index and the header in
   one open, so a reset leaves the old index whole; the index is held in
-  memory, so whether a contact has its picture costs no file. src/photomig.c
-  moves 1.49's CACHE\PHOTOS\*.PIC into it once: TEMPORARY, one call (in
-  photopack.c's load), its test the block marked TEMPORARY in
-  tests/integration.sh; remove all three when the hub asks.
+  memory, so whether a contact has its picture costs no file. 1.49's
+  CACHE\PHOTOS isn't read (Erez: the cache is deleted and made again).
 - The photo cache's rules (photo.h) are tested by `make itest`: a change to
   them needs the tests to say so.
 - Syncing fetches cards without their photos (abook.c, CardDAV partial
