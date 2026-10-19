@@ -1060,7 +1060,6 @@ static void inf_folder(char *out, int size)
 }
 
 static char boot_start[12];	/* START= as ECONTACT.INF had it at boot */
-static char boot_font[8];	/* FONT_ID=: the GDOS fonts loaded at boot or never */
 
 static void find_workdir(void)
 {
@@ -1068,10 +1067,9 @@ static void find_workdir(void)
 	short drv = (short)Dgetdrv(), boot = boot_drive();
 	snprintf(inf_file, sizeof(inf_file), "%c:\\ECONTACT.INF", 'A' + boot);
 	if (is_acc) {
-		inf_read(inf_file);	/* once: FOLDER=, START=, FONT_ID=, HEAPKB= */
+		inf_read(inf_file);	/* once: FOLDER=, START=, HEAPKB=, MEMKB= */
 		inf_folder(workdir, sizeof(workdir));
 		inf_value("start=", boot_start, sizeof(boot_start));
-		inf_value("font_id=", boot_font, sizeof(boot_font));
 		if (inf_n < 0) {
 			/* settings in the folder instead (copied there, or written
 			   by card-cli): taken to the root at the first opening */
@@ -1793,7 +1791,7 @@ int main(void)
 	ch = gl_hchar;
 	vdi_h = v_opnvwk_(vdi_h, work_out);
 	if (is_acc)
-		font_boot(boot_font[0] ? (short)atoi(boot_font) : 1);	/* before the first event call */
+		font_boot();	/* before the first event call */
 	scr_w = work_out[0] + 1;
 	scr_h = work_out[1] + 1;
 	ncolors = work_out[13];
