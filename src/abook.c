@@ -759,6 +759,11 @@ static int out_put(OUT *o, const void *d, long n)
 	o->fresh = 0;
 	o->base += o->n + n;
 	o->n = 0;
+	if (ab_out_max <= 8L * 1024) {
+		free(o->m);		/* little memory (a 1 MB ST): back at once */
+		o->m = 0;
+		o->cap = 0;
+	}
 	return o->ok;
 }
 
@@ -1035,9 +1040,37 @@ static int add_parsed(BOOK *b, int r, CONTACT *c)
 	return 1;
 }
 
+/* a card as the cache keeps it: its photo a one-line stand-in. The same
+   contact (vcard.c reads the stand-in's fingerprint), but the photo's
+   tens of kilobytes aren't copied and unfolded again: on a 1 MB ST that
+   memory isn't there, and on any Atari it takes time */
+static CONTACT *parse_kept(const char *raw, long len)
+{
+	long s = 0, e = 0, n;
+	char mark[40], *t;
+	int ml;
+	CONTACT *c;
+	if (!vcard_photo_span(raw, len, &s, &e))
+		return vcard_parse(raw, len);
+	if (vcard_photo_empty(raw + s, e - s))
+		ml = snprintf(mark, sizeof(mark), "%s:?\r\n", VC_PHOTO_MARK);
+	else
+		ml = snprintf(mark, sizeof(mark), "%s:%08lX\r\n", VC_PHOTO_MARK, vcard_photo_key(raw + s, e - s));
+	n = s + ml + (len - e);
+	if (!(t = malloc(n + 1)))
+		return vcard_parse(raw, len);
+	memcpy(t, raw, s);
+	memcpy(t + s, mark, ml);
+	memcpy(t + s + ml, raw + e, len - e);
+	t[n] = 0;
+	c = vcard_parse(t, n);
+	free(t);
+	return c;
+}
+
 static int add_contact(BOOK *b, int r, const char *raw, long len)
 {
-	CONTACT *c = vcard_parse(raw, len);
+	CONTACT *c = parse_kept(raw, len);
 	if (!c) {
 		if (!vcard_nomem)
 			return 0;
@@ -2892,7 +2925,7 @@ int quiet_sync_step(void)
 		/* one card a step, as at start-up */
 		if (qs.qi < qs.m.nq) {
 			QCARD *q = &qs.m.q[qs.qi++];
-			q->c = vcard_parse(q->data, q->len);
+			q->c = parse_kept(q->data, q->len);
 			qs.bytes += q->len + 64;
 			return 1;
 		}

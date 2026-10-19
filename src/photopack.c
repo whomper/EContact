@@ -352,8 +352,8 @@ int pack_flush(void)
 	pn = 0;
 	dirty = 0;
 	fresh = 0;
-	if (!batch) {
-		free(pbuf);		/* the memory back until the next job */
+	if (!batch || pack_buf_max <= 8L * 1024) {
+		free(pbuf);		/* the memory back until the next job (a 1 MB ST: at once) */
 		pbuf = 0;
 		pcap = 0;
 	}
