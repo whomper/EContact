@@ -1130,7 +1130,10 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 	if (!pdir[0])
 		return 0;
 	pack_check();			/* another EContact may have added some */
-	photo_hold(1);			/* the decoder's memory first, in one piece */
+	/* the decoder's memory first, in one piece (with little memory, a
+	   1 MB ST, taken for each photo instead: the answers need the room) */
+	if (ab_job_bytes > 24L * 1024)
+		photo_hold(1);
 	t = malloc((npeople + 1) * sizeof(PTARGET));
 	img = malloc(sizeof(PHOTOIMG));
 	if (!t || !img) {

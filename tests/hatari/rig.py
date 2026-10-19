@@ -46,9 +46,11 @@ def machine_arg(argv, i, default):
 
 
 class Rig:
-    def __init__(self, work, machine="ST", display=":99", extra=(), auto="C:\\ECONTACT.PRG",
+    def __init__(self, work, machine="ST", display=None, extra=(), auto="C:\\ECONTACT.PRG",
                  network=False):
         """Hatari as MACHINE with WORK/hd as C:; screenshots in WORK/shots"""
+        # RIG_DISPLAY=:98 runs a second rig beside one on :99
+        display = display or os.environ.get("RIG_DISPLAY", ":99")
         self.work, self.display = work, display
         self.machine = machines.Machine(machine, os.path.join(work, "hd"))
         self.env = self.machine.env(dict(os.environ, DISPLAY=display, SDL_VIDEODRIVER="x11",
