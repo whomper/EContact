@@ -20,13 +20,12 @@
  * NVDI for its Hebrew letters by Unicode; when it has none, they are
  * drawn in the system font in the same cells.
  *
- * The accessory loads the GDOS fonts as the Atari starts, before its
- * first event call (font_boot), whenever there is a GDOS: later,
- * FONTGDOS and SpeedoGDOS would give their memory to the program in
- * front, which frees it when it ends (the guidelines, 2.2). So its
- * Font... is the program's (Erez: the same features in both). Only
- * when they couldn't be loaded then does its selector list the fonts
- * ECONTACT.FNT knows, one chosen there used from the next start.
+ * The accessory loads GDOS fonts only as the Atari starts, before its
+ * first event call, and only when ECONTACT.INF names one (FONT_ID=,
+ * font_boot): later, FONTGDOS and SpeedoGDOS would give their memory to
+ * the program in front, which frees it when it ends (the guidelines,
+ * 2.2). Without them its selector lists the fonts ECONTACT.FNT knows,
+ * and one chosen there is used from the next start.
  */
 #include <string.h>
 #include <stdio.h>
@@ -146,9 +145,9 @@ void font_reselect(void)
 
 /* the accessory, before its first event call: the GDOS fonts when its
    settings name one, else never */
-void font_boot(void)
+void font_boot(short id)
 {
-	if (vq_gdos())
+	if (id > 1 && vq_gdos())
 		gdos_fonts = vst_load_fonts(vdi_h, 0);
 }
 
@@ -302,9 +301,6 @@ static void known_families(void)
 static void list_families(void)
 {
 	short i, k;
-	if (gdos_fonts < 0 && is_acc)
-		nfam = 0;	/* ECONTACT.FNT read each time: the program may have
-				   written it since (it looked at the fonts) */
 	if (nfam)
 		return;
 	fam[0].id = 1;
@@ -649,10 +645,6 @@ static void draw_type(void)
 			 heb_why == HW_NOHEB ? "in the system font (none in it)" :
 			 heb_why == HW_NOLOOKUP ? "in the system font (no NVDI 5)" : "as the font has it");
 		use_sys();
-	} else if (f->id == 1 && nfam == 1 && is_acc && gdos_fonts < 0 && vq_gdos()) {
-		/* none known yet: the accessory doesn't load fonts after the
-		   start (2.2), the program's Font... looks at them for it */
-		snprintf(type_line, sizeof(type_line), "System; GDOS fonts: Font... in ECONTACT.PRG once");
 	} else {
 		snprintf(type_line, sizeof(type_line), "%s", format_name(f));
 	}
