@@ -1618,8 +1618,10 @@ static void open_window(void)
 		if (quiet_sync_changed())
 			quiet_sorted();
 	}
-	if (first)
+	if (first) {
 		files_check();
+		pack_check();		/* PHOTOS.PAK written by the program meanwhile */
+	}
 	if (!settings_ready)
 		if (!load_settings(0))
 			return;		/* no folder: cancelled */
