@@ -19,6 +19,8 @@
 #include "jpegdc.h"
 #include "conn.h"
 
+static void why(int w, const char *detail);
+
 static char pdir[200];		/* the cache's folder: "" until set */
 
 void photo_dir(const char *dir)
@@ -254,8 +256,10 @@ int photo_ref(char *raw, long len, PHOTOREF *ref)
 		if (enc[0] == 'b' || enc[0] == 'B') {
 			ref->len = b64_in_place(vs, vn);
 			ref->data = malloc(ref->len + 1);
-			if (!ref->data)
+			if (!ref->data) {
+				why(PW_MEMORY, "the photo is too big for the memory left");
 				return 0;
+			}
 			memcpy(ref->data, vs, ref->len);
 			ref->kind = PR_DATA;
 			ref->fmt = fmt_of(type, ref->data, ref->len);
@@ -926,6 +930,8 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 	}
 	if (!photo_ref(raw, len, &ref)) {
 		free(raw);
+		if (photo_why == PW_MEMORY)
+			return PH_FAILED;	/* tried again another time */
 		{
 			char d[100];
 			snprintf(d, sizeof(d), "the PHOTO line isn't data or a web link: %.60s", ref.head);
@@ -944,9 +950,9 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 			r = PH_OK;
 		} else if (conn_stop) {
 			r = PH_NEEDS_NET;	/* stopped: tried again next time */
-		} else {
+		} else if (photo_why != PW_MEMORY) {
 			write_cache(c, 0, 0, 0, 0);	/* not again until it changes */
-		}
+		}				/* (no memory now: tried again another time) */
 		if (how)
 			*how = completed ? PHH_FETCHED : PHH_DECODED;
 		free(ref.data);
@@ -983,7 +989,8 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 			} else {
 				if (photo_why != PW_OK && !photo_why_detail[0])
 					snprintf(photo_why_detail, sizeof(photo_why_detail), "%.40s, %ld bytes", rs.ctype, body.len);
-				write_cache(c, 1, rs.etag, rs.lastmod, 0);
+				if (photo_why != PW_MEMORY)
+					write_cache(c, 1, rs.etag, rs.lastmod, 0);
 			}
 			if (how)
 				*how = PHH_FETCHED;
