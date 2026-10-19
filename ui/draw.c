@@ -9,9 +9,11 @@
  */
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "ui.h"
 #include "../src/photo.h"
 #include "bidi.h"
+#include "conn.h"
 
 static short next_text_color = 1;
 
@@ -332,6 +334,17 @@ static void pens_init(void)
 		}
 		if (grey_dark == 1 && grey_light != 1)
 			grey_dark = grey_light;	/* only one grey: for both */
+	}
+	{
+		/* in the log: the greys as the VDI said them (NVDI drew the
+		   chosen address book's light grey bar black on a Falcon) */
+		short d[3], l[3];
+		char m[120];
+		vq_color(vdi_h, grey_dark, d);
+		vq_color(vdi_h, grey_light, l);
+		snprintf(m, sizeof(m), "pens: %d colours (%d planes); grey dark %d (%d %d %d), light %d (%d %d %d)",
+			 ncolors, planes, grey_dark, d[0], d[1], d[2], grey_light, l[0], l[1], l[2]);
+		conn_log("EContact", "--", m, (long)strlen(m));
 	}
 	for (j = 0; j < NCOLORS; j++) {
 		short k = order[j], pick = -1;
