@@ -541,6 +541,27 @@ static int decode_dc(const unsigned char *jpg, long len, const PHOTOREF *ref, DE
 	return 1;
 }
 
+/* the decoder's two big blocks, taken once for a whole job (photo_hold):
+   taken and let go for each photo, a full heap breaks into pieces too
+   small for them (a 1 MB ST) */
+static void *held_pool;
+static unsigned short *held_sum;
+
+int photo_hold(int on)
+{
+	if (on && !held_pool) {
+		held_pool = malloc(POOL);
+		held_sum = malloc(PHOTO_N * PHOTO_N * 3 * sizeof(unsigned short));
+	}
+	if (!on || !held_pool || !held_sum) {
+		free(held_pool);
+		free(held_sum);
+		held_pool = 0;
+		held_sum = 0;
+	}
+	return held_pool != 0;
+}
+
 int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, PHOTOIMG *out)
 {
 	JDEC jd;
@@ -556,8 +577,11 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 		why(photo_kind(jpg, len), 0);
 		return 0;
 	}
-	pool = malloc(POOL);
-	d.sum = calloc(PHOTO_N * PHOTO_N * 3, sizeof(unsigned short));
+	pool = held_pool ? held_pool : malloc(POOL);
+	if (held_sum && (d.sum = held_sum) != 0)
+		memset(d.sum, 0, PHOTO_N * PHOTO_N * 3 * sizeof(unsigned short));
+	else
+		d.sum = calloc(PHOTO_N * PHOTO_N * 3, sizeof(unsigned short));
 	if (!pool || !d.sum) {
 		why(PW_MEMORY, 0);
 		goto done;
@@ -565,7 +589,8 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 	rc = jd_prepare(&jd, in_fn, pool, POOL, &d);
 	if (rc != JDR_OK) {
 		/* progressive, SOF1, another sampling, CMYK...: the averages */
-		free(pool);
+		if (pool != held_pool)
+			free(pool);
 		pool = 0;
 		dec_how = rc == JDR_FMT3 ? ", the averages (progressive or another kind)" : ", the averages";
 		ok = decode_dc(jpg, len, ref, &d, out);
@@ -590,7 +615,8 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 	if (rc != JDR_OK) {
 		/* damaged as TJpgDec sees it: the averages may still be read */
 		dec_how = ", the averages after TJpgDec failed";
-		free(pool);
+		if (pool != held_pool)
+			free(pool);
 		pool = 0;
 		memset(d.sum, 0, PHOTO_N * PHOTO_N * 3 * sizeof(unsigned short));
 		ok = decode_dc(jpg, len, ref, &d, out);
@@ -601,8 +627,10 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 done:
 	if (!ok && conn_stop)
 		why(PW_NO_ANSWER, "stopped");
-	free(pool);
-	free(d.sum);
+	if (pool != held_pool)
+		free(pool);
+	if (d.sum != held_sum)
+		free(d.sum);
 	free(d.t0);
 	return ok;
 }
@@ -1102,9 +1130,11 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 	if (!pdir[0])
 		return 0;
 	pack_check();			/* another EContact may have added some */
+	photo_hold(1);			/* the decoder's memory first, in one piece */
 	t = malloc((npeople + 1) * sizeof(PTARGET));
 	img = malloc(sizeof(PHOTOIMG));
 	if (!t || !img) {
+		photo_hold(0);
 		free(t);
 		free(img);
 		str_copy(ab_err, "out of memory", sizeof(ab_err));
@@ -1213,6 +1243,7 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 	pack_flush();
 	pack_tidy();
 	pack_batch(was);
+	photo_hold(0);
 	if (made >= 0) {
 		cb(ud, done, nt, 0);
 		*failed = bad;

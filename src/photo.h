@@ -59,6 +59,9 @@ int  photo_ref(char *raw, long len, PHOTOREF *ref);
    0 if it can't be decoded (photo_why says why). TJpgDec reads it, or,
    for the kinds it won't (progressive, SOF1, CMYK...), jpegdc.c */
 int  photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, PHOTOIMG *out);
+/* 1: the decoder's memory (35 KB) taken now and kept for a job's
+   photos; 0: let go. 1 if it is held */
+int  photo_hold(int on);
 
 /* why the last photo_get or photo_decode_jpeg made no picture */
 enum { PW_OK, PW_PNG, PW_HEIC, PW_GIF, PW_WEBP, PW_OTHER, PW_JPEG_KIND, PW_DAMAGED, PW_MEMORY,
