@@ -88,7 +88,8 @@ void card_photo_tick(void)
 	{
 		/* a card kept in part is fetched whole: kept in memory while
 		   its photo is decoded, then written (one open a file) */
-		int job = img && c->photo_key == VC_KEY_UNKNOWN && !opt.offline && book_fetch_job(c->book);
+		int job = img && c->photo_key == VC_KEY_UNKNOWN && !opt.offline && ab_job_bytes > 24L * 1024 &&
+			  book_fetch_job(c->book);	/* (a 1 MB ST: written first, for the decoder's room) */
 		r = img ? photo_get(c, img, !opt.offline, &how) : PH_FAILED;
 		if (job)
 			book_fetch_job_end();

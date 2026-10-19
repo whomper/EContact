@@ -178,6 +178,8 @@ int  book_fetch_job_end(void);
 /* between fetches: what the job holds written when it is more than
    ab_job_bytes (after the photos are made from it) */
 int  book_fetch_job_room(void);
+/* what the job holds written now (a job with little memory) */
+int  book_fetch_job_flush(void);
 /* save e as a new contact in book (old NULL) or over old; the saved
    contact comes back (the list was read again), NULL with ab_err */
 CONTACT *contact_save(const CEDIT *e, CONTACT *old, int book);

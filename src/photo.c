@@ -1158,11 +1158,19 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 					cb(ud, done, nt, 0);	/* stopped: says so */
 					break;
 				}
-				/* no answer: the rest another time */
-				*failed = bad + nt - done;
-				made = -1;
-				break;
+				if (!str_istr(ab_err, "memory")) {
+					/* no answer: the rest another time */
+					*failed = bad + nt - done;
+					made = -1;
+					break;
+				}
+				/* too big for the memory now: these left, the rest go on */
 			}
+			/* little memory (a 1 MB ST): the cards written before their
+			   photos are made, the decoder's room more than the disk's
+			   two reads a photo */
+			if (ab_job_bytes <= 24L * 1024)
+				book_fetch_job_flush();
 		}
 		for (j = i; j < k; j++) {
 			CONTACT *c = contact_by_href(bi, t[j].href);

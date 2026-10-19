@@ -2493,11 +2493,23 @@ int book_fetch_job(int bi)
 	return 1;
 }
 
+static int job_write(void);
+
 int book_fetch_job_room(void)
 {
-	int ok = 1;
 	if (fj_bi < 0 || fj.d.n + fj.p.n + fj.i.n <= ab_job_bytes)
 		return 1;
+	return job_write();
+}
+
+int book_fetch_job_flush(void)
+{
+	return fj_bi < 0 || job_write();
+}
+
+static int job_write(void)
+{
+	int ok = 1;
 	/* the photos first: a card is never there without its photo */
 	ok = out_flush(&fj.p) && ok;
 	ok = out_flush(&fj.d) && ok;
