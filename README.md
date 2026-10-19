@@ -84,6 +84,10 @@ stay as they are.
 of RAM or more (a 512 KB ST can't run it: see [How many contacts](#how-many-contacts)), and TT/Fast RAM
 is used where there is some; STinG or MiNTnet; on an ST or STE, the AERA Raspberry Pi gateway.
 
+**Under TOS, put Atari's `FOLDR100.PRG` first in `AUTO`**, renamed for more room (`FOLDR400.PRG`).
+TOS keeps an entry in a small internal pool for every folder a program or accessory has looked
+into, and halts with "OUT OF INTERNAL MEMORY" when it runs out; FOLDRxxx makes the pool bigger.
+
 ## How it reaches the servers
 
 Contacts servers want HTTPS. EContact uses ECal's code and ECal's way:

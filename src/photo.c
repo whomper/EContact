@@ -308,7 +308,8 @@ typedef struct {
 	/* the square kept, in the scaled picture */
 	long sx0, sy0, side;
 	short *t0, *t1;		/* a row or column of it -> its first and last cell */
-	unsigned short *sum;	/* r, g, b, count per cell (6-bit values summed) */
+	unsigned short *sum;	/* r, g, b per cell (6-bit values summed); its count
+				   is its row's times its column's (cells_out) */
 	short polls;		/* blocks since pf_idle was last called */
 } DEC;
 
@@ -373,11 +374,10 @@ static int out_fn(JDEC *jd, void *bitmap, JRECT *r)
 				continue;
 			for (ty = d->t0[ry]; ty <= d->t1[ry]; ty++)
 				for (tx = d->t0[rx]; tx <= d->t1[rx]; tx++) {
-					unsigned short *s = d->sum + ((ty << 6) + tx) * 4;	/* PHOTO_N is 64 */
+					unsigned short *s = d->sum + ((ty << 6) + tx) * 3;	/* PHOTO_N is 64 */
 					s[0] += q[0] >> 2;
 					s[1] += q[1] >> 2;
 					s[2] += q[2] >> 2;
-					s[3]++;
 				}
 		}
 	}
@@ -481,14 +481,22 @@ static int cells_for(DEC *d, long sx0, long sy0, long side)
 
 static void cells_out(DEC *d, PHOTOIMG *out)
 {
-	int i;
+	unsigned short cnt[PHOTO_N];
+	long i;
+	short c;
+	/* how many of the square's rows (and columns) each cell takes: every
+	   pixel of the square went into the cells it covers, once */
+	memset(cnt, 0, sizeof(cnt));
+	for (i = 0; i < d->side; i++)
+		for (c = d->t0[i]; c <= d->t1[i]; c++)
+			cnt[c]++;
 	for (i = 0; i < PHOTO_N * PHOTO_N; i++) {
-		unsigned short *s = d->sum + i * 4;
+		unsigned short *s = d->sum + i * 3, n = (unsigned short)(cnt[i >> 6] * cnt[i & 63]);
 		unsigned r = 0, g = 0, b = 0;
-		if (s[3]) {
-			r = s[0] / s[3];
-			g = s[1] / s[3];
-			b = s[2] / s[3];
+		if (n) {
+			r = s[0] / n;
+			g = s[1] / n;
+			b = s[2] / n;
 		}
 		/* 6-bit averages to 5-6-5 */
 		out->px[i] = (unsigned short)(((r >> 1) << 11) | (g << 5) | (b >> 1));
@@ -521,11 +529,10 @@ static int decode_dc(const unsigned char *jpg, long len, const PHOTOREF *ref, DE
 			jdc_rgb(j, (int)(d->sx0 + bx), (int)(d->sy0 + by), &r, &g, &b);
 			for (ty = d->t0[by]; ty <= d->t1[by]; ty++)
 				for (tx = d->t0[bx]; tx <= d->t1[bx]; tx++) {
-					unsigned short *s = d->sum + ((ty << 6) + tx) * 4;
+					unsigned short *s = d->sum + ((ty << 6) + tx) * 3;
 					s[0] += r >> 2;
 					s[1] += g >> 2;
 					s[2] += b >> 2;
-					s[3]++;
 				}
 		}
 	}
@@ -550,7 +557,7 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 		return 0;
 	}
 	pool = malloc(POOL);
-	d.sum = calloc(PHOTO_N * PHOTO_N * 4, sizeof(unsigned short));
+	d.sum = calloc(PHOTO_N * PHOTO_N * 3, sizeof(unsigned short));
 	if (!pool || !d.sum) {
 		why(PW_MEMORY, 0);
 		goto done;
@@ -585,7 +592,7 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 		dec_how = ", the averages after TJpgDec failed";
 		free(pool);
 		pool = 0;
-		memset(d.sum, 0, PHOTO_N * PHOTO_N * 4 * sizeof(unsigned short));
+		memset(d.sum, 0, PHOTO_N * PHOTO_N * 3 * sizeof(unsigned short));
 		ok = decode_dc(jpg, len, ref, &d, out);
 		goto done;
 	}
