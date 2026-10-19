@@ -9,7 +9,8 @@ an edition built to time the stretches between its event calls:
         WORK/bin/ECONTACT.ACC WORK/bin/ECONTST.ACC
     tests/hatari/quiet_start.py WORK [MACHINE] [contacts]
 
-600 contacts (by default) and START=5: the accessory reads them in the
+600 contacts (by default; 350 on ST-1, whose 1 MB holds some 410: 1.49
+and 1.50 alike) and START=5: the accessory reads them in the
 background a few seconds after boot, its window closed, then is opened.
 Twice: the first time every card is parsed (card-cli's index is the
 host's), the second they come from the index. Each stretch of 50 ms or
@@ -62,8 +63,8 @@ def cards(path, n):
 def main():
     work = os.path.abspath(sys.argv[1])
     machines = [machine_arg(sys.argv, 2, "")] if len(sys.argv) > 2 else ["ST", "Falcon"]
-    n = int(sys.argv[3]) if len(sys.argv) > 3 else 600
     for machine in machines:
+        n = int(sys.argv[3]) if len(sys.argv) > 3 else 350 if machine.startswith("ST-1") else 600
         st = machine.startswith("ST")          # a 68000: the ST edition
         limit = 100 if st else 50
         d = os.path.join(work, machine.replace(":", "-"))
