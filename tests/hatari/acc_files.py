@@ -196,9 +196,12 @@ def main():
     print("files opened: the refresh %s, Sync Contact Photos %s" % tuple((opened + ["?", "?"])[:2]))
     # the guidelines, 6.5: about one open a file a job, and one a buffer
     # written (the photos, the cards and the pack through the job's
-    # memory: 64 KB on a Falcon or TT, 24 KB on a 1 MB ST, the log 4 KB)
+    # memory: 24 KB on a 1 MB ST to 256 KB with 8 MB free, the log 16 KB)
     made = len(pack_pictures(os.path.join(folder, "CACHE", "PHOTOS.PAK")))
-    budget = (16, 12 + made // 2)	# (+ a log written each 16 KB on a long sync)
+    # a fixed count, and a round of writes each 16 photos or so (the
+    # photos when the job's memory is full, the cards and the parsed cache
+    # when theirs is, the log each 16 KB)
+    budget = (16, 14 + made // 16)
     if opened and "ACCF_WAIT" not in os.environ:
         check("the refresh within its budget (%s of %d opens)" % (opened[0], budget[0]), int(opened[0]) <= budget[0])
     if len(opened) >= 2 and "ACCF_WAIT" not in os.environ:
@@ -221,8 +224,9 @@ def main():
         check("a picture for every photo (%d of %d)" % (len(pics_made), with_photo), len(pics_made) >= with_photo)
     crash = [os.path.join(dd, f) for dd, _, fs in os.walk(hd) for f in fs if f.upper() == "CRASH.LOG"]
     check("no crash (CRASH.LOG)", not crash)
-    left = open_across_aes(os.path.join(d, "trace.txt"), t, st)
-    check("no file open across an AES event call (%s)" % left[1], left[0] == 0)
+    if not prg:		# (2.2 is the accessory's: a program's files are its own)
+        left = open_across_aes(os.path.join(d, "trace.txt"), t, st)
+        check("no file open across an AES event call (%s)" % left[1], left[0] == 0)
     print("screenshots in", os.path.join(d, "shots"))
     print("all passed" if not fails else "%d failed" % fails)
     sys.exit(1 if fails else 0)
