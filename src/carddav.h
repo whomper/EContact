@@ -49,6 +49,9 @@ int carddav_multiget(const char *url, const DAVAUTH *a, char **hrefs, int n, int
 extern long carddav_budget;
 /* cards the last carddav_multiget left out: too big for the memory */
 extern int carddav_skipped;
+/* a whole card's bytes in the last answer (0: none yet): the next
+   carddav_multiget asks for as many as fit at once, not one to learn */
+extern long carddav_card_bytes;
 
 /* store a vCard at href (relative to the address book): etag NULL for
    a new one (fails if it exists), else only if unchanged since. The

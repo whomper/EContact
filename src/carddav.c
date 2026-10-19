@@ -143,6 +143,14 @@ static void parse_multistatus(const char *xml, long n, RESP_FN fn, void *ud)
 
 long carddav_budget = 400000L;
 int carddav_skipped;
+long carddav_card_bytes;
+
+/* whole cards of each bytes (0: not known, some 40 KB) in the budget */
+static int per_budget(long each)
+{
+	long per = carddav_budget / (each > 0 ? each : 40000L);
+	return per < 1 ? 1 : per > 40 ? 40 : (int)per;
+}
 static long dav_max = 1500000L;
 
 static int dav(const char *method, const char *url, const DAVAUTH *a, int depth, const char *body,
@@ -534,11 +542,7 @@ int carddav_multiget(const char *url, const DAVAUTH *a, char **hrefs, int n, int
 	SBUF q, out;
 	long saved = dav_max;
 	carddav_skipped = 0;
-	per = partial ? 40 : (int)(carddav_budget / 40000L);
-	if (per < 1)
-		per = 1;
-	if (per > 40)
-		per = 40;
+	per = partial ? 40 : per_budget(carddav_card_bytes);
 	dav_max = carddav_budget * 3;
 	if (dav_max < 65536L)
 		dav_max = 65536L;
@@ -572,11 +576,7 @@ int carddav_multiget(const char *url, const DAVAUTH *a, char **hrefs, int n, int
 			}
 			if (part && rs.status >= 400 && rs.status != 401 && rs.status != 404) {
 				partial = 0;		/* the server won't: the whole cards */
-				per = (int)(carddav_budget / 40000L);
-				if (per < 1)
-					per = 1;
-				if (per > 40)
-					per = 40;
+				per = per_budget(carddav_card_bytes);
 				continue;
 			}
 			break;
@@ -590,11 +590,9 @@ int carddav_multiget(const char *url, const DAVAUTH *a, char **hrefs, int n, int
 			break;
 		if (m.got && !one_part) {
 			long each = out.len / m.got + 1;
-			per = (int)(carddav_budget / each);
-			if (per < 1)
-				per = 1;
-			if (per > 40)
-				per = 40;
+			if (!part)
+				carddav_card_bytes = each;
+			per = per_budget(each);
 		}
 		one_part = 0;
 		i += cnt;

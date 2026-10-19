@@ -13,6 +13,7 @@
 #include "photo.h"
 #include "photopack.h"
 #include "http.h"
+#include "carddav.h"
 #include "plat.h"
 #include "util.h"
 #include "tjpgd.h"
@@ -1143,10 +1144,6 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 		str_copy(ab_err, "out of memory", sizeof(ab_err));
 		return -1;
 	}
-	/* the cards fetched whole at a time: as many as the job's memory
-	   holds (a photo's card is some 10 to 40 KB), one on a 1 MB ST */
-	chunk = (int)(ab_job_bytes / (24L * 1024));
-	chunk = chunk < 1 ? 1 : chunk > PS_CHUNK ? PS_CHUNK : chunk;
 	/* who still needs one: a card without its photo, or one whose
 	   picture isn't made (the pack's index says, no file read) */
 	for (i = 0; i < npeople; i++) {
@@ -1172,6 +1169,12 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 	for (i = 0; i < nt && !stop;) {
 		int k, j, bi = t[i].book, nh = 0;
 		char *hrefs[PS_CHUNK];
+		/* the cards fetched whole at a time: as many as the job's
+		   memory holds, by the last answer's size once one came (a
+		   photo's card is some 10 to 40 KB); one on a 1 MB ST */
+		chunk = ab_job_bytes <= 24L * 1024 ? 1
+			: (int)(ab_job_bytes / (carddav_card_bytes ? carddav_card_bytes : 24L * 1024));
+		chunk = chunk < 1 ? 1 : chunk > PS_CHUNK ? PS_CHUNK : chunk;
 		if (bi != job) {
 			if (job >= 0)
 				book_fetch_job_end();
