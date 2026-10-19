@@ -268,8 +268,11 @@ name, a company, one or two emails, two phones, some with an address, birthday o
 - **Syncing a big address book** reads the server's list of cards as it arrives when memory is small,
   keeping only what needs fetching.
 - STinG takes 100 KB or more of its own: with it, a 1 MB ST holds about 400 contacts. A 512 KB ST
-  can't run EContact (`ECONTST.ACC` alone is about 440 KB: 220 KB of program, 170 KB of buffers and
+  can't run EContact (`ECONTST.ACC` alone is about 480 KB: 265 KB of program, 180 KB of buffers and
   its 48 KB stack).
+- **With EMail on a 1 MB ST, use `ECONTACT.PRG`, not the accessory.** The accessory and its memory
+  take about 650 KB of the 1 MB for as long as the Atari runs, which leaves too little for EMail to
+  start beside it. With the accessory, EMail needs 2 MB.
 
 ## Building
 
