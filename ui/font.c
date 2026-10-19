@@ -869,6 +869,7 @@ void font_menu(void)
 		}
 	}
 	form_dial(FMD_FINISH, x, y, w, h);
+	clip_off();		/* its lists clipped vdi_h: NVDI clips raster copies too */
 	wind_update(2);
 	wind_update(END_UPDATE);
 	if (ok) {
