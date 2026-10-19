@@ -722,6 +722,7 @@ typedef struct {
 	long n, cap;
 	int ok;
 	long base;		/* where m's first byte goes in the file */
+	long max;		/* written when it holds more (0: ab_out_max) */
 } OUT;
 
 long ab_out_max = 32L * 1024;
@@ -772,14 +773,14 @@ static int out_write(OUT *o, const void *d, long n)
 		return 0;
 	if (o->h >= 0)
 		return pf_write(o->h, d, n) == n;
-	if (o->n + n > ab_out_max)
+	if (o->n + n > (o->max ? o->max : ab_out_max))
 		return out_put(o, d, n);	/* the buffer full: written, this with it */
 	if (o->n + n > o->cap) {
 		long cap = o->cap ? o->cap : 2048;
 		char *m;
 		while (cap < o->n + n)
 			cap *= 2;
-		if (cap > ab_out_max)
+		if (!o->max && cap > ab_out_max)
 			cap = ab_out_max;
 		if (!(m = realloc(o->m, cap)))
 			return out_put(o, d, n);	/* no room: written now */
@@ -2485,8 +2486,26 @@ int book_fetch_job(int bi)
 	book_fetch_job_end();
 	if (bi < 0 || bi >= nbooks || !aw_open_anew(&fj, &books[bi]))
 		return 0;
+	/* held until book_fetch_job_room says, so the cards fetched stay in
+	   memory until their photos are made */
+	fj.d.max = fj.p.max = fj.i.max = 0x7FFFFFFFL;
 	fj_bi = bi;
 	return 1;
+}
+
+int book_fetch_job_room(void)
+{
+	int ok = 1;
+	if (fj_bi < 0 || fj.d.n + fj.p.n + fj.i.n <= ab_job_bytes)
+		return 1;
+	/* the photos first: a card is never there without its photo */
+	ok = out_flush(&fj.p) && ok;
+	ok = out_flush(&fj.d) && ok;
+	if (fj.idx && !out_flush(&fj.i))
+		fj.idx = 0;
+	if (!ok)
+		fj.ok = 0;
+	return ok;
 }
 
 int book_fetch_job_end(void)

@@ -163,11 +163,12 @@ def main():
             synced = wait_for("files opened", 1, 900)
             time.sleep(3)
             r.shot("1-synced")
+            r.key(0x01)			# Esc: an alert there (contacts that don't fit) goes
             # Sync Contact Photos: the menu (the button at the toolbar's right)
             r.click(*MENU)
             time.sleep(2)
             r.shot("2-menu")
-            r.click(*PHOTOS)
+            r.click(PHOTOS[0], PHOTOS_ST if st else PHOTOS[1])
             photod = wait_for("files opened", 2, 1500)
             time.sleep(3)
             r.shot("3-photos")
@@ -205,6 +206,7 @@ def main():
 # where the toolbar's menu button is, and its Sync Contact Photos line
 MENU = (598, 73)
 PHOTOS = (520, 201)
+PHOTOS_ST = 171			# on an ST's 400 lines
 
 
 def pack_pictures(path):
