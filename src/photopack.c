@@ -100,7 +100,8 @@ static void load(void)
 	if (size >= HEAD && pf_read(h, hd, HEAD) == HEAD && !memcmp(hd, "ECPACK 1", 8)) {
 		long off = (long)get32(hd + 8);
 		count = (long)get32(hd + 12);
-		if (off >= HEAD && count >= 0 && count <= MAXENT && off + count * ENT == size && room((int)count + 1) &&
+		/* (more after the index: a write a reset cut short, unused) */
+		if (off >= HEAD && count >= 0 && count <= MAXENT && off + count * ENT <= size && room((int)count + 1) &&
 		    pf_seek(h, off) == off) {
 			for (i = 0; i < count;) {
 				long k = count - i < 32 ? count - i : 32, j;
@@ -129,7 +130,7 @@ static void load(void)
 				nent = (int)count;
 				fsize = size;
 				idxoff = off;
-				dead = (long)get32(hd + 16);
+				dead = (long)get32(hd + 16) + (size - off - count * ENT);
 				fresh = 0;
 			}
 		}

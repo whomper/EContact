@@ -13,6 +13,7 @@
 #include "charset.h"
 #include "util.h"
 #include "photo.h"
+#include "photopack.h"
 #include "photo_vec.h"
 #include "plat.h"
 #include <unistd.h>
@@ -752,6 +753,81 @@ static void test_park(void)
 	rmdir(dir);
 }
 
+/* CACHE\PHOTOS.PAK: records added after the old index, read back; a
+   write cut short leaves the old index whole; written anew when it is
+   mostly unused */
+static int count_ent(const PKENT *e, void *ud)
+{
+	(*(int *)ud)++;
+	return 0;
+}
+
+static void test_photopack(void)
+{
+	char dir[] = "/tmp/econtact-packXXXXXX", path[300], head[200];
+	static unsigned char px[PHOTO_N * PHOTO_N * 2], got[PHOTO_N * PHOTO_N * 2];
+	PKENT e;
+	long size, size2, opens;
+	int i, n = 0;
+	FILE *f;
+	CHECK(mkdtemp(dir) != 0);
+	snprintf(path, sizeof(path), "%s/PHOTOS.PAK", dir);
+	pack_path(path);
+	pack_batch(1);
+	for (i = 0; i < 3; i++) {
+		char h[80];
+		int hl = snprintf(h, sizeof(h), "ECPHOTO 1\nUID=u%d\nSTATE=OK\n\n", i);
+		memset(&e, 0, sizeof(e));
+		e.name = 100 + i;
+		e.key = 0xABC0 + i;
+		memset(px, i + 1, sizeof(px));
+		CHECK(pack_put(&e, h, hl, px, sizeof(px)));
+	}
+	CHECK(pf_size(path) < 0);		/* in memory until the flush */
+	CHECK(pack_find(101, &e) && pack_read(&e, head, sizeof(head), got, sizeof(got)) == 2 && got[0] == 2);
+	opens = pf_opens;
+	CHECK(pack_flush());
+	CHECK(pf_opens == opens + 1);		/* one open for all three */
+	pack_batch(0);
+	pack_forget();
+	CHECK(pack_find(102, &e) && e.key == 0xABC2);
+	CHECK(pack_read(&e, head, sizeof(head), got, sizeof(got)) == 2 && got[100] == 3 && strstr(head, "UID=u2"));
+	CHECK(!pack_find(103, &e));
+	/* a reset half way through a write: bytes after the index */
+	pf_info(path, &size);
+	f = fopen(path, "ab");
+	fwrite("half a record", 1, 13, f);
+	fclose(f);
+	pack_forget();
+	CHECK(pack_find(100, &e) && pack_read(&e, head, sizeof(head), got, sizeof(got)) == 2 && got[0] == 1);
+	/* one replaced again and again: written anew when mostly unused */
+	for (i = 0; i < 12; i++) {
+		char h[80];
+		int hl = snprintf(h, sizeof(h), "ECPHOTO 1\nUID=u1\nSTATE=OK\n\n");
+		memset(&e, 0, sizeof(e));
+		e.name = 101;
+		e.key = 0xBEEF;
+		memset(px, 0x40 + i, sizeof(px));
+		CHECK(pack_put(&e, h, hl, px, sizeof(px)));
+	}
+	pf_info(path, &size);
+	pack_tidy();
+	pf_info(path, &size2);
+	CHECK(size2 < size / 3);
+	pack_forget();
+	CHECK(pack_find(101, &e) && e.key == 0xBEEF && pack_read(&e, head, sizeof(head), got, sizeof(got)) == 2 &&
+	      got[5] == 0x40 + 11);
+	CHECK(pack_find(100, &e) && pack_read(&e, head, sizeof(head), got, sizeof(got)) == 2 && got[0] == 1);
+	pack_each(count_ent, &n);
+	CHECK(n == 3);
+	CHECK(pack_drop(100) && !pack_find(100, &e));
+	pack_forget();
+	CHECK(!pack_find(100, &e) && pack_find(102, &e));
+	pack_path("");
+	pf_remove(path);
+	rmdir(dir);
+}
+
 int main(void)
 {
 	test_parse_icloud();
@@ -765,6 +841,7 @@ int main(void)
 	test_photo_split();
 	test_photo_folds();
 	test_pack();
+	test_photopack();
 	test_park();
 	printf("%d checks, %d failed\n", checks, fails);
 	return fails != 0;
