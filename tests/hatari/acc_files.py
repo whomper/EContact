@@ -200,8 +200,11 @@ def main():
     made = len(pack_pictures(os.path.join(folder, "CACHE", "PHOTOS.PAK")))
     # a fixed count, and a round of writes each 16 photos or so (the
     # photos when the job's memory is full, the cards and the parsed cache
-    # when theirs is, the log each 16 KB)
-    budget = (16, 14 + made // 16)
+    # when theirs is, the log each 16 KB); the accessory on a 4 MB ST has
+    # 64 KB a job (job_memory; Erez, 19 Oct: its memory kept small), about
+    # one round each 2 photos (103 opens for 192)
+    mid = st and not small and not prg
+    budget = (16, 14 + (made // 2 if mid else made // 16))
     if opened and "ACCF_WAIT" not in os.environ:
         check("the refresh within its budget (%s of %d opens)" % (opened[0], budget[0]), int(opened[0]) <= budget[0])
     if len(opened) >= 2 and "ACCF_WAIT" not in os.environ:
