@@ -1150,7 +1150,7 @@ static void job_memory(long free)
 	ab_job_bytes = job;
 	/* a 1 MB ST: little each, so a sync's answers still fit */
 	ab_out_max = job >= 32L * 1024 ? job / 2 : 8L * 1024;
-	pack_buf_max = ab_out_max;
+	pack_buf_max = job >= 32L * 1024 ? job : ab_out_max;	/* 8 KB a picture */
 	carddav_budget = job / 2 > 24L * 1024 ? job / 2 : 24L * 1024;
 }
 

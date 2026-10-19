@@ -183,6 +183,16 @@ def main():
     t = log_text()
     opened = re.findall(r"(\d+) files opened", t)
     print("files opened: the refresh %s, Sync Contact Photos %s" % tuple((opened + ["?", "?"])[:2]))
+    # the guidelines, 6.5: about one open a file a job, and one a buffer
+    # written (the photos, the cards and the pack through the job's
+    # memory: 64 KB on a Falcon or TT, 24 KB on a 1 MB ST, the log 4 KB)
+    made = len(pack_pictures(os.path.join(folder, "CACHE", "PHOTOS.PAK")))
+    small = machine.startswith("ST-1")
+    budget = (16, 6 + made * 5) if small else (16, 8 + made // 2)
+    if len(opened) >= 2 and "ACCF_WAIT" not in os.environ:
+        check("the refresh within its budget (%s of %d opens)" % (opened[0], budget[0]), int(opened[0]) <= budget[0])
+        check("Sync Contact Photos within its budget (%s of %d opens, %d photos)" % (opened[1], budget[1], made),
+              int(opened[1]) <= budget[1])
     check("refreshed with the window open", synced)
     check("Sync Contact Photos ran", photod)
     shutil.copy(os.path.join(hd, "ECONTACT.INF"), os.path.join(folder, "ECONTACT.INF"))	# for card-cli
