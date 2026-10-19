@@ -175,9 +175,10 @@ int  book_fetch_whole(BOOK *b, char **hrefs, int n);
    disk refused (then read again as it is) */
 int  book_fetch_job(int bi);
 int  book_fetch_job_end(void);
-/* between fetches: what the job holds written when it is more than
-   ab_job_bytes (after the photos are made from it) */
-int  book_fetch_job_room(void);
+/* between fetches: what the job holds written when next bytes more
+   (the next round's cards) would take it past ab_job_bytes (after the
+   photos are made from it) */
+int  book_fetch_job_room(long next);
 /* what the job holds written now (a job with little memory) */
 int  book_fetch_job_flush(void);
 /* save e as a new contact in book (old NULL) or over old; the saved

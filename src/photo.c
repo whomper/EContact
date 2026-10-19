@@ -1240,7 +1240,9 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 			done++;
 		}
 		i = k;
-		book_fetch_job_room();	/* written once the job's memory is full */
+		/* written when the next round's cards wouldn't fit: the job's
+		   memory grown past ab_job_bytes took it twice while it moved */
+		book_fetch_job_room(chunk * (carddav_card_bytes ? carddav_card_bytes : 24L * 1024));
 	}
 	if (job >= 0 && !book_fetch_job_end() && made >= 0) {
 		made = -1;		/* the cards couldn't be kept: fetched again next time */

@@ -2528,9 +2528,9 @@ int book_fetch_job(int bi)
 
 static int job_write(void);
 
-int book_fetch_job_room(void)
+int book_fetch_job_room(long next)
 {
-	if (fj_bi < 0 || fj.d.n + fj.p.n + fj.i.n <= ab_job_bytes)
+	if (fj_bi < 0 || fj.d.n + fj.p.n + fj.i.n + next <= ab_job_bytes)
 		return 1;
 	return job_write();
 }
