@@ -1152,6 +1152,9 @@ static void job_memory(long free)
 	ab_out_max = job >= 32L * 1024 ? job / 2 : 8L * 1024;
 	pack_buf_max = job >= 32L * 1024 ? job : ab_out_max;	/* 8 KB a picture */
 	carddav_budget = job / 2 > 24L * 1024 ? job / 2 : 24L * 1024;
+	/* the job's log held in 16 KB; on a 1 MB ST in the 4 KB it has (16
+	   KB taken left a refresh no room for the server's answer) */
+	conn_log_hold_bytes = job >= 32L * 1024 ? 16384L : 0;
 }
 
 /* an accessory takes its memory once, now: later it would belong to
