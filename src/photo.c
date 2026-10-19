@@ -1117,7 +1117,7 @@ static int cmp_targets(const void *a, const void *b)
 	return x->book != y->book ? x->book - y->book : x->order - y->order;
 }
 
-#define PS_CHUNK 8	/* cards fetched whole at a time */
+#define PS_CHUNK 16	/* cards fetched whole at a time (at most) */
 
 int photo_sync_why[PW_N];
 

@@ -2550,6 +2550,13 @@ int book_fetch_job_room(long next)
 {
 	if (fj_bi < 0 || fj.d.n + fj.p.n + fj.i.n + next <= ab_job_bytes)
 		return 1;
+	/* the photos first and alone: they are most of it (a card without its
+	   photo is some 1 KB), so the cards and the parsed cache go less
+	   often, an open each fewer a round */
+	if (!out_flush(&fj.p))
+		fj.ok = 0;
+	if (fj.d.n + fj.i.n + next <= ab_job_bytes)
+		return fj.ok;
 	return job_write();
 }
 

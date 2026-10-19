@@ -4,7 +4,10 @@
 """The accessory's files across its event calls (the guidelines, 2.2: no
 file open across an event call), in Hatari, through the gateway:
 
-    tests/hatari/acc_files.py WORK [MACHINE] [cards] [photos]
+    tests/hatari/acc_files.py WORK [MACHINE] [cards] [photos] [--prg]
+
+--prg: ECONTACT.PRG in C:\\ECONTACT, started by Hatari (--auto), the same
+steps in its window: the program's bigger memory (256 KB a job).
 
 A Radicale behind tests/host/partialproxy.py (a server that leaves the
 photos out when asked) and gateway/ecalgate.py, with cards (40 by
@@ -69,15 +72,16 @@ def photos():
 
 
 def main():
-    args = [a for a in sys.argv[1:]]
+    prg = "--prg" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--prg"]
     work = os.path.abspath(args[0])
     machine = machine_arg(["", *args], 2, "Falcon:16")
     n = int(args[2]) if len(args) > 2 else 40
     nph = int(args[3]) if len(args) > 3 else n // 2
     step = max(1, n // nph) if nph else 0
     st = machine.startswith("ST")
-    small = machine.startswith("ST-1")	# 1 MB: no Sync Contact Photos in the accessory
-    d = os.path.join(work, machine.replace(":", "-"))
+    small = machine.startswith("ST-1") and not prg	# 1 MB: no Sync Contact Photos in the accessory
+    d = os.path.join(work, machine.replace(":", "-") + ("-prg" if prg else ""))
     shutil.rmtree(d, ignore_errors=True)
     hd = os.path.join(d, "hd")
     folder = os.path.join(hd, "ECONTACT")
@@ -136,8 +140,11 @@ def main():
             inf = re.sub(rb"\n" + k + rb"=[^\r\n]*", b"\n" + k + b"=" + v, inf)
         os.remove(os.path.join(folder, "ECONTACT.INF"))
         open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
-        shutil.copy(os.path.join(BIN, "ECONTST.ACC" if st else "ECONTACT.ACC"),
-                    os.path.join(hd, "ECONTACT.ACC"))
+        if prg:
+            shutil.copy(os.path.join(BIN, "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRG"))
+        else:
+            shutil.copy(os.path.join(BIN, "ECONTST.ACC" if st else "ECONTACT.ACC"),
+                        os.path.join(hd, "ECONTACT.ACC"))
         log = os.path.join(folder, "ECONTACT.LOG")
 
         def log_text():
@@ -154,13 +161,14 @@ def main():
                 time.sleep(3)
             return False
 
-        r = Rig(d, machine, auto=None, network=True, extra=("--trace", "gemdos,aes",
-                                                           "--trace-file", os.path.join(d, "trace.txt")))
+        r = Rig(d, machine, auto="C:\\ECONTACT\\ECONTACT.PRG" if prg else None, network=True,
+                extra=("--trace", "gemdos,aes", "--trace-file", os.path.join(d, "trace.txt")))
         try:
             time.sleep(20)
-            r.click(30, 8)		# Desk
-            time.sleep(1.5)
-            r.click(60, 59 if machine.endswith("mono") or not st else 61)	# EContact
+            if not prg:
+                r.click(30, 8)		# Desk
+                time.sleep(1.5)
+                r.click(60, 59 if machine.endswith("mono") or not st else 61)	# EContact
             synced = wait_for("files opened", 1, 900)
             time.sleep(3)
             r.shot("1-synced")

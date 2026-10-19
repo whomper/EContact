@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include "tos.h"
 #include "../src/plat.h"
+#include "bigbuf.h"
 
 void (*pf_idle)(void);
 
@@ -25,8 +26,61 @@ int os_open(const char *path, int mode)
 	return (int)h;
 }
 
-long os_read(int h, void *buf, long n) { return Fread((short)h, n, buf); }
-long os_write(int h, const void *buf, long n) { return Fwrite((short)h, n, buf); }
+/* TT RAM to and from the disk through a piece of ST RAM when the disk
+   driver doesn't say it can take TT RAM itself (no _FRB cookie: a DMA
+   straight to TT RAM goes astray; the guidelines, 6.5, common's
+   bigbuf.h). Taken at boot (os_bounce_init): later an accessory's
+   memory would be the program in front's */
+static char *bounce;
+#define BOUNCE (16L * 1024)
+#define IN_TT(p) ((unsigned long)(p) >= 0x01000000UL)
+
+void os_bounce_init(void)
+{
+	long tt = (long)Mxalloc(-1L, 1);
+	void *p;
+	if (bounce || tt <= 0 || big_direct())
+		return;			/* no TT RAM (TOS 1.x: -32), or the driver bounces */
+	p = Mxalloc(BOUNCE, 0);
+	if ((long)p > 0)
+		bounce = p;
+}
+
+long os_read(int h, void *buf, long n)
+{
+	long got = 0, r, k;
+	if (!bounce || !IN_TT(buf))
+		return Fread((short)h, n, buf);
+	while (got < n) {
+		k = n - got < BOUNCE ? n - got : BOUNCE;
+		r = Fread((short)h, k, bounce);
+		if (r < 0)
+			return got ? got : r;
+		memcpy((char *)buf + got, bounce, r);
+		got += r;
+		if (r < k)
+			break;
+	}
+	return got;
+}
+
+long os_write(int h, const void *buf, long n)
+{
+	long put = 0, r, k;
+	if (!bounce || !IN_TT(buf))
+		return Fwrite((short)h, n, buf);
+	while (put < n) {
+		k = n - put < BOUNCE ? n - put : BOUNCE;
+		memcpy(bounce, (const char *)buf + put, k);
+		r = Fwrite((short)h, k, bounce);
+		if (r < 0)
+			return put ? put : r;
+		put += r;
+		if (r < k)
+			break;
+	}
+	return put;
+}
 void os_close(int h) { Fclose((short)h); }
 long os_seek(int h, long off) { return Fseek(off, (short)h, 0); }
 long os_tell(int h) { return Fseek(0, (short)h, 1); }

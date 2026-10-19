@@ -59,6 +59,7 @@ extern long pf_opens;		/* files opened (GEMDOS calls), for the log */
 int  os_open(const char *path, int mode);
 long os_read(int h, void *buf, long n);
 long os_write(int h, const void *buf, long n);
+void os_bounce_init(void);	/* Atari: TT RAM through ST RAM when no _FRB (at boot) */
 void os_close(int h);
 long os_seek(int h, long off);
 long os_tell(int h);

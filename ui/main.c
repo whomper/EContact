@@ -1152,8 +1152,10 @@ static int locate_folder(void)
    whose memory grows) */
 static void job_memory(long free)
 {
-	long job = !free ? 256L * 1024 : free >= 3072L * 1024 ? 64L * 1024 : free >= 1536L * 1024 ? 32L * 1024
-												  : 24L * 1024;
+	/* more memory, fewer opens: 8 MB free (a TT, an accelerated Falcon's
+	   TT RAM) as much as the program; Erez: more where there is more */
+	long job = !free || free >= 8192L * 1024 ? 256L * 1024 : free >= 3072L * 1024 ? 64L * 1024
+		 : free >= 1536L * 1024 ? 32L * 1024 : 24L * 1024;
 	ab_read_bytes = get_cookie(0x5F435055L) >= 30 ? 32768L : 16384L;	/* _CPU */
 	ab_job_bytes = job;
 	/* a 1 MB ST: little each, so a sync's answers still fit */
@@ -1815,6 +1817,7 @@ int main(void)
 		appl_exit();
 		return 1;
 	}
+	os_bounce_init();		/* before the first event call (an accessory's memory) */
 	if (is_acc) {
 		acc_heap();
 		/* nothing read until START= says (the guidelines, 2.2) */
