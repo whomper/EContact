@@ -301,6 +301,9 @@ static void known_families(void)
 static void list_families(void)
 {
 	short i, k;
+	if (gdos_fonts < 0 && is_acc)
+		nfam = 0;	/* ECONTACT.FNT read each time: the program may have
+				   written it since (it looked at the fonts) */
 	if (nfam)
 		return;
 	fam[0].id = 1;
@@ -645,6 +648,10 @@ static void draw_type(void)
 			 heb_why == HW_NOHEB ? "in the system font (none in it)" :
 			 heb_why == HW_NOLOOKUP ? "in the system font (no NVDI 5)" : "as the font has it");
 		use_sys();
+	} else if (f->id == 1 && nfam == 1 && is_acc && gdos_fonts < 0 && vq_gdos()) {
+		/* none known yet: the accessory doesn't load fonts after the
+		   start (2.2), the program's Font... looks at them for it */
+		snprintf(type_line, sizeof(type_line), "System; GDOS fonts: Font... in ECONTACT.PRG once");
 	} else {
 		snprintf(type_line, sizeof(type_line), "%s", format_name(f));
 	}
