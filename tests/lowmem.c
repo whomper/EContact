@@ -4,13 +4,16 @@
  * lowmem.c - writing a card again when there isn't the memory to read it
  * whole: a card with a big photo, mallocs over a limit refused, as on an
  * ST. Nothing may be written then, never the card without its photo and
- * the lines after it. Built without the sanitizers, which take malloc
+ * the lines after it; nor ECONTACT.INF cut short (its accounts and books
+ * lost: an accessory's full heap, 1.50 on a 1 MB ST). Built without the sanitizers, which take malloc
  * over themselves (make test).
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "vcard.h"
+#include "abook.h"
+#include "plat.h"
 
 static long fail_above;
 void *__real_malloc(size_t n);
@@ -84,6 +87,33 @@ int main(void)
 	check(vcard_set_categories(old.s, old.len, "Friends", &out) && strstr(out.s, "PHOTO") &&
 	      strstr(out.s, "CATEGORIES:Friends"), "categories written with the memory back");
 	sb_free(&out);
+	/* ECONTACT.INF: all of it written, or the old one left */
+	{
+		char dir[] = "/tmp/lowmemXXXXXX", inf[200];
+		FILE *f;
+		long len;
+		char *t;
+		static const char was[] = "[OPTIONS]\r\nSTART=5\r\nSYNC_AFTER=1\r\n[ACCOUNT]\r\nNAME=Club\r\nKIND=1\r\n"
+					  "[BOOK]\r\nID=1\r\nNAME=Club\r\n";
+		check(mkdtemp(dir) != 0, "a folder for ECONTACT.INF");
+		snprintf(inf, sizeof(inf), "%s/ECONTACT.INF", dir);
+		f = fopen(inf, "wb");
+		fputs(was, f);
+		fclose(f);
+		store_init(dir, inf);
+		fail_above = 1024;	/* the text outgrows it half way */
+		store_save_settings();
+		fail_above = 0;
+		t = pf_load(inf, &len);
+		check(t && !strcmp(t, was), "ECONTACT.INF left as it was without the memory");
+		check(store_unsaved, "and written at the next save");
+		free(t);
+		store_save_settings();
+		t = pf_load(inf, &len);
+		check(t && strstr(t, "START=5") && strstr(t, "SYNC_AFTER=1") && strstr(t, "[BOOK]") &&
+		      strstr(t, "NAME=Club") && !store_unsaved, "written whole with the memory back");
+		free(t);
+	}
 	printf("lowmem: %d checks, %d failed\n", checks, fails);
 	return fails != 0;
 }

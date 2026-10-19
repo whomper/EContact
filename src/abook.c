@@ -227,22 +227,32 @@ void store_init(const char *dir, const char *inf)
 
 /* each setting with a note, so the file explains itself (as ECal's) */
 /* (appended, not printf'ed: formatting the notes took an ST 200 ms) */
+/* 0 once a piece didn't fit in memory: then the file isn't written (a
+   part of it would have lost the rest: the accounts, the books) */
+static int save_ok;
+
+static void add(SBUF *b, const char *s)
+{
+	if (!sb_adds(b, s))
+		save_ok = 0;
+}
+
 static void note(SBUF *b, const char *text)
 {
 	if (*text) {
-		sb_adds(b, "; ");
-		sb_adds(b, text);
-		sb_adds(b, "\r\n");
+		add(b, "; ");
+		add(b, text);
+		add(b, "\r\n");
 	}
 }
 
 static void kv(SBUF *b, const char *text, const char *key, const char *value)
 {
 	note(b, text);
-	sb_adds(b, key);
-	sb_adds(b, "=");
-	sb_adds(b, value);
-	sb_adds(b, "\r\n\r\n");
+	add(b, key);
+	add(b, "=");
+	add(b, value);
+	add(b, "\r\n\r\n");
 }
 
 static void kn(SBUF *b, const char *text, const char *key, long value)
@@ -260,21 +270,21 @@ static void kn(SBUF *b, const char *text, const char *key, long value)
 
 void store_save_settings(void)
 {
-	store_unsaved = 0;
 	SBUF b;
 	int i, j;
 	char enc[200];
 	sb_init(&b);
-	sb_adds(&b, "; EContact settings, written by ECONTACT.ACC / ECONTACT.PRG. Lines starting with ; are notes.\r\n"
+	save_ok = 1;
+	add(&b, "; EContact settings, written by ECONTACT.ACC / ECONTACT.PRG. Lines starting with ; are notes.\r\n"
 		    "; Most of these are set in the menu > Settings; see the guide (the Help key).\r\n"
 		    "; 1 means on, 0 means off. Keys may be in any case.\r\n\r\n[OPTIONS]\r\n");
 #define S(key, name, text) kv(&b, text, key, opt.name);
 #define I(key, name, text) kn(&b, text, key, opt.name);
 	/* first: the accessory reads it from the start of the file at boot */
-	sb_adds(&b, "; EContact's folder, with its address books, keys and certificates;\r\n"
+	add(&b, "; EContact's folder, with its address books, keys and certificates;\r\n"
 		    "; ECONTACT.PRG writes where it was started from\r\nFOLDER=");
-	sb_adds(&b, opt.workdir);
-	sb_adds(&b, "\r\n\r\n");
+	add(&b, opt.workdir);
+	add(&b, "\r\n\r\n");
 	I("HEAPKB", heapkb, "memory the accessory takes at boot, in KB, to choose it yourself; 0: what it measured (MEMKB)")
 	I("MEMKB", memkb, "what the accessory needed the last time, as it measured it (KB): it takes that at the next start; 0: not known yet (then 1.5 MB on a Falcon/TT, 4 MB in TT RAM, half the free memory on an ST)")
 	S("START", start, "when the accessory reads the address books after the Atari starts, a little at a time: now, opened (when its window first opens), or seconds after boot")
@@ -283,7 +293,8 @@ void store_save_settings(void)
 	I("FALCON", falcon, "Falcon mode: TLS on this Atari (Falcon, TT); 0: through the Pi gateway")
 	I("DSP", dsp, "check certificates on the Falcon's DSP56001")
 	S("GATE", gate, "the Raspberry Pi gateway's address (Settings > Connection); ECal's gateway serves both")
-	sb_printf(&b, "; the gateway's port\r\nGATEPORT=%u\r\n\r\n", opt.gateport);
+	if (!sb_printf(&b, "; the gateway's port\r\nGATEPORT=%u\r\n\r\n", opt.gateport))
+		save_ok = 0;
 	I("OFFLINE", offline, "work offline: no connections at all (the menu > Work offline)")
 	I("LOG", log, "write the conversation with the servers to ECONTACT.LOG (passwords left out)")
 	I("REFRESH", refresh, "minutes between refreshes of all address books (the accessory's in the background too, its window closed); 0: only by hand")
@@ -305,7 +316,7 @@ void store_save_settings(void)
 #undef I
 	for (i = 0; i < naccts; i++) {
 		ACCOUNT *a = &accts[i];
-		sb_adds(&b, "[ACCOUNT]\r\n");
+		add(&b, "[ACCOUNT]\r\n");
 		kv(&b, "the account's name in the list on the left", "NAME", a->name);
 		kn(&b, "0 CardDAV (iCloud, Fastmail...), 1 On My Atari", "KIND", a->kind);
 		kv(&b, "the server's address", "URL", a->url);
@@ -319,7 +330,7 @@ void store_save_settings(void)
 			BOOK *k = &books[j];
 			if (k->acct != i)
 				continue;
-			sb_adds(&b, "[BOOK]\r\n");
+			add(&b, "[BOOK]\r\n");
 			kn(&b, "its cache file in CACHE: BOOKnnnn.DAT", "ID", k->id);
 			kv(&b, "the address book's name", "NAME", k->name);
 			kv(&b, "where the server keeps it", "URL", k->url);
@@ -329,7 +340,14 @@ void store_save_settings(void)
 			   (long)k->synced);
 		}
 	}
-	pf_save(inf_path, b.s, b.len);
+	/* all of it or nothing: in a full heap (an accessory's, on a 1 MB
+	   ST) the old file stays, and it is written at the next save */
+	if (save_ok && b.s) {
+		pf_save(inf_path, b.s, b.len);
+		store_unsaved = 0;
+	} else {
+		store_unsaved = 1;
+	}
 	sb_free(&b);
 	apply_http();
 }
