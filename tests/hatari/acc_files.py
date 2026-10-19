@@ -76,6 +76,7 @@ def main():
     nph = int(args[3]) if len(args) > 3 else n // 2
     step = max(1, n // nph) if nph else 0
     st = machine.startswith("ST")
+    small = machine.startswith("ST-1")	# 1 MB: no Sync Contact Photos in the accessory
     d = os.path.join(work, machine.replace(":", "-"))
     shutil.rmtree(d, ignore_errors=True)
     hd = os.path.join(d, "hd")
@@ -169,7 +170,9 @@ def main():
             time.sleep(2)
             r.shot("2-menu")
             r.click(PHOTOS[0], PHOTOS_ST if st else PHOTOS[1])
-            photod = wait_for("files opened", 2, 1500)
+            # a 1 MB machine: the accessory's memory is the contacts', it
+            # says so at once (Erez, 19 Oct 2026)
+            photod = wait_for(DECLINED, 1, 120) if small else wait_for("files opened", 2, 1500)
             time.sleep(3)
             r.shot("3-photos")
             r.key(0x1c)			# the closing alert's OK
@@ -187,14 +190,17 @@ def main():
     # written (the photos, the cards and the pack through the job's
     # memory: 64 KB on a Falcon or TT, 24 KB on a 1 MB ST, the log 4 KB)
     made = len(pack_pictures(os.path.join(folder, "CACHE", "PHOTOS.PAK")))
-    small = machine.startswith("ST-1")
-    budget = (16, 6 + made * 5) if small else (16, 8 + made // 2)
-    if len(opened) >= 2 and "ACCF_WAIT" not in os.environ:
+    budget = (16, 8 + made // 2)
+    if opened and "ACCF_WAIT" not in os.environ:
         check("the refresh within its budget (%s of %d opens)" % (opened[0], budget[0]), int(opened[0]) <= budget[0])
+    if len(opened) >= 2 and "ACCF_WAIT" not in os.environ:
         check("Sync Contact Photos within its budget (%s of %d opens, %d photos)" % (opened[1], budget[1], made),
               int(opened[1]) <= budget[1])
     check("refreshed with the window open", synced)
-    check("Sync Contact Photos ran", photod)
+    if small:
+        check("Sync Contact Photos declined on a 1 MB machine", photod and len(opened) == 1)
+    else:
+        check("Sync Contact Photos ran", photod)
     shutil.copy(os.path.join(hd, "ECONTACT.INF"), os.path.join(folder, "ECONTACT.INF"))	# for card-cli
     out = subprocess.run([CLI, folder, "list"], check=True, capture_output=True, text=True).stdout
     changed = len(range(1, n, 4))
@@ -203,7 +209,8 @@ def main():
     check("the new ones", out.count("New Member") == 10)
     pics_made = pack_pictures(os.path.join(folder, "CACHE", "PHOTOS.PAK"))
     with_photo = len([i for i in range(n + 10) if step and i % step == 0 and i // step < nph])
-    check("a picture for every photo (%d of %d)" % (len(pics_made), with_photo), len(pics_made) >= with_photo)
+    if not small:
+        check("a picture for every photo (%d of %d)" % (len(pics_made), with_photo), len(pics_made) >= with_photo)
     crash = [os.path.join(dd, f) for dd, _, fs in os.walk(hd) for f in fs if f.upper() == "CRASH.LOG"]
     check("no crash (CRASH.LOG)", not crash)
     left = open_across_aes(os.path.join(d, "trace.txt"), t, st)
@@ -217,6 +224,7 @@ def main():
 MENU = (598, 73)
 PHOTOS = (520, 201)
 PHOTOS_ST = 171			# on an ST's 400 lines
+DECLINED = "Sync Contact Photos: not in the accessory on a 1 MB machine"
 
 
 def pack_pictures(path):

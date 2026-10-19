@@ -125,7 +125,8 @@ under a search field, the chosen person's card on the right.
   gives it), cropped as you cropped it on the iPhone, dithered to the screen's own colours on a Falcon
   or TT and to black and white on an ST. Syncing leaves them on the server: a photo is fetched when
   its card is opened, or all of them at once with **Sync Contact Photos...** (a progress bar, the time
-  left, Cancel, and it goes on where it stopped). Decoded once (a second or two on a Falcon, about
+  left, Cancel, and it goes on where it stopped; not in the accessory on a 1 MB machine, whose memory
+  is kept for the contacts). Decoded once (a second or two on a Falcon, about
   four on an 8 MHz ST, as measured in Hatari) and kept in `CACHE\PHOTOS.PAK`; a photo changed on the
   iPhone is noticed and decoded again (see [Photos and their cache](#photos-and-their-cache)).
 - **Search** as you type: names, companies, emails, phone numbers (with or without spaces and
@@ -185,14 +186,14 @@ megabyte without them. So:
   change is made to that, so nothing the server has (the photo, related names, social profiles) is
   lost.
 - **Answers are asked for in sizes that fit in memory**: as many cards at a time as fit in the
-  memory set aside for a sync (32 KB on a 1 MB ST, up to 128 KB on a Falcon; the first answer tells
-  how big they are), halved when one is too big anyway; a card too big even alone comes without its
-  photo.
+  memory set aside for a sync (24 KB on a 1 MB ST, 64 KB on a Falcon; the last answer tells how big
+  they are), halved when one is too big anyway; a card too big even alone comes without its photo.
 - **Few disk accesses** (the family's guidelines, 6.5): a sync gathers what it brings in memory and
   writes each file once at its end (or when that memory is full), the accessory touches no file while
   it waits, `ECONTACT.INF` is read once at start-up, and files are read 16 KB at a time on an ST, 32
-  KB on a Falcon. Measured in Hatari with 200 contacts: Sync Contact Photos for 24 photos opened
-  files 151 times in 1.49, and a background refresh with 10 changed cards 63 times.
+  KB on a Falcon. Measured in Hatari on a Falcon with 200 contacts, 1.49 against 1.50: Sync Contact
+  Photos for 24 photos opened files 127 times, now 18; a refresh with 10 changed cards 52, now 5;
+  start-up 19, now 14 (33 and 17 on a 1 MB ST).
 - **The cache keeps photos apart**: `CACHE\BOOKnnnn.DAT` has the cards with a stand-in for each photo
   (`X-ECONTACT-PHOTO:` and the photo's fingerprint), `BOOKnnnn.PHO` the photos. Start-up reads only
   the cards: in Hatari, 500 contacts with photos open in 5 seconds on a Falcon (it was 3½ minutes with

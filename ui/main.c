@@ -747,6 +747,14 @@ void cmd_sync_photos(void)
 	int failed = 0, made;
 	if (!npeople)
 		return;
+	if (is_acc && ab_job_bytes <= 24L * 1024) {
+		/* a 1 MB machine: its memory is the contacts' (Erez, 19 Oct
+		   2026). A photo is still fetched as its card is opened */
+		static const char m[] = "Sync Contact Photos: not in the accessory on a 1 MB machine";
+		conn_log("EContact", "--", m, (long)strlen(m));
+		alert(1, "[1][On a 1 MB Atari the accessory keeps its memory for the contacts, so it doesn't sync photos. A photo still comes when you open its contact.][ OK ]");
+		return;
+	}
 	if (opt.offline &&
 	    alert(2, "[2][EContact is working offline: only the photos already on this Atari are made.][Go on|Cancel]") != 1)
 		return;

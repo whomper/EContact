@@ -205,6 +205,8 @@ at once, even in the middle of a photo; what is done is kept, and choosing
 it again goes on from there. Offline, it makes the pictures of the photos already
 downloaded. Some servers send the photos while syncing anyway: those are
 kept as they come, and Sync Contact Photos only has to decode them.
+On a 1 MB Atari the accessory keeps its memory for the contacts and
+doesn't sync photos: each one still comes when its contact is opened.
 
 ![Sync Contact Photos](photo-sync.png)
 
