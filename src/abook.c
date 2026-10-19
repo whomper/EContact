@@ -2728,7 +2728,7 @@ static struct {
 	int qi, n, partial;		/* the next to parse or write; how many asked */
 	long bytes;			/* the cards gathered so far */
 	AW aw;				/* writing them: in memory until aw_close */
-	int writing;
+	int writing, closing;		/* the files written, one a step */
 } qs;
 
 static void qs_cards_free(void)
@@ -2736,7 +2736,7 @@ static void qs_cards_free(void)
 	int i;
 	if (qs.writing)
 		out_done(&qs.aw.d), out_done(&qs.aw.p), out_done(&qs.aw.i);	/* dropped */
-	qs.writing = 0;
+	qs.writing = qs.closing = 0;
 	qs.bytes = 0;
 	for (i = 0; i < qs.m.nq; i++) {
 		free(qs.m.q[i].c);
@@ -2796,12 +2796,12 @@ static int qs_gone(BOOK *b, int i)
 	return 1;
 }
 
-/* the cards gathered, into the cache's end: a few a step into memory
-   (aw), then the files written in one go (6.5); first the ones the
-   server no longer has. 1 ok, with *done when all is written */
+/* the cards gathered, into the cache's end: one a step into memory
+   (aw), then the files, one a step, each in one go (6.5); first the
+   ones the server no longer has. 1 ok, with *done when all is written */
 static int qs_write(BOOK *b, int *done)
 {
-	int i, k, gone = 0;
+	int i, gone = 0;
 	*done = 0;
 	if (!qs.writing) {
 		if (!qs.dropped)
@@ -2823,14 +2823,20 @@ static int qs_write(BOOK *b, int *done)
 			return 1;
 		}
 	}
-	for (k = 0; k < 4 && qs.qi < qs.m.nq; k++, qs.qi++) {
-		QCARD *q = &qs.m.q[qs.qi];
+	if (qs.qi < qs.m.nq) {
+		/* a card takes an ST some 30 ms: its record, its parsed copy */
+		QCARD *q = &qs.m.q[qs.qi++];
 		aw_add_pre(&qs.aw, q->href, q->etag, q->data, q->len, q->partial, q->c);
 		q->c = 0;		/* taken */
-	}
-	if (qs.qi < qs.m.nq)
 		return 1;
-	qs.writing = 0;
+	}
+	/* an open and its write take tens of ms: the photos first (as
+	   aw_close does), the cards, then aw_close the parsed cache */
+	if (qs.closing < 2) {
+		out_flush(qs.closing++ ? &qs.aw.d : &qs.aw.p);
+		return 1;
+	}
+	qs.writing = qs.closing = 0;
 	*done = 1;
 	if (!aw_close(&qs.aw)) {
 		load_one(b);		/* as the files are; written anew with the window open */
