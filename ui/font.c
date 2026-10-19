@@ -21,10 +21,12 @@
  * drawn in the system font in the same cells.
  *
  * The accessory loads GDOS fonts only as the Atari starts, before its
- * first event call, and only when ECONTACT.INF names one (FONT_ID=,
- * font_boot): later, FONTGDOS and SpeedoGDOS would give their memory to
- * the program in front, which frees it when it ends (the guidelines,
- * 2.2). Without them its selector lists the fonts ECONTACT.FNT knows,
+ * first event call (font_boot; the guidelines, 2.2): later, FONTGDOS and
+ * SpeedoGDOS would give their memory to the program in front, which
+ * frees it when it ends. Under NVDI it always loads them, so its Font...
+ * is the program's (Erez, 19 Oct); under the others only when
+ * ECONTACT.INF names one (FONT_ID=), their memory being an ST's for
+ * good. Without them its selector lists the fonts ECONTACT.FNT knows,
  * and one chosen there is used from the next start.
  */
 #include <string.h>
@@ -143,11 +145,11 @@ void font_reselect(void)
 	ch = keep_ch;
 }
 
-/* the accessory, before its first event call: the GDOS fonts when its
-   settings name one, else never */
+/* the accessory, before its first event call: the GDOS fonts under
+   NVDI, under another GDOS when its settings name one, else never */
 void font_boot(short id)
 {
-	if (id > 1 && vq_gdos())
+	if (vq_gdos() && (id > 1 || get_cookie(0x4E564449L)))	/* NVDI */
 		gdos_fonts = vst_load_fonts(vdi_h, 0);
 }
 

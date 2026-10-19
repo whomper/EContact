@@ -192,10 +192,13 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   taken at the next boot (acc_heap; HEAPKB= overrides; the first boot
   takes the old share). Bulk memory has fixed sizes by the memory free at
   boot (job_memory), not a share of the heap.
-- The accessory loads GDOS fonts only before its first event call, and
-  only when FONT_ID= names one (font_boot; the guidelines, 2.2): their
-  memory is the program in front's after that. Its Font... lists the
-  fonts ECONTACT.FNT knows (with their ids), and one chosen is used from
+- The accessory loads GDOS fonts only before its first event call
+  (font_boot; the guidelines, 2.2): their memory is the program in
+  front's after that. Under NVDI (its cookie) always, so its Font... is
+  the program's and a font chosen is used at once (Erez: the accessory on
+  par with the program); under FONTGDOS or SpeedoGDOS only when FONT_ID=
+  names one. Without them its Font... lists the fonts ECONTACT.FNT knows
+  (read at each opening, with their ids), and one chosen is used from
   the next start. FONT_ID= is near the INF's start, where inf_value
   reads it at boot.
 - Memory on an ST is the limit (README "How many contacts"). Reading a
