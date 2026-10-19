@@ -1193,8 +1193,9 @@ static void acc_heap(void)
 	} else {
 		/* not known yet: a Falcon or TT 1.5 MB (4 MB in TT RAM), an ST
 		   half of what is free (below), the other half left to the
-		   programs run after: about 250 KB on a 1 MB ST, 750 KB on
-		   2 MB, 1.8 MB on 4 MB */
+		   programs run after: about 160 KB on a 1 MB ST (the
+		   accessory itself is some 480 KB there, code and BSS),
+		   650 KB on 2 MB, 1.7 MB on 4 MB */
 		want = tls_available && get_cookie(0x5F435055L) >= 30 ? 1536L * 1024 : 2048L * 1024;
 		if (alt >= 256L * 1024 && want < 4096L * 1024)
 			want = 4096L * 1024;
