@@ -67,8 +67,8 @@ gone.)
 
 ## Writing to someone
 
-EContact's **mail** button sends `VA_START` to the program named
-`EMAIL`, with a pointer in words 3 and 4 to
+EContact's **mail** button sends `VA_START` to the first of EMail's
+editions running (`EMAIL`, or `EMAILST` on an ST), with a pointer in words 3 and 4 to
 `mailto:Maya Carter <maya@pixelpress.example>` (or several addresses
 separated by commas, for a group). The text is in memory any program may
 read (global, under MiNT's memory protection) and stays there. EMail

@@ -679,13 +679,13 @@ static void help_key_pressed(void)
 }
 
 /* Writing to someone: EMail, when it runs, gets "mailto:..." with VA_START
-   and opens a new message to them (av_send, common/ui/help.c: the string
-   stays where EMail may read it). */
+   (EMAIL.PRG or EMAILST.PRG) and opens a new message to them (av_send,
+   common/ui/help.c: the string stays where EMail may read it). */
 void cmd_mail(const char *addr)
 {
 	char line[1024];
 	snprintf(line, sizeof(line), "mailto:%s", addr);
-	if (!av_send("EMAIL   ", line)) {
+	if (!av_send("EMAIL|EMAILST", line)) {	/* either edition (the guidelines 4.1) */
 		cmd_copy(addr);
 		alert(1, "[1][EMail isn't running, so the address|is on the clipboard: paste it in|EMail's To: field (^V).][ OK ]");
 		return;
