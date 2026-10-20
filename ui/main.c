@@ -1796,8 +1796,6 @@ int main(void)
 	cw = gl_wchar;
 	ch = gl_hchar;
 	vdi_h = v_opnvwk_(vdi_h, work_out);
-	if (is_acc)
-		font_boot(boot_font[0] ? (short)atoi(boot_font) : 1);	/* before the first event call */
 	scr_w = work_out[0] + 1;
 	scr_h = work_out[1] + 1;
 	ncolors = work_out[13];
@@ -1808,6 +1806,8 @@ int main(void)
 	vst_alignment(vdi_h, 0, 5);
 	wind_get(0, WF_WORKXYWH, &desk_x, &desk_y, &desk_w, &desk_h);
 	find_workdir();
+	if (is_acc)	/* FONT_ID= from find_workdir's look; before the first event call */
+		font_boot(boot_font[0] ? (short)atoi(boot_font) : 1);
 	crash_install(workdir, "EContact", app_version);	/* the program only */
 	crash_cleanup = crash_quit;
 	alert_hebrew = alert_heb;
