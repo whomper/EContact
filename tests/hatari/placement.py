@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
 """Where EContact finds its settings and its folder, as ECal does, checked
-in Hatari on an ST (ECONTST.ACC, ECONTACT.PRG):
+in Hatari (an ST: ECONTST.ACC; a Falcon: ECONTACT.ACC; and ECONTACT.PRG):
 
     tests/hatari/placement.py WORK [MACHINE]
 
@@ -57,20 +57,29 @@ def boot(work, machine, auto, steps):
         r.stop()
 
 
+# the Desk menu's first accessory, and the alert's "Use C:" (centred: 40
+# lines lower on a Falcon's 480 than an ST's 400); acc_files.py's places
+DESK_Y, USE_C_Y = 59, 248
+
+
 def desk_contacts():
-    return [(30, 8), 1.5, (60, 59), 5]	# Desk > Contacts
+    return [(30, 8), 1.5, (60, DESK_Y), 5]	# Desk > Contacts
 
 
 def main():
+    global DESK_Y, USE_C_Y
     work, machine = sys.argv[1], machine_arg(sys.argv, 2, "ST:mono")
-    acc = os.path.join(BIN, "ECONTST.ACC")
+    st = machine.startswith("ST")
+    acc = os.path.join(BIN, "ECONTST.ACC" if st else "ECONTACT.ACC")
+    if not st:
+        DESK_Y, USE_C_Y = 61, 289
 
     print("1. the accessory, from nothing")
     w = os.path.join(work, "a")
     shutil.rmtree(w, ignore_errors=True)
     os.makedirs(os.path.join(w, "hd"))
     shutil.copy(acc, os.path.join(w, "hd", "ECONTACT.ACC"))
-    boot(w, machine, "", desk_contacts() + [(318, 248), 4])	# "Use C:"
+    boot(w, machine, "", desk_contacts() + [(318, USE_C_Y), 4])	# "Use C:"
     check("FOLDER=C:\\ECONTACT", folder_of(os.path.join(w, "hd")) == "C:\\ECONTACT")
     check("the folder made, the key in it", os.path.exists(os.path.join(w, "hd", "ECONTACT", "ECONTACT.KEY")))
 
