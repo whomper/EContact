@@ -178,7 +178,9 @@ it (a server's) or delete it (one on this Atari).
   button at the top left (or Shift+^S) hides the list.
 - **In the middle**: the people, sorted by last name under letter
   headings. Click one to see their card; the arrow keys move up and down,
-  Clr/Home goes to the first (Shift: the last).
+  Clr/Home goes to the first (Shift: the last). The scroll bar at the
+  right of the list moves it: its arrows a row (held, on and on), a click
+  above or below the slider a page, and the slider dragged.
 - **Search**: click in the field at the top of the list, or just type:
   the field takes the focus (a black frame and the cursor) until you
   click elsewhere. The list keeps those whose name, company, email,

@@ -17,7 +17,9 @@
 short win_h = -1;
 GRECT work, r_tool, r_side, r_list, r_card, r_search;
 
-#define KIND (NAME | CLOSER | FULLER | MOVER | SIZER | INFO | UPARROW | DNARROW | VSLIDE)
+/* no slider of the window's own: the list in the middle has its scroll
+   bar beside it (list.c), the card needs none */
+#define KIND (NAME | CLOSER | FULLER | MOVER | SIZER | INFO)
 
 static char title[80], info[140];
 
@@ -133,16 +135,6 @@ void win_layout(void)
 	r_search.y = work.y + 3;
 	r_search.h = ch + 2;
 	list_invalidate();
-}
-
-void win_sliders(void)
-{
-	long size, pos;
-	if (win_h <= 0)
-		return;
-	list_slider(&size, &pos);
-	wind_set(win_h, WF_VSLSIZE, (short)(size < 30 ? 30 : size > 1000 ? 1000 : size), 0, 0, 0);
-	wind_set(win_h, WF_VSLIDE, (short)(pos > 1000 ? 1000 : pos < 0 ? 0 : pos), 0, 0, 0);
 }
 
 static void draw_button(int i)
@@ -320,7 +312,6 @@ void win_redraw(GRECT *area)
 	}
 	graf_mouse(M_ON, 0);
 	wind_update(END_UPDATE);
-	win_sliders();
 }
 
 short win_popup(short x, short y, const char *const *labels, short n)
@@ -380,7 +371,6 @@ void win_open(void)
 	if (is_acc)		/* the desktop drops files on it (VA_DRAGACCWIND) */
 		av_window(win_h, 1);
 	win_layout();
-	win_sliders();
 }
 
 static void remember_place(void)
@@ -398,10 +388,11 @@ static void remember_place(void)
 	}
 }
 
-/* the toolbar and the card's buttons act on the first click */
+/* the toolbar, the card's buttons and the list's scroll bar act on the
+   first click */
 int win_instant(short mx, short my)
 {
-	return rect_hit(&r_tool, mx, my) || card_instant(mx, my);
+	return rect_hit(&r_tool, mx, my) || card_instant(mx, my) || list_bar_hit(mx, my);
 }
 
 void win_close(void)
@@ -490,16 +481,14 @@ void win_message(short *msg)
 		break;
 	}
 	case WM_ARROWED:
-		/* 0 page up, 1 page down, 2 line up, 3 line down */
+		/* the mouse wheel, on AESes that send it without the window's
+		   arrows: 0 page up, 1 page down, 2 line up, 3 line down */
 		switch (msg[4]) {
 		case 0: list_scroll(-(r_list.h / (ch + 2)) + 1); break;
 		case 1: list_scroll(r_list.h / (ch + 2) - 1); break;
 		case 2: list_scroll(-1); break;
 		case 3: list_scroll(1); break;
 		}
-		break;
-	case WM_VSLID:
-		list_slide(msg[4]);
 		break;
 	}
 }

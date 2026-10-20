@@ -165,18 +165,146 @@ static short visible_rows(void)
 	return n < 1 ? 1 : n;
 }
 
-void list_slider(long *size, long *pos)
+static void clamp_top(void);
+
+/* The list's own scroll bar, at the right of its column (Erez, 20 Oct
+   2026: the window's slider, at the far right by the card, moved the
+   list in the middle). It looks as the family's Font dialog's lists do
+   (common/ui/fontsel.c): an arrow box at each end, a black slider */
+static short bar_w(void)
 {
-	short vis;
-	ensure();
-	vis = visible_rows();
-	if (nrows <= vis) {
-		*size = 1000;
-		*pos = 0;
+	return 2 * cw;
+}
+
+static short arrow_h(void)
+{
+	return ch + 2;
+}
+
+/* the bar, its right edge on the column's dividing line */
+static GRECT bar_rect(void)
+{
+	GRECT b = r_list;
+	b.x = r_list.x + r_list.w - bar_w();
+	b.w = bar_w();
+	return b;
+}
+
+/* the rows' width, left of the bar */
+static short rows_w(void)
+{
+	return r_list.w - bar_w();
+}
+
+/* the track between the arrows and the slider in it: *sh 0 when all
+   the rows are shown */
+static void bar_thumb(short *ty, short *th, short *sy, short *sh)
+{
+	GRECT b = bar_rect();
+	short vis = visible_rows(), ah = arrow_h();
+	*ty = b.y + ah;
+	*th = b.h - 2 * ah;
+	*sy = *ty;
+	*sh = 0;
+	if (nrows <= vis || *th <= 0)
+		return;
+	*sh = (short)((long)*th * vis / nrows);
+	if (*sh < ch)
+		*sh = ch;
+	if (*sh > *th)
+		*sh = *th;
+	*sy = *ty + (short)((long)(*th - *sh) * top / (nrows - vis));
+}
+
+static void bar_arrow(short x, short y, short w, short h, int up)
+{
+	GRECT r;
+	short cx = x + w / 2, cy = y + h / 2, k = h >= 14 ? 3 : 2;
+	short y1 = up ? cy + k / 2 + 1 : cy - k / 2 - 1, y2 = up ? cy - k / 2 - 1 : cy + k / 2 + 1;
+	r.x = x;
+	r.y = y;
+	r.w = w;
+	r.h = h;
+	frame(&r, 1);
+	line_col(cx - k, y1, cx, y2, 1);
+	line_col(cx, y2, cx + k, y1, 1);
+}
+
+static void bar_draw(void)
+{
+	GRECT b = bar_rect(), t;
+	short ty, th, sy, sh, ah = arrow_h();
+	if (b.h < 2 * ah + 4)
+		return;
+	fill(&b, 0);
+	bar_arrow(b.x, b.y, b.w, ah, 1);
+	bar_arrow(b.x, b.y + b.h - ah, b.w, ah, 0);
+	bar_thumb(&ty, &th, &sy, &sh);
+	if (sh) {
+		t.x = b.x;
+		t.y = sy;
+		t.w = b.w;
+		t.h = sh;
+		fill(&t, 1);
+	}
+	frame(&b, 1);
+}
+
+/* on the bar: a click there acts at once (no wait for a second) */
+int list_bar_hit(short mx, short my)
+{
+	GRECT b = bar_rect();
+	return rect_hit(&b, mx, my);
+}
+
+static short left_down(void)
+{
+	short mx, my, mb, ks;
+	graf_mkstate(&mx, &my, &mb, &ks);
+	return mb & 1;
+}
+
+/* a press on the bar: an arrow scrolls a row while held, the track a
+   page, the slider follows the mouse */
+static void bar_click(short my)
+{
+	GRECT b = bar_rect();
+	short ah = arrow_h(), vis = visible_rows(), ty, th, sy, sh;
+	if (my < b.y + ah || my >= b.y + b.h - ah) {
+		int d = my < b.y + ah ? -1 : 1, first = 1;
+		do {
+			list_scroll(d);
+			evnt_timer_(first ? 250 : 50);
+			first = 0;
+		} while (left_down());
 		return;
 	}
-	*size = (long)vis * 1000 / nrows;
-	*pos = (long)top * 1000 / (nrows - vis);
+	bar_thumb(&ty, &th, &sy, &sh);
+	if (!sh)
+		return;
+	if (my < sy || my >= sy + sh) {
+		list_scroll(my < sy ? -(vis - 1) : vis - 1);
+		return;
+	}
+	{
+		short grab = my - sy, mx, mb, ks, y;
+		wind_update(3);		/* BEG_MCTRL: the mouse is the bar's while held */
+		do {
+			int old = top;
+			graf_mkstate(&mx, &y, &mb, &ks);
+			y -= grab;
+			if (y < ty)
+				y = ty;
+			if (y > ty + th - sh)
+				y = ty + th - sh;
+			top = th > sh ? (int)(((long)(y - ty) * (nrows - vis) + (th - sh) / 2) / (th - sh)) : 0;
+			clamp_top();
+			if (top != old)
+				win_redraw(&r_list);
+			evnt_timer_(20);
+		} while (mb & 1);
+		wind_update(2);		/* END_MCTRL */
+	}
 }
 
 static void clamp_top(void)
@@ -193,17 +321,6 @@ void list_scroll(int n)
 	int old = top;
 	ensure();
 	top += n;
-	clamp_top();
-	if (top != old)
-		win_redraw(&r_list);
-}
-
-void list_slide(short pos)
-{
-	int old = top, vis;
-	ensure();
-	vis = visible_rows();
-	top = nrows > vis ? (int)((long)pos * (nrows - vis) / 1000) : 0;
 	clamp_top();
 	if (top != old)
 		win_redraw(&r_list);
@@ -260,17 +377,19 @@ void list_draw(GRECT *clip)
 {
 	GRECT r = r_list;
 	int i, vis;
-	short y, cols = r_list.w / cw - 2, srow;
+	short rw = rows_w(), y, cols = rw / cw - 2, srow;
 	CONTACT *sel;
 	if (!rect_and(&r, clip))
 		return;
 	ensure();
 	clip_on(&r);
 	fill(&r, 0);
+	clamp_top();
+	bar_draw();
 	if (!nrows) {
 		const char *s = search_text[0] ? "No Results" : naccts ? "No Contacts" : "No accounts yet";
 		short n = (short)strlen(s);
-		text_at(r_list.x + (r_list.w - n * cw) / 2, r_list.y + r_list.h / 3, s, n, n, TX_LTR | TX_GREY);
+		text_at(r_list.x + (rw - n * cw) / 2, r_list.y + r_list.h / 3, s, n, n, TX_LTR | TX_GREY);
 		if (!naccts) {
 			const char *t = "\xF0 > Add account...";
 			text_at(r_list.x + cw, r_list.y + r_list.h / 3 + 2 * ch, t, (long)strlen(t), cols, TX_LTR | TX_GREY);
@@ -279,8 +398,13 @@ void list_draw(GRECT *clip)
 		return;
 	}
 	vis = visible_rows();
-	clamp_top();
 	sel = sel_contact();
+	r.w = rw - (r.x - r_list.x);	/* the rows left of the bar */
+	if (r.w <= 0) {
+		clip_on(clip);
+		return;
+	}
+	clip_on(&r);
 	srow = -1;
 	y = r_list.y + 2;
 	for (i = top; i < nrows && i < top + vis + 1; i++, y += rh) {
@@ -290,7 +414,7 @@ void list_draw(GRECT *clip)
 			s[0] = lr->letter;
 			s[1] = 0;
 			text_at(r_list.x + cw, y + 1, s, 1, 1, TX_BOLD | TX_GREY | TX_LTR);
-			line_col(r_list.x + 3 * cw, y + rh / 2, r_list.x + r_list.w - cw, y + rh / 2, grey_color());
+			line_col(r_list.x + 3 * cw, y + rh / 2, r_list.x + rw - cw, y + rh / 2, grey_color());
 			continue;
 		}
 		{
@@ -300,7 +424,7 @@ void list_draw(GRECT *clip)
 				GRECT b;
 				b.x = r_list.x + 2;
 				b.y = y;
-				b.w = r_list.w - 5;
+				b.w = rw - 4;
 				b.h = rh;
 				fill(&b, sel_color());
 				flags = TX_INVERSE;
@@ -308,9 +432,9 @@ void list_draw(GRECT *clip)
 			}
 			draw_name(c, r_list.x + cw, y + 1, cols - (picking ? 2 : 0), flags);
 			if (picking && c->mark)
-				text_at(r_list.x + r_list.w - 2 * cw, y + 1, "\x08", 1, 1, TX_LTR | flags);	/* a tick */
+				text_at(r_list.x + rw - 2 * cw, y + 1, "\x08", 1, 1, TX_LTR | flags);	/* a tick */
 			if (opt.me[0] && c->uid && !strcmp(c->uid, opt.me))
-				text_at(r_list.x + r_list.w - 4 * cw, y + 1, "me", 2, 2, TX_LTR | (flags ? flags : TX_GREY));
+				text_at(r_list.x + rw - 4 * cw, y + 1, "me", 2, 2, TX_LTR | (flags ? flags : TX_GREY));
 		}
 	}
 	(void)srow;
@@ -497,6 +621,10 @@ int list_click(short mx, short my, short clicks, short button, short kstate)
 {
 	int i;
 	ensure();
+	if (mx >= r_list.x + rows_w()) {
+		bar_click(my);
+		return 1;
+	}
 	if (!rh)
 		return 1;
 	i = top + (my - r_list.y - 2) / rh;

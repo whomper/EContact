@@ -95,7 +95,6 @@ int  win_mouse(short mx, short my, short button, short clicks, short kstate);
 int  win_key(short kstate, short key);
 void win_layout(void);		/* after a size or font change */
 void win_title(void);
-void win_sliders(void);
 void win_search_draw(void);	/* the search field again */
 
 /* layout: filled in by win_layout */
@@ -121,9 +120,8 @@ int  list_click(short mx, short my, short clicks, short button, short kstate);
 int  list_key(short kstate, short key);
 void list_step(int dir);	/* the next / previous one */
 void list_scroll_to_sel(void);
-void list_scroll(int rows);	/* window arrows */
-void list_slide(short pos);	/* the slider: 0..1000 */
-void list_slider(long *size, long *pos);
+void list_scroll(int rows);	/* the list's scroll bar, the wheel */
+int  list_bar_hit(short mx, short my);
 void contact_menu(short mx, short my, CONTACT *c);	/* right-click on a contact */
 
 /* ---- the card (card.c) ---- */
