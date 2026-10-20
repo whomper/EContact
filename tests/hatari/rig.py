@@ -72,6 +72,11 @@ class Rig:
         print("  on", self.machine.describe())
         self.log = open(os.path.join(work, "hatari.log"), "w")
         self.proc = subprocess.Popen(args, env=self.env, stdout=self.log, stderr=subprocess.STDOUT)
+        # NVDI (AERA_WITH_NVDI) reads every font before the desktop: some
+        # 35 s more than the rigs' own waits, which are TOS's
+        self.nvdi = os.path.exists(os.path.join(work, "hd", "AUTO", "NVDI.PRG"))
+        if self.nvdi:
+            time.sleep(35)
 
     def cmd(self, *args):
         for _ in range(200):

@@ -114,9 +114,8 @@ def main():
 
     def start(auto):
         r = Rig(work, machine, auto=auto)
-        nvdi = os.path.exists(os.path.join(hd, "AUTO", "NVDI.PRG"))
-        print("  under NVDI" if nvdi else "  without NVDI")
-        time.sleep(50 if nvdi else 18)	# NVDI reads every font at boot (about 30 s)
+        print("  under NVDI" if r.nvdi else "  without NVDI")
+        time.sleep(18)		# (rig.py waits for NVDI's fonts first)
         return r
 
     def open_acc(r, name):
