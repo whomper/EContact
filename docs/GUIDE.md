@@ -11,6 +11,14 @@ boot drive, and it waits in the Desk menu as **EContact** until you
 choose it. It needs TOS 1.04 or later (EmuTOS, MagiC and MiNT too), 1 MB
 of memory or more, and STinG or MiNTnet for the network.
 
+**With STinG, set the Delay in STING.CPX to suit the machine:** 10 on a
+Falcon or TT, 25 to 50 on an ST, as STinG's manual says. STinG looks at
+the network card that often, so it sets the speed of every STinG
+program, EContact's refreshes and photos included: on a Falcon with a
+NetUSBee, Delay 10 took downloads from 40 to 75 KB/s. On a NetUSBee,
+keep STinG's TCP receive window at 5840 (MSS 1460): the card holds
+about four full packets.
+
 **A quiet start.** At boot the accessory only takes its memory. A minute
 later it reads your address books, a little at a time between the other
 programs' turns (never more than 50 ms in one go on a Falcon, 100 ms on
