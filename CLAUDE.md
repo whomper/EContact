@@ -192,7 +192,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   photo shown, and a tenth more, written to ECONTACT.INF as MEMKB= and
   taken at the next boot (acc_heap through common/ui/accmem.c; HEAPKB=
   overrides; the first boot takes a quarter of the memory free, half
-  below 2 MB). The log's memory: line is accmem's (acc_mem_line, with
+  below 1 MB). The log's memory: line is accmem's (acc_mem_line, with
   heap_early). Bulk memory has fixed sizes by the memory free at
   boot (job_memory), not a share of the heap.
 - The accessory loads GDOS fonts only before its first event call

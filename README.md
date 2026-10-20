@@ -251,7 +251,7 @@ name, a company, one or two emails, two phones, some with an address, birthday o
   memory it measured it needed the last time (`MEMKB=` in `ECONTACT.INF`: its contacts at their
   busiest, a photo shown, room for a sync and a tenth more), leaving the rest to the programs you run:
   200 contacts take about 200 KB. The first start, before it has measured, takes half of the memory
-  free, a quarter where 2 MB or more is free (at most 2 MB, 1.5 MB on a Falcon or TT, 4 MB of TT RAM),
+  free, a quarter where 1 MB or more is free (at most 2 MB, 1.5 MB on a Falcon or TT, 4 MB of TT RAM),
   and more at the next start if its contacts need it. `HEAPKB=` sets an amount of your own.
 - With more in the address book than fit, a few less show: each card in the cache keeps about 125
   bytes in memory either way (1,000 on a 1 MB ST: 300 shown).

@@ -314,7 +314,7 @@ void store_save_settings(void)
 	add(&b, opt.workdir);
 	add(&b, "\r\n\r\n");
 	I("HEAPKB", heapkb, "memory the accessory takes at boot, in KB, to choose it yourself; 0: what it measured (MEMKB)")
-	I("MEMKB", memkb, "what the accessory needed the last time, as it measured it (KB): it takes that at the next start; 0: not known yet (then 1.5 MB on a Falcon/TT, 4 MB in TT RAM, 2 MB on an ST; at most a quarter of the free memory, half below 2 MB)")
+	I("MEMKB", memkb, "what the accessory needed the last time, as it measured it (KB): it takes that at the next start; 0: not known yet (then 1.5 MB on a Falcon/TT, 4 MB in TT RAM, 2 MB on an ST; at most a quarter of the free memory, half below 1 MB)")
 	S("START", start, "when the accessory reads the address books after the Atari starts, a little at a time: now, opened (when its window first opens), or seconds after boot")
 	I("FONT_ID", font_id, "the font, as a GDOS id; 1: the system font (the accessory loads GDOS fonts only as the Atari starts: always with NVDI, else when one is chosen here)")
 	I("FONT_PT", font_pt, "the font's size in points; 0: the system font's")

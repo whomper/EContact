@@ -53,6 +53,7 @@ static short menu_id = -1;
 static int data_ready;
 static void files_left(void);
 static void open_window(void);
+static int vwk_open(void);
 static char workdir[160];	/* EContact's folder: address books, keys, certificates, log */
 static char inf_file[40];	/* ECONTACT.INF, in the root of the boot drive */
 static unsigned long last_refresh, last_minute;
@@ -1167,10 +1168,10 @@ static void job_memory(long free)
    whichever program is in front (common/ui/accmem.c). HEAPKB= in
    ECONTACT.INF chosen; else MEMKB=, what it measured it needed the last
    time (mem_note); else, not known yet, a Falcon or TT 1.5 MB (4 MB in TT
-   RAM), an ST 2 MB, at most a quarter of what is free (half on a small
-   machine), so that a program and another accessory have room: about
+   RAM), an ST 2 MB, at most a quarter of what is free (half below 1 MB
+   free), so that a program and another accessory have room: about
    160 KB on a 1 MB ST (the accessory itself is some 480 KB there, code
-   and BSS), 1 MB on 4 MB */
+   and BSS), 850 KB on 4 MB, 388 KB on a 4 MB Falcon with NVDI */
 static void acc_heap(void)
 {
 	char v[12];
@@ -1588,6 +1589,10 @@ static void files_check(void)
 
 static void open_window(void)
 {
+	if (!vdi_h && !vwk_open()) {
+		alert(1, "[3][EContact can't open its window: the VDI has no room for its workstation. Quit a program and try again.][ OK ]");
+		return;
+	}
 	if (!screen_check("EContact", scr_w))	/* not in ST low (the accessory) */
 		return;
 	int first = win_h <= 0;
@@ -1734,13 +1739,39 @@ static void crash_quit(const char *what)
 		wind_close(win_h);
 		wind_delete(win_h);
 	}
-	v_clsvwk(vdi_h);
+	if (vdi_h)
+		v_clsvwk(vdi_h);
 	appl_exit();
+}
+
+/* the VDI workstation (the guidelines 2.1): 0 when the VDI had no room
+   for it (a 4 MB Falcon with NVDI, its memory taken by the accessories),
+   and then no VDI call is made: the accessory asks again when its window
+   opens */
+static short phys_h;
+
+static int vwk_open(void)
+{
+	short work_out[57];
+	vdi_h = v_opnvwk_(phys_h, work_out);
+	if (vdi_h <= 0) {
+		vdi_h = 0;
+		return 0;
+	}
+	scr_w = work_out[0] + 1;
+	scr_h = work_out[1] + 1;
+	ncolors = work_out[13];
+	vq_extnd(vdi_h, 1, work_out);
+	planes = work_out[4];
+	if (ncolors <= 0 || planes > 8)
+		ncolors = 256;
+	vst_alignment(vdi_h, 0, 5);
+	return 1;
 }
 
 int main(void)
 {
-	short work_out[57], msg[8], d;
+	short msg[8], d;
 	AEVENT ev;
 
 	is_acc = _is_acc;
@@ -1758,21 +1789,19 @@ int main(void)
 	}
 	if (is_acc)
 		menu_id = menu_register(ap_id, "  EContact");
-	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
+	phys_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
 	cw = gl_wchar;
 	ch = gl_hchar;
-	vdi_h = v_opnvwk_(vdi_h, work_out);
-	scr_w = work_out[0] + 1;
-	scr_h = work_out[1] + 1;
-	ncolors = work_out[13];
-	vq_extnd(vdi_h, 1, work_out);
-	planes = work_out[4];
-	if (ncolors <= 0 || planes > 8)
-		ncolors = 256;
-	vst_alignment(vdi_h, 0, 5);
 	wind_get(0, WF_WORKXYWH, &desk_x, &desk_y, &desk_w, &desk_h);
+	scr_w = desk_x + desk_w;	/* (until there is a workstation) */
+	scr_h = desk_y + desk_h;
+	if (!vwk_open() && !is_acc) {
+		form_alert(1, "[3][EContact can't start: the VDI has|no room for its workstation.|Quit a program or an accessory|and try again.][ OK ]");
+		appl_exit();
+		return 1;
+	}
 	find_workdir();
-	if (is_acc)	/* FONT_ID= from find_workdir's look; before the first event call */
+	if (is_acc && vdi_h)	/* FONT_ID= from find_workdir's look; before the first event call */
 		font_boot(boot_font[0] ? (short)atoi(boot_font) : 1);
 	crash_install(workdir, "EContact", app_version);	/* the program only */
 	crash_cleanup = crash_quit;
@@ -1963,7 +1992,8 @@ int main(void)
 	if (has_menu)
 		menu_bar(mb.tree, 0);
 	mbar_free(&mb);
-	v_clsvwk(vdi_h);
+	if (vdi_h)
+		v_clsvwk(vdi_h);
 	appl_exit();
 	return 0;
 }
