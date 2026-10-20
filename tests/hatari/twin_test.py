@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""ECONTACT.PRG with ECONTACT.ACC installed, in Hatari under EmuTOS
-(plain TOS; the AERA guidelines, 2.3 and 3.1):
-  - the accessory opened and closed, then ECONTACT.PRG started from the
-    desktop: it runs, with its menu bar;
+"""ECONTACT.PRG with ECONTACT.ACC installed, in Hatari on plain TOS
+(EmuTOS or Erez's TOS 1.04 and 4.04; the AERA guidelines, 2.3 and 3.1):
+  - the accessory reads the books in the background as the Atari starts
+    (START=2), and ECONTACT.PRG starts with the desktop (Hatari's --auto:
+    no desktop icon is clicked, whose places differ from TOS to TOS): it
+    runs, with its menu bar;
   - EContact chosen in the Desk menu meanwhile: the accessory stands aside
     and the program's window stays the only one;
   - the Groups sidebar turned off in the program's View menu, then Quit;
@@ -63,31 +65,24 @@ def main():
     inf = inf.replace(b"\nLOG=0", b"\nLOG=1").replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = inf.replace(b"\nSIDEBAR=0", b"\nSIDEBAR=1")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
+    inf = re.sub(rb"\nSTART=[^\r\n]*", rb"\nSTART=2", inf)
     with open(os.path.join(hd, "ECONTACT.INF"), "wb") as f:
         f.write(inf)
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
+    acc = "ECONTST.ACC" if machine.startswith("ST") else "ECONTACT.ACC"
+    shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "ECONTACT.ACC"))
     shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRG"))
     log = os.path.join(folder, "ECONTACT.LOG")
     shots = os.path.join(work, "shots")
-    r = Rig(work, machine, auto="")
+    # the Desk menu's first accessory, on the desktop (acc_files.py's place)
+    acc_y = 59 if machine.endswith("mono") else 61
+    r = Rig(work, machine, auto="C:\\ECONTACT\\ECONTACT.PRG")
     try:
-        time.sleep(16)
-        r.click(18, 8)                  # the desktop's Desk menu: EContact
-        time.sleep(1)
-        r.click(60, 8 + 3 * 16 + 8)
-        time.sleep(8)
-        r.shot("1-accessory")
-        r.ctrl("w")                     # closed, as one does
-        time.sleep(3)
-        r.click(195, 40, double=True)   # DISK C, the ECONTACT folder, ECONTACT.PRG
-        time.sleep(3)
-        r.click(60, 158, double=True)
-        time.sleep(3)
-        r.shot("2-folder")
-        # CACHE, ECONTACT.KEY, ECONTACT.LOG / ECONTACT.PRG
-        r.click(60, 200, double=True)
-        time.sleep(15)
+        time.sleep(45)                  # the accessory's books read meanwhile, and
+                                        # the first photo made (3 s on an ST)
         r.shot("3-program")
+        # Hatari's --auto starts it again whenever the desktop comes back:
+        # moved aside now, so that after Quit the desktop stays
+        os.rename(os.path.join(folder, "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRX"))
         r.click(216, 8)                 # View
         time.sleep(1)
         r.shot("4-view-menu")
@@ -102,14 +97,17 @@ def main():
         r.click(216, 8)                 # View > Groups (off)
         time.sleep(1)
         r.click(240, 19 + 2 * 16 + 8)
-        time.sleep(2)
+        time.sleep(4)
         r.shot("7-no-sidebar")
         r.ctrl("q")                     # Quit
-        time.sleep(8)
+        time.sleep(10)
         r.shot("8-desktop")
-        r.click(18, 8)                  # the desktop's Desk menu: EContact
-        time.sleep(1)
-        r.click(60, 8 + 3 * 16 + 8)
+        r.key(0x1c)                     # TOS's alert that it can't start it again
+        time.sleep(3)
+        r.shot("8b-desktop")
+        r.click(30, 8)                  # the desktop's Desk menu: EContact
+        time.sleep(1.5)
+        r.click(60, acc_y)
         time.sleep(8)
         r.shot("9-accessory-again")
     finally:
