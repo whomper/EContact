@@ -1486,7 +1486,9 @@ static int bg_more_step(void)
 	step_at = now;
 	/* a step of another kind (parsing after the records, writing after
 	   the fetch) may be far longer: it begins a slice of its own. A
-	   quarter of the slice at least for the next */
+	   quarter of the slice at least for the next, and the clock's two
+	   ticks (pf_ms counts in 5 ms: what is done and the step before may
+	   each be up to one more): two 40 ms cards made 90 ms on an ST */
 	if (slice_over)
 		return 0;
 	if (what != was && now != slice_at) {
@@ -1495,7 +1497,7 @@ static int bg_more_step(void)
 		return 0;
 	}
 	was = what;
-	if (!bg_more() || now - slice_at + (step_ms > slice_ms / 4 ? step_ms : slice_ms / 4) > slice_ms) {
+	if (!bg_more() || now - slice_at + (step_ms > slice_ms / 4 ? step_ms : slice_ms / 4) + 10 > slice_ms) {
 		slice_over = 1;
 		return 0;
 	}

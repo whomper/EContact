@@ -32,9 +32,16 @@ const char *const vc_url_labels[] = { "homepage", "home", "work", "school", "oth
 
 /* ---------------- lines ---------------- */
 
+/* the properties the parser looks at, known once by their name: a
+   68000 compares a name with each one in turn slowly (P_OTHER: the rest) */
+enum { P_OTHER, P_BEGIN, P_END, P_PHOTO, P_LOGO, P_KEY, P_SOUND, P_N, P_FN, P_UID, P_NICKNAME, P_ORG,
+       P_TITLE, P_NOTE, P_CATEGORIES, P_BDAY, P_EMAIL, P_TEL, P_ADR, P_URL, P_SHOWAS, P_KIND, P_MEMBER,
+       P_MARK, P_ABLABEL };
+
 typedef struct {
 	char group[24];
 	char name[40];		/* upper case */
+	unsigned char prop;	/* P_..., from the name */
 	char types[80];		/* TYPE values, lower case, comma-separated */
 	char *value;		/* Atari text, still escaped (in VLINES.pool) */
 	char *raw;		/* the whole unfolded line as it was, for copying (in pool; NULL if not kept) */
@@ -104,24 +111,44 @@ static void lower_into(char *d, const char *s, long n, int size)
 	d[i] = 0;
 }
 
-static void add_type(VLINE *l, const char *s, long n)
+/* one TYPE word added to the list; *k: the list's length so far */
+static void add_type(VLINE *l, int *k, const char *s, long n)
 {
-	int k = (int)strlen(l->types);
 	while (n > 0 && (*s == ' ' || *s == '"'))
 		s++, n--;
 	while (n > 0 && (s[n - 1] == ' ' || s[n - 1] == '"'))
 		n--;
-	if (n <= 0 || k + n + 2 >= (long)sizeof(l->types))
+	if (n <= 0 || *k + n + 2 >= (long)sizeof(l->types))
 		return;
-	if (k)
-		l->types[k++] = ',';
-	lower_into(l->types + k, s, n, (int)sizeof(l->types) - k);
+	if (*k)
+		l->types[(*k)++] = ',';
+	lower_into(l->types + *k, s, n, (int)sizeof(l->types) - *k);
+	*k += (int)n;
+}
+
+/* the parameter's name is w (lower case), as lower_into and strcmp
+   found it: the first 23 letters, up to a NUL in them */
+static int key_is(const char *s, long n, const char *w)
+{
+	long i;
+	if (n > 23)
+		n = 23;
+	for (i = 0; w[i]; i++) {
+		char c;
+		if (i >= n)
+			return 0;
+		c = s[i];
+		if ((c >= 'A' && c <= 'Z' ? c + 32 : c) != w[i])
+			return 0;
+	}
+	return i == n || !s[i];
 }
 
 /* the parameters "TYPE=home,cell;CHARSET=utf-8;ENCODING=QUOTED-PRINTABLE"
    (2.1: bare words "HOME;CELL") */
 static void parse_params(VLINE *l, const char *p, const char *end, int *qp, int *cs)
 {
+	int k = 0;		/* l->types' length */
 	while (p < end) {
 		const char *s = p, *eq = 0;
 		int quoted = 0;
@@ -133,34 +160,31 @@ static void parse_params(VLINE *l, const char *p, const char *end, int *qp, int 
 			p++;
 		}
 		if (!eq) {
-			add_type(l, s, p - s);
+			add_type(l, &k, s, p - s);
 		} else {
-			char key[24];
 			const char *v = eq + 1;
-			lower_into(key, s, eq - s, sizeof(key));
-			if (!strcmp(key, "type")) {
+			long kn = eq - s;
+			if (key_is(s, kn, "type")) {
 				/* a list: TYPE=home,cell */
 				const char *q = v;
 				while (q < p) {
 					const char *c = q;
 					while (c < p && *c != ',')
 						c++;
-					add_type(l, q, c - q);
+					add_type(l, &k, q, c - q);
 					q = c < p ? c + 1 : c;
 				}
-			} else if (!strcmp(key, "encoding")) {
+			} else if (key_is(s, kn, "encoding")) {
 				if (p - v >= 1 && (v[0] == 'q' || v[0] == 'Q'))
 					*qp = 1;
 				else if (p - v >= 1 && (v[0] == 'b' || v[0] == 'B'))
 					l->binary = 1;
-			} else if (!strcmp(key, "charset")) {
+			} else if (key_is(s, kn, "charset")) {
 				char n[32];
 				lower_into(n, v, p - v, sizeof(n));
 				*cs = cs_id(n);
-			} else if (!strcmp(key, "x-apple-omit-year")) {
+			} else if (key_is(s, kn, "x-apple-omit-year")) {
 				l->omit_year = atoi(v);
-			} else if (!strcmp(key, "value") && p - v >= 3 && !strncasecmp(v, "uri", 3)) {
-				/* a photo by address: nothing to decode */
 			}
 		}
 		if (p < end)
@@ -168,64 +192,178 @@ static void parse_params(VLINE *l, const char *p, const char *end, int *qp, int 
 	}
 }
 
+static int prop_of(const char *n, int len)
+{
+	static const struct {
+		const char *s;
+		unsigned char len, prop;
+	} t[] = {
+		{ "N", 1, P_N }, { "FN", 2, P_FN }, { "UID", 3, P_UID }, { "TEL", 3, P_TEL }, { "ADR", 3, P_ADR },
+		{ "URL", 3, P_URL }, { "ORG", 3, P_ORG }, { "KEY", 3, P_KEY }, { "END", 3, P_END },
+		{ "BDAY", 4, P_BDAY }, { "NOTE", 4, P_NOTE }, { "LOGO", 4, P_LOGO }, { "KIND", 4, P_KIND },
+		{ "EMAIL", 5, P_EMAIL }, { "TITLE", 5, P_TITLE }, { "PHOTO", 5, P_PHOTO }, { "SOUND", 5, P_SOUND },
+		{ "BEGIN", 5, P_BEGIN }, { "MEMBER", 6, P_MEMBER }, { "NICKNAME", 8, P_NICKNAME },
+		{ "X-ABLABEL", 9, P_ABLABEL }, { "CATEGORIES", 10, P_CATEGORIES }, { "X-ABSHOWAS", 10, P_SHOWAS },
+		{ VC_PHOTO_MARK, sizeof(VC_PHOTO_MARK) - 1, P_MARK },
+		{ "X-ADDRESSBOOKSERVER-KIND", 24, P_KIND }, { "X-ADDRESSBOOKSERVER-MEMBER", 26, P_MEMBER },
+	};
+	int i;
+	for (i = 0; i < (int)(sizeof(t) / sizeof(t[0])); i++)
+		if (t[i].len == len && t[i].s[0] == n[0] && !memcmp(t[i].s, n, len))
+			return t[i].prop;
+	return P_OTHER;
+}
+
+/* a value cs_to_atari wouldn't change (no 8-bit byte, no control
+   character: they would be left out) into the pool as it is, NUL after
+   it, in one pass over it: no malloc and no second copy. 0 (the pool as
+   it was) when it isn't one, or there is no room */
+static int add_plain(SBUF *pool, const char *s, long n)
+{
+	const unsigned char *p = (const unsigned char *)s, *e = p + n;
+	char *d;
+	if (!sb_room(pool, n + 1))
+		return 0;
+	d = pool->s + pool->len;
+	while (p < e) {
+		unsigned char c = *p++;
+		if (c - 32u > 95u && c != 9 && c != 10 && c != 13)
+			return 0;
+		*d++ = (char)c;
+	}
+	*d = 0;
+	pool->len += n + 1;
+	pool->s[pool->len] = 0;
+	return 1;
+}
+
+/* the next line's place in v, made ready: the line is made where it is
+   kept, not copied there (a 68000 takes a millisecond over a copy of
+   one). NULL when there's no memory for it */
+static VLINE *line_slot(VLINES *v)
+{
+	VLINE *l;
+	if (v->n >= v->max) {
+		VLINE *nl;
+		int max = v->max ? v->max * 2 : 32;
+		nl = realloc(v->l, max * sizeof(VLINE));
+		if (!nl) {
+			vcard_nomem = 1;
+			return 0;
+		}
+		v->l = nl;
+		v->max = max;
+	}
+	l = &v->l[v->n];
+	l->group[0] = 0;
+	l->types[0] = 0;
+	l->omit_year = 0;
+	l->binary = 0;
+	return l;
+}
+
+/* group.NAME;params: into l, from the line [ls, le); where its ':' is,
+   or NULL when it has none (a NUL in the line ends it, as it did a
+   copy's) */
+static const char *line_head(VLINE *l, const char *ls, const char *le, int *qp, int *cs)
+{
+	const char *colon, *q, *nm;
+	int quoted = 0;
+	for (colon = ls; colon < le && *colon && (quoted || *colon != ':'); colon++)
+		if (*colon == '"')
+			quoted = !quoted;
+	if (colon >= le || !*colon)
+		return 0;
+	for (q = ls; q < colon && *q != ';' && *q != '.'; q++)
+		;
+	nm = ls;
+	if (q < colon && *q == '.') {
+		lower_into(l->group, ls, q - ls, sizeof(l->group));
+		nm = q + 1;
+		for (q = nm; q < colon && *q != ';'; q++)
+			;
+	}
+	{
+		int i = 0;
+		const char *s;
+		for (s = nm; s < q && i < (int)sizeof(l->name) - 1; s++) {
+			char c = *s;
+			l->name[i++] = (char)(c >= 'a' && c <= 'z' ? c - 32 : c);
+		}
+		l->name[i] = 0;
+		l->prop = (unsigned char)prop_of(l->name, i);
+	}
+	if (q < colon)
+		parse_params(l, q + 1, colon, qp, cs);
+	return colon;
+}
+
 /* every content line of one vCard, from BEGIN to END; returns where
    the next one starts, or NULL when there is none */
 /* keep_raw: each line as it was too, for writing it back (vcard_write) */
 static const char *read_lines(const char *text, const char *end, VLINES *v, int keep_raw)
 {
-	const char *p = text, *eol;
-	SBUF line;
+	/* the unfolded line, kept from card to card (unless a photo made it
+	   big): on the Atari a malloc and a free for each card cost */
+	static SBUF line;
+	const char *p = text, *eol, *ret = 0;
 	int began = 0;
-	sb_init(&line);
 	while (p < end) {
-		const char *next = phys_line(p, end, &eol), *colon, *q, *nm;
-		VLINE l;
-		int qp = 0, cs = CS_UTF8, quoted = 0;
-		int room;
-		sb_reset(&line);
-		room = sb_add(&line, p, eol - p);
+		const char *next = phys_line(p, end, &eol), *colon = 0, *ls, *le;
+		VLINE *l = 0;
+		int qp = 0, cs = CS_UTF8, folded;
+		/* a line as it is in the text, [ls, le): copied only when it is
+		   folded (or quoted-printable goes on, below) */
+		ls = p;
+		le = eol;
 		p = next;
-		/* folded: the next line starts with a space or a tab */
-		while (p < end && (*p == ' ' || *p == '\t')) {
-			next = phys_line(p, end, &eol);
-			room = sb_add(&line, p + 1, eol - p - 1) && room;
-			p = next;
+		folded = p < end && (*p == ' ' || *p == '\t');
+		if (folded && !keep_raw) {
+			/* a photo (or a key, a sound) folded over many lines: what
+			   it is, from its first, and the rest passed over, not
+			   unfolded (tens of kilobytes; its value isn't kept) */
+			if (!(l = line_slot(v)))
+				break;
+			colon = line_head(l, ls, le, &qp, &cs);
+			if (colon && !qp && l->prop != P_BEGIN && l->prop != P_END &&
+			    (l->binary || l->prop == P_PHOTO || l->prop == P_LOGO || l->prop == P_KEY ||
+			     l->prop == P_SOUND)) {
+				while (p < end && (*p == ' ' || *p == '\t'))
+					p = phys_line(p, end, &eol);
+				folded = 0;
+			} else {
+				colon = 0;
+				qp = 0;
+				cs = CS_UTF8;
+			}
 		}
-		if (!room) {
-			vcard_nomem = 1;	/* not even the line: the card isn't made */
-			break;
+		if (folded) {
+			/* folded: the next line starts with a space or a tab */
+			int room;
+			sb_reset(&line);
+			room = sb_add(&line, ls, le - ls);
+			while (p < end && (*p == ' ' || *p == '\t')) {
+				next = phys_line(p, end, &eol);
+				room = sb_add(&line, p + 1, eol - p - 1) && room;
+				p = next;
+			}
+			if (!room) {
+				vcard_nomem = 1;	/* not even the line: the card isn't made */
+				break;
+			}
+			ls = line.s;
+			le = line.s + line.len;
 		}
-		if (!line.len)
-			continue;
-		sb_addc(&line, 0);
-		line.len--;
-		for (colon = line.s; *colon && (quoted || *colon != ':'); colon++)
-			if (*colon == '"')
-				quoted = !quoted;
-		if (!*colon)
-			continue;
-		memset(&l, 0, sizeof(l));
-		/* group.NAME;params */
-		for (q = line.s; q < colon && *q != ';' && *q != '.'; q++)
-			;
-		nm = line.s;
-		if (q < colon && *q == '.') {
-			lower_into(l.group, line.s, q - line.s, sizeof(l.group));
-			nm = q + 1;
-			for (q = nm; q < colon && *q != ';'; q++)
-				;
+		if (!colon) {
+			if (le == ls)
+				continue;
+			if (!(l = line_slot(v)))
+				break;
+			if (!(colon = line_head(l, ls, le, &qp, &cs)))
+				continue;
 		}
-		{
-			int i = 0;
-			const char *s;
-			for (s = nm; s < q && i < (int)sizeof(l.name) - 1; s++)
-				l.name[i++] = (char)toupper((unsigned char)*s);
-			l.name[i] = 0;
-		}
-		if (q < colon)
-			parse_params(&l, q + 1, colon, &qp, &cs);
-		if (!strcmp(l.name, "BEGIN")) {
-			if (!strncasecmp(colon + 1, "VCARD", 5)) {
+		if (l->prop == P_BEGIN) {
+			if (le - colon > 5 && !strncasecmp(colon + 1, "VCARD", 5)) {
 				began = 1;
 				v->n = 0;
 				sb_reset(&v->pool);
@@ -234,13 +372,20 @@ static const char *read_lines(const char *text, const char *end, VLINES *v, int 
 		}
 		if (!began)
 			continue;
-		if (!strcmp(l.name, "END")) {
-			sb_free(&line);
-			lines_point(v);
-			return p;
+		if (l->prop == P_END) {
+			ret = p;
+			break;
 		}
 		/* quoted-printable (2.1): a line ending in '=' goes on in the next */
-		if (qp) {
+		if (qp && le[-1] == '=' && p < end) {
+			int quoted = 0;
+			if (ls != line.s) {
+				sb_reset(&line);
+				if (!sb_add(&line, ls, le - ls)) {
+					vcard_nomem = 1;
+					break;
+				}
+			}
 			while (line.len && line.s[line.len - 1] == '=' && p < end) {
 				next = phys_line(p, end, &eol);
 				line.len--;
@@ -248,60 +393,53 @@ static const char *read_lines(const char *text, const char *end, VLINES *v, int 
 					vcard_nomem = 1;
 				p = next;
 			}
-			sb_addc(&line, 0);
-			line.len--;
-			for (colon = line.s, quoted = 0; *colon && (quoted || *colon != ':'); colon++)
+			ls = line.s;
+			le = line.s + line.len;
+			for (colon = ls; *colon && (quoted || *colon != ':'); colon++)
 				if (*colon == '"')
 					quoted = !quoted;
 		}
-		l.roff = -1;
+		l->roff = -1;
 		if (keep_raw) {
-			l.roff = v->pool.len;
-			if (!sb_add(&v->pool, line.s, line.len + 1))
-				l.roff = -2;
+			l->roff = v->pool.len;
+			if (!sb_add(&v->pool, ls, le - ls) || !sb_addc(&v->pool, 0))
+				l->roff = -2;
 		}
-		if (l.binary || !strcmp(l.name, "PHOTO") || !strcmp(l.name, "LOGO") || !strcmp(l.name, "KEY") ||
-		    !strcmp(l.name, "SOUND")) {
-			l.binary = 1;
-			l.voff = v->pool.len;
+		if (l->binary || l->prop == P_PHOTO || l->prop == P_LOGO || l->prop == P_KEY || l->prop == P_SOUND) {
+			l->binary = 1;
+			l->voff = v->pool.len;
 			if (!sb_addc(&v->pool, 0))
-				l.voff = -2;
+				l->voff = -2;
 		} else {
 			const char *val = colon + 1;
-			long vn = line.s + line.len - val;
+			long vn = le - val;
 			char *dec = 0, *at;
 			long dn;
-			if (qp && (dec = qp_decode(val, vn, 0, &dn)) != 0) {
-				val = dec;
-				vn = dn;
+			l->voff = v->pool.len;
+			if (!qp && cs == CS_UTF8 && add_plain(&v->pool, val, vn)) {
+				/* most lines */
+			} else {
+				if (qp && (dec = qp_decode(val, vn, 0, &dn)) != 0) {
+					val = dec;
+					vn = dn;
+				}
+				at = cs_to_atari(val, vn, cs, &dn);
+				free(dec);
+				if (!at || !sb_add(&v->pool, at, dn + 1))
+					l->voff = -2;
+				free(at);
 			}
-			at = cs_to_atari(val, vn, cs, &dn);
-			free(dec);
-			l.voff = v->pool.len;
-			if (!at || !sb_add(&v->pool, at, dn + 1))
-				l.voff = -2;
-			free(at);
 		}
-		if (l.roff == -2 || l.voff == -2) {
+		if (l->roff == -2 || l->voff == -2) {
 			vcard_nomem = 1;
 			continue;
 		}
-		if (v->n >= v->max) {
-			VLINE *nl;
-			int max = v->max ? v->max * 2 : 32;
-			nl = realloc(v->l, max * sizeof(VLINE));
-			if (!nl) {
-				vcard_nomem = 1;
-				break;
-			}
-			v->l = nl;
-			v->max = max;
-		}
-		v->l[v->n++] = l;
+		v->n++;
 	}
 	lines_point(v);
-	sb_free(&line);
-	return began ? end : 0;
+	if (line.cap > 8192)
+		sb_free(&line);
+	return ret ? ret : began ? end : 0;
 }
 
 /* unescape \n \, \; \\ in place; with split, stop at an unescaped split
@@ -326,19 +464,40 @@ static char *unescape(char *s, char split)
 	return rest;
 }
 
-static int has_type(const VLINE *l, const char *t)
+/* the TYPE words the labels go by, as bits: the list looked at once a
+   line, not once for each word (a 68000 takes its time over a string) */
+enum { T_IPHONE = 1, T_CELL = 2, T_MOBILE = 4, T_FAX = 8, T_HOME = 16, T_WORK = 32, T_PAGER = 64,
+       T_MAIN = 128, T_OTHER = 256, T_SCHOOL = 512, T_MOBILEME = 1024 };
+
+static unsigned type_bits(const VLINE *l)
 {
+	static const struct {
+		const char *s;
+		unsigned char n;
+		unsigned short bit;
+	} w[] = {
+		{ "home", 4, T_HOME }, { "work", 4, T_WORK }, { "cell", 4, T_CELL }, { "fax", 3, T_FAX },
+		{ "iphone", 6, T_IPHONE }, { "mobile", 6, T_MOBILE }, { "pager", 5, T_PAGER }, { "main", 4, T_MAIN },
+		{ "other", 5, T_OTHER }, { "school", 6, T_SCHOOL }, { "x-mobileme", 10, T_MOBILEME },
+	};
 	const char *p = l->types;
-	int n = (int)strlen(t);
+	unsigned bits = 0;
 	while (*p) {
-		if (!strncmp(p, t, n) && (p[n] == ',' || !p[n]))
-			return 1;
-		p = strchr(p, ',');
-		if (!p)
+		const char *e = p;
+		int n, i;
+		while (*e && *e != ',')
+			e++;
+		n = (int)(e - p);
+		for (i = 0; i < (int)(sizeof(w) / sizeof(w[0])); i++)
+			if (w[i].n == n && w[i].s[0] == p[0] && !memcmp(p, w[i].s, n)) {
+				bits |= w[i].bit;
+				break;
+			}
+		if (!*e)
 			break;
-		p++;
+		p = e + 1;
 	}
-	return 0;
+	return bits;
 }
 
 /* Apple's "_$!<HomeFAX>!$_" -> "home fax"; a label the user typed stays */
@@ -372,36 +531,36 @@ static void ab_label(const char *s, char *out, int size)
 	str_copy(out, s, size);
 }
 
-static const char *tel_label(const VLINE *l)
+static const char *tel_label(unsigned t)
 {
-	if (has_type(l, "iphone"))
+	if (t & T_IPHONE)
 		return "iPhone";
-	if (has_type(l, "cell") || has_type(l, "mobile"))
+	if (t & (T_CELL | T_MOBILE))
 		return "mobile";
-	if (has_type(l, "fax"))
-		return has_type(l, "home") ? "home fax" : has_type(l, "work") ? "work fax" : "other fax";
-	if (has_type(l, "pager"))
+	if (t & T_FAX)
+		return t & T_HOME ? "home fax" : t & T_WORK ? "work fax" : "other fax";
+	if (t & T_PAGER)
 		return "pager";
-	if (has_type(l, "main"))
+	if (t & T_MAIN)
 		return "main";
-	if (has_type(l, "home"))
+	if (t & T_HOME)
 		return "home";
-	if (has_type(l, "work"))
+	if (t & T_WORK)
 		return "work";
-	if (has_type(l, "other"))
+	if (t & T_OTHER)
 		return "other";
 	return "phone";
 }
 
-static const char *place_label(const VLINE *l, const char *dflt)
+static const char *place_label(unsigned t, const char *dflt)
 {
-	if (has_type(l, "home"))
+	if (t & T_HOME)
 		return "home";
-	if (has_type(l, "work"))
+	if (t & T_WORK)
 		return "work";
-	if (has_type(l, "school"))
+	if (t & T_SCHOOL)
 		return "school";
-	if (has_type(l, "other"))
+	if (t & T_OTHER)
 		return "other";
 	return dflt;
 }
@@ -434,11 +593,22 @@ enum { I_EMAIL, I_TEL, I_ADR, I_URL };
 
 static long bstr(BLD *b, const char *s)
 {
-	long off = b->pool.len;
+	long off = b->pool.len, n;
+	char *d;
 	if (!s)
 		return -1;
-	if (!sb_add(&b->pool, s, (long)strlen(s) + 1))
+	n = (long)strlen(s) + 1;
+	if (!sb_room(&b->pool, n)) {
 		b->failed = 1;
+		return off;
+	}
+	/* (copied here: memcpy goes a byte at a time between odd and even
+	   addresses, slower than this) */
+	d = b->pool.s + off;
+	while ((*d++ = *s++))
+		;
+	b->pool.len += n;
+	b->pool.s[b->pool.len] = 0;
 	return off;
 }
 
@@ -569,28 +739,44 @@ static void adr_lines(char *v, char *out, int size)
 		p = p ? unescape(p, ';') : 0;
 	}
 	out[0] = 0;
-	/* street (with the PO box and extended address before it) */
+	/* street (with the PO box and extended address before it), at most
+	   199 letters; the parts are lines: a street of two lines is joined
+	   by ", " (no strncat or snprintf: a 68000 takes milliseconds) */
 	{
-		char street[200] = "";
+		int k = 0;
 		for (i = 0; i < 3; i++)
 			if (part[i] && *part[i]) {
-				if (street[0])
-					strncat(street, "\n", sizeof(street) - strlen(street) - 1);
-				strncat(street, part[i], sizeof(street) - strlen(street) - 1);
+				const char *q = part[i];
+				if (k && k < 199) {
+					if (n >= size - 3)
+						break;
+					out[n++] = ',';
+					out[n++] = ' ';
+					k++;
+				}
+				for (; *q && k < 199; q++, k++) {
+					if (n >= size - 3)
+						break;
+					if (*q == '\n') {
+						out[n++] = ',';
+						out[n++] = ' ';
+					} else {
+						out[n++] = *q;
+					}
+				}
 			}
-		/* the parts are lines: a street of two lines is joined by ", " */
-		for (i = 0; street[i] && n < size - 3; i++) {
-			if (street[i] == '\n') {
-				out[n++] = ',';
-				out[n++] = ' ';
-			} else {
-				out[n++] = street[i];
-			}
+		/* then the city, region, postcode and country, a line each */
+		for (i = 3; i < 7; i++) {
+			const char *q = part[i] ? part[i] : "";
+			if (n < size - 1)
+				out[n] = '\n';
+			n++;
+			for (; *q; q++, n++)
+				if (n < size - 1)
+					out[n] = *q;
 		}
-		out[n] = 0;
+		out[n < size - 1 ? n : size - 1] = 0;
 	}
-	for (i = 3; i < 7; i++)
-		n += snprintf(out + n, size > n ? size - n : 0, "\n%s", part[i] ? part[i] : "");
 }
 
 /* the builder's room kept from card to card, as the lines' are: what
@@ -635,13 +821,12 @@ CONTACT *vcard_parse(const char *text, long len)
 		return 0;
 	for (i = 0; i < v.n; i++) {
 		VLINE *l = &v.l[i];
-		const char *n = l->name;
 		char label[40];
 		label[0] = 0;
 		/* Apple's label for this group */
 		if (l->group[0])
 			for (k = 0; k < v.n; k++)
-				if (k != i && !strcmp(v.l[k].group, l->group) && !strcmp(v.l[k].name, "X-ABLABEL")) {
+				if (k != i && v.l[k].prop == P_ABLABEL && !strcmp(v.l[k].group, l->group)) {
 					char *t = strdup(v.l[k].value);
 					if (t) {
 						unescape(t, 0);
@@ -649,7 +834,7 @@ CONTACT *vcard_parse(const char *text, long len)
 						free(t);
 					}
 				}
-		if (!strcmp(n, "N")) {
+		if (l->prop == P_N) {
 			char *p = l->value, *part[5];
 			int j;
 			for (j = 0; j < 5; j++) {
@@ -661,78 +846,92 @@ CONTACT *vcard_parse(const char *text, long len)
 			bfield(&b, F_MIDDLE, part[2]);
 			bfield(&b, F_PREFIX, part[3]);
 			bfield(&b, F_SUFFIX, part[4]);
-		} else if (!strcmp(n, "FN")) {
+		} else if (l->prop == P_FN) {
 			unescape(l->value, 0);
 			bfield(&b, F_FN, l->value);
-		} else if (!strcmp(n, "UID")) {
+		} else if (l->prop == P_UID) {
 			unescape(l->value, 0);
 			bfield(&b, F_UID, member_uid(l->value));
-		} else if (!strcmp(n, "NICKNAME")) {
+		} else if (l->prop == P_NICKNAME) {
 			unescape(l->value, 0);
 			bfield(&b, F_NICK, l->value);
-		} else if (!strcmp(n, "ORG")) {
+		} else if (l->prop == P_ORG) {
 			char *dept = unescape(l->value, ';');
 			bfield(&b, F_ORG, l->value);
 			if (dept) {
 				unescape(dept, ';');
 				bfield(&b, F_DEPT, dept);
 			}
-		} else if (!strcmp(n, "TITLE")) {
+		} else if (l->prop == P_TITLE) {
 			unescape(l->value, 0);
 			bfield(&b, F_TITLE, l->value);
-		} else if (!strcmp(n, "NOTE")) {
+		} else if (l->prop == P_NOTE) {
 			unescape(l->value, 0);
 			bfield(&b, F_NOTE, l->value);
-		} else if (!strcmp(n, "CATEGORIES")) {
+		} else if (l->prop == P_CATEGORIES) {
 			unescape(l->value, 0);
 			bfield(&b, F_CATS, l->value);
-		} else if (!strcmp(n, "BDAY")) {
+		} else if (l->prop == P_BDAY) {
 			char d[16];
 			int y = 0, m = 0, dd = 0;
 			unescape(l->value, 0);
 			if (vcard_bday_split(l->value, &y, &m, &dd)) {
+				char *q = d;
 				if (l->omit_year && y == l->omit_year)
 					y = 0;
-				if (y)
-					snprintf(d, sizeof(d), "%04d-%02d-%02d", y, m, dd);
-				else
-					snprintf(d, sizeof(d), "--%02d-%02d", m, dd);
+				/* "1980-05-17" or "--05-17", without snprintf */
+				if (y) {
+					*q++ = (char)('0' + y / 1000 % 10);
+					*q++ = (char)('0' + y / 100 % 10);
+					*q++ = (char)('0' + y / 10 % 10);
+					*q++ = (char)('0' + y % 10);
+				} else {
+					*q++ = '-';
+				}
+				*q++ = '-';
+				*q++ = (char)('0' + m / 10);
+				*q++ = (char)('0' + m % 10);
+				*q++ = '-';
+				*q++ = (char)('0' + dd / 10);
+				*q++ = (char)('0' + dd % 10);
+				*q = 0;
 				bfield(&b, F_BDAY, d);
 			}
-		} else if (!strcmp(n, "EMAIL")) {
+		} else if (l->prop == P_EMAIL) {
+			unsigned t = label[0] ? 0 : type_bits(l);
 			unescape(l->value, 0);
-			bitem(&b, I_EMAIL, label[0] ? label : place_label(l, has_type(l, "x-mobileme") ? "iCloud" : "other"),
+			bitem(&b, I_EMAIL, label[0] ? label : place_label(t, t & T_MOBILEME ? "iCloud" : "other"),
 			      str_trim(l->value));
-		} else if (!strcmp(n, "TEL")) {
+		} else if (l->prop == P_TEL) {
 			unescape(l->value, 0);
 			if (!strncasecmp(l->value, "tel:", 4))
 				memmove(l->value, l->value + 4, strlen(l->value + 4) + 1);
-			bitem(&b, I_TEL, label[0] ? label : tel_label(l), str_trim(l->value));
-		} else if (!strcmp(n, "ADR")) {
+			bitem(&b, I_TEL, label[0] ? label : tel_label(type_bits(l)), str_trim(l->value));
+		} else if (l->prop == P_ADR) {
 			char lines[400];
 			adr_lines(l->value, lines, sizeof(lines));
 			/* an address with nothing in it at all is left out */
 			for (k = 0; lines[k] && (lines[k] == '\n' || lines[k] == ' '); k++)
 				;
 			if (lines[k])
-				bitem(&b, I_ADR, label[0] ? label : place_label(l, "other"), lines);
-		} else if (!strcmp(n, "URL")) {
+				bitem(&b, I_ADR, label[0] ? label : place_label(type_bits(l), "other"), lines);
+		} else if (l->prop == P_URL) {
 			unescape(l->value, 0);
-			bitem(&b, I_URL, label[0] ? label : place_label(l, "homepage"), str_trim(l->value));
-		} else if (!strcmp(n, "X-ABSHOWAS")) {
+			bitem(&b, I_URL, label[0] ? label : place_label(type_bits(l), "homepage"), str_trim(l->value));
+		} else if (l->prop == P_SHOWAS) {
 			if (!strncasecmp(l->value, "COMPANY", 7))
 				company = 1;
-		} else if (!strcmp(n, "X-ADDRESSBOOKSERVER-KIND") || !strcmp(n, "KIND")) {
+		} else if (l->prop == P_KIND) {
 			if (!strncasecmp(l->value, "group", 5))
 				group = 1;
 			else if (!strncasecmp(l->value, "org", 3))
 				company = 1;
-		} else if (!strcmp(n, "X-ADDRESSBOOKSERVER-MEMBER") || !strcmp(n, "MEMBER")) {
+		} else if (l->prop == P_MEMBER) {
 			unescape(l->value, 0);
 			bmember(&b, member_uid(str_trim(l->value)));
-		} else if (!strcmp(n, "PHOTO")) {
+		} else if (l->prop == P_PHOTO) {
 			photo = 1;		/* its fingerprint below, from the text as it came */
-		} else if (!strcmp(n, VC_PHOTO_MARK)) {
+		} else if (l->prop == P_MARK) {
 			/* the cache's stand-in for a photo kept elsewhere (abook.c) */
 			photo = 1;
 			marked = l->value[0] == '?' ? VC_KEY_UNKNOWN : strtoul(l->value, 0, 16);
@@ -1330,31 +1529,31 @@ static void put_uid(SBUF *out, SBUF *line, const char *uid)
 
 /* ---------------- the photo line ---------------- */
 
-static int line_is(const char *p, const char *end, const char *name)
-{
-	/* NAME or group.NAME at p, followed by ';' or ':' */
-	int n = (int)strlen(name);
-	const char *q = p;
-	while (q < end && *q != ':' && *q != ';' && *q != '\n' && *q != '.')
-		q++;
-	if (q < end && *q == '.')
-		p = q + 1;
-	return end - p > n && !strncasecmp(p, name, n) && (p[n] == ':' || p[n] == ';');
-}
-
 int vcard_photo_span(const char *raw, long len, long *start, long *stop)
 {
 	const char *p = raw, *end = raw + len, *line = 0, *q;
 	int v21 = 0;
+	/* each line looked at once (as line_is(p, end, "PHOTO") did), its
+	   first letter before strncasecmp: every card at start-up comes here
+	   (abook.c parse_kept), and a 68000 takes some 10 us a letter a pass */
 	while (p < end) {
-		if (line_is(p, end, "PHOTO")) {
+		const char *nm = p;
+		for (q = p; q < end; q++) {
+			char c = *q;
+			if (c == ':' || c == ';' || c == '\n' || c == '.')
+				break;
+		}
+		if (q < end && *q == '.')
+			nm = q + 1;
+		if (end - nm > 5 && (nm[0] | 32) == 'p' && !strncasecmp(nm, "PHOTO", 5) && (nm[5] == ':' || nm[5] == ';')) {
 			line = p;
 			break;
 		}
-		if (end - p > 9 && !strncasecmp(p, "VERSION:2", 9))
+		if (end - p > 9 && (p[0] | 32) == 'v' && !strncasecmp(p, "VERSION:2", 9))
 			v21 = 1;
-		q = memchr(p, '\n', end - p);
-		if (!q)
+		while (q < end && *q != '\n')
+			q++;
+		if (q >= end)
 			break;
 		p = q + 1;
 	}

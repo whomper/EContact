@@ -217,6 +217,15 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   the index: reading every card again takes 13 s for 600 on a Falcon.
   Contacts that don't fit are counted (contacts_lost) and the user is
   told, never left out quietly.
+- vcard.c's reading is written for the 68000, where each pass over a
+  card's text costs some 10 us a letter: a line is read where it is
+  (copied only when folded), made in its place in the array, its name
+  known once (prop_of, P_...), a plain value put in the pool without
+  cs_to_atari's malloc, a folded photo's lines passed over, no snprintf
+  or strncat. A change there must leave every result as it was:
+  compare the old and new parser's output over many cards (CONTACT, the
+  card vcard_write makes of it, vcard_set_categories, the photo span),
+  as 1.57's was, byte for byte over 8,000 inputs.
 - The index also names the copy of BOOKnnnn.DAT it was made from (the
   number on the DAT's first line, or its size and date): then nothing is
   hashed and the cards are found by where they are. Anything that writes
@@ -228,7 +237,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   and the refresh with the window closed (quiet_sync_*) run in steps
   from ui/main.c bg_step through common/ui/bgwork.c, and no alert, busy
   bee or drawing happens until the window opens. A step must stay short
-  on a 68000 (a card parsed is about 70 ms, four records hashed 35 ms, a
+  on a 68000 (a card parsed is about 40 ms, four records hashed 35 ms, a
   24 KB memcpy 30 ms): new work goes in steps too, never a loop over all
   the contacts at once (ECONTACT.INF's lines too: store_init_lines, 30 a
   step; a card read from the disk is parsed in the next step). No slice

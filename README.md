@@ -350,6 +350,10 @@ make itest      # card-cli against a real CardDAV server (Radicale: pip install
                 # where the cards are, the refresh in the background, and
                 # PEOPLE's answers (card-cli ask)
 GATEWAY=gateway/ecalgate.py make itest            # the same through the Pi gateway
+tools/parser_diff.sh [REV]                        # vcard.c reads 8,000 made-up and broken cards
+                                                  # as REV's did, byte for byte (tests/host/vcgen.py)
+make build/VCBENCH.PRG && tests/hatari/vcbench.py WORK [MACHINE]
+                                                  # how long a card takes to read on an Atari
 tests/hatari/docs_shots.py WORK                   # the screenshots, in Hatari (--email,
                                                   # --ecal: with their latest releases)
 tests/hatari/placement.py WORK [MACHINE]          # where the accessory and the program

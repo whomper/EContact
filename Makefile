@@ -241,6 +241,13 @@ $(OBJDIR)/fakeguide.acc: tests/atari/fakeguide.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.
 		$(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
 	python3 common/tools/elf2tos.py $(OBJDIR)/fakeguide.elf $@
 
+# reading cards timed on the Atari, for tests/hatari/vcbench.py
+VCBOBJ := $(addprefix $(OBJDIR)/,crt0.o vcard.o charset.o util.o libc.o tos.o nf.o)
+$(OBJDIR)/VCBENCH.PRG: tests/atari/vcbench.c $(VCBOBJ)
+	$(CC) $(CFLAGS) -c -o $(OBJDIR)/vcbench.o $<
+	$(CC) $(LDFLAGS) -o $(OBJDIR)/vcbench.elf $(OBJDIR)/crt0.o $(OBJDIR)/vcbench.o $(filter-out %crt0.o,$(VCBOBJ)) -lgcc
+	python3 common/tools/elf2tos.py $(OBJDIR)/vcbench.elf $@
+
 # a stand-in for EMail asking about people, for tests/hatari/people_ask.py
 ASKOBJ := $(addprefix $(OBJDIR)/,crt0.o gem.o libc.o tos.o nf.o av.o av_people.o people_ask.o)
 $(OBJDIR)/ASKER.PRG: tests/atari/asker.c $(ASKOBJ)
