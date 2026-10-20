@@ -85,9 +85,11 @@ it needs: it measures what its contacts take at their busiest, with room
 for a photo shown and a sync, and writes that to ECONTACT.INF (`MEMKB=`)
 for the next start. 200 contacts take about 200 KB. The first start,
 before it has measured, takes 1.5 MB on a Falcon or TT (4 MB from TT/Fast
-RAM where there is some) and half of what's free on an ST: about 250 KB on
-a 1 MB ST (some 490 contacts), 750 KB on 2 MB (1,500), 1.8 MB on 4 MB
-(3,700). `HEAPKB=` in ECONTACT.INF sets an amount of your own, in
+RAM where there is some) and 2 MB on an ST, at most half of what's free,
+or a quarter where 2 MB or more is free: about 250 KB on a 1 MB ST (some
+490 contacts), 750 KB on 2 MB (1,500), 850 KB on 4 MB (1,700), and up to
+half of what's free at the next start when the contacts need it (1.8 MB
+on 4 MB: 3,700). `HEAPKB=` in ECONTACT.INF sets an amount of your own, in
 kilobytes (`ECONTACT.PRG` takes what it needs from all that is free). If
 contacts don't fit, the window says how many aren't shown, and EContact
 takes more the next time the Atari starts.

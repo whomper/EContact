@@ -36,6 +36,7 @@
 #include "../src/photo.h"
 #include "../src/photopack.h"
 #include "../src/carddav.h"
+#include "accmem.h"
 #include "clip.h"
 #include "dd.h"
 #include "mbar.h"
@@ -260,35 +261,27 @@ void set_hebrew_kbd(short on)
 
 /* Contacts that didn't fit in memory are said, once for each count:
    never just a shorter list */
-static long acc_heap_bytes;	/* the accessory's fixed memory; 0 for the program */
-static long acc_avail;		/* what was free when it took it */
 static int warned_lost;
 
 /* What the accessory needs, as it measured it: the heap at its busiest
    since boot (common's heap_peak), and at least what it uses now with
    room for a job and a photo shown it may not have had yet; a tenth
    more for growth. MEMKB= in ECONTACT.INF, which the next start takes
-   (acc_heap): no more memory than the contacts need (Erez, 19 Oct 2026) */
+   (acc_heap): no more memory than the contacts need (Erez, 19 Oct 2026).
+   The measuring is the family's (common/ui/accmem.c, the guidelines 2.1) */
 static void mem_note(void)
 {
 	long need, kb;
+	char t[160];
 	if (!is_acc || !acc_heap_bytes || !data_ready)
 		return;
 	need = heap_use + 2 * ab_job_bytes + (opt.photos ? 50L * 1024 : 0L);
-	if (heap_peak > need)
-		need = heap_peak;
 	need += (long)contacts_lost() * 640L;	/* those that didn't fit */
-	kb = need / 1024 + need / 10240 + 16;
-	if (kb > 32000)
-		kb = 32000;
-	{
-		/* in the log: what it holds, its busiest, and what it took */
-		char t[120];
-		snprintf(t, sizeof(t), "memory: %ld KB in use, %ld KB at the most, of %ld KB; next start %ld KB",
-			 heap_use / 1024, heap_peak / 1024, acc_heap_bytes / 1024, kb);
-		conn_log("EContact", "--", t, (long)strlen(t));
-	}
-	if (opt.memkb && kb <= opt.memkb && kb > opt.memkb - opt.memkb / 8)
+	kb = acc_mem_kb(need, 0);
+	/* in the log: what it holds, its busiest, and what it took */
+	acc_mem_line(t, sizeof(t), kb);
+	conn_log("EContact", "--", t, (long)strlen(t));
+	if (!acc_mem_moved(kb, opt.memkb))
 		return;			/* near enough: the file not written for it */
 	opt.memkb = (short)kb;
 	if (win_h > 0)
@@ -310,7 +303,7 @@ static void memory_check(void)
 		return;
 	warned_lost = lost;
 	if (is_acc && acc_heap_bytes) {
-		long most = (acc_avail - 160L * 1024L) / 1024L;	/* leaving some for TOS and a program */
+		long most = (acc_heap_avail - 160L * 1024L) / 1024L;	/* leaving some for TOS and a program */
 		mem_note();		/* what it takes at the next start */
 		if (opt.heapkb <= 0 && opt.memkb <= most)
 			alert(1, "[1][%d contact%s can't be shown: EContact's memory is full. It takes more the next time the Atari starts.][ OK ]",
@@ -753,7 +746,7 @@ void cmd_sync_photos(void)
 		   Oct 2026). A photo is still fetched as its card is opened */
 		char m[100];
 		snprintf(m, sizeof(m), "Sync Contact Photos: not in the accessory, %ld KB free at start",
-			 acc_avail / 1024);
+			 acc_heap_avail / 1024);
 		conn_log("EContact", "--", m, (long)strlen(m));
 		alert(1, "[1][With little memory free at start, the accessory keeps it for the contacts. ECONTACT.PRG syncs photos; each also comes when its contact opens.][ OK ]");
 		return;
@@ -1171,62 +1164,24 @@ static void job_memory(long free)
 }
 
 /* an accessory takes its memory once, now: later it would belong to
-   whichever program is in front. HEAPKB=n in ECONTACT.INF overrides */
+   whichever program is in front (common/ui/accmem.c). HEAPKB= in
+   ECONTACT.INF chosen; else MEMKB=, what it measured it needed the last
+   time (mem_note); else, not known yet, a Falcon or TT 1.5 MB (4 MB in TT
+   RAM), an ST 2 MB, at most a quarter of what is free (half on a small
+   machine), so that a program and another accessory have room: about
+   160 KB on a 1 MB ST (the accessory itself is some 480 KB there, code
+   and BSS), 1 MB on 4 MB */
 static void acc_heap(void)
 {
 	char v[12];
-	long avail = (long)Malloc(-1L), alt = (long)Mxalloc(-1L, 1), want, kb;
-	void *p;
-	if (alt == -32 || alt < 0)
-		alt = 0;
-	if (alt >= 256L * 1024)
-		avail = alt;		/* TT RAM, when there is some */
-	/* (find_workdir read the file) HEAPKB= chosen; else MEMKB=, what it
-	   measured it needed the last time (mem_note) */
-	inf_value("heapkb=", v, sizeof(v));
-	kb = atol(v);
-	if (kb < 64) {
-		inf_value("memkb=", v, sizeof(v));
-		kb = atol(v);
-		if (kb < 32)
-			kb = 0;
-	}
-	if (kb) {
-		want = kb * 1024;
-	} else {
-		/* not known yet: a Falcon or TT 1.5 MB (4 MB in TT RAM), an ST
-		   half of what is free (below), the other half left to the
-		   programs run after: about 160 KB on a 1 MB ST (the
-		   accessory itself is some 480 KB there, code and BSS),
-		   650 KB on 2 MB, 1.7 MB on 4 MB */
-		want = tls_available && get_cookie(0x5F435055L) >= 30 ? 1536L * 1024 : 2048L * 1024;
-		if (alt >= 256L * 1024 && want < 4096L * 1024)
-			want = 4096L * 1024;
-	}
-	if (want < 64L * 1024)
-		want = 64L * 1024;
-	if (want > avail / 2) {
-		want = avail / 2;	/* the rest left to the programs run after */
-		if (want < 96L * 1024)
-			want = avail - 32L * 1024;
-	}
-	if (want < 32L * 1024)
-		return;
-	p = Mxalloc(want, alt ? 1 : 3);
-	if (alt && (long)p <= 0) {
-		long st = (long)Malloc(-1L) / 2;
-		if (want > st)
-			want = st;
-		p = 0;
-	}
-	if ((long)p == -32 || (long)p <= 0)
-		p = Malloc(want);
-	if ((long)p > 0) {
-		heap_add(p, (size_t)want);
-		acc_heap_bytes = want;
-		acc_avail = avail;
-		job_memory(avail);
-	}
+	long heapkb, memkb;
+	inf_value("heapkb=", v, sizeof(v));	/* (find_workdir read the file) */
+	heapkb = atol(v);
+	inf_value("memkb=", v, sizeof(v));
+	memkb = atol(v);
+	if (acc_heap_take(tls_available && get_cookie(0x5F435055L) >= 30 ? 1536L * 1024 : 2048L * 1024,
+			  4096L * 1024, heapkb, memkb))
+		job_memory(acc_heap_avail);
 }
 
 static int settings_ready;
@@ -1258,22 +1213,31 @@ static void tell_untold(void)
 /* quiet: the accessory in the background, its window closed: the fonts
    wait for the window, and what would be an alert is said then */
 static int store_ready;		/* ECONTACT.INF read (the first half) */
+static int store_parsing;	/* loaded, its lines read in steps (bg_step) */
 
-static int load_store(int quiet)
+/* lines: how many of ECONTACT.INF's to read now; -1 all, 0 none (it is
+   only loaded). 0 while there are more */
+static int load_store(int quiet, int lines)
 {
-	if (!workdir[0] && !locate_folder())
-		return 0;		/* (only when the window is to open: quiet has the folder) */
-	secret_warn = quiet ? warn_later : warn_plain;	/* before anything is saved */
-	move_inf();
-	store_init(workdir, inf_file);
-	store_ready = 1;
+	if (!store_parsing) {
+		if (!workdir[0] && !locate_folder())
+			return 0;	/* (only when the window is to open: quiet has the folder) */
+		secret_warn = quiet ? warn_later : warn_plain;	/* before anything is saved */
+		move_inf();
+		store_init_begin(workdir, inf_file);
+		store_parsing = 1;
+	}
+	if (lines && !store_init_lines(lines)) {
+		store_parsing = 0;
+		store_ready = 1;
+	}
 	return 1;
 }
 
 /* 0: there is no folder (the user cancelled locating it) */
 static int load_settings(int quiet)
 {
-	if (!store_ready && !load_store(quiet))
+	if (!store_ready && !load_store(quiet, -1))
 		return 0;
 	store_ready = 0;
 	secret_warn = quiet ? warn_later : warn_plain;
@@ -1514,14 +1478,14 @@ static void bg_slice(void)
 static int bg_more_step(void)
 {
 	static const char *was;
-	const char *what = books_load_what();
+	const char *what = quiet_syncing() && !books_loading() ? quiet_sync_what() : books_load_what();
 	unsigned long now = pf_ms();
 	if (now - step_at > step_ms)
 		step_ms = now - step_at;
 	step_at = now;
-	/* a step of another kind (parsing after the records) may be far
-	   longer: it begins a slice of its own. A quarter of the slice at
-	   least for the next */
+	/* a step of another kind (parsing after the records, writing after
+	   the fetch) may be far longer: it begins a slice of its own. A
+	   quarter of the slice at least for the next */
 	if (slice_over)
 		return 0;
 	if (what != was && now != slice_at) {
@@ -1543,8 +1507,10 @@ static void bg_step(void)
 {
 	if (!settings_ready) {
 		if (!store_ready) {
-			aes_profile_tag("settings-inf");
-			load_store(1);	/* in two steps: ECONTACT.INF, then the rest */
+			/* in steps: ECONTACT.INF loaded, its lines (an ST takes
+			   about a millisecond each), then the rest */
+			aes_profile_tag(store_parsing ? "settings-lines" : "settings-inf");
+			load_store(1, store_parsing ? 30 : 0);
 			return;
 		}
 		aes_profile_tag("settings-rest");
@@ -1592,9 +1558,9 @@ static void files_check(void)
 	unsigned long was;
 	if (!is_acc)
 		return;
-	if (store_ready && !settings_ready) {
+	if ((store_ready || store_parsing) && !settings_ready) {
 		store_release();	/* half read in the background: read whole now */
-		store_ready = 0;
+		store_ready = store_parsing = 0;
 		return;
 	}
 	if (data_ready && files_known)
@@ -1821,12 +1787,15 @@ int main(void)
 		appl_exit();
 		return 1;
 	}
-	os_bounce_init();		/* before the first event call (an accessory's memory) */
 	if (is_acc) {
 		acc_heap();
 		/* nothing read until START= says (the guidelines, 2.2) */
 		bg_init(bg_parse(boot_start));
 	}
+	/* 16 KB of ST RAM for TT RAM's disk access without _FRB: after the
+	   heap, which wants to see what is free; before the first event
+	   call (an accessory's memory) */
+	os_bounce_init();
 	/* EMail and ECal asking about people (the guidelines, 4.1) */
 	answer_init();
 	av_people_hook = people_got;
@@ -1967,8 +1936,10 @@ int main(void)
 			sync_pending = 0;
 			refresh(0, 0);
 		}
-		/* the accessory's work with its window closed, a slice at a time */
-		if (bg_pending() && bg_may_work()) {
+		/* the accessory's work with its window closed, a slice at a time;
+		   not after a message: its work and a slice would make one long
+		   stretch (ECal asking about people while the books are read) */
+		if (!(which & MU_MESAG) && bg_pending() && bg_may_work()) {
 			aes_profile_tag("bg-load");
 			bg_slice();
 			do

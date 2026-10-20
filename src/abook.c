@@ -158,12 +158,19 @@ static void apply_http(void)
 	http_cfg.offline = opt.offline;
 }
 
-void store_init(const char *dir, const char *inf)
+/* ECONTACT.INF as it is parsed, in steps (store_init_lines) */
+static char *inf_text, *inf_line;
+static ACCOUNT *inf_a;
+static BOOK *inf_b;
+
+void store_init_begin(const char *dir, const char *inf)
 {
-	char key[200], *text, *line;
+	char key[200];
 	long len;
-	ACCOUNT *a = 0;
-	BOOK *b = 0;
+	free(inf_text);			/* (a parse let go part done) */
+	inf_text = 0;
+	inf_a = 0;
+	inf_b = 0;
 	defaults();
 	str_copy(opt.workdir, dir, sizeof(opt.workdir));
 	if (inf)
@@ -175,12 +182,19 @@ void store_init(const char *dir, const char *inf)
 	photo_dir(cache_dir);		/* the pictures: CACHE\PHOTOS.PAK */
 	path_join(key, sizeof(key), dir, "ECONTACT.KEY");
 	secret_init(key);
-	text = pf_load(inf_path, &len);
-	if (!text) {
+	inf_line = inf_text = pf_load(inf_path, &len);
+	if (!inf_text)
 		apply_http();
-		return;
-	}
-	for (line = text; line && *line;) {
+}
+
+int store_init_lines(int max)
+{
+	char *line = inf_line;
+	ACCOUNT *a = inf_a;
+	BOOK *b = inf_b;
+	if (!inf_text)
+		return 0;
+	for (; line && *line && max-- != 0;) {
 		char *nl = strchr(line, '\n'), *eq;
 		if (nl)
 			*nl = 0;
@@ -221,8 +235,22 @@ void store_init(const char *dir, const char *inf)
 		}
 		line = nl ? nl + 1 : 0;
 	}
-	free(text);
+	if (line && *line) {
+		inf_line = line;
+		inf_a = a;
+		inf_b = b;
+		return 1;
+	}
+	free(inf_text);
+	inf_text = 0;
 	apply_http();
+	return 0;
+}
+
+void store_init(const char *dir, const char *inf)
+{
+	store_init_begin(dir, inf);
+	store_init_lines(-1);
 }
 
 /* each setting with a note, so the file explains itself (as ECal's) */
@@ -286,7 +314,7 @@ void store_save_settings(void)
 	add(&b, opt.workdir);
 	add(&b, "\r\n\r\n");
 	I("HEAPKB", heapkb, "memory the accessory takes at boot, in KB, to choose it yourself; 0: what it measured (MEMKB)")
-	I("MEMKB", memkb, "what the accessory needed the last time, as it measured it (KB): it takes that at the next start; 0: not known yet (then 1.5 MB on a Falcon/TT, 4 MB in TT RAM, half the free memory on an ST)")
+	I("MEMKB", memkb, "what the accessory needed the last time, as it measured it (KB): it takes that at the next start; 0: not known yet (then 1.5 MB on a Falcon/TT, 4 MB in TT RAM, 2 MB on an ST; at most a quarter of the free memory, half below 2 MB)")
 	S("START", start, "when the accessory reads the address books after the Atari starts, a little at a time: now, opened (when its window first opens), or seconds after boot")
 	I("FONT_ID", font_id, "the font, as a GDOS id; 1: the system font (the accessory loads GDOS fonts only as the Atari starts: always with NVDI, else when one is chosen here)")
 	I("FONT_PT", font_pt, "the font's size in points; 0: the system font's")
@@ -901,6 +929,12 @@ static int fr_fill(FR *f)
 	return f->len > 0;
 }
 
+/* 1 when the next n bytes are in the buffer: read with no disk access */
+static int fr_has(const FR *f, long n)
+{
+	return f->len - f->pos >= n;
+}
+
 static int fr_line(FR *f, char *out, int size)
 {
 	int o = 0;
@@ -1301,6 +1335,7 @@ typedef struct {
 	long wsize[MAXBOOK];
 	char *raw;
 	long max;
+	int have;			/* raw holds the card next (read in a step of its own) */
 	short head[64], *next;
 	RESOURCE *trim;			/* the list of records, no bigger than it is */
 } LD;
@@ -1595,6 +1630,7 @@ static void ld_parse(void)
 		ld.r = 0;
 		ld.raw = 0;
 		ld.max = 0;
+		ld.have = 0;
 		return;			/* a step of its own */
 	}
 	for (; ld.r < b->nres; ld.r++) {
@@ -1622,9 +1658,20 @@ static void ld_parse(void)
 				return;
 			}
 		}
-		/* forward to it, past the copies that aren't read */
-		if (rs->off >= lf.off && fr_bytes(&lf, 0, rs->off - lf.off) && fr_bytes(&lf, ld.raw, rs->len)) {
-			ld.raw[rs->len] = 0;
+		/* forward to it, past the copies that aren't read; when that
+		   reads the disk (tens of ms on an ST), the card is parsed in
+		   the next step */
+		if (!ld.have && rs->off >= lf.off) {
+			int disk = !fr_has(&lf, rs->off - lf.off + rs->len);
+			if (fr_bytes(&lf, 0, rs->off - lf.off) && fr_bytes(&lf, ld.raw, rs->len)) {
+				ld.raw[rs->len] = 0;
+				ld.have = 1;
+				if (disk)
+					return;
+			}
+		}
+		if (ld.have) {
+			ld.have = 0;
 			if (ld.trust) {
 				/* not in the index: hashed now */
 				TH t = { 0, 0 };

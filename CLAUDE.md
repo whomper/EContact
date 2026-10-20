@@ -190,8 +190,10 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 - The accessory's memory is what it measured (mem_note): common's
   heap_peak since boot, at least what it holds plus room for a job and a
   photo shown, and a tenth more, written to ECONTACT.INF as MEMKB= and
-  taken at the next boot (acc_heap; HEAPKB= overrides; the first boot
-  takes the old share). Bulk memory has fixed sizes by the memory free at
+  taken at the next boot (acc_heap through common/ui/accmem.c; HEAPKB=
+  overrides; the first boot takes a quarter of the memory free, half
+  below 2 MB). The log's memory: line is accmem's (acc_mem_line, with
+  heap_early). Bulk memory has fixed sizes by the memory free at
   boot (job_memory), not a share of the heap.
 - The accessory loads GDOS fonts only before its first event call
   (font_boot; the guidelines, 2.2): their memory is the program in
@@ -228,7 +230,10 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   bee or drawing happens until the window opens. A step must stay short
   on a 68000 (a card parsed is about 70 ms, four records hashed 35 ms, a
   24 KB memcpy 30 ms): new work goes in steps too, never a loop over all
-  the contacts at once. A file is opened and closed within a step (the
+  the contacts at once (ECONTACT.INF's lines too: store_init_lines, 30 a
+  step; a card read from the disk is parsed in the next step). No slice
+  runs in the turn a message came in: its work and a slice would make one
+  stretch (ECal asks about people while the books are read). A file is opened and closed within a step (the
   reader opens it again where it was): an accessory's handles belong to
   the program in front, which may end while we wait, so the background
   refresh keeps what came in memory and writes it with no event call

@@ -110,6 +110,11 @@ extern unsigned long people_serial;
 /* start-up: the settings from inf (NULL: dir\ECONTACT.INF); the rest of
    EContact's files in dir */
 void store_init(const char *dir, const char *inf);
+/* the same in steps: begin (the files, ECONTACT.INF loaded), then
+   lines until it returns 0, at most max lines a call (an ST takes about
+   a millisecond a line); -1: all of them */
+void store_init_begin(const char *dir, const char *inf);
+int  store_init_lines(int max);
 void store_save_settings(void);
 void store_release(void);		/* all of it let go, to be read again */
 unsigned long store_stamp(void);	/* changes when the files do */
