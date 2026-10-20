@@ -10,8 +10,10 @@
   - EContact chosen in the Desk menu meanwhile: the accessory stands aside
     and the program's window stays the only one;
   - the Groups sidebar turned off in the program's View menu, then Quit;
-  - the accessory opened again: it reads the files again (the program
-    changed ECONTACT.INF), and shows no sidebar either.
+  - the accessory leaves the files alone while the program runs (no read
+    in the background: common/ui/twin.c asks the program, which answers
+    once it is up), and reads them when it is opened after Quit, the
+    program's ECONTACT.INF with them.
 Screenshots in WORK/shots; the checks read C:\\ECONTACT\\ECONTACT.LOG.
 
     tests/hatari/twin_test.py WORK [MACHINE]
@@ -118,8 +120,9 @@ def main():
         check(same(s("3-program"), s("6-acc-chosen")) > 0.97,
               "EContact chosen in the Desk menu while ECONTACT.PRG runs: no second window")
     text = open(log, encoding="latin-1").read() if os.path.exists(log) else ""
-    check(text.count("reading them again") == 1,
-          "the accessory read the files again after the program changed ECONTACT.INF")
+    acc = text.find("(accessory)")
+    check(acc > text.rfind("(program)") and "cards in" in text[acc:] and "reading them again" not in text,
+          "the accessory left the files to the program, and read them after it quit")
     with open(os.path.join(hd, "ECONTACT.INF"), newline="") as f:
         got = f.read()
     check("SIDEBAR=0" in got, "the program wrote SIDEBAR=0")
