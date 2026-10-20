@@ -320,6 +320,13 @@ connections at all: everything shown comes from the copy on disk; a
 server's address book can't be changed until you're online again) and
 **Font...**; Help has **Keys...**, and the EContact menu **About**.
 
+**Font...** is the family's font dialog: the font families on the left,
+the chosen one's styles and sizes beside them (or a size typed after
+Pt:), what kind of font it is, and a sample. Only fonts EContact can use
+are listed: the system font and the fixed-width GDOS fonts with letters,
+as EContact sets text in character cells. Where a font keeps its Hebrew
+letters is in Settings.
+
 **Fonts in the accessory.** The accessory loads GDOS fonts only as the
 Atari starts: later, their memory would belong to whichever program is
 in front, and be freed when it ends. With NVDI it always loads them, so

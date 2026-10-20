@@ -37,6 +37,7 @@ fails = 0
 # line, the program's Options title and its Font... line
 DESK, ACC_ITEM = (30, 8), (60, 61)
 MENU, ACC_FONT = (598, 73), (520, 201 + 11 * 16)
+ACC_FONT_ST = (520, 171 + 11 * 16)  # the menu 30 lines higher on an ST's 400
 OPTIONS, PRG_FONT = (276, 8), (300, 19 + 16 + 8)
 
 
@@ -63,7 +64,7 @@ def gdos_fonts(folder):
         return []
     out = []
     for line in open(path, encoding="latin-1").read().splitlines():
-        m = re.match(r"1 (.+)\t(\d+)$", line)
+        m = re.match(r"1 ([^\t]+)\t(\d+)", line)  # FNT2 adds family, style, format
         if m and int(m.group(2)) > 1:
             out.append((m.group(1), int(m.group(2))))
     return out
@@ -164,7 +165,8 @@ def main():
         if not fonts:
             skip("no fixed-width GDOS font (ECONTACT.FNT names none)")
         chosen = inf_font(hd)
-        check("the program wrote FONT_ID=%d (%s)" % (fonts[0][1], fonts[0][0]), chosen == fonts[0][1])
+        names = dict((i, n) for n, i in fonts)
+        check("the program wrote FONT_ID=%d (%s)" % (chosen, names.get(chosen, "not listed")), chosen in names)
         os.remove(os.path.join(folder, "ECONTACT.PRG"))
         shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "ECONTACT.ACC"))
         r = start("")
@@ -189,7 +191,7 @@ def main():
             r.click(*MENU)
             time.sleep(2)
             r.shot("3-menu")
-            r.click(*ACC_FONT)
+            r.click(*(ACC_FONT_ST if machine.startswith("ST") else ACC_FONT))
             wait_file(fnt, 120)		# with the fonts loaded it looks at each first
             time.sleep(3)
             r.shot("4-font-dialog")
@@ -212,11 +214,13 @@ def main():
             r.stop()
         if not fonts:
             skip("no fixed-width GDOS font in the accessory's Font... (ECONTACT.FNT names none)")
-        check("the window redrawn in %s (%.3f alike the system font's)" % (fonts[0][0], same(first, chosen)),
+        got = inf_font(hd)
+        names = dict((i, n) for n, i in fonts)
+        check("the window redrawn in %s (%.3f alike the system font's)" % (names.get(got, got), same(first, chosen)),
               same(first, chosen) < 0.97 and same(desk, chosen) < 0.9)
         check("drawn again the same after closing and opening (%.3f alike)" % same(chosen, again),
               same(chosen, again) > 0.97)
-        check("FONT_ID=%d written" % fonts[0][1], inf_font(hd) == fonts[0][1])
+        check("FONT_ID=%d written, a font the dialog listed" % got, got in names)
     print("screenshots in", os.path.join(work, "shots"))
     print("all passed" if not fails else "%d failed" % fails)
     sys.exit(1 if fails else 0)

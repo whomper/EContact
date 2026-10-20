@@ -145,7 +145,7 @@ under a search field, the chosen person's card on the right.
 - **vCard files**: import (3.0, 4.0 and the 2.1 of old phones, with quoted-printable and any charset;
   written to the server as 3.0) and export, of one card, a group, a book or the search results.
 - **My Card**, as on the Mac; the window opens on it.
-- **Fonts** (the system font or any monospaced GDOS font), the window and everything else are
+- **Fonts** (the system font or any fixed-width GDOS font, in the family's Font dialog), the window and everything else are
   remembered in `ECONTACT.INF`, which explains itself.
 
 ![Editing Maya Carter's card: the Edit Contact dialog with its Name, Phone, Email, Address and More sections](docs/edit.png) ![EContact on an ST in high resolution: the same window in black and white, Johnny Appleseed's photo dithered](docs/st-mono.png)
