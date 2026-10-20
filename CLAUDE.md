@@ -179,9 +179,10 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (contact_raw reads the job's memory first) and writes at
   book_fetch_job_end, as many cards a request as ab_job_bytes holds by
   the last answer's size (carddav_card_bytes), written before the next
-  round would overfill it (book_fetch_job_room). On a 1 MB machine the
-  accessory doesn't sync photos (ab_job_bytes 24 KB: cmd_sync_photos
-  says so; Erez: the memory is the contacts'). Sizes and dates come from one look (pf_info);
+  round would overfill it (book_fetch_job_room). With under 1.5 MB free
+  at boot (a 1 MB ST; a 4 MB Falcon with NVDI and ECal on a first boot)
+  the accessory doesn't sync photos (ab_job_bytes 24 KB: cmd_sync_photos
+  says so, with the memory free; Erez: the memory is the contacts'). Sizes and dates come from one look (pf_info);
   ECONTACT.INF is read once at boot (inf_read); reads are ab_read_bytes
   (16 KB on a 68000, 32 KB on a 68030). The job's log is held
   (conn_log_hold) and written at its end. `tests/hatari/acc_files.py`

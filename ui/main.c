@@ -748,11 +748,14 @@ void cmd_sync_photos(void)
 	if (!npeople)
 		return;
 	if (is_acc && ab_job_bytes <= 24L * 1024) {
-		/* a 1 MB machine: its memory is the contacts' (Erez, 19 Oct
-		   2026). A photo is still fetched as its card is opened */
-		static const char m[] = "Sync Contact Photos: not in the accessory on a 1 MB machine";
+		/* under 1.5 MB free at boot (a 1 MB ST; a 4 MB Falcon with NVDI
+		   and another accessory): its memory is the contacts' (Erez, 19
+		   Oct 2026). A photo is still fetched as its card is opened */
+		char m[100];
+		snprintf(m, sizeof(m), "Sync Contact Photos: not in the accessory, %ld KB free at start",
+			 acc_avail / 1024);
 		conn_log("EContact", "--", m, (long)strlen(m));
-		alert(1, "[1][On a 1 MB Atari the accessory keeps its memory for the contacts, so it doesn't sync photos. A photo still comes when you open its contact.][ OK ]");
+		alert(1, "[1][With little memory free at start, the accessory keeps it for the contacts. ECONTACT.PRG syncs photos; each also comes when its contact opens.][ OK ]");
 		return;
 	}
 	if (opt.offline &&

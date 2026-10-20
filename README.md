@@ -125,8 +125,8 @@ under a search field, the chosen person's card on the right.
   gives it), cropped as you cropped it on the iPhone, dithered to the screen's own colours on a Falcon
   or TT and to black and white on an ST. Syncing leaves them on the server: a photo is fetched when
   its card is opened, or all of them at once with **Sync Contact Photos...** (a progress bar, the time
-  left, Cancel, and it goes on where it stopped; not in the accessory on a 1 MB machine, whose memory
-  is kept for the contacts). Decoded once (a second or two on a Falcon, about
+  left, Cancel, and it goes on where it stopped; not in the accessory with under 1.5 MB free at start, a
+  1 MB ST for one, whose memory is kept for the contacts: `ECONTACT.PRG` can). Decoded once (a second or two on a Falcon, about
   four on an 8 MHz ST, as measured in Hatari) and kept in `CACHE\PHOTOS.PAK`; a photo changed on the
   iPhone is noticed and decoded again (see [Photos and their cache](#photos-and-their-cache)).
 - **Search** as you type: names, companies, emails, phone numbers (with or without spaces and

@@ -239,7 +239,7 @@ def main():
 MENU = (598, 73)
 PHOTOS = (520, 201)
 PHOTOS_ST = 171			# on an ST's 400 lines
-DECLINED = "Sync Contact Photos: not in the accessory on a 1 MB machine"
+DECLINED = "Sync Contact Photos: not in the accessory, "
 
 
 def pack_pictures(path):
