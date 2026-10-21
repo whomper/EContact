@@ -1748,14 +1748,16 @@ static void ld_write(void)
 		hd.datstamp = ld.wstamp[ld.bi];
 		ld.wok = out_write(&ld.wo, &hd, sizeof(hd));
 	}
-	for (; ld.wi < npeople && ld.wok && n < 4; ld.wi++) {
+	/* three contacts a step (an ST packs one in some 20 ms), and the
+	   file written in a step of its own */
+	for (; ld.wi < npeople && ld.wok && n < 3; ld.wi++) {
 		CONTACT *c = people[ld.wi];
 		if (c->book == ld.bi && c->res >= 0 && c->res < b->nres) {
 			ld.wok = idx_put(&ld.wo, c, &b->res[c->res]);
 			n++;
 		}
 	}
-	if (ld.wok && ld.wi < npeople)
+	if (ld.wok && (ld.wi < npeople || n))
 		return;
 	ld.wok = ld.wok && out_flush(&ld.wo);	/* the file in one go */
 	out_done(&ld.wo);
@@ -2432,7 +2434,7 @@ static int mget_cb(void *ud, const char *href, const char *etag, const char *dat
    whole, so a changed photo is seen */
 typedef struct {
 	BOOK *b;
-	unsigned char *keep;
+	unsigned char *keep;		/* a card's: 1 as we have it, 2 changed (fetched again) */
 	char **part, **whole;
 	int npart, nwhole, maxpart, maxwhole;
 	int nomem;
@@ -2462,6 +2464,8 @@ static int list_cmp(void *ud, const char *href, const char *etag)
 		l->keep[found] = 1;
 		return 1;
 	}
+	if (found >= 0)
+		l->keep[found] = 2;	/* on the server still: not gone (qs_gone) */
 	if (found >= 0 && !l->b->res[found].partial)
 		ok = add_href(&l->whole, &l->nwhole, &l->maxwhole, href);
 	else
@@ -2520,7 +2524,7 @@ int sync_book(BOOK *b, int force)
 		goto out;
 	}
 	for (j = 0, nkept = 0; j < b->nres; j++)
-		if (l.keep[j]) {
+		if (l.keep[j] == 1) {
 			cw_copy(&w, &b->res[j]);
 			nkept++;
 		}
@@ -2851,21 +2855,12 @@ int quiet_syncing(void)
 }
 
 /* the cards that came, into the cache's end; first the ones the server
-   no longer has */
+   no longer has: those its list didn't name (list_cmp marked the rest,
+   found by their hash, not each href looked for in the lists: 90 ms for
+   46 cards on an ST, far more for 600) */
 static int qs_gone(BOOK *b, int i)
 {
-	const char *h;
-	int j;
-	if (b->res[i].dead || qs.l.keep[i])
-		return 0;
-	h = res_href(b, &b->res[i]);
-	for (j = 0; j < qs.l.npart; j++)
-		if (!strcmp(qs.l.part[j], h))
-			return 0;
-	for (j = 0; j < qs.l.nwhole; j++)
-		if (!strcmp(qs.l.whole[j], h))
-			return 0;
-	return 1;
+	return !b->res[i].dead && !qs.l.keep[i];
 }
 
 /* the cards gathered, into the cache's end: one a step into memory
