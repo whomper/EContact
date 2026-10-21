@@ -60,17 +60,23 @@ file with EContact's added (it says which number), for the root of the boot driv
    in the folder) or **Use C:** (the boot drive), which makes `C:\ECONTACT` for you.
 3. For an ST or STE (or a Falcon or TT without Falcon mode), set up the gateway on a Raspberry Pi
    from [AERA-Gateway](https://github.com/whomper/AERA-Gateway)'s own copy, at its latest release
-   (the copy in this repository is for EContact's tests):
+   (the copy in this repository is for EContact's tests). On the Pi:
 
    ```
+   sudo apt install -y git                  (Raspberry Pi OS Lite only)
    git clone https://github.com/whomper/AERA-Gateway
    cd AERA-Gateway
    ./update-pi.sh
-   sudo gateway/aera-gateway install dav
+   sudo gateway/aera-gateway install dav --allow ATARI_IP
    ```
 
-   `./update-pi.sh` in that folder updates it later, keeping its settings. ECal uses the same
-   gateway: if it already works through your Pi, there is nothing to do.
+   `ATARI_IP` is your Atari's address (`192.168.1.x`): the gateway answers it alone. ECal uses the
+   same gateway: if it already works through your Pi, there is nothing to do.
+
+   - To update: `cd ~/AERA-Gateway && ./update-pi.sh` (its settings are kept).
+   - To check: `gateway/aera-gateway status`.
+   - In EContact: **Settings > Connection**, **Pi gateway:** the Pi's address (`PI_IP`),
+     **Port:** 8180.
 4. Reboot, choose **EContact** in the Desk menu, and add your iCloud account with an
    [app-specific password](https://support.apple.com/en-us/102654).
 5. Press **Help** in EContact for the guide (with EHypView or ST-Guide installed as an accessory);

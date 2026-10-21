@@ -148,18 +148,26 @@ type the address of the Raspberry Pi gateway or, on a Falcon or TT, turn
 on **Falcon mode**.
 
 The gateway is the `dav` service of the AERA gateways, set up on the Pi
-from AERA-Gateway's own copy at its latest release:
+from AERA-Gateway's own copy at its latest release. On the Pi:
 
 ```
+sudo apt install -y git                  (Raspberry Pi OS Lite only)
 git clone https://github.com/whomper/AERA-Gateway
 cd AERA-Gateway
 ./update-pi.sh
-sudo gateway/aera-gateway install dav
+sudo gateway/aera-gateway install dav --allow ATARI_IP
 ```
 
-It listens on port 8180; `./update-pi.sh` in that folder updates it
-later, keeping its settings. One Pi serves ECal and EContact alike: if
-ECal already works through it, type the same address and port here.
+ATARI_IP is your Atari's address (192.168.1.x): the gateway answers it
+alone. One Pi serves ECal and EContact alike: if ECal already works
+through it, there is nothing to do on the Pi.
+
+- To update: `cd ~/AERA-Gateway && ./update-pi.sh` (its settings are
+  kept).
+- To check: `gateway/aera-gateway status`.
+- In EContact: **Settings > Connection**, **Pi gateway:** the Pi's
+  address (PI_IP), **Port:** 8180.
+
 AERA-Gateway's README (github.com/whomper/AERA-Gateway) tells the rest.
 
 Right-click an account's name on the left to refresh it, change its
