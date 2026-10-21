@@ -1459,6 +1459,15 @@ static int people_file_now(void)
 	return data_ready && workdir[0] && !books_loading() && !quiet_syncing() && people_file_due();
 }
 
+/* when the event call came back: a turn with 30 ms gone already (another
+   program ran in an AES call of ours) takes no background work */
+static unsigned long turn_at;
+
+static int turn_free(void)
+{
+	return pf_ms() - turn_at < 30;
+}
+
 /* work the accessory has while its window is closed */
 static int bg_pending(void)
 {
@@ -1877,6 +1886,7 @@ int main(void)
 			which = MU_MESAG;
 		} else
 			which = evnt_multi_(flags, is_acc ? 0x102 : 0x101, 3, 0, wait, msg, &ev);
+		turn_at = pf_ms();
 		if (win_iconified)	/* an icon takes no keys or clicks (taken, not left for later) */
 			which &= ~(MU_KEYBD | MU_BUTTON);
 		if (is_acc)
@@ -1984,8 +1994,11 @@ int main(void)
 		}
 		/* the accessory's work with its window closed, a slice at a time;
 		   not after a message: its work and a slice would make one long
-		   stretch (ECal asking about people while the books are read) */
-		if (!(which & MU_MESAG) && bg_pending() && bg_may_work()) {
+		   stretch (ECal asking about people while the books are read).
+		   Nor when the turn took its time already: an AES call before it
+		   (bg_tick's appl_find for ECONTACT.PRG, once a second) may let
+		   another program run, ECal's 80 ms and a slice made 160 */
+		if (!(which & MU_MESAG) && turn_free() && bg_pending() && bg_may_work()) {
 			aes_profile_tag("bg-load");
 			bg_slice();
 			do
@@ -1995,7 +2008,7 @@ int main(void)
 		/* CONTACTS.TXT in the program and with the window open: its
 		   steps for some 40 ms a timer event, only when nothing else
 		   came (an opening and its steps made one 417 ms stretch) */
-		if (which == MU_TIMER && (!is_acc || win_h > 0) && people_file_now()) {
+		if (which == MU_TIMER && turn_free() && (!is_acc || win_h > 0) && people_file_now()) {
 			unsigned long t0 = pf_ms();
 			aes_profile_tag(people_file_what());
 			while (people_file_step() && pf_ms() - t0 < 40)

@@ -257,7 +257,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   the contacts at once (ECONTACT.INF's lines too: store_init_lines, 30 a
   step; a card read from the disk is parsed in the next step). No slice
   runs in the turn a message came in: its work and a slice would make one
-  stretch (ECal asks about people while the books are read). A file is opened and closed within a step (the
+  stretch (ECal asks about people while the books are read). Nor in a
+  turn that took 30 ms already (turn_free): on TOS 1.04 an AES call such
+  as appl_find (bg_tick's look for ECONTACT.PRG, once a second) can let
+  another program run, and ECal's 80 ms and a slice made one 160 ms
+  stretch. A file is opened and closed within a step (the
   reader opens it again where it was): an accessory's handles belong to
   the program in front, which may end while we wait, so the background
   refresh keeps what came in memory and writes it with no event call
