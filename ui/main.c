@@ -1964,7 +1964,7 @@ int main(void)
 			else if (scan == 0x62) {
 				help_key_pressed();
 			}
-			else if (!crash_test(scan))	/* test builds: F1-F4 crash */
+			else if (!crash_test(scan))	/* test builds: F1-F5 crash */
 				win_key(ev.kstate, ev.kreturn);
 		}
 		if ((which & MU_BUTTON) && win_h > 0) {
