@@ -3842,22 +3842,30 @@ static void names_stamp(void)
    an edit, an import: groups_collect); its stamp (the names stamp, the
    group cards' members and the categories) made in steps, and the file
    made again only when the stamp isn't the file's (6.5: a start that
-   changed nothing writes nothing). Made in memory in steps, written to
-   CONTACTS.TMP in pieces (as the index is: 2.2) and put in its place ---- */
+   changed nothing writes nothing). Made in steps, PF_CHUNK at a time,
+   each piece added to CONTACTS.TMP in a step of its own (a file opened
+   and closed in each: 2.2), which is then put in its place, so EMail or
+   ECal never read half of it. Only a piece is held: the whole file (40 KB
+   for 350 contacts) wasn't to be had on a 1 MB ST ---- */
 enum { PF_IDLE, PF_STAMP, PF_PEOPLE, PF_GROUPS, PF_SAVE };
+#define PF_CHUNK (8L * 1024)
 
 static struct {
 	int st, i, k, first, known, has;
 	unsigned long have;		/* the stamp of the file there is (has) */
 	unsigned long h, serial;	/* what is being made from */
-	long need;			/* its size, about (counted with the stamp) */
-	long pos;			/* written up to here (PF_SAVE) */
-	SBUF out;
+	long pos;			/* CONTACTS.TMP written up to here */
+	SBUF out;			/* the piece being made */
 } pfw;
 
 static void pfw_path(char *p, int size)
 {
 	path_join(p, size, opt.workdir, "CONTACTS.TXT");
+}
+
+static void pfw_tmp(char *p, int size)
+{
+	path_join(p, size, opt.workdir, "CONTACTS.TMP");
 }
 
 int people_file_due(void)
@@ -3887,17 +3895,38 @@ static int pfw_put(const char *a, const char *b, const char *c, const char *d)
 	return 1;
 }
 
-/* no memory for it, or contacts left out: said in the log, and tried
-   again at the next change */
+/* not written (no memory, contacts left out, the disk): said in the
+   log, and tried again at the next change */
 static void pfw_stop(const char *why)
 {
-	char m[80];
+	char m[80], tmp[200];
 	snprintf(m, sizeof(m), "CONTACTS.TXT not written: %s", why);
 	conn_log("Contacts", " -- ", m, (long)strlen(m));
+	if (pfw.pos) {
+		pfw_tmp(tmp, sizeof(tmp));
+		pf_remove(tmp);
+	}
 	sb_free(&pfw.out);
 	pfw.st = PF_IDLE;
 	pfw.have = pfw.h;
 	pfw.has = 1;
+}
+
+/* the piece made so far added to CONTACTS.TMP; 0 when it couldn't be */
+static int pfw_flush(void)
+{
+	char tmp[200];
+	int h, ok;
+	pfw_tmp(tmp, sizeof(tmp));
+	h = pf_open(tmp, pfw.pos ? PF_APPEND : PF_WRITE);
+	ok = h >= 0 && pf_write(h, pfw.out.s, pfw.out.len) == pfw.out.len;
+	if (h >= 0)
+		pf_close(h);
+	pfw.pos += pfw.out.len;
+	sb_reset(&pfw.out);
+	if (!ok)
+		pfw_stop("the disk");
+	return ok;
 }
 
 /* the stamp: the names stamp, then what makes the groups */
@@ -3919,10 +3948,10 @@ static int pfw_begin(void)
 		pfw_stop("contacts left out");
 		return 0;
 	}
-	/* its room at once: no buffer copied as it grows (70 KB would take
-	   an ST 90 ms) */
+	/* a piece's room at once, and a contact's lines over it */
 	sb_free(&pfw.out);
-	if (!sb_reserve(&pfw.out, pfw.need + 512)) {
+	pfw.pos = 0;
+	if (!sb_reserve(&pfw.out, PF_CHUNK + 2048)) {
 		pfw_stop("no memory");
 		return 0;
 	}
@@ -3937,25 +3966,10 @@ static int pfw_begin(void)
 	return 1;
 }
 
-/* the length of vcard_display_name's name, at most */
-static long pfw_name_len(const CONTACT *c)
-{
-	long n;
-#define LEN(s) ((s) ? (long)strlen(s) : 0L)
-	if (c->company && c->org && *c->org)
-		n = LEN(c->org);
-	else if ((c->given && *c->given) || (c->family && *c->family))
-		n = LEN(c->given) + LEN(c->middle) + LEN(c->family) + 3;
-	else
-		n = c->fn && *c->fn ? LEN(c->fn) : c->org && *c->org ? LEN(c->org) : 100;
-#undef LEN
-	return n < PEOPLE_NAME_MAX ? n : PEOPLE_NAME_MAX;
-}
-
-/* a step's work: some 20 ms of it, at least one */
+/* a step's work: some 20 ms of it, at least one, until a piece is made */
 static int pfw_more(unsigned long t0, int n, int max)
 {
-	return n < max && (!n || pf_ms() - t0 < 20);
+	return n < max && pfw.out.len < PF_CHUNK && (!n || pf_ms() - t0 < 20);
 }
 
 /* one step; 1 while there is more */
@@ -3979,34 +3993,26 @@ int people_file_step(void)
 		return 1;
 	}
 	if (pfw_look || (pfw.st && pfw.serial != people_serial)) {
-		/* (again, when the list changed meanwhile) */
+		/* (again, when the list changed meanwhile: CONTACTS.TMP is
+		   begun again) */
 		pfw_look = 0;
 		pfw.st = PF_STAMP;
 		pfw.serial = people_serial;
 		pfw.h = people_names_stamp;
-		pfw.need = 0;
 		pfw.i = 0;
 		return 1;
 	}
+	/* a piece made: written, in a step of its own */
+	if (pfw.st > PF_STAMP && pfw.out.len >= PF_CHUNK)
+		return pfw_flush();
 	switch (pfw.st) {
 	case PF_STAMP:
-		/* a group card's members, the categories; the size the lines
-		   will be, about: a group's member some 72 bytes */
+		/* a group card's members, the categories */
 		for (; pfw.i < npeople && pfw_more(t0, n, 64); pfw.i++, n++) {
 			const CONTACT *c = people[pfw.i];
-			const char *p;
 			for (j = 0; j < c->nmember; j++)
 				pfw_mix(c->member[j]);
 			pfw_mix(c->cats);
-			pfw.need += 72L * c->nmember;
-			for (p = c->cats; p && *p; p++)
-				if (*p == ',' || p == c->cats)
-					pfw.need += 72;
-			if (!c->group && c->nemail) {
-				long nl = pfw_name_len(c);
-				for (j = 0; j < c->nemail; j++)
-					pfw.need += nl + 6 + (long)strlen(c->email[j].value) + (long)strlen(c->email[j].label);
-			}
 		}
 		if (pfw.i < npeople)
 			return 1;
@@ -4068,39 +4074,22 @@ int people_file_step(void)
 			return 1;
 		}
 		pfw.st = PF_SAVE;
-		pfw.pos = 0;
 		return 1;
 	case PF_SAVE: {
-		/* written to CONTACTS.TMP 16 KB a step (a file opened and closed
-		   in each: 2.2), then put in its place, so EMail or ECal never
-		   read half of it */
+		/* the last piece, then CONTACTS.TMP put in its place */
 		char tmp[200];
-		long k = pfw.out.len - pfw.pos;
-		int h, ok;
-		if (k > 16L * 1024)
-			k = 16L * 1024;
-		path_join(tmp, sizeof(tmp), opt.workdir, "CONTACTS.TMP");
-		h = pf_open(tmp, pfw.pos ? PF_APPEND : PF_WRITE);
-		ok = h >= 0 && pf_write(h, pfw.out.s + pfw.pos, k) == k;
-		if (h >= 0)
-			pf_close(h);
-		pfw.pos += k;
-		if (ok && pfw.pos < pfw.out.len)
-			return 1;
+		if (pfw.out.len)
+			return pfw_flush();
 		pfw_path(path, sizeof(path));
-		if (ok) {
-			pf_remove(path);	/* TOS doesn't rename over a file */
-			ok = pf_rename(tmp, path) == 0;
-		}
-		if (!ok) {
-			char m[80];
-			pf_remove(tmp);
-			snprintf(m, sizeof(m), "CONTACTS.TXT not written (%ld bytes)", pfw.out.len);
-			conn_log("Contacts", " -- ", m, (long)strlen(m));
+		pfw_tmp(tmp, sizeof(tmp));
+		pf_remove(path);	/* TOS doesn't rename over a file */
+		if (pf_rename(tmp, path) != 0) {
+			pfw_stop("the disk");
+			return 0;
 		}
 		sb_free(&pfw.out);
 		pfw.st = PF_IDLE;
-		pfw.have = pfw.h;	/* (written or not: tried again at the next change) */
+		pfw.have = pfw.h;
 		pfw.has = 1;
 		return 0;
 	}

@@ -86,8 +86,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   nothing writes nothing (`make itest`, `tests/hatari/quiet_start.py`).
   With contacts left out for lack of memory it isn't written. Its lines
   are put together by hand (an ST's snprintf takes 2.9 ms a line, strpbrk
-  1.3 ms an address), its steps stop after some 20 ms, and its buffer is
-  sized from the stamp's pass. A load collects the groups in steps too
+  1.3 ms an address) and its steps stop after some 20 ms. It is made
+  8 KB at a time (PF_CHUNK), each piece added to CONTACTS.TMP in a step
+  of its own, which is then renamed: the whole file (40 KB for 350
+  contacts) wasn't to be had on a 1 MB ST (`quiet_start.py WORK ST-1`).
+  A load collects the groups in steps too
   (groups_collect_step: 600 contacts with categories took an ST 165 ms).
 - Where the accessory and the program find ECONTACT.INF and the folder
   follows ECal (ui/main.c: find_workdir, move_inf, locate_folder);

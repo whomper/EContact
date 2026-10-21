@@ -673,5 +673,23 @@ $CLI "$D" add Notes Local Person local@example.com
 R=$($CLI "$D" list)
 expect "a local contact" "Local Person | local@example.com" "$R"
 
+echo "CONTACTS.TXT for a bigger book: written 8 KB at a time"
+B=$W/big
+python3 -c "import sys; sys.path.insert(0, 'tests/hatari'); import quiet_start; quiet_start.cards('$W/big.vcf', 300)"
+$CLI "$B" local Contacts > /dev/null
+$CLI "$B" import Contacts "$W/big.vcf" > /dev/null
+R=$(python3 - "$B/CONTACTS.TXT" <<'PY'
+import sys
+t = open(sys.argv[1], "rb").read()
+p = [l for l in t.split(b"\r\n") if l.startswith(b"P\t")]
+g = [l for l in t.split(b"\r\n") if l.startswith(b"G\t")]
+print(len(t), len(p), len(g), len(set(p)))
+PY
+)
+read -r size np ng nu <<<"$R"
+if [ "$np" = 600 ] && [ "$nu" = 600 ] && [ "$ng" = 2 ] && [ "$size" -gt 16384 ]; then
+  ok "every address once and both groups ($size bytes)"; else bad "the bigger book's file: $R"; fi
+if [ ! -e "$B/CONTACTS.TMP" ]; then ok "CONTACTS.TMP put in its place"; else bad "CONTACTS.TMP left"; fi
+
 if [ "$fails" -gt 0 ]; then echo "$fails failed"; exit 1; fi
 echo "all passed"

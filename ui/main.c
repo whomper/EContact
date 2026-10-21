@@ -1486,7 +1486,8 @@ static void bg_slice(void)
 static int bg_more_step(void)
 {
 	static const char *was;
-	const char *what = quiet_syncing() && !books_loading() ? quiet_sync_what()
+	const char *what = !settings_ready ? "settings"
+			   : quiet_syncing() && !books_loading() ? quiet_sync_what()
 			   : people_file_now() ? people_file_what() : books_load_what();
 	unsigned long now = pf_ms();
 	if (now - step_at > step_ms)
