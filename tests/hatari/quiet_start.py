@@ -165,6 +165,9 @@ def main():
         print("%s, run 3 (opened while reading): %s" % (machine, last[0] if last else "?"))
         check("%s, run 3: all %d read when opened while reading" % (machine, n),
               bool(last) and (" %d cards in" % n) in last[0])
+        # the family's machines keep timer C at 200 Hz: a boot that
+        # "corrected" its clock measured it wrong, and its times are off
+        check("%s: the clock taken as it is at every boot" % machine, "times corrected" not in t)
     print("all passed" if not fails else "%d failed" % fails)
     sys.exit(1 if fails else 0)
 

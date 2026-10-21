@@ -169,6 +169,9 @@ def main():
     net = ("sync-ctag", "sync-list", "sync-fetch")
     quiet = [g for tg, v in gaps.items() if not tg.startswith("open") and tg != "redraw" and tg not in net for g in v]
     check("refreshed with the window closed", done)
+    # the family's machines keep timer C at 200 Hz: a boot that
+    # "corrected" its clock measured it wrong, and its times are off
+    check("the clock taken as it is", "times corrected" not in t)
     check("no stretch over %d ms but the opening's and the serial line's (%s)"
           % (limit, "the longest %d ms" % max(quiet) if quiet else "none reached 50 ms"), max(quiet or [0]) <= limit)
     check("added to the cache, not written anew", open(dat[0], "rb").readline() == gen)

@@ -1734,6 +1734,7 @@ static void ld_write(void)
 {
 	BOOK *b = &books[ld.bi];
 	char path[200];
+	unsigned long t0 = pf_ms();
 	int n = 0;
 	cache_path(b, "IDX", path, sizeof(path));
 	if (!ld.begun) {
@@ -1753,9 +1754,17 @@ static void ld_write(void)
 		hd.datstamp = ld.wstamp[ld.bi];
 		ld.wok = out_write(&ld.wo, &hd, sizeof(hd));
 	}
-	/* three contacts a step (an ST packs one in some 20 ms), and the
-	   file written in a step of its own */
-	for (; ld.wi < npeople && ld.wok && n < 3; ld.wi++) {
+	/* the buffer nearly full: written in a step of its own, before a
+	   contact would send it out in the middle of a step of packing (one
+	   made 95 ms on an ST) */
+	if (ld.wok && ld.wi < npeople && ld.wo.h < 0 && ld.wo.n &&
+	    ld.wo.n + 4096 > (ld.wo.max ? ld.wo.max : ab_out_max)) {
+		ld.wok = out_put(&ld.wo, 0, 0);
+		return;
+	}
+	/* up to three contacts a step, some 25 ms of them (an ST packs one
+	   in some 20 ms), and the file written in a step of its own */
+	for (; ld.wi < npeople && ld.wok && n < 3 && (!n || pf_ms() - t0 < 25); ld.wi++) {
 		CONTACT *c = people[ld.wi];
 		if (c->book == ld.bi && c->res >= 0 && c->res < b->nres) {
 			ld.wok = idx_put(&ld.wo, c, &b->res[c->res]);
@@ -1843,15 +1852,17 @@ static void ld_step(void)
 			ld_to(LB_NAMES);
 		break;
 	case LB_NAMES: {
-		/* the names stamp (names_stamp), 64 contacts a step */
+		/* the names stamp (names_stamp): some 30 ms of contacts a step
+		   (an ST takes over a millisecond each: 64 made 95 ms) */
 		char m[60], a[16];
+		unsigned long t0 = pf_ms();
 		int n;
 		if (!ld.begun) {
 			ld.begun = 1;
 			ld.r = 0;
 			ld.names = 0x2C1B3C6DUL + opt.last_first;
 		}
-		for (n = 0; n < 64 && ld.r < npeople; n++, ld.r++)
+		for (n = 0; n < 64 && ld.r < npeople && (!n || pf_ms() - t0 < 30); n++, ld.r++)
 			ld.names = names_of(ld.names, people[ld.r]);
 		if (ld.r < npeople)
 			break;
