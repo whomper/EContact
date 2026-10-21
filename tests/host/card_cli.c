@@ -548,6 +548,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "unknown command %s\n", cmd);
 		ok = 0;
 	}
+	people_file_write();	/* CONTACTS.TXT, as EContact writes it */
 	store_save_settings();
 	http_close_all();
 	conn_log_flush();

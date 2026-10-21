@@ -75,8 +75,20 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   sends changed: when people_names_stamp moves and when the background
   load ends; the window's choose mode is main.c's pick_start/pick_end.
   The accessory hands PEOPLE on to a running ECONTACT.PRG (people_pass).
-  No program reads another's files: there is no CONTACTS.TXT. `make
-  itest` checks the answers through card-cli ask.
+  `make itest` checks the answers through card-cli ask.
+- CONTACTS.TXT in the folder is for EMail and ECal when EContact isn't
+  loaded, an option of theirs (the guidelines 4.1; Erez, 21 Oct 2026; no
+  setting here): abook.c people_file_step writes it in 1.40's format (P
+  and G lines, "; made from" a stamp) in steps, run by bg_step (the
+  accessory) and the event loop (the program, the window open). It is
+  looked at whenever groups_collect runs; its stamp is the names stamp,
+  the group cards' members and the categories, so a start that changed
+  nothing writes nothing (`make itest`, `tests/hatari/quiet_start.py`).
+  With contacts left out for lack of memory it isn't written. Its lines
+  are put together by hand (an ST's snprintf takes 2.9 ms a line, strpbrk
+  1.3 ms an address), its steps stop after some 20 ms, and its buffer is
+  sized from the stamp's pass. A load collects the groups in steps too
+  (groups_collect_step: 600 contacts with categories took an ST 165 ms).
 - Where the accessory and the program find ECONTACT.INF and the folder
   follows ECal (ui/main.c: find_workdir, move_inf, locate_folder);
   `tests/hatari/placement.py WORK [MACHINE]` checks it.

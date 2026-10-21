@@ -123,9 +123,52 @@ N=$(grep -c "changed:" <<<"$R" || true)
 if [ "$N" = 2 ]; then ok "and again when an address changed"; else bad "changed: $N times"; fi
 R=$($CLI "$D" ask "names:EMAIL dana@new.example")
 expect "the new address known" $'dana@new.example\tDana Levi' "$R"
+echo "CONTACTS.TXT: the people for EMail and ECal when EContact isn't loaded"
+PF=$D/CONTACTS.TXT
+pf_check() { # every address in the list, with its name as names: answers it; the groups
+  python3 - "$PF" "$1" "$CLI" "$D" <<'PY'
+import subprocess, sys
+pf, listing, cli, d = sys.argv[1:]
+raw = open(pf, "rb").read()
+lines = raw.split(b"\r\n")
+if lines[-1] != b"" or b"\n" in raw.replace(b"\r\n", b""):
+    sys.exit("not CRLF lines")
+lines = lines[:-1]
+notes = [l for l in lines if l.startswith(b"; ")]
+if not any(l.startswith(b"; made from ") and len(l) == 20 for l in notes):
+    sys.exit("no stamp: %r" % notes)
+p = [l.split(b"\t") for l in lines if l.startswith(b"P\t")]
+g = [l.split(b"\t") for l in lines if l.startswith(b"G\t")]
+if len(notes) + len(p) + len(g) != len(lines) or any(len(r) != 4 or not r[1] or len(r[1]) > 63 for r in p):
+    sys.exit("a bad line: %r" % lines)
+want = sorted(w for l in listing.splitlines() for w in l.split(" | ")[1:] if "@" in w)
+have = sorted(r[2].decode() for r in p)
+if have != want:
+    sys.exit("addresses %s, the list has %s" % (have, want))
+ask = subprocess.run([cli, d, "ask", "names:EMAIL " + " ".join(have)], capture_output=True).stdout
+for r in p:
+    if r[2] + b"\t" + r[1] not in ask:
+        sys.exit("%r: names: says otherwise" % r)
+print("%d P, %d G" % (len(p), len(g)))
+PY
+}
+R=$(pf_check "$($CLI "$D" list)" 2>&1) && ok "every address, with its name ($R)" || bad "CONTACTS.TXT: $R"
+T=$(tr -d '\r' < "$PF")
+expect "a group card's line" $'G\tFamily\tErez Yaary <erez@example.com>' "$T"
+expect "a category's line" $'G\tAtari Club\tSam Cohen <sam@example.net>, Erez Yaary <erez@example.com>' "$T"
+expect "an address's label" $'P\tDana Levi\tdana@example.org\t' "$T"
+T=$(stat -c %y "$PF")
+sleep 1
+$CLI "$D" list > /dev/null
+$CLI "$D" set "Dana Levi" title "Senior Engineer"
+if [ "$(stat -c %y "$PF")" = "$T" ]; then ok "nothing changed in the names or groups: not written"; else bad "CONTACTS.TXT written again"; fi
 $CLI "$D" group-rename "Atari Club" "Atari Friends"
 R=$($CLI "$D" groups)
 expect "renamed category" "Atari Friends (category, 2)" "$R"
+expect "a group renamed: written again" $'G\tAtari Friends\t' "$(tr -d '\r' < "$PF")"
+$CLI "$D" set "Sam Cohen" email "sam@other.example"
+R=$(pf_check "$($CLI "$D" list)" 2>&1) && ok "an address changed: written again" || bad "CONTACTS.TXT after a change: $R"
+expect "the new address in it" $'\tSam Cohen\tsam@other.example\t' "$(tr -d '\r' < "$PF")"
 
 echo "import and export"
 printf 'BEGIN:VCARD\r\nVERSION:2.1\r\nN;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:M=C3=BCller;J=C3=BCrgen\r\nTEL;CELL:0170 1234567\r\nEND:VCARD\r\nBEGIN:VCARD\r\nVERSION:3.0\r\nFN:Atari Corp\r\nORG:Atari Corp\r\nX-ABShowAs:COMPANY\r\nEND:VCARD\r\n' > "$W/in.vcf"

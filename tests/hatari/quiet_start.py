@@ -19,6 +19,9 @@ gem.c); at boot, in the background and when idle none may be longer
 than 100 ms on a 68000 (ST, ST-1: ECONTST.ACC) or 50 ms on a 68030 (TT,
 Falcon: ECONTACT.ACC). The first opening and its
 drawing, which the user asked for, are reported (tags open-* and redraw).
+CONTACTS.TXT (for EMail and ECal: the guidelines 4.1) isn't there at the
+first boot: it is written then, in steps (tags people-*), with every
+address; at the second, nothing changed, it isn't written.
 """
 import os
 import random
@@ -57,6 +60,8 @@ def cards(path, n):
                     + "item1.ADR;type=HOME;type=pref:;;%d Herzl St;Tel Aviv;;6100000;Israel\r\n" % (i + 1)
                     + "BDAY:1970-%02d-%02d\r\nNOTE:Met at the meeting %d\\, call back later.\r\n"
                     % (i % 12 + 1, i % 28 + 1, i)
+                    + ("CATEGORIES:%s\r\n" % ",".join(c for c, k in (("Friends", 4), ("Work", 7)) if not i % k)
+                       if not i % 4 or not i % 7 else "")
                     + "UID:QUIET-%05d\r\nEND:VCARD\r\n" % i)
 
 
@@ -76,6 +81,8 @@ def main():
         subprocess.run([CLI, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
         subprocess.run([CLI, folder, "import", "Contacts", os.path.join(d, "p.vcf")], check=True,
                        stdout=subprocess.DEVNULL)
+        people = os.path.join(folder, "CONTACTS.TXT")
+        os.remove(people)		# card-cli's: the accessory writes it
         inf = open(os.path.join(folder, "ECONTACT.INF"), "rb").read()
         inf = inf.replace(b"\nLOG=0", b"\nLOG=1").replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
         inf = re.sub(rb"\nSTART=[^\r\n]*", rb"\nSTART=5", inf)
@@ -121,6 +128,18 @@ def main():
                   % (machine, run, limit, "the longest %d ms" % max(quiet) if quiet else "none reached 50 ms"),
                   max(quiet or [0]) <= limit)
             check("%s, run %d: read before the opening" % (machine, run), loaded < 890)
+            if run == 1:
+                pt = open(people, "rb").read() if os.path.exists(people) else b""
+                rows = [x for x in pt.split(b"\r\n") if x.startswith(b"P\t")]
+                grp = [x for x in pt.split(b"\r\n") if x.startswith(b"G\t")]
+                print("   CONTACTS.TXT: %d bytes, %d P lines, %d G" % (len(pt), len(rows), len(grp)))
+                check("%s, run 1: CONTACTS.TXT written, every address and group" % machine,
+                      b"\r\n; made from " in pt and len(rows) == 2 * n and all(x.count(b"\t") == 3 for x in rows)
+                      and len(grp) == 2)
+                pstamp = os.stat(people).st_mtime_ns if pt else 0
+            else:
+                check("%s, run 2: nothing changed, CONTACTS.TXT not written" % machine,
+                      os.path.exists(people) and os.stat(people).st_mtime_ns == pstamp)
         # opened while it reads (the index gone: every card parsed): what is
         # left is read at once, and all of them are there
         for f in os.listdir(os.path.join(folder, "CACHE")):

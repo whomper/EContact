@@ -382,6 +382,10 @@ void store_save_settings(void)
 
 /* ---------------- the people ---------------- */
 
+static int pfw_look;		/* CONTACTS.TXT to be looked at (people_file_step) */
+static int gc_at = -1;		/* the groups' categories read up to here (groups_collect_step) */
+static int groups_collect_step(int max);
+
 static int cmp_people(const void *a, const void *b)
 {
 	const CONTACT *x = *(CONTACT *const *)a, *y = *(CONTACT *const *)b;
@@ -635,6 +639,7 @@ void store_release(void)
 	groups_collect();
 	store_lost_passwords = store_plain_passwords = 0;
 	pack_forget();
+	people_file_forget();		/* (the folder may be another) */
 }
 
 /* the files as they are now: ECONTACT.INF, ECONTACT.KEY and the books'
@@ -1830,8 +1835,12 @@ static void ld_step(void)
 		}
 		break;
 	case LB_GROUPS:
-		groups_collect();
-		ld_to(LB_NAMES);
+		if (!ld.begun) {
+			ld.begun = 1;
+			gc_at = -1;	/* (begun again) */
+		}
+		if (!groups_collect_step(32))
+			ld_to(LB_NAMES);
 		break;
 	case LB_NAMES: {
 		/* the names stamp (names_stamp), 64 contacts a step */
@@ -3389,34 +3398,56 @@ static int add_group(const char *name, int book, CONTACT *card)
 	return ngroups++;
 }
 
-void groups_collect(void)
+/* The groups made again in steps (a load in the background: 600 contacts
+   with categories took an ST 165 ms): the group cards, then max contacts
+   with categories a step; 0 when done */
+static int groups_collect_step(int max)
 {
-	int i;
-	free(groups);
-	groups = 0;
-	ngroups = 0;
-	for (i = 0; i < npeople; i++)
-		if (people[i]->group) {
-			char n[64];
-			vcard_display_name(people[i], 0, n, sizeof(n));
-			add_group(n, people[i]->book, people[i]);
-		}
-	for (i = 0; i < npeople; i++) {
-		const char *p = people[i]->cats;
+	int i, n;
+	if (gc_at < 0) {
+		pfw_look = 1;		/* CONTACTS.TXT looked at again */
+		free(groups);
+		groups = 0;
+		ngroups = 0;
+		for (i = 0; i < npeople; i++)
+			if (people[i]->group) {
+				char nm[64];
+				vcard_display_name(people[i], 0, nm, sizeof(nm));
+				add_group(nm, people[i]->book, people[i]);
+			}
+		gc_at = 0;
+		return 1;
+	}
+	for (n = 0; gc_at < npeople && n < max; gc_at++) {
+		const char *p = people[gc_at]->cats;
+		if (!p || !*p)
+			continue;
+		n++;
 		while (p && *p) {
 			const char *c = strchr(p, ',');
-			char n[64];
+			char nm[64];
 			int k = c ? (int)(c - p) : (int)strlen(p);
 			if (k > 63)
 				k = 63;
-			memcpy(n, p, k);
-			n[k] = 0;
-			add_group(n, people[i]->book, 0);
+			memcpy(nm, p, k);
+			nm[k] = 0;
+			add_group(nm, people[gc_at]->book, 0);
 			p = c ? c + 1 : 0;
 		}
 	}
+	if (gc_at < npeople)
+		return 1;
 	if (ngroups > 1)
 		qsort(groups, ngroups, sizeof(GROUP), cmp_groups);
+	gc_at = -1;
+	return 0;
+}
+
+void groups_collect(void)
+{
+	gc_at = -1;
+	while (groups_collect_step(npeople + 1))
+		;
 }
 
 static int has_cat(const char *cats, const char *name)
@@ -3798,6 +3829,305 @@ static void names_stamp(void)
 	for (i = 0; i < npeople; i++)
 		h = names_of(h, people[i]);
 	people_names_stamp = h & 0xFFFFFFFFUL;
+}
+
+/* ---- CONTACTS.TXT: the people for EMail and ECal when EContact isn't
+   loaded (the guidelines 4.1: an option the reader turns on in its
+   Settings; Erez, 21 Oct 2026). In EContact's folder, 1.40's format:
+   notes ("; "), among them "; made from" and the stamp of what it was made
+   from, then "P<TAB>name<TAB>email<TAB>label" for each address and
+   "G<TAB>group<TAB>Name <email>, ..." for each group with addresses; Atari
+   text, CRLF, the names as PEOPLE's names: gives them (at most 63 bytes).
+   Looked at whenever the groups are collected again (a load, a refresh,
+   an edit, an import: groups_collect); its stamp (the names stamp, the
+   group cards' members and the categories) made in steps, and the file
+   made again only when the stamp isn't the file's (6.5: a start that
+   changed nothing writes nothing). Made in memory in steps, written to
+   CONTACTS.TMP in pieces (as the index is: 2.2) and put in its place ---- */
+enum { PF_IDLE, PF_STAMP, PF_PEOPLE, PF_GROUPS, PF_SAVE };
+
+static struct {
+	int st, i, k, first, known, has;
+	unsigned long have;		/* the stamp of the file there is (has) */
+	unsigned long h, serial;	/* what is being made from */
+	long need;			/* its size, about (counted with the stamp) */
+	long pos;			/* written up to here (PF_SAVE) */
+	SBUF out;
+} pfw;
+
+static void pfw_path(char *p, int size)
+{
+	path_join(p, size, opt.workdir, "CONTACTS.TXT");
+}
+
+int people_file_due(void)
+{
+	return pfw.st || pfw_look || !pfw.known;
+}
+
+/* one that may go on a line: no tab or line end in it (by hand: an ST's
+   strpbrk takes 1.3 ms an address, snprintf 2.9 ms a line) */
+static int pfw_ok(const char *s)
+{
+	for (; *s; s++)
+		if (*s == '\t' || *s == '\r' || *s == '\n')
+			return 0;
+	return 1;
+}
+
+/* the parts of a line, then its end; 0 out of memory */
+static int pfw_put(const char *a, const char *b, const char *c, const char *d)
+{
+	const char *v[4];
+	int i;
+	v[0] = a, v[1] = b, v[2] = c, v[3] = d;
+	for (i = 0; i < 4 && v[i]; i++)
+		if (!sb_adds(&pfw.out, v[i]))
+			return 0;
+	return 1;
+}
+
+/* no memory for it, or contacts left out: said in the log, and tried
+   again at the next change */
+static void pfw_stop(const char *why)
+{
+	char m[80];
+	snprintf(m, sizeof(m), "CONTACTS.TXT not written: %s", why);
+	conn_log("Contacts", " -- ", m, (long)strlen(m));
+	sb_free(&pfw.out);
+	pfw.st = PF_IDLE;
+	pfw.have = pfw.h;
+	pfw.has = 1;
+}
+
+/* the stamp: the names stamp, then what makes the groups */
+static void pfw_mix(const char *s)
+{
+	pfw.h = names_mix(pfw.h, s);
+}
+
+static int pfw_begin(void)
+{
+	char head[40];
+	if (pfw.has && pfw.h == pfw.have) {
+		pfw.st = PF_IDLE;
+		return 0;
+	}
+	/* with contacts left out for lack of memory, the file there stays
+	   (ECONTACT.PRG, which has the room, writes them all) */
+	if (contacts_lost()) {
+		pfw_stop("contacts left out");
+		return 0;
+	}
+	/* its room at once: no buffer copied as it grows (70 KB would take
+	   an ST 90 ms) */
+	sb_free(&pfw.out);
+	if (!sb_reserve(&pfw.out, pfw.need + 512)) {
+		pfw_stop("no memory");
+		return 0;
+	}
+	sb_adds(&pfw.out, "; EContact's people, for EMail and ECal when EContact isn't loaded. EContact\r\n"
+			  "; writes it whenever the contacts change: change them in EContact, not here.\r\n"
+			  "; P<tab>name<tab>email<tab>label    one line for each email address\r\n"
+			  "; G<tab>group<tab>Name <email>, Name <email>...\r\n");
+	snprintf(head, sizeof(head), "; made from %08lX\r\n", pfw.h);
+	sb_adds(&pfw.out, head);
+	pfw.i = 0;
+	pfw.st = PF_PEOPLE;
+	return 1;
+}
+
+/* the length of vcard_display_name's name, at most */
+static long pfw_name_len(const CONTACT *c)
+{
+	long n;
+#define LEN(s) ((s) ? (long)strlen(s) : 0L)
+	if (c->company && c->org && *c->org)
+		n = LEN(c->org);
+	else if ((c->given && *c->given) || (c->family && *c->family))
+		n = LEN(c->given) + LEN(c->middle) + LEN(c->family) + 3;
+	else
+		n = c->fn && *c->fn ? LEN(c->fn) : c->org && *c->org ? LEN(c->org) : 100;
+#undef LEN
+	return n < PEOPLE_NAME_MAX ? n : PEOPLE_NAME_MAX;
+}
+
+/* a step's work: some 20 ms of it, at least one */
+static int pfw_more(unsigned long t0, int n, int max)
+{
+	return n < max && (!n || pf_ms() - t0 < 20);
+}
+
+/* one step; 1 while there is more */
+int people_file_step(void)
+{
+	char name[PEOPLE_NAME_MAX + 1], path[200];
+	unsigned long t0 = pf_ms();
+	int n = 0, j;
+	if (!pfw.known) {
+		/* the stamp on the file there is: one look, a step of its own */
+		char head[400], *p;
+		long got;
+		pfw.known = 1;
+		pfw_path(path, sizeof(path));
+		got = pf_read_at(path, 0, head, sizeof(head) - 1);
+		head[got > 0 ? got : 0] = 0;
+		if ((p = strstr(head, "; made from ")) != 0) {
+			pfw.have = strtoul(p + 12, 0, 16);
+			pfw.has = 1;
+		}
+		return 1;
+	}
+	if (pfw_look || (pfw.st && pfw.serial != people_serial)) {
+		/* (again, when the list changed meanwhile) */
+		pfw_look = 0;
+		pfw.st = PF_STAMP;
+		pfw.serial = people_serial;
+		pfw.h = people_names_stamp;
+		pfw.need = 0;
+		pfw.i = 0;
+		return 1;
+	}
+	switch (pfw.st) {
+	case PF_STAMP:
+		/* a group card's members, the categories; the size the lines
+		   will be, about: a group's member some 72 bytes */
+		for (; pfw.i < npeople && pfw_more(t0, n, 64); pfw.i++, n++) {
+			const CONTACT *c = people[pfw.i];
+			const char *p;
+			for (j = 0; j < c->nmember; j++)
+				pfw_mix(c->member[j]);
+			pfw_mix(c->cats);
+			pfw.need += 72L * c->nmember;
+			for (p = c->cats; p && *p; p++)
+				if (*p == ',' || p == c->cats)
+					pfw.need += 72;
+			if (!c->group && c->nemail) {
+				long nl = pfw_name_len(c);
+				for (j = 0; j < c->nemail; j++)
+					pfw.need += nl + 6 + (long)strlen(c->email[j].value) + (long)strlen(c->email[j].label);
+			}
+		}
+		if (pfw.i < npeople)
+			return 1;
+		pfw.h = (pfw.h + (unsigned long)ngroups) & 0xFFFFFFFFUL;
+		return pfw_begin();
+	case PF_PEOPLE:
+		/* the contacts' names made, their lines */
+		for (; pfw.i < npeople && pfw_more(t0, n, 16); pfw.i++) {
+			const CONTACT *c = people[pfw.i];
+			if (c->group || !c->nemail)
+				continue;
+			vcard_display_name(c, opt.last_first, name, sizeof(name));
+			if (!pfw_ok(name))
+				name[0] = 0;
+			for (j = 0; j < c->nemail; j++) {
+				const char *v = c->email[j].value, *l = c->email[j].label;
+				if (!*v || !pfw_ok(v))
+					continue;
+				if (!pfw_put("P\t", name, "\t", v) || !pfw_put("\t", pfw_ok(l) ? l : "", "\r\n", 0)) {
+					pfw_stop("no memory");
+					return 0;
+				}
+			}
+			n++;
+		}
+		if (pfw.i < npeople)
+			return 1;
+		pfw.k = pfw.i = 0;
+		pfw.first = 1;
+		pfw.st = PF_GROUPS;
+		return 1;
+	case PF_GROUPS:
+		/* each group's line: its members looked for */
+		if (pfw.k < ngroups) {
+			const GROUP *g = &groups[pfw.k];
+			for (; pfw.i < npeople && pfw_more(t0, n, 128); pfw.i++, n++) {
+				const CONTACT *c = people[pfw.i];
+				if (!c->nemail || !*c->email[0].value || !group_has(g, c) || !pfw_ok(c->email[0].value))
+					continue;
+				vcard_display_name(c, opt.last_first, name, sizeof(name));
+				if (!pfw_ok(name))
+					name[0] = 0;
+				if ((pfw.first && !pfw_put("G\t", pfw_ok(g->name) ? g->name : "", "\t", 0)) ||
+				    !pfw_put(pfw.first ? "" : ", ", name, " <", c->email[0].value) || !pfw_put(">", 0, 0, 0)) {
+					pfw_stop("no memory");
+					return 0;
+				}
+				pfw.first = 0;
+			}
+			if (pfw.i < npeople)
+				return 1;
+			if (!pfw.first && !sb_adds(&pfw.out, "\r\n")) {
+				pfw_stop("no memory");
+				return 0;
+			}
+			pfw.k++;
+			pfw.i = 0;
+			pfw.first = 1;
+			return 1;
+		}
+		pfw.st = PF_SAVE;
+		pfw.pos = 0;
+		return 1;
+	case PF_SAVE: {
+		/* written to CONTACTS.TMP 16 KB a step (a file opened and closed
+		   in each: 2.2), then put in its place, so EMail or ECal never
+		   read half of it */
+		char tmp[200];
+		long k = pfw.out.len - pfw.pos;
+		int h, ok;
+		if (k > 16L * 1024)
+			k = 16L * 1024;
+		path_join(tmp, sizeof(tmp), opt.workdir, "CONTACTS.TMP");
+		h = pf_open(tmp, pfw.pos ? PF_APPEND : PF_WRITE);
+		ok = h >= 0 && pf_write(h, pfw.out.s + pfw.pos, k) == k;
+		if (h >= 0)
+			pf_close(h);
+		pfw.pos += k;
+		if (ok && pfw.pos < pfw.out.len)
+			return 1;
+		pfw_path(path, sizeof(path));
+		if (ok) {
+			pf_remove(path);	/* TOS doesn't rename over a file */
+			ok = pf_rename(tmp, path) == 0;
+		}
+		if (!ok) {
+			char m[80];
+			pf_remove(tmp);
+			snprintf(m, sizeof(m), "CONTACTS.TXT not written (%ld bytes)", pfw.out.len);
+			conn_log("Contacts", " -- ", m, (long)strlen(m));
+		}
+		sb_free(&pfw.out);
+		pfw.st = PF_IDLE;
+		pfw.have = pfw.h;	/* (written or not: tried again at the next change) */
+		pfw.has = 1;
+		return 0;
+	}
+	}
+	return 0;
+}
+
+/* the step next, for AES_PROFILE's notes */
+const char *people_file_what(void)
+{
+	static const char *const n[] = { "people-look", "people-stamp", "people-lines", "people-groups",
+					  "people-save" };
+	return pfw_look || !pfw.known ? n[0] : n[pfw.st];
+}
+
+/* all of it at once (card-cli; the program as it quits) */
+void people_file_write(void)
+{
+	while (people_file_due() && people_file_step())
+		;
+}
+
+/* the folder or the files read again: the file there looked at anew */
+void people_file_forget(void)
+{
+	sb_free(&pfw.out);
+	memset(&pfw, 0, sizeof(pfw));
 }
 
 /* the name EMail or ECal shows for an address: 1 found */

@@ -367,7 +367,11 @@ it there too.
 EMail and ECal ask EContact for people (the PEOPLE message): the names
 behind the addresses they show, and people chosen in EContact's window.
 EContact answers from the contacts it holds, so the accessory must be
-installed (or ECONTACT.PRG running); without it they show the addresses.
+installed (or ECONTACT.PRG running); without it they show the addresses,
+unless you turned on "When EContact isn't loaded, read its contacts file"
+in their Settings: then they take the names, and the people you choose,
+from CONTACTS.TXT, which EContact writes in its folder whenever the
+contacts change (handy on a 1 MB ST, with ECONTACT.PRG run now and then).
 When EMail or ECal asks you to choose, EContact's window opens with
 **Cancel** and **Choose** in place of Refresh and the menu: click people
 to tick them (a double click chooses at once), or choose a group on the

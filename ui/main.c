@@ -1452,12 +1452,19 @@ static void quiet_abort(void)
 	files_known = 1;
 }
 
+/* CONTACTS.TXT to be written (abook.c people_file_step): when the
+   books are read and no refresh runs */
+static int people_file_now(void)
+{
+	return data_ready && workdir[0] && !books_loading() && !quiet_syncing() && people_file_due();
+}
+
 /* work the accessory has while its window is closed */
 static int bg_pending(void)
 {
 	if (!is_acc || win_h > 0 || !workdir[0])
 		return 0;
-	return !data_ready || books_loading() || quiet_syncing() || quiet_due();
+	return !data_ready || books_loading() || quiet_syncing() || quiet_due() || people_file_now();
 }
 
 /* A slice's steps (common/ui/bgwork.c): the next one is begun only when
@@ -1479,7 +1486,8 @@ static void bg_slice(void)
 static int bg_more_step(void)
 {
 	static const char *was;
-	const char *what = quiet_syncing() && !books_loading() ? quiet_sync_what() : books_load_what();
+	const char *what = quiet_syncing() && !books_loading() ? quiet_sync_what()
+			   : people_file_now() ? people_file_what() : books_load_what();
 	unsigned long now = pf_ms();
 	if (now - step_at > step_ms)
 		step_ms = now - step_at;
@@ -1533,6 +1541,11 @@ static void bg_step(void)
 		/* sorted again after a sync */
 		if (!books_load_run(bg_more_step))
 			quiet_sorted();
+		return;
+	}
+	if (people_file_now()) {
+		aes_profile_tag(people_file_what());
+		people_file_step();
 		return;
 	}
 	if (!quiet_syncing()) {
@@ -1846,7 +1859,8 @@ int main(void)
 
 	while (!quit_now) {
 		short flags = MU_MESAG | MU_TIMER, which;
-		unsigned long wait = sync_pending ? 150 : card_photo_pending() || answer_busy() ? 100 : 1000;
+		int pf_fg = (!is_acc || win_h > 0) && people_file_now();
+		unsigned long wait = sync_pending ? 150 : card_photo_pending() || answer_busy() || pf_fg ? 100 : 1000;
 		if (is_acc)
 			wait = bg_timer(bg_pending(), wait);
 		if (win_h > 0)
@@ -1977,6 +1991,14 @@ int main(void)
 				bg_step();
 			while (bg_pending() && bg_more_step());
 		}
+		/* CONTACTS.TXT in the program and with the window open: its
+		   steps for some 40 ms a timer event */
+		if ((which & MU_TIMER) && (!is_acc || win_h > 0) && people_file_now()) {
+			unsigned long t0 = pf_ms();
+			aes_profile_tag(people_file_what());
+			while (people_file_step() && pf_ms() - t0 < 40)
+				;
+		}
 		if ((which & MU_TIMER) && data_ready && win_h > 0) {
 			unsigned long now = pf_ms();
 			if (now - last_minute >= 30000UL) {
@@ -1987,6 +2009,8 @@ int main(void)
 	}
 	win_close();
 	settings_flush();
+	if (data_ready && workdir[0] && !books_loading())
+		people_file_write();	/* (a change made just before Quit) */
 	http_close_all();
 	conn_log_flush();
 	crash_remove();

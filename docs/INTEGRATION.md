@@ -9,7 +9,8 @@ imports vCards), and the message EContact sends to write to someone.
 
 EMail and ECal show people by name and let the user pick them in
 EContact's window. They ask EContact with the family's PEOPLE message
-(0x4E43, the AERA guidelines 4.1); no program reads another's files.
+(0x4E43, the AERA guidelines 4.1); no program reads another's files
+but EContact's CONTACTS.TXT, when the user chooses it (below).
 PEOPLE is laid out as `VA_START` (word 1 the sender, words 3 and 4 a
 string the receiver may read) and answered with `AV_STARTED`. Strings
 are at most 1 KB of Atari text; a longer question or answer goes as
@@ -45,6 +46,26 @@ people_poll();                               /* each turn */
 const char *n = people_name("grace@example.net");   /* 0 while asked */
 people_pick("gra");                                 /* picked() gets them */
 ```
+
+## CONTACTS.TXT: when EContact isn't loaded
+
+On a machine short of memory, where EContact runs as a program now and
+then rather than as an accessory, EMail and ECal can read EContact's
+people from a file instead (in their Settings: "When EContact isn't
+loaded, read its contacts file", and EContact's folder). EContact always
+writes it, `CONTACTS.TXT` in its folder, whenever the people, their
+addresses or the groups changed; the shared reader is AERA-Atari's
+`common/ui/people_file.c`. Atari text, CRLF:
+
+```
+; EContact's people, for EMail and ECal when EContact isn't loaded. ...
+; made from 1A2B3C4D                     the stamp: unchanged, not written again
+P<tab>Grace Baker<tab>grace@example.net<tab>work      a line for each address
+G<tab>Family<tab>Grace Baker <grace@example.net>, ...  each group with addresses
+```
+
+Names are as `names:` gives them (at most 63 bytes). While EContact is
+loaded, PEOPLE is used and the file isn't read.
 
 ## Opening EContact's window, importing vCards
 

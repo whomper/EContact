@@ -232,5 +232,16 @@ extern long ab_read_bytes;
  * when they do (after a load, a sync or a change) */
 extern unsigned long people_names_stamp;
 int people_name_for(const char *addr, char *name, int size);	/* 1 found */
+/* CONTACTS.TXT in the folder, for EMail and ECal when EContact isn't
+   loaded (the guidelines 4.1): due after groups_collect (a load, a
+   refresh, an edit), made again when its stamp isn't the file's; in
+   steps (people_file_step: 1 while there is more), or all at once; the
+   file there looked at anew after store_release */
+#define PEOPLE_NAME_MAX 63
+int  people_file_due(void);
+int  people_file_step(void);
+void people_file_write(void);
+void people_file_forget(void);
+const char *people_file_what(void);	/* AES_PROFILE's note */
 
 #endif
