@@ -1992,8 +1992,9 @@ int main(void)
 			while (bg_pending() && bg_more_step());
 		}
 		/* CONTACTS.TXT in the program and with the window open: its
-		   steps for some 40 ms a timer event */
-		if ((which & MU_TIMER) && (!is_acc || win_h > 0) && people_file_now()) {
+		   steps for some 40 ms a timer event, only when nothing else
+		   came (an opening and its steps made one 417 ms stretch) */
+		if (which == MU_TIMER && (!is_acc || win_h > 0) && people_file_now()) {
 			unsigned long t0 = pf_ms();
 			aes_profile_tag(people_file_what());
 			while (people_file_step() && pf_ms() - t0 < 40)
