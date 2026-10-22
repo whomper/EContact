@@ -162,10 +162,12 @@ $(OBJDIR)/crash_s.o: common/atari/crash.S | $(OBJDIR)
 $(OBJDIR) $(BIN):
 	mkdir -p $@
 
-# EContact's icon for the desktop: icons/, drawn by tools/icon and
-# committed; a release carries them
+# EContact's icon (the guidelines 5.5): drawn in common/icons/ECONTACT.txt
+# (AERA-Atari), made by common/tools/appicon.py into icons/ (a release
+# carries them), ui/icon.h and icon16.h, and docs/icon*.png; committed
 icons:
-	python3 tools/icon/make_rsc.py
+	python3 common/tools/appicon.py ECONTACT --rsc icons/ECONTACT.RSC --icn icons/ECONTACT.ICN \
+		--mask icons/ECONTMSK.ICN --headers ui --docs docs
 
 # the version: VERSION holds the last release (major.minor, e.g. 1.33),
 # and the build never writes it; every build shows it as it is.

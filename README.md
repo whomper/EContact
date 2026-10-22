@@ -1,6 +1,6 @@
 # EContact
 
-<img src="docs/icon16.png" width="96" align="right" alt="EContact icon: an Atari SM124-style monitor showing an address-book page with a person's silhouette beside lines of text">
+<img src="docs/icon.png" width="96" align="right" alt="EContact icon: an address card with a tab at the top, a blue portrait of a person on the left and lines of text on the right">
 
 An address book for the Atari ST, STE, TT and Falcon, written in C for GEM, that syncs with iCloud and
 other CardDAV servers.
@@ -40,14 +40,16 @@ and all of them together in `ECONTACT-x.y.zip`.
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode |
 | `ECONTACT.HYP` | the user guide for ST-Guide or EHypView: in EContact's folder, the Help key opens it |
 | `ECONTACT.REF` | its pages' names, for ST-Guide's index (`ALL.REF`): goes with the .HYP |
-| `ECONTACT.RSC`, `ECONTACT.DEF`, `ECONTACT.ICN`, `ECONTMSK.ICN` | the desktop icon (on their own, and in the zip's `icons/` folder): `ECONTACT.RSC` (black-and-white and 16-colour), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
+| `ECONTACT.RSC`, `ECONTACT.DEF`, `ECONTACT.ICN`, `ECONTMSK.ICN` | the desktop icon (on their own, and in the zip's `icons/` folder): `ECONTACT.RSC` (black and white for TOS 1 and 2; 256 colours, 16 and black and white for the colour desktops), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
 | `ECONTACT-x.y.zip` | all of the above |
 
 **The desktop icon.** Copy the icons from `ECONTACT.RSC` into your desktop's icon file
 (`DESKICON.RSC`, `DESKCICN.RSC`) with a resource editor; `ECONTACT.DEF` gives them their names there.
 For EmuTOS, `tools/icon/add_to_emuicon.py emuicon.rsc EMUICON.RSC` writes a copy of EmuTOS's icon
 file with EContact's added (it says which number), for the root of the boot drive; then
-**Options > Install icon**. `tools/icon/make_rsc.py` makes the files from `tools/icon/make_icon.py`.
+**Options > Install icon**. The icon is the family's (an address card, in 256 colours, TOS's 16
+and black and white): `make icons` makes the files from AERA-Atari's drawing,
+`common/icons/ECONTACT.txt`, with `common/tools/appicon.py`.
 
 1. Copy `ECONTACT.ACC` (Falcon/TT) or `ECONTST.ACC` (ST/STE, renamed to `ECONTACT.ACC` or not) to
    the root of your boot drive (e.g. `C:\`): TOS loads accessories only from there.
@@ -310,7 +312,7 @@ make                     # binary/ECONTACT.ACC, ECONTACT.PRG, ECONTST.ACC, ROOTS
                          # and ECONTACT.HYP when hcp is installed
 make help HCP=/path/to/hcp   # ECONTACT.HYP alone
 make dist                # a release's files in dist/: each file, and ECONTACT-x.y.zip
-make icons               # icons/ from tools/icon
+make icons               # icons/, ui/icon*.h, docs/icon*.png from common/icons/ECONTACT.txt
 ```
 
 `binary/ECONTACT.HYP` is made from `docs/GUIDE.md` by `tools/mkhelp.py` (from EMail) and HCP,
@@ -348,7 +350,7 @@ common/       code shared with the other AERA programs (from AERA-Atari): the TO
               bidi, dates, passwords, build tools
 third_party/  ChaN's TJpgDec, for the photos
 tests/        unit tests, fuzz targets, CardDAV integration tests, Hatari rigs
-tools/        the version bump, the help file, the desktop icon, sync-common.sh, sync-gateway.sh
+tools/        the version bump, the help file, EmuTOS's icon file, sync-common.sh, sync-gateway.sh
 icons/        the desktop icon, as a release carries it
 docs/         the user guide (GUIDE.md, the source of ECONTACT.HYP), INTEGRATION.md, pictures
 ```
