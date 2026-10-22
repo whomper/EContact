@@ -143,8 +143,10 @@ void font_apply(void)
 		use_sys();
 		return;
 	}
-	if (opt.font_id != 1 && gdos_fonts < 0 && vq_gdos() && !is_acc)
+	if (opt.font_id != 1 && gdos_fonts < 0 && vq_gdos() && !is_acc) {
 		gdos_fonts = vst_load_fonts(vdi_h, 0);
+		win_buffer_fonts();
+	}
 	if (!set_font(opt.font_id, opt.font_pt)) {
 		if (!is_acc || gdos_fonts >= 0) {
 			opt.font_id = 1;	/* not there */
@@ -229,6 +231,16 @@ void font_menu(void)
 	fs.acc = is_acc;
 	fs.apply = take;
 	fontsel_run(&fs);
-	if (!is_acc && fs.gdos >= 0)
+	if (!is_acc && fs.gdos >= 0) {
 		gdos_fonts = fs.gdos;	/* the program loads them when first wanted */
+		win_buffer_fonts();
+	}
+}
+
+/* whether another workstation (win.c's bitmap) loads them too: only
+   when the window's has (the program loads them when a font is chosen,
+   and win_buffer_fonts then) */
+int font_gdos_loaded(void)
+{
+	return gdos_fonts > 0;
 }

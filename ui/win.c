@@ -13,6 +13,7 @@
 #include "iconify.h"
 #include "av.h"
 #include "clip.h"
+#include <tos.h>
 
 short win_h = -1;
 GRECT work, r_tool, r_side, r_list, r_card, r_search;
@@ -286,6 +287,187 @@ static void draw_all(GRECT *clip)
 	clip_off();
 }
 
+/* ---- drawing off the screen (ECal's win.c) ----
+ * The window is many small fills, lines and texts; drawn straight onto
+ * the screen, a slow machine shows them appearing one by one, and every
+ * step of scrolling the list blanked it and drew it again (Erez's video,
+ * 22 Oct 2026). So the window is drawn into a screen-sized buffer and
+ * copied to the screen at once. Two ways to draw there:
+ *  - an off-screen bitmap (EdDI v_opnbm: NVDI 3 and later, fVDI...): a
+ *    VDI workstation of its own over our buffer; the drawing code's
+ *    vdi_h is that one while it draws. Safe under any AES.
+ *  - with TOS's own VDI, which draws at the logical screen base: the
+ *    buffer is made the logical screen (Setscreen) while drawing, the
+ *    shown screen staying. Only under single-tasking TOS on the machine's
+ *    own video, nothing else being able to draw meanwhile.
+ * Either is used only when a test at start-up finds a line drawn that
+ * way really in the buffer; otherwise the window is drawn as before. */
+static void *obuf;		/* the buffer, NULL: draw straight on the screen */
+static MFDB obuf_mfdb;
+static short bm_h;		/* the off-screen bitmap's workstation, 0: none */
+static const char *drawing = "straight on the screen";
+
+const char *win_drawing(void)
+{
+	return drawing;
+}
+
+static long xbios_setscreen(void *log)
+{
+	register long r __asm__("d0");
+	__asm__ volatile("move.w #-1,-(%%sp)\n\tmove.l #-1,-(%%sp)\n\tmove.l %1,-(%%sp)\n\t"
+			 "move.w #5,-(%%sp)\n\ttrap #14\n\tlea 12(%%sp),%%sp"
+			 : "=r"(r) : "r"(log) : "d1", "d2", "a0", "a1", "a2", "memory", "cc");
+	return r;
+}
+
+static void *xbios_base(short fn)	/* 2 Physbase, 3 Logbase */
+{
+	return (void *)trap14_w(fn);
+}
+
+/* EdDI's off-screen bitmaps (VDI 100 and 101, sub-opcode 1), not in
+   common/'s bindings */
+static short bc[12], bin[20], bout[57], bpin[4], bpout[12];
+static void *bpb[5] = { bc, bin, bpin, bout, bpout };
+
+static void vdi_bm(void)
+{
+	__asm__ volatile("move.l %0,%%d1\n\tmove.w #115,%%d0\n\ttrap #2"
+			 : : "g"((long)bpb) : "d0", "d1", "d2", "a0", "a1", "a2", "memory", "cc");
+}
+
+static short v_opnbm(short screen, MFDB *m)
+{
+	short i;
+	memset(bc, 0, sizeof(bc));
+	for (i = 0; i < 10; i++)
+		bin[i] = 1;
+	bin[10] = 2;			/* raster coordinates */
+	bin[11] = m->fd_w - 1;
+	bin[12] = m->fd_h - 1;
+	for (i = 13; i < 20; i++)
+		bin[i] = 0;		/* the screen's pixel size and format */
+	bc[0] = 100;
+	bc[3] = 20;
+	bc[5] = 1;
+	bc[6] = screen;
+	bc[7] = (short)((unsigned long)m >> 16);
+	bc[8] = (short)((unsigned long)m & 0xffff);
+	vdi_bm();
+	return bc[6] != screen ? bc[6] : 0;
+}
+
+static void v_clsbm(short h)
+{
+	memset(bc, 0, sizeof(bc));
+	bc[0] = 101;
+	bc[5] = 1;
+	bc[6] = h;
+	vdi_bm();
+}
+
+/* a short black line at the top left, drawn with handle h: does it land
+   in the buffer b? */
+static int lands_in(unsigned char *b, short h, int setscreen)
+{
+	void *screen = xbios_base(3);
+	short keep = vdi_h, i, changed = 0;
+	GRECT r;
+	for (i = 0; i < 64; i++)
+		b[i] = 0x55;
+	wind_update(BEG_UPDATE);
+	graf_mouse(M_OFF, 0);
+	if (setscreen)
+		xbios_setscreen(b);
+	vdi_h = h;
+	draw_forget();
+	r.x = 0;
+	r.y = 0;
+	r.w = 16;
+	r.h = 1;
+	clip_on(&r);
+	fill(&r, 1);
+	clip_off();
+	vdi_h = keep;
+	draw_forget();
+	if (setscreen)
+		xbios_setscreen(screen);
+	graf_mouse(M_ON, 0);
+	wind_update(END_UPDATE);
+	for (i = 0; i < 2 * planes && i < 64; i++)
+		changed |= b[i] != 0x55;
+	return changed;
+}
+
+/* at start-up, before the accessory's first event call (its memory):
+   free, what was free at boot for the accessory (0: the program). The
+   accessory takes the buffer only when it is a sixteenth of that at
+   most: on a 1 MB ST in ST high 32 KB, the memory being the contacts'
+   (Erez) */
+void win_buffer_init(long free)
+{
+	long size = (long)((scr_w + 15) / 16) * 2 * planes * scr_h;
+	unsigned char *p, *b;
+	int multitasking = get_cookie(0x4D694E54L) || get_cookie(0x4D616758L);	/* MiNT, MagiC */
+	if (planes < 1 || size > 640L * 1024 || (free && size > free / 16)) {
+		drawing = "straight on the screen (no memory for a buffer)";
+		return;
+	}
+	p = Mxalloc(size + 256, 0);			/* ST RAM, where the blitter reaches */
+	if ((long)p == -32 || (long)p == 0)		/* no Mxalloc: plain Malloc is ST RAM */
+		p = (unsigned char *)trap1_wl(0x48, size + 256);
+	if ((long)p <= 0)
+		return;
+	b = (unsigned char *)(((unsigned long)p + 255) & ~255UL);
+	memset(&obuf_mfdb, 0, sizeof(obuf_mfdb));
+	obuf_mfdb.fd_addr = b;
+	obuf_mfdb.fd_w = (scr_w + 15) & ~15;
+	obuf_mfdb.fd_h = scr_h;
+	obuf_mfdb.fd_wdwidth = (scr_w + 15) / 16;
+	obuf_mfdb.fd_nplanes = planes;
+	if (get_cookie(0x45644449L)) {			/* EdDI */
+		MFDB m = obuf_mfdb;
+		short h = v_opnbm(vdi_h, &m);
+		if (h > 0 && lands_in(b, h, 0)) {
+			bm_h = h;
+			win_buffer_fonts();
+			obuf = b;
+			drawing = "off the screen, in an EdDI bitmap";
+			return;
+		}
+		if (h > 0)
+			v_clsbm(h);
+	}
+	if (!multitasking && xbios_base(3) == xbios_base(2) && lands_in(b, vdi_h, 1)) {
+		obuf = b;
+		drawing = "off the screen, through the logical screen";
+		return;
+	}
+	trap1_wl(0x49, (long)p);			/* Mfree */
+}
+
+/* the program's end: the bitmap's workstation closed (the buffer goes
+   with the program's memory) */
+void win_buffer_end(void)
+{
+	if (bm_h)
+		v_clsbm(bm_h);
+	bm_h = 0;
+	obuf = 0;
+}
+
+/* the GDOS fonts loaded on the window's workstation since: on the
+   bitmap too */
+void win_buffer_fonts(void)
+{
+	static int loaded;
+	if (bm_h && !loaded && font_gdos_loaded()) {
+		vst_load_fonts(bm_h, 0);
+		loaded = 1;
+	}
+}
+
 void win_redraw(GRECT *area)
 {
 	GRECT box, full;
@@ -303,15 +485,93 @@ void win_redraw(GRECT *area)
 		wind_update(END_UPDATE);
 		return;
 	}
-	wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
-	while (box.w && box.h) {
-		GRECT d = box;
-		if (rect_and(&d, &full))
-			draw_all(&d);
-		wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
+	if (obuf && (bm_h || xbios_base(3) == xbios_base(2))) {
+		/* all of it off the screen, then each visible piece copied */
+		MFDB scr;
+		memset(&scr, 0, sizeof(scr));
+		if (bm_h) {
+			short keep = vdi_h;
+			vdi_h = bm_h;
+			draw_forget();
+			font_reselect();	/* the window's font, on the bitmap too */
+			draw_all(&full);
+			vdi_h = keep;
+			draw_forget();
+		} else {
+			void *screen = xbios_base(3);
+			xbios_setscreen(obuf);
+			draw_all(&full);
+			xbios_setscreen(screen);
+		}
+		wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
+		while (box.w && box.h) {
+			GRECT d = box;
+			if (rect_and(&d, &full)) {
+				short pxy[8];
+				pxy[0] = pxy[4] = d.x;
+				pxy[1] = pxy[5] = d.y;
+				pxy[2] = pxy[6] = d.x + d.w - 1;
+				pxy[3] = pxy[7] = d.y + d.h - 1;
+				/* NVDI clips raster copies too (TOS's VDI doesn't):
+				   the piece's own, not one left by a dialog */
+				clip_on(&d);
+				vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &scr);	/* S_ONLY */
+			}
+			wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
+		}
+		clip_off();
+	} else {
+		wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
+		while (box.w && box.h) {
+			GRECT d = box;
+			if (rect_and(&d, &full))
+				draw_all(&d);
+			wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
+		}
 	}
 	graf_mouse(M_ON, 0);
 	wind_update(END_UPDATE);
+}
+
+/* the content of a moves up by dy pixels, down when dy < 0: copied on
+   the screen when all of a shows, then only the strip that comes in is
+   drawn; otherwise a is drawn again (ECal's win_scroll) */
+void win_scroll(const GRECT *a, short dy)
+{
+	GRECT box, strip = *a;
+	short ady = dy < 0 ? -dy : dy, whole = 0;
+	if (win_h <= 0 || win_iconified || win_hold)
+		return;
+	wind_update(BEG_UPDATE);
+	if (ady < a->h) {
+		wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
+		while (box.w && box.h && !whole) {
+			whole = box.x <= a->x && box.y <= a->y && box.x + box.w >= a->x + a->w &&
+				box.y + box.h >= a->y + a->h;
+			wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
+		}
+	}
+	if (whole) {
+		MFDB scr;
+		short pxy[8];
+		memset(&scr, 0, sizeof(scr));
+		pxy[0] = pxy[4] = a->x;
+		pxy[2] = pxy[6] = a->x + a->w - 1;
+		pxy[1] = a->y + (dy > 0 ? ady : 0);
+		pxy[3] = pxy[1] + a->h - ady - 1;
+		pxy[5] = a->y + (dy > 0 ? 0 : ady);
+		pxy[7] = pxy[5] + a->h - ady - 1;
+		graf_mouse(M_OFF, 0);
+		clip_on((GRECT *)a);	/* NVDI clips raster copies */
+		vro_cpyfm(vdi_h, 3, pxy, &scr, &scr);	/* S_ONLY */
+		clip_off();
+		graf_mouse(M_ON, 0);
+		strip.h = ady;
+		if (dy > 0)
+			strip.y = a->y + a->h - ady;
+	}
+	wind_update(END_UPDATE);
+	win_redraw(&strip);
 }
 
 short win_popup(short x, short y, const char *const *labels, short n)

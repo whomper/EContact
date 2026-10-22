@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ui.h"
+#include "../src/plat.h"
 
 short src_kind = SRC_ALL, src_idx;
 char search_text[64];
@@ -166,6 +167,7 @@ static short visible_rows(void)
 }
 
 static void clamp_top(void);
+static int list_scroll_to(int t);
 
 /* The list's own scroll bar, at the right of its column (Erez, 20 Oct
    2026: the window's slider, at the far right by the card, moved the
@@ -257,50 +259,90 @@ int list_bar_hit(short mx, short my)
 	return rect_hit(&b, mx, my);
 }
 
-static short left_down(void)
+/* the button still down; *y where the mouse is */
+static short left_down(short *y)
 {
 	short mx, my, mb, ks;
 	graf_mkstate(&mx, &my, &mb, &ks);
+	if (y)
+		*y = my;
 	return mb & 1;
 }
 
+/* an arrow held: some 15 rows a second, each step as many rows as the
+   time the one before took asks for, so a slow machine takes bigger
+   steps rather than scrolling slower (ECal's hours glide so) */
+static void arrow_held(int d)
+{
+	unsigned long last, now;
+	long due = 0, n;
+	if (!list_scroll(d))
+		return;
+	evnt_timer_(250);
+	last = pf_ms();
+	while (left_down(0)) {
+		now = pf_ms();
+		due += (long)(now - last) * 15;	/* rows due, in thousandths */
+		last = now;
+		n = due / 1000;
+		if (n < 1)
+			n = 1;
+		if (n > 8)
+			n = 8;
+		due -= n * 1000;
+		if (due < 0)
+			due = 0;
+		if (!list_scroll(d * (int)n))
+			evnt_timer_(50);	/* at the end: wait for the button */
+		else
+			evnt_timer_(20);
+	}
+}
+
 /* a press on the bar: an arrow scrolls a row while held, the track a
-   page, the slider follows the mouse */
+   page at a time while held until the slider reaches the mouse (Erez:
+   a held press did one page), the slider follows the mouse */
 static void bar_click(short my)
 {
 	GRECT b = bar_rect();
 	short ah = arrow_h(), vis = visible_rows(), ty, th, sy, sh;
 	if (my < b.y + ah || my >= b.y + b.h - ah) {
-		int d = my < b.y + ah ? -1 : 1, first = 1;
-		do {
-			list_scroll(d);
-			evnt_timer_(first ? 250 : 50);
-			first = 0;
-		} while (left_down());
+		arrow_held(my < b.y + ah ? -1 : 1);
+		while (left_down(0))
+			evnt_timer_(20);
 		return;
 	}
 	bar_thumb(&ty, &th, &sy, &sh);
 	if (!sh)
 		return;
 	if (my < sy || my >= sy + sh) {
-		list_scroll(my < sy ? -(vis - 1) : vis - 1);
+		int up = my < sy, first = 1;
+		for (;;) {
+			bar_thumb(&ty, &th, &sy, &sh);
+			if (up ? my >= sy : my < sy + sh)
+				break;		/* the slider got to the mouse */
+			if (!list_scroll(up ? -(vis - 1) : vis - 1))
+				break;
+			evnt_timer_(first ? 300 : 100);
+			first = 0;
+			if (!left_down(&my))
+				break;
+		}
+		while (left_down(0))	/* the rest of the press does nothing */
+			evnt_timer_(20);
 		return;
 	}
 	{
 		short grab = my - sy, mx, mb, ks, y;
 		wind_update(3);		/* BEG_MCTRL: the mouse is the bar's while held */
 		do {
-			int old = top;
 			graf_mkstate(&mx, &y, &mb, &ks);
 			y -= grab;
 			if (y < ty)
 				y = ty;
 			if (y > ty + th - sh)
 				y = ty + th - sh;
-			top = th > sh ? (int)(((long)(y - ty) * (nrows - vis) + (th - sh) / 2) / (th - sh)) : 0;
-			clamp_top();
-			if (top != old)
-				win_redraw(&r_list);
+			list_scroll_to(th > sh ? (int)(((long)(y - ty) * (nrows - vis) + (th - sh) / 2) / (th - sh)) : 0);
 			evnt_timer_(20);
 		} while (mb & 1);
 		wind_update(2);		/* END_MCTRL */
@@ -316,14 +358,44 @@ static void clamp_top(void)
 		top = 0;
 }
 
-void list_scroll(int n)
+/* the first row shown becomes t: the rows on the screen are moved and
+   only those that come in drawn (win_scroll), and of the bar only where
+   the slider was and is (all of it took an 8 MHz ST 70 ms); 0 when
+   nothing moved */
+static int list_scroll_to(int t)
 {
 	int old = top;
+	GRECT a, b;
+	short ty, th, sy, sh, ny, nh;
 	ensure();
-	top += n;
+	bar_thumb(&ty, &th, &sy, &sh);
+	top = t;
 	clamp_top();
-	if (top != old)
-		win_redraw(&r_list);
+	if (top == old)
+		return 0;
+	a = r_list;
+	a.y += 2;		/* the rows, under the list's top margin */
+	a.h -= 2;
+	a.w = rows_w();
+	if (a.h > 0 && a.w > 0) {
+		long dy = (long)(top - old) * (rh ? rh : ch + 2);
+		win_scroll(&a, dy >= a.h || dy <= -a.h ? a.h : (short)dy);
+	}
+	b = bar_rect();
+	bar_thumb(&ty, &th, &ny, &nh);
+	if (sh && nh && sh == nh) {
+		short y1 = sy < ny ? sy : ny, y2 = sy + sh > ny + nh ? sy + sh : ny + nh;
+		b.y = y1;
+		b.h = y2 - y1;
+	}
+	win_redraw(&b);
+	return 1;
+}
+
+int list_scroll(int n)
+{
+	ensure();
+	return list_scroll_to(top + n);
 }
 
 void list_scroll_to_sel(void)
@@ -409,6 +481,10 @@ void list_draw(GRECT *clip)
 	y = r_list.y + 2;
 	for (i = top; i < nrows && i < top + vis + 1; i++, y += rh) {
 		LROW *lr = &rows[i];
+		/* only the rows in the area: a scroll draws the strip that
+		   came in, and the bar, each a row or so */
+		if (y + rh <= r.y || y >= r.y + r.h)
+			continue;
 		if (lr->contact < 0) {
 			char s[2];
 			s[0] = lr->letter;

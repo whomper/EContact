@@ -87,6 +87,12 @@ extern GRECT work;		/* its work area */
 void win_open(void);
 void win_close(void);
 void win_redraw(GRECT *area);	/* NULL: everything */
+void win_buffer_init(long free);	/* at start-up: the buffer the window is drawn in */
+void win_buffer_end(void);	/* the program's end */
+void win_buffer_fonts(void);	/* GDOS fonts loaded later: on the bitmap too */
+const char *win_drawing(void);	/* how the window is drawn, for the log */
+void win_scroll(const GRECT *a, short dy);	/* a's content up by dy pixels */
+void draw_forget(void);		/* the VDI attributes set again at the next use */
 void win_message(short *msg);
 void win_status(const char *s);	/* the info line */
 void win_frame_refresh(void);
@@ -120,7 +126,7 @@ int  list_click(short mx, short my, short clicks, short button, short kstate);
 int  list_key(short kstate, short key);
 void list_step(int dir);	/* the next / previous one */
 void list_scroll_to_sel(void);
-void list_scroll(int rows);	/* the list's scroll bar, the wheel */
+int list_scroll(int rows);	/* the list's scroll bar, the wheel: 0 at an end */
 int  list_bar_hit(short mx, short my);
 void contact_menu(short mx, short my, CONTACT *c);	/* right-click on a contact */
 
@@ -198,6 +204,7 @@ void font_apply(void);
 void font_boot(short id);	/* the accessory, before its first event call */
 void font_menu(void);
 void font_reselect(void);
+int font_gdos_loaded(void);	/* GDOS fonts on the window's workstation */
 #define HM_MAP     0
 #define HM_UNICODE 1
 #define HM_SYSTEM  2

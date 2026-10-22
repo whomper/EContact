@@ -3,12 +3,21 @@
 # Copyright (C) 2026 AERA | Erez Yaary
 """The list's own scroll bar, in Hatari with ECONTACT.PRG and 80 contacts:
 
-    tests/hatari/list_bar.py WORK [MACHINE]
+    tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi]
+
+--acc runs the accessory (ECONTST.ACC on an ST) from the Desk menu,
+--nvdi under NVDI (AERA_WITH_NVDI, a Falcon: the window drawn in an EdDI
+bitmap). ECONTACT.LOG says how the window is drawn (win.c).
 
 The window has no slider of its own; the bar is at the right of the
 middle list (list.c). Its slider is found on the screen, then:
 - a click on the down arrow scrolls the list a row, and the slider moves;
 - a click in the track under the slider scrolls a page;
+- the up arrow then the down arrow leave the list as it was: the rows
+  moved on the screen (win_scroll) and those that came in drawn match;
+- the track held under the slider goes on a page at a time until the
+  slider reaches the pointer (it did one page only: Erez, 22 Oct 2026);
+- the down arrow held scrolls on, a row at a time;
 - the slider dragged to the bottom shows the last contact, and back to
   the top the first;
 - the card on the right stays as it was throughout.
@@ -81,7 +90,11 @@ def region(png, box):
 
 
 def main():
-    work, machine = os.path.abspath(sys.argv[1]), machine_arg(sys.argv, 2, "Falcon:16")
+    acc = "--acc" in sys.argv
+    if "--nvdi" in sys.argv:
+        os.environ["AERA_WITH_NVDI"] = "1"
+    args = [a for a in sys.argv if not a.startswith("--")]
+    work, machine = os.path.abspath(args[1]), machine_arg(args, 2, "Falcon:16")
     shutil.rmtree(work, ignore_errors=True)
     hd = os.path.join(work, "hd")
     folder = os.path.join(hd, "ECONTACT")
@@ -92,12 +105,28 @@ def main():
     subprocess.run([CLI, folder, "import", "Contacts", vcf], check=True, stdout=subprocess.DEVNULL)
     inf_path = os.path.join(folder, "ECONTACT.INF")
     inf = open(inf_path, "rb").read().replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
+    inf = inf.replace(b"\nLOG=0", b"\nLOG=1")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
+    if acc:     # in the root, FOLDER= naming the folder
+        os.remove(inf_path)
+        inf_path = os.path.join(hd, "ECONTACT.INF")
+        shutil.copy(os.path.join(ROOT, "binary", "ECONTST.ACC" if machine.startswith("ST") else "ECONTACT.ACC"),
+                    os.path.join(hd, "ECONTACT.ACC"))
+    else:
+        shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), folder)
     open(inf_path, "wb").write(inf)
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), folder)
-    r = Rig(work, machine, auto="C:\\ECONTACT\\ECONTACT.PRG")
+    r = Rig(work, machine, auto="" if acc else "C:\\ECONTACT\\ECONTACT.PRG")
     try:
+        if acc:
+            time.sleep(15)
+            r.click(30, 8)              # Desk
+            time.sleep(1.5)
+            r.click(60, 59)             # EContact
         time.sleep(25)
+        log = os.path.join(folder, "ECONTACT.LOG")
+        drawn = [l.strip() for l in open(log, encoding="latin-1") if "the window is drawn" in l] \
+            if os.path.exists(log) else []
+        print("  (%s)" % (drawn[0] if drawn else "the log doesn't say how the window is drawn"))
         r.move(600, 250)                # an ST's pointer is in its screenshots: off the bar
         time.sleep(2)
         s0 = r.shot("0-start")
@@ -147,6 +176,41 @@ def main():
         t2 = thumb(s2)
         check("the track under it a page (%s -> %s)" % (t1 and t1[1], t2 and t2[1]),
               t1 and t2 and t2[1] - t1[1] > 4 * (t1[1] - top))
+        lst = (x - 200, top, x - 2, bottom)
+        press(bx, top - 8)              # the up arrow, over the track's top
+        press(bx, arrow)
+        away()
+        time.sleep(2)
+        s2b = r.shot("2b-up-down")
+        bar = (x - 2, top - 20, x + 26, arrow + 10)    # the bar, its arrows and frame
+        check("up then down: the rows as they were", region(s2, lst) == region(s2b, lst))
+        check("and the bar", region(s2, bar) == region(s2b, bar))
+        # held under the slider, near the track's end: page after page
+        hold_y = arrow - 30
+        r.move(bx, hold_y)
+        time.sleep(1.5)
+        r.xdo("mousedown", "1")
+        time.sleep(5)
+        r.xdo("mouseup", "1")
+        away()
+        time.sleep(2)
+        s2c = r.shot("2c-track-held")
+        t2c = thumb(s2c)
+        check("the track held: on to the pointer (%s -> %s, the pointer at %d)" % (t2 and t2[1], t2c, hold_y),
+              t2 and t2c and t2c[1] <= hold_y < t2c[2] and 2 * (t2c[1] - t2[1]) > 3 * (t2[1] - t1[1]))
+        # and back up by the up arrow held
+        r.move(bx, top - 8)
+        time.sleep(1.5)
+        r.xdo("mousedown", "1")
+        time.sleep(3)
+        r.xdo("mouseup", "1")
+        away()
+        time.sleep(2)
+        s2d = r.shot("2d-arrow-held")
+        t2d = thumb(s2d)
+        check("the up arrow held: rows on (%s -> %s)" % (t2c and t2c[1], t2d and t2d[1]),
+              t2c and t2d and t2c[1] - t2d[1] > 3 * (t1[1] - top))
+        t2 = t2d
         drag(bx, (t2[1] + t2[2]) // 2, h - 10)
         away()
         time.sleep(2)
@@ -160,6 +224,7 @@ def main():
         t4 = thumb(s4)
         check("dragged back up: at the top again (%s)" % (t4,), t4 and t4[1] == top)
         check("and the list as it began", region(s0, (x - 200, top, x - 2, bottom)) == region(s4, (x - 200, top, x - 2, bottom)))
+        check("the bar too (only the slider's old and new place drawn)", region(s0, bar) == region(s4, bar))
         check("the card on the right as it was", region(s0, card) == region(s4, card) == region(s3, card))
     finally:
         r.stop()

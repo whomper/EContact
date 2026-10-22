@@ -131,6 +131,17 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   tls_file_stamp is pf_stamp, and PF_UPDATE (plat.h) writes SEED.DAT and
   ROOTS.DAT in place. `tests/hatari/falcon_tls.py WORK [MACHINE]` checks
   it against an ECDSA server.
+- The window is drawn off the screen and copied at once (ui/win.c, ECal's
+  way: an EdDI bitmap under NVDI, else TOS's logical screen moved to a
+  buffer while drawing; a test at start-up first, ECONTACT.LOG says
+  which). The accessory takes the screen-sized buffer before its first
+  event call, only when it is a sixteenth of what was free at most (not
+  on a 1 MB ST). Scrolling the list moves the rows on the screen
+  (win_scroll) and draws those that come in and the slider's old and
+  new place only (the whole bar took an 8 MHz ST 70 ms); a held arrow
+  keeps some 15 rows a second, a held track goes on to the pointer.
+  list_draw draws only the rows in its area. `tests/hatari/list_bar.py
+  WORK [MACHINE] [--acc] [--nvdi]` checks it.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000

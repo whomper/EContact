@@ -227,6 +227,8 @@ void set_logging(void)
 		conn_log("EContact", "--", m, (long)strlen(m));
 		if (*tos_clock())
 			conn_log("EContact", "--", tos_clock(), (long)strlen(tos_clock()));
+		snprintf(m, sizeof(m), "the window is drawn %s", win_drawing());
+		conn_log("EContact", "--", m, (long)strlen(m));
 		conn_log_flush();
 	}
 }
@@ -1850,6 +1852,10 @@ int main(void)
 	   heap, which wants to see what is free; before the first event
 	   call (an accessory's memory) */
 	os_bounce_init();
+	/* the buffer the window is drawn in, before the first event call
+	   too; the accessory by what was free at boot */
+	if (vdi_h)
+		win_buffer_init(!is_acc ? 0 : acc_heap_avail > 0 ? acc_heap_avail : 1);
 	/* EMail and ECal asking about people (the guidelines, 4.1) */
 	answer_init();
 	av_people_hook = people_got;
@@ -2033,6 +2039,7 @@ int main(void)
 	if (has_menu)
 		menu_bar(mb.tree, 0);
 	mbar_free(&mb);
+	win_buffer_end();
 	if (vdi_h)
 		v_clsvwk(vdi_h);
 	appl_exit();
