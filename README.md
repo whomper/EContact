@@ -35,7 +35,7 @@ and all of them together in `ECONTACT-x.y.zip`.
 | File | What it is |
 |---|---|
 | `ECONTACT.ACC` | Falcon and TT: the accessory with Falcon mode (TLS, DSP); also works through the Pi |
-| `ECONTST.ACC` | ST and STE: the same accessory without TLS (about 105 KB smaller), through the Pi |
+| `ECONTST.ACC` | ST and STE: the same accessory without TLS (about 125 KB smaller), through the Pi |
 | `ECONTACT.PRG` | the same as `ECONTACT.ACC`, to start from the desktop, with a menu bar |
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode |
 | `ECONTACT.HYP` | the user guide for ST-Guide or EHypView: in EContact's folder, the Help key opens it |
@@ -70,11 +70,19 @@ file with EContact's added (it says which number), for the root of the boot driv
    sudo gateway/aera-gateway install dav --allow ATARI_IP
    ```
 
+   Or the short way (AERA-Gateway 1.8 or later), every gateway in one line (EMail's too with
+   `--mail IMAP SMTP`):
+
+   ```
+   sudo apt install -y git && git clone https://github.com/whomper/AERA-Gateway ~/AERA-Gateway &&
+     ~/AERA-Gateway/update-pi.sh --allow ATARI_IP
+   ```
+
    `ATARI_IP` is your Atari's address (`192.168.1.x`): the gateway answers it alone. ECal uses the
    same gateway: if it already works through your Pi, there is nothing to do.
 
    - To update: `cd ~/AERA-Gateway && ./update-pi.sh` (its settings are kept).
-   - To check: `gateway/aera-gateway status`.
+   - To check: `sudo aera-gateway status` (`gateway/aera-gateway status` in the folder).
    - In EContact: **Settings > Connection**, **Pi gateway:** the Pi's address (`PI_IP`),
      **Port:** 8180.
 4. Reboot, choose **EContact** in the Desk menu, and add your iCloud account with an
@@ -159,6 +167,11 @@ under a search field, the chosen person's card on the right.
 - **My Card**, as on the Mac; the window opens on it.
 - **Fonts** (the system font or any fixed-width GDOS font, in the family's Font dialog), the window and everything else are
   remembered in `ECONTACT.INF`, which explains itself.
+- **Smooth on an ST**: the window is drawn off the screen and shown at once; the list scrolls by
+  moving what is shown, and the scroll bar's arrows and track go on while held. Text fields hold
+  more than they show (a long server address, a name) and scroll with the cursor.
+- **A crash** in the program is caught: it says so, writes `CRASH.LOG` and quits, leaving the
+  Atari running (the guide, When something goes wrong).
 
 ![Editing Maya Carter's card: the Edit Contact dialog with its Name, Phone, Email, Address and More sections](docs/edit.png) ![EContact on an ST in high resolution: the same window in black and white, Johnny Appleseed's photo dithered](docs/st-mono.png)
 
@@ -270,8 +283,8 @@ name, a company, one or two emails, two phones, some with an address, birthday o
   at most 50 ms on a Falcon and 100 ms on an ST between the other programs' turns, so the first
   opening is at once. Measured in Hatari with 600 contacts and an AES_PROFILE build
   (`tests/hatari/quiet_start.py`): the whole read takes 4.4 s of an 8 MHz ST's time (1.1 s on a
-  16 MHz Falcon), spread over 8 s; the longest stretch between event calls is 95 ms on the ST and
-  under 50 ms on the Falcon. When the copy on disk is the one the index was made from, nothing is
+  16 MHz Falcon), spread over 8 s; the longest stretch between event calls is 100 ms on the ST
+  and under 50 ms on the Falcon. When the copy on disk is the one the index was made from, nothing is
   hashed (the cards are found by where they are).
 - **Start-up reads parsed contacts** from `CACHE\BOOKnnnn.IDX`: a card is parsed (about 85 ms on an
   8 MHz ST) only the first time, and after it changes; the rest take about 18 ms each. A new version
@@ -281,7 +294,7 @@ name, a company, one or two emails, two phones, some with an address, birthday o
 - **Syncing a big address book** reads the server's list of cards as it arrives when memory is small,
   keeping only what needs fetching.
 - STinG takes 100 KB or more of its own: with it, a 1 MB ST holds about 400 contacts. A 512 KB ST
-  can't run EContact (`ECONTST.ACC` alone is about 480 KB: 265 KB of program, 180 KB of buffers and
+  can't run EContact (`ECONTST.ACC` alone is about 490 KB: 277 KB of program, 166 KB of buffers and
   its 48 KB stack).
 - **With EMail on a 1 MB ST, use `ECONTACT.PRG`, not the accessory.** The accessory and its memory
   take about 650 KB of the 1 MB for as long as the Atari runs, which leaves too little for EMail to

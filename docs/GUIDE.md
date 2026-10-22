@@ -162,13 +162,22 @@ cd AERA-Gateway
 sudo gateway/aera-gateway install dav --allow ATARI_IP
 ```
 
+Or the short way (AERA-Gateway 1.8 or later), every gateway in one
+line (EMail's too with `--mail IMAP SMTP`):
+
+```
+sudo apt install -y git && git clone https://github.com/whomper/AERA-Gateway ~/AERA-Gateway &&
+  ~/AERA-Gateway/update-pi.sh --allow ATARI_IP
+```
+
 ATARI_IP is your Atari's address (192.168.1.x): the gateway answers it
 alone. One Pi serves ECal and EContact alike: if ECal already works
 through it, there is nothing to do on the Pi.
 
 - To update: `cd ~/AERA-Gateway && ./update-pi.sh` (its settings are
   kept).
-- To check: `gateway/aera-gateway status`.
+- To check: `sudo aera-gateway status` (`gateway/aera-gateway status`
+  in the folder).
 - In EContact: **Settings > Connection**, **Pi gateway:** the Pi's
   address (PI_IP), **Port:** 8180.
 
@@ -192,7 +201,8 @@ it (a server's) or delete it (one on this Atari).
   headings. Click one to see their card; the arrow keys move up and down,
   Clr/Home goes to the first (Shift: the last). The scroll bar at the
   right of the list moves it: its arrows a row (held, on and on), a click
-  above or below the slider a page, and the slider dragged.
+  above or below the slider a page (held, page after page until the
+  slider reaches the pointer), and the slider dragged.
 - **Search**: click in the field at the top of the list, or just type:
   the field takes the focus (a black frame and the cursor) until you
   click elsewhere. The list keeps those whose name, company, email,
@@ -278,7 +288,10 @@ card as it was. If the card was changed on another device in the
 meantime, the server refuses the save: refresh (^R) and edit again.
 
 Text fields take Hebrew: F10 switches to the Israeli keyboard, and a
-Hebrew name or note is shown right to left.
+Hebrew name or note is shown right to left. A field holds more than it
+shows (a long address, a server's address): it scrolls with the cursor.
+← and → move the cursor, Shift+← and Shift+→ (or Clr/Home and
+Shift+Clr/Home) go to the start and the end.
 
 ## Groups
 
@@ -407,7 +420,7 @@ See [INTEGRATION.md](INTEGRATION.md) for how the programs talk.
 ## ECONTACT.INF
 
 The settings file explains itself, like ECal's and EMail's: a note
-before each setting, `1` for on and `0` for off. It can be edited with
+before each setting and an empty line after it, `1` for on and `0` for off. It can be edited with
 any text editor while EContact isn't running (keys in any case, a note
 after a value with ` ;`). A password typed in there in plain text is
 encrypted with ECONTACT.KEY the next time EContact starts. EContact
@@ -436,6 +449,7 @@ next time EContact saves its settings.
 | ^C | copy the contact chosen: "Name <email>" |
 | ^V, ^X | paste into the search, cut it |
 | ^C ^X ^V | in a dialog: copy, cut, paste a field |
+| Shift+← → | in a text field: its start, its end |
 | ^R, Shift+^R | refresh, everything again |
 | Shift+^S | the groups on the left |
 | ^, | Settings |
