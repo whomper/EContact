@@ -286,6 +286,8 @@ name, a company, one or two emails, two phones, some with an address, birthday o
 - **With EMail on a 1 MB ST, use `ECONTACT.PRG`, not the accessory.** The accessory and its memory
   take about 650 KB of the 1 MB for as long as the Atari runs, which leaves too little for EMail to
   start beside it. With the accessory, EMail needs 2 MB.
+- **On a 1 MB ST, `ECONTST.ACC` or ECal's `ECALST.ACC`, not both:** together (some 920 KB as they
+  load) they leave TOS no memory and the ST stops at boot. Run the other as a program.
 
 ## Building
 

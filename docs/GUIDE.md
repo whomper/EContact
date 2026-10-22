@@ -108,6 +108,10 @@ little to start. On 1 MB, use `ECONTACT.PRG` with EMail instead of the
 accessory (take `ECONTACT.ACC` out of the boot drive's root); EMail
 beside the accessory needs 2 MB or more.
 
+**With ECal on a 1 MB ST.** `ECONTST.ACC` or ECal's `ECALST.ACC`, not
+both: together they leave TOS no memory and the ST stops at boot. Run
+the other as a program.
+
 ![Contacts that don't fit](memory-full.png)
 
 **TT RAM.** On a TT, or a Falcon with an accelerator's Fast RAM, TOS
