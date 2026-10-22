@@ -91,12 +91,15 @@ $(BIN)/ECONTACT.HYP: docs/GUIDE.md tools/mkhelp.py VERSION docs/front.json docs/
 	$(HCP) -q -o $@ $(OBJDIR)/ECONTACT.STG >/dev/null
 	test -s $(BIN)/ECONTACT.REF
 
-# the ST edition: no TLS of its own (it uses the Pi gateway), about 105 KB
+# the ST edition: no TLS of its own (it uses the Pi gateway), about 125 KB
 # smaller; only BearSSL's MD5 (for Digest logins), as 68000 code. Only
-# ever an accessory, so no crash catcher (crash_none.c)
+# ever an accessory, so no crash catcher (crash_none.c). An ST never has
+# 256 colours: the About box without the 256-colour icon (NO_ICON256,
+# 2 KB), about.c and aboutbox.c built for it on their own
 STBSSL  := hash/md5 codec/dec32le codec/enc32le
 STOBJS  := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash_none.o \
-           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out tls,$(CORE)) $(ATARI) $(UI) tls_none)) \
+           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out tls,$(CORE)) $(ATARI) $(filter-out about aboutbox,$(UI)) tls_none)) \
+           $(OBJDIR)/st/about.o $(OBJDIR)/st/aboutbox.o \
            $(addprefix $(OBJDIR)/st/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/dsp_ec_none.o $(OBJDIR)/version.o
 
 $(BIN)/ECONTST.ACC: $(OBJDIR)/econtst.elf common/tools/elf2tos.py | $(BIN)
@@ -105,6 +108,12 @@ $(BIN)/ECONTST.ACC: $(OBJDIR)/econtst.elf common/tools/elf2tos.py | $(BIN)
 $(OBJDIR)/econtst.elf: $(STOBJS) common/atari/link.ld
 	$(CC) $(LDFLAGS) $(EVWRAP) -o $@ $(STOBJS) -lgcc
 
+$(OBJDIR)/st/about.o: ui/about.c $(HDRS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DNO_ICON256 -c -o $@ $<
+$(OBJDIR)/st/aboutbox.o: common/ui/aboutbox.c $(HDRS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DNO_ICON256 -c -o $@ $<
 $(OBJDIR)/st/%.o: $(BSSL)/src/hash/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(BSSLST) -c -o $@ $<
