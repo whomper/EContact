@@ -326,7 +326,8 @@ void after_change(void)
 	win_redraw(0);
 	if (data_ready)
 		updated_status();
-	memory_check();
+	if (!win_hold)		/* the window opening: after it is drawn (open_window) */
+		memory_check();
 }
 
 /* how many files a sync opened, in the log: TOS's internal pool is
@@ -1681,8 +1682,10 @@ static void open_window(void)
 	aes_profile_tag("open-after");
 	after_change();
 	win_hold = 0;
-	if (plain_untold || lost_untold || !naccts)
+	if (plain_untold || lost_untold || !naccts ||
+	    (data_ready && contacts_lost() > 0 && contacts_lost() != warned_lost))
 		win_redraw(0);		/* behind the alert */
+	memory_check();
 	tell_untold();
 	if (!naccts) {
 		alert(1, "[1][Welcome to EContact!||Let's add your iCloud or other contacts.][ OK ]");
