@@ -390,6 +390,8 @@ tests/hatari/acc_files.py WORK [MACHINE] [cards]  # the accessory's refresh and 
                                                   # reads back whole
 tests/hatari/esc_test.py WORK [MACHINE]           # Esc and Undo cancel dialogs and alerts (3.5)
 tests/hatari/search_click.py WORK [MACHINE]       # a click gives the search field the focus
+tests/hatari/long_field.py WORK [MACHINE]         # a field holds more than it shows: 52 letters
+                                                  # in a field 30 wide, Shift+Left/Right to its ends
 tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi]
                                                   # the list's own scroll bar: arrows and the
                                                   # track held, a page, the slider dragged; the

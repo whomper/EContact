@@ -74,7 +74,7 @@ static int try_account(int a)
 
 static int edit_carddav(ACCOUNT *a, int is_new, int icloud)
 {
-	static char name[40], url[200], user[80], pass[80];
+	static char name[40], url[400], user[80], pass[80];
 	enum { L1, F1, L2, F2, L3, F3, L4, F4, N1, N2, N3, BDEL, BCAN, BOK, N };
 	FIELD f[N];
 	short r, row = 1;
@@ -83,7 +83,7 @@ static int edit_carddav(ACCOUNT *a, int is_new, int icloud)
 	str_copy(user, a->user, sizeof(user));
 	str_copy(pass, a->pass, sizeof(pass));
 	put(&f[L1], FT_LABEL, 0, 0, row, 0, "Name:");
-	text(&f[F1], 0, 13, row, 30, name, 31);
+	text(&f[F1], 0, 13, row, 30, name, sizeof(name));
 	row++;
 	put(&f[L2], FT_LABEL, icloud ? FF_DISABLED : 0, 0, row, 0, icloud ? "" : "Server:");
 	text(&f[F2], FF_LTR | (icloud ? FF_DISABLED : 0), 13, row, 42, url, sizeof(url));
@@ -122,7 +122,7 @@ static int edit_carddav(ACCOUNT *a, int is_new, int icloud)
 	str_copy(a->name, name[0] ? name : icloud ? "iCloud" : "Contacts", sizeof(a->name));
 	if (!icloud) {
 		if (strncasecmp(url, "http", 4)) {
-			char tmp[220];
+			char tmp[420];
 			snprintf(tmp, sizeof(tmp), "https://%s", url);
 			str_copy(url, tmp, sizeof(url));
 		}
@@ -177,9 +177,9 @@ void dlg_add_account(void)
 		store_save_settings();
 		after_change();
 	} else if (r == B3) {
-		char name[40] = "Contacts";
+		char name[64] = "Contacts";
 		int i, a = -1;
-		if (!dlg_ask("New address book on this Atari", "Name:", name, 30) || !name[0])
+		if (!dlg_ask("New address book on this Atari", "Name:", name, sizeof(name) - 1) || !name[0])
 			return;
 		for (i = 0; i < naccts; i++)
 			if (accts[i].kind == AK_LOCAL)
@@ -348,7 +348,7 @@ static void settings(short first)
 							  : "Needs a 68030 (Falcon or TT)");
 	row += 2;
 	put(&f[L7], FT_LABEL, 0, CX, row, 0, "Pi gateway:");
-	text(&f[C3], FF_LTR, CX + 12, row, 20, gate, 60);
+	text(&f[C3], FF_LTR, CX + 12, row, 20, gate, sizeof(gate));
 	put(&f[L8], FT_LABEL, 0, CX + 34, row, 0, "Port:");
 	text(&f[C4], FF_LTR | FF_DIGITS, CX + 40, row, 6, port, 6);
 	row++;

@@ -94,7 +94,7 @@ static void changed(DLG *d, short i)
 		char name[24] = "";
 		if (lp_field[k] != i || f->val != p->custom)
 			continue;
-		if (dlg_ask("Custom Label", "Label:", name, 20) && name[0]) {
+		if (dlg_ask("Custom Label", "Label:", name, sizeof(name) - 1) && name[0]) {
 			/* it takes the place of the row's own label, or a new one before Custom... */
 			if (p->own[0]) {
 				str_copy(p->own, name, sizeof(p->own));
@@ -199,7 +199,7 @@ static int run_editor(CONTACT *c, int *book)
 		f[n].nitems = p->n;
 		n++;
 		nlp++;
-		text(&f[n++], FF_LTR, VX, 3 + i, 30, ed.tel[i].value, 40, P_PHONE);
+		text(&f[n++], FF_LTR, VX, 3 + i, 30, ed.tel[i].value, sizeof(ed.tel[i].value), P_PHONE);
 	}
 	/* Email */
 	for (i = 0; i < CE_EMAIL; i++) {

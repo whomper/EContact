@@ -206,7 +206,7 @@ static void group_menu(short mx, short my, int gi)
 	}
 	case 3:
 		str_copy(name, g->name, sizeof(name));
-		if (dlg_ask("Rename Group", "Name:", name, 40) && name[0] && strcmp(name, g->name)) {
+		if (dlg_ask("Rename Group", "Name:", name, sizeof(name) - 1) && name[0] && strcmp(name, g->name)) {
 			int book = g->book;
 			busy(1);
 			if (!group_rename(g, name))
@@ -304,8 +304,8 @@ static void acct_menu(short mx, short my, int a)
 	if (accts[a].kind == AK_LOCAL) {
 		k = win_popup(mx, my, local_items, 3);
 		if (k == 0) {
-			char name[40] = "";
-			if (dlg_ask("New Address Book", "Name:", name, 30) && name[0]) {
+			char name[64] = "";
+			if (dlg_ask("New Address Book", "Name:", name, sizeof(name) - 1) && name[0]) {
 				book_add(a, name);
 				store_save_settings();
 				after_change();
@@ -371,7 +371,7 @@ int side_click(short mx, short my, short clicks, short button)
 			char name[64];
 			GROUP *g = &groups[s->idx];
 			str_copy(name, g->name, sizeof(name));
-			if (dlg_ask("Rename Group", "Name:", name, 40) && name[0] && strcmp(name, g->name)) {
+			if (dlg_ask("Rename Group", "Name:", name, sizeof(name) - 1) && name[0] && strcmp(name, g->name)) {
 				int book = g->book;
 				busy(1);
 				if (!group_rename(g, name))

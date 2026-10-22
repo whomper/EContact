@@ -515,7 +515,7 @@ void cmd_delete_selected(void)
 
 void cmd_new_group(int book)
 {
-	char name[60] = "";
+	char name[64] = "";
 	int k;
 	if (book < 0)
 		book = src_kind == SRC_BOOK ? src_idx : src_kind == SRC_GROUP && src_idx < ngroups ? groups[src_idx].book
@@ -524,7 +524,7 @@ void cmd_new_group(int book)
 		alert(1, "[1][There's no address book to keep|a group in: add an account first.][ OK ]");
 		return;
 	}
-	if (!dlg_ask("New Group", "Name:", name, 40) || !name[0])
+	if (!dlg_ask("New Group", "Name:", name, sizeof(name) - 1) || !name[0])
 		return;
 	busy(1);
 	k = group_new(book, name);

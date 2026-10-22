@@ -598,9 +598,9 @@ static void add_to_group(CONTACT *c)
 	str_copy(uid, c->uid ? c->uid : "", sizeof(uid));
 	busy(1);
 	if (idx[k] < 0) {
-		char name[60] = "";
+		char name[64] = "";
 		busy(0);
-		if (!dlg_ask("New Group", "Name:", name, 40) || !name[0])
+		if (!dlg_ask("New Group", "Name:", name, sizeof(name) - 1) || !name[0])
 			return;
 		busy(1);
 		k = group_new(book, name);

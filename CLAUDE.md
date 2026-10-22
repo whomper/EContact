@@ -142,6 +142,12 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   keeps some 15 rows a second, a held track goes on to the pointer.
   list_draw draws only the rows in its area. `tests/hatari/list_bar.py
   WORK [MACHINE] [--acc] [--nvdi]` checks it.
+- EContact's dialogs are its own (ui/field.c, not GEM's fields nor
+  common/ui/field.c, which is for GEM object trees): a text field holds
+  what its setting holds and shows a window of it, scrolled with the
+  cursor (the guidelines 5.4); `max` is the buffer, `w` the width shown,
+  and dlg_ask's len is what the buffer holds (it shows 30 at most).
+  `tests/hatari/long_field.py` checks it.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000
