@@ -298,22 +298,16 @@ static void pens_init(void)
 	   look the same (on 16 colours purple, brown and grey all came
 	   out the same grey) */
 	static const short order[NCOLORS] = { 0, 2, 3, 4, 5, 9, 8, 10, 11, 1, 6, 7 };
-	short j, i, n = ncolors > 256 || ncolors <= 0 ? 256 : ncolors, *rgb;
+	short j, i, n = ncolors > 256 || ncolors <= 0 ? 256 : ncolors, rgb[3];
 	unsigned char taken[256];
-	/* each pen's colour as the screen shows it (vq_color_seen, the
-	   guidelines 5.2): on Erez's Falcon COLORVDI.CPX loads a palette
-	   into the hardware and NVDI's table, which vq_color reads, keeps its
-	   own; in 256 colours a grey by that table showed bright green */
-	static short seen[256][3];
 	pens_ready = 1;
 	if (ncolors < 16)
 		return;
-	for (i = 0; i < n; i++)
-		vq_color_seen(vdi_h, planes, i, seen[i]);
 	memset(taken, 0, sizeof(taken));
 	/* first the two greys for text, kept from the calendars' colours: a
 	   real grey (red, green and blue alike) nearest each target, among
-	   the sixteen system pens, as with 16 colours (Erez) */
+	   the sixteen system pens, as with 16 colours: with 256 a pen above
+	   them came out green on Erez's Falcon (others' pictures set them) */
 	{
 		static const short want[2] = { 420, 690 };	/* dark, light (0-1000) */
 		short g, ng = n < 16 ? n : 16;
@@ -325,7 +319,7 @@ static void pens_init(void)
 				long dist;
 				if (taken[i])
 					continue;
-				rgb = seen[i];
+				vq_color(vdi_h, i, rgb);
 				lo = rgb[0] < rgb[1] ? rgb[0] : rgb[1];
 				lo = lo < rgb[2] ? lo : rgb[2];
 				hi = rgb[0] > rgb[1] ? rgb[0] : rgb[1];
@@ -356,8 +350,10 @@ static void pens_init(void)
 	{
 		/* in the log: the greys as the VDI said them (NVDI drew the
 		   chosen address book's light grey bar black on a Falcon) */
-		const short *d = seen[grey_dark], *l = seen[grey_light];
+		short d[3], l[3];
 		char m[120];
+		vq_color(vdi_h, grey_dark, d);
+		vq_color(vdi_h, grey_light, l);
 		snprintf(m, sizeof(m), "pens: %d colours (%d planes); grey dark %d (%d %d %d), light %d (%d %d %d)",
 			 ncolors, planes, grey_dark, d[0], d[1], d[2], grey_light, l[0], l[1], l[2]);
 		conn_log("EContact", "--", m, (long)strlen(m));
@@ -369,7 +365,7 @@ static void pens_init(void)
 			long dr, dg, db, dist;
 			if (taken[i])
 				continue;
-			rgb = seen[i];
+			vq_color(vdi_h, i, rgb);
 			dr = rgb[0] - mac_rgb[k][0];
 			dg = rgb[1] - mac_rgb[k][1];
 			db = rgb[2] - mac_rgb[k][2];
@@ -625,7 +621,7 @@ short sel_color(void)
 	pick = 1;
 	for (i = 2; i < n; i++) {
 		long dr, dg, db, d;
-		vq_color_seen(vdi_h, planes, i, rgb);
+		vq_color(vdi_h, i, rgb);
 		if (rgb[2] < 600 || rgb[0] > 400 || rgb[1] > 650)
 			continue;
 		dr = rgb[0] - 120;
@@ -721,7 +717,7 @@ static void photo_palette(void)
 	long sum = n;
 	for (i = 0; i < n; i++) {
 		if (ncolors >= 16) {
-			vq_color_seen(vdi_h, planes, i, rgb);	/* as the screen shows it (pens_init) */
+			vq_color(vdi_h, i, rgb);
 		} else {
 			rgb[0] = rgb[1] = rgb[2] = i ? 0 : 1000;	/* white, black */
 		}

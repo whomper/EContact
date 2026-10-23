@@ -40,14 +40,11 @@ and all of them together in `ECONTACT-x.y.zip`.
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode |
 | `ECONTACT.HYP` | the user guide for ST-Guide or EHypView: in EContact's folder, the Help key opens it |
 | `ECONTACT.REF` | its pages' names, for ST-Guide's index (`ALL.REF`): goes with the .HYP |
-| `ECONTACT.RSC`, `ECONT16.RSC`, `ECONTACT.DEF`, `ECONTACT.ICN`, `ECONTMSK.ICN` | the desktop icon (on their own, and in the zip's `icons/` folder): `ECONTACT.RSC` (black and white for TOS 1 and 2; 256 colours, 16 and black and white for the colour desktops), `ECONT16.RSC` (the same without the 256-colour image), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
+| `ECONTACT.RSC`, `ECONTACT.DEF`, `ECONTACT.ICN`, `ECONTMSK.ICN` | the desktop icon (on their own, and in the zip's `icons/` folder): `ECONTACT.RSC` (black and white for TOS 1 and 2; 256 colours, 16 and black and white for the colour desktops), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
 | `ECONTACT-x.y.zip` | all of the above |
 
 **The desktop icon.** Copy the icons from `ECONTACT.RSC` into your desktop's icon file
 (`DESKICON.RSC`, `DESKCICN.RSC`) with a resource editor; `ECONTACT.DEF` gives them their names there.
-Take `ECONTACT.RSC` under TOS, EmuTOS, or NVDI with TOS's palette loaded (COLORVDI); under NVDI with
-its own palette take `ECONT16.RSC`: the desktop draws the 256-colour image by the hardware's colour
-registers, which hold other colours there, and `ECONT16.RSC` has the 16-colour image only.
 For EmuTOS, `tools/icon/add_to_emuicon.py emuicon.rsc EMUICON.RSC` writes a copy of EmuTOS's icon
 file with EContact's added (it says which number), for the root of the boot drive; then
 **Options > Install icon**. The icon is the family's (an address card, in 256 colours, TOS's 16
@@ -416,10 +413,6 @@ tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi]
                                                   # rows moved match those drawn
 tests/hatari/busy_keys.py WORK [MACHINE]          # ^N typed while busy still opens New Contact
                                                   # (3.2: key_ctrl, not kstate alone)
-make build/PALSET.PRG && tests/hatari/loaded_palette.py WORK [MACHINE] [--nvdi]
-                                                  # a Falcon in 256 colours with a palette loaded
-                                                  # behind the VDI's back (as COLORVDI.CPX): the
-                                                  # colours chosen as the screen shows them
 make build/ASKER.PRG && tests/hatari/people_ask.py WORK [MACHINE]
                                                   # PEOPLE: a stand-in for EMail asks for a name
                                                   # at boot and picks someone in the window

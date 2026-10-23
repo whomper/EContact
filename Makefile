@@ -175,8 +175,8 @@ $(OBJDIR) $(BIN):
 # (AERA-Atari), made by common/tools/appicon.py into icons/ (a release
 # carries them), ui/icon.h and icon16.h, and docs/icon*.png; committed
 icons:
-	python3 common/tools/appicon.py ECONTACT --rsc icons/ECONTACT.RSC --rsc16 icons/ECONT16.RSC \
-		--icn icons/ECONTACT.ICN --mask icons/ECONTMSK.ICN --headers ui --docs docs
+	python3 common/tools/appicon.py ECONTACT --rsc icons/ECONTACT.RSC --icn icons/ECONTACT.ICN \
+		--mask icons/ECONTMSK.ICN --headers ui --docs docs
 
 # the version: VERSION holds the last release (major.minor, e.g. 1.33),
 # and the build never writes it; every build shows it as it is.
@@ -259,13 +259,6 @@ $(OBJDIR)/VCBENCH.PRG: tests/atari/vcbench.c $(VCBOBJ)
 	$(CC) $(LDFLAGS) -o $(OBJDIR)/vcbench.elf $(OBJDIR)/crt0.o $(OBJDIR)/vcbench.o $(filter-out %crt0.o,$(VCBOBJ)) -lgcc
 	python3 common/tools/elf2tos.py $(OBJDIR)/vcbench.elf $@
 
-# a palette loaded behind the VDI's back (COLORVDI.CPX), for
-# tests/hatari/loaded_palette.py
-$(OBJDIR)/PALSET.PRG: tests/atari/palset.c $(OBJDIR)/crt0.o
-	$(CC) $(CFLAGS) -c -o $(OBJDIR)/palset.o $<
-	$(CC) $(LDFLAGS) -o $(OBJDIR)/palset.elf $(OBJDIR)/crt0.o $(OBJDIR)/palset.o -lgcc
-	python3 common/tools/elf2tos.py $(OBJDIR)/palset.elf $@
-
 # a stand-in for EMail asking about people, for tests/hatari/people_ask.py
 ASKOBJ := $(addprefix $(OBJDIR)/,crt0.o gem.o libc.o tos.o nf.o av.o av_people.o people_ask.o)
 $(OBJDIR)/ASKER.PRG: tests/atari/asker.c $(ASKOBJ)
@@ -325,7 +318,7 @@ HYPCHECK = test ! -f $(BIN)/ECONTACT.HYP || grep -q "ECONTACT.HYP $$(cat VERSION
 # dist/ECONTACT-x.y.zip (the icons in icons/), for the release workflow
 DIST    := $(BIN)/ECONTACT.ACC $(BIN)/ECONTST.ACC $(BIN)/ECONTACT.PRG $(BIN)/CACERT.PEM $(BIN)/ROOTS.DAT \
            $(BIN)/ECONTACT.HYP $(BIN)/ECONTACT.REF
-ICONS   := icons/ECONTACT.RSC icons/ECONT16.RSC icons/ECONTACT.DEF icons/ECONTACT.ICN icons/ECONTMSK.ICN
+ICONS   := icons/ECONTACT.RSC icons/ECONTACT.DEF icons/ECONTACT.ICN icons/ECONTMSK.ICN
 dist: all help
 	@$(HYPCHECK)
 	rm -rf dist

@@ -159,13 +159,6 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   Shift+Left/Right go to the ends, known by their '4' and '6' too (as
   key_ctrl does: Shift may be let go before a busy EContact reads them).
   `tests/hatari/long_field.py` checks it.
-- Colours are chosen by what the screen shows (vq_color_seen, the
-  guidelines 5.2; draw.c pens_init and photo_palette), never vq_color:
-  on Erez's Falcon COLORVDI.CPX loads a palette into the hardware and
-  NVDI's table keeps its own, so a grey by vq_color showed green. The
-  greys come from the sixteen system pens, as with 16 colours (Erez).
-  `tests/hatari/loaded_palette.py WORK [MACHINE] [--nvdi]` checks it
-  (PALSET.PRG sets the registers 16-254 green).
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000
