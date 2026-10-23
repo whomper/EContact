@@ -175,8 +175,8 @@ $(OBJDIR) $(BIN):
 # (AERA-Atari), made by common/tools/appicon.py into icons/ (a release
 # carries them), ui/icon.h and icon16.h, and docs/icon*.png; committed
 icons:
-	python3 common/tools/appicon.py ECONTACT --rsc icons/ECONTACT.RSC --icn icons/ECONTACT.ICN \
-		--mask icons/ECONTMSK.ICN --headers ui --docs docs
+	python3 common/tools/appicon.py ECONTACT --rsc icons/ECONTACT.RSC --rsc16 icons/ECONT16.RSC \
+		--icn icons/ECONTACT.ICN --mask icons/ECONTMSK.ICN --headers ui --docs docs
 
 # the version: VERSION holds the last release (major.minor, e.g. 1.33),
 # and the build never writes it; every build shows it as it is.
@@ -325,7 +325,7 @@ HYPCHECK = test ! -f $(BIN)/ECONTACT.HYP || grep -q "ECONTACT.HYP $$(cat VERSION
 # dist/ECONTACT-x.y.zip (the icons in icons/), for the release workflow
 DIST    := $(BIN)/ECONTACT.ACC $(BIN)/ECONTST.ACC $(BIN)/ECONTACT.PRG $(BIN)/CACERT.PEM $(BIN)/ROOTS.DAT \
            $(BIN)/ECONTACT.HYP $(BIN)/ECONTACT.REF
-ICONS   := icons/ECONTACT.RSC icons/ECONTACT.DEF icons/ECONTACT.ICN icons/ECONTMSK.ICN
+ICONS   := icons/ECONTACT.RSC icons/ECONT16.RSC icons/ECONTACT.DEF icons/ECONTACT.ICN icons/ECONTMSK.ICN
 dist: all help
 	@$(HYPCHECK)
 	rm -rf dist
