@@ -305,14 +305,16 @@ static void pens_init(void)
 		return;
 	memset(taken, 0, sizeof(taken));
 	/* first the two greys for text, kept from the calendars' colours: a
-	   real grey (red, green and blue alike) nearest each target */
+	   real grey (red, green and blue alike) nearest each target, among
+	   the sixteen system pens, as with 16 colours: with 256 a pen above
+	   them came out green on Erez's Falcon (others' pictures set them) */
 	{
 		static const short want[2] = { 420, 690 };	/* dark, light (0-1000) */
-		short g;
+		short g, ng = n < 16 ? n : 16;
 		for (g = 0; g < 2; g++) {
 			short pick = -1;
 			long best = 0x7fffffffL;
-			for (i = 2; i < n; i++) {
+			for (i = 2; i < ng; i++) {
 				short lo, hi;
 				long dist;
 				if (taken[i])
