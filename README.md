@@ -40,11 +40,13 @@ and all of them together in `ECONTACT-x.y.zip`.
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode |
 | `ECONTACT.HYP` | the user guide for ST-Guide or EHypView: in EContact's folder, the Help key opens it |
 | `ECONTACT.REF` | its pages' names, for ST-Guide's index (`ALL.REF`): goes with the .HYP |
-| `ECONTACT.RSC`, `ECONTACT.DEF`, `ECONTACT.ICN`, `ECONTMSK.ICN` | the desktop icon (on their own, and in the zip's `icons/` folder): `ECONTACT.RSC` (black and white for TOS 1 and 2; 256 colours, 16 and black and white for the colour desktops), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
+| `ECONTACT.RSC`, `ECONTNV.RSC`, `ECONTACT.DEF`, `ECONTACT.ICN`, `ECONTMSK.ICN` | the desktop icon (on their own, and in the zip's `icons/` folder): `ECONTACT.RSC` (black and white for TOS 1 and 2; 256 colours, 16 and black and white for the colour desktops), `ECONTNV.RSC` (the same, its 256 colours on NVDI's own palette), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
 | `ECONTACT-x.y.zip` | all of the above |
 
 **The desktop icon.** Copy the icons from `ECONTACT.RSC` into your desktop's icon file
 (`DESKICON.RSC`, `DESKCICN.RSC`) with a resource editor; `ECONTACT.DEF` gives them their names there.
+Take `ECONTACT.RSC` under TOS, EmuTOS, or NVDI with COLORVDI (TOS's palette loaded); under NVDI with
+its own palette take `ECONTNV.RSC`, whose 256-colour image is drawn on NVDI's colours.
 For EmuTOS, `tools/icon/add_to_emuicon.py emuicon.rsc EMUICON.RSC` writes a copy of EmuTOS's icon
 file with EContact's added (it says which number), for the root of the boot drive; then
 **Options > Install icon**. The icon is the family's (an address card, in 256 colours, TOS's 16
