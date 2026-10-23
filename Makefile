@@ -259,6 +259,13 @@ $(OBJDIR)/VCBENCH.PRG: tests/atari/vcbench.c $(VCBOBJ)
 	$(CC) $(LDFLAGS) -o $(OBJDIR)/vcbench.elf $(OBJDIR)/crt0.o $(OBJDIR)/vcbench.o $(filter-out %crt0.o,$(VCBOBJ)) -lgcc
 	python3 common/tools/elf2tos.py $(OBJDIR)/vcbench.elf $@
 
+# a palette loaded behind the VDI's back (COLORVDI.CPX), for
+# tests/hatari/loaded_palette.py
+$(OBJDIR)/PALSET.PRG: tests/atari/palset.c $(OBJDIR)/crt0.o
+	$(CC) $(CFLAGS) -c -o $(OBJDIR)/palset.o $<
+	$(CC) $(LDFLAGS) -o $(OBJDIR)/palset.elf $(OBJDIR)/crt0.o $(OBJDIR)/palset.o -lgcc
+	python3 common/tools/elf2tos.py $(OBJDIR)/palset.elf $@
+
 # a stand-in for EMail asking about people, for tests/hatari/people_ask.py
 ASKOBJ := $(addprefix $(OBJDIR)/,crt0.o gem.o libc.o tos.o nf.o av.o av_people.o people_ask.o)
 $(OBJDIR)/ASKER.PRG: tests/atari/asker.c $(ASKOBJ)

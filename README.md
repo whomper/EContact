@@ -413,6 +413,10 @@ tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi]
                                                   # rows moved match those drawn
 tests/hatari/busy_keys.py WORK [MACHINE]          # ^N typed while busy still opens New Contact
                                                   # (3.2: key_ctrl, not kstate alone)
+make build/PALSET.PRG && tests/hatari/loaded_palette.py WORK [MACHINE] [--nvdi]
+                                                  # a Falcon in 256 colours with a palette loaded
+                                                  # behind the VDI's back (as COLORVDI.CPX): the
+                                                  # colours chosen as the screen shows them
 make build/ASKER.PRG && tests/hatari/people_ask.py WORK [MACHINE]
                                                   # PEOPLE: a stand-in for EMail asks for a name
                                                   # at boot and picks someone in the window
