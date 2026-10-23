@@ -156,6 +156,8 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   what its setting holds and shows a window of it, scrolled with the
   cursor (the guidelines 5.4); `max` is the buffer, `w` the width shown,
   and dlg_ask's len is what the buffer holds (it shows 30 at most).
+  Shift+Left/Right go to the ends, known by their '4' and '6' too (as
+  key_ctrl does: Shift may be let go before a busy EContact reads them).
   `tests/hatari/long_field.py` checks it.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
