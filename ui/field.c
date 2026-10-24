@@ -39,8 +39,8 @@ static DLG *cur_dlg;
    on (DIALOGS3D=), in 16 colours or more: the dialog on the AES's grey
    (LWHITE), its buttons raised as the AES's exit buttons are (white
    above and left, dark grey below and right, pressed in when clicked),
-   its fields, tick boxes, pop-ups and lists left white. Elsewhere the
-   flat look, as before */
+   its pop-ups raised too, its fields, tick boxes and lists left white.
+   Elsewhere the flat look, as before */
 #define LWHITE 8
 #define LBLACK 9
 static int d3;
@@ -63,11 +63,11 @@ static short dim_line(void)
 	return d3 ? LBLACK : grey_color();
 }
 
-/* a button's raised edge, inside its frame of two lines as the AES's
-   exit buttons have; in: pressed */
-static void bevel(const GRECT *r, int in)
+/* a raised edge inside a frame of k lines: two round a button, as the
+   AES's exit buttons have, one round a pop-up; in: pressed */
+static void bevel(const GRECT *r, short k, int in)
 {
-	short x1 = r->x + 2, y1 = r->y + 2, x2 = r->x + r->w - 3, y2 = r->y + r->h - 3;
+	short x1 = r->x + k, y1 = r->y + k, x2 = r->x + r->w - 1 - k, y2 = r->y + r->h - 1 - k;
 	line_col(x1, y1, x2, y1, in ? LBLACK : 0);
 	line_col(x1, y1, x1, y2, in ? LBLACK : 0);
 	line_col(x1, y2, x2, y2, in ? 0 : LBLACK);
@@ -343,7 +343,7 @@ static void draw_field(DLG *d, short i)
 			in.w -= 2;
 			in.h -= 2;
 			frame(&in, dis ? dim_line() : 1);
-			bevel(&r, 0);
+			bevel(&r, 2, 0);
 		}
 		if (f->flags & FF_DEFAULT) {
 			GRECT r2 = r;
@@ -376,11 +376,15 @@ static void draw_field(DLG *d, short i)
 	case FT_POPUP: {
 		const char *l = f->val >= 0 && f->val < f->nitems ? f->items[f->val] : "";
 		field_rect(f, &r);
-		fill(&r, 0);
+		fill(&r, bg);
 		frame(&r, dis ? dim_line() : 1);
-		/* a shadow says "menu" */
-		line_col(r.x + 1, r.y + r.h, r.x + r.w, r.y + r.h, 1);
-		line_col(r.x + r.w, r.y + 1, r.x + r.w, r.y + r.h, 1);
+		if (d3) {
+			bevel(&r, 1, 0);	/* raised, as the family's are */
+		} else {
+			/* a shadow says "menu" */
+			line_col(r.x + 1, r.y + r.h, r.x + r.w, r.y + r.h, 1);
+			line_col(r.x + r.w, r.y + 1, r.x + r.w, r.y + r.h, 1);
+		}
 		while (*l == ' ')
 			l++;
 		text_at(FX(f) + cw / 2, FY(f), l, (long)strlen(l), f->w - 2,
@@ -578,9 +582,9 @@ static void press_effect(DLG *d, short i)
 	clip_on(&box);
 	graf_mouse(M_OFF, 0);
 	if (d3) {
-		bevel(&r, 1);
+		bevel(&r, 2, 1);
 		evnt_timer_(90);
-		bevel(&r, 0);
+		bevel(&r, 2, 0);
 		graf_mouse(M_ON, 0);
 		return;
 	}

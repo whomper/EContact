@@ -175,8 +175,9 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   DIALOGS3D= is on (the guidelines 5.6; dlg_look3d), in 16 colours or more,
   they take the AES's look: the ground its grey (pen 8), buttons raised as
   its exit buttons are (two black lines, white above and left, pen 9 below
-  and right, pressed in when clicked), fields, ticks, pop-ups and lists
-  white, the chosen section a black bar; anything cleared is cleared with
+  and right, pressed in when clicked), pop-ups raised too (one black
+  line), fields, ticks, lists and the progress bar white, the chosen
+  section a black bar; anything cleared is cleared with
   the ground (bg), never white. Elsewhere they are drawn as before: TOS
   1.04 and DIALOGS3D=0 pixel for pixel as 1.65.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
