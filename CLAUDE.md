@@ -171,7 +171,14 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   and dlg_ask's len is what the buffer holds (it shows 30 at most).
   Shift+Left/Right go to the ends, known by their '4' and '6' too (as
   key_ctrl does: Shift may be let go before a busy EContact reads them).
-  `tests/hatari/long_field.py` checks it.
+  `tests/hatari/long_field.py` checks it. Where the AES draws 3D and
+  DIALOGS3D= is on (the guidelines 5.6; dlg_look3d), in 16 colours or more,
+  they take the AES's look: the ground its grey (pen 8), buttons raised as
+  its exit buttons are (two black lines, white above and left, pen 9 below
+  and right, pressed in when clicked), fields, ticks, pop-ups and lists
+  white, the chosen section a black bar; anything cleared is cleared with
+  the ground (bg), never white. Elsewhere they are drawn as before: TOS
+  1.04 and DIALOGS3D=0 pixel for pixel as 1.65.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000

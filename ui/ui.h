@@ -178,6 +178,8 @@ struct DLG {
 	short npages, page, side;
 };
 short dlg_run(DLG *d);
+/* 1 when dialogs are drawn in the 3D look (5.6) */
+int dlg_look3d(void);
 void  dlg_redraw_field(DLG *d, short i);
 void  dlg_redraw(DLG *d);
 extern void (*dlg_after)(void);

@@ -21,6 +21,7 @@
 #include "clip.h"
 #include "plat.h"
 #include "conn.h"
+#include "dialog.h"
 
 static GRECT box;		/* the dialog on screen */
 static short rh;		/* pixels per row */
@@ -33,6 +34,45 @@ void (*dlg_after)(void);	/* called when the last dialog closes (window frame) */
 
 /* the dialog being run, for what depends on its section */
 static DLG *cur_dlg;
+
+/* The AES's 3D look (the guidelines 5.6), where it draws one and it is
+   on (DIALOGS3D=), in 16 colours or more: the dialog on the AES's grey
+   (LWHITE), its buttons raised as the AES's exit buttons are (white
+   above and left, dark grey below and right, pressed in when clicked),
+   its fields, tick boxes, pop-ups and lists left white. Elsewhere the
+   flat look, as before */
+#define LWHITE 8
+#define LBLACK 9
+static int d3;
+static short bg;		/* the dialog's ground: white, or LWHITE */
+
+int dlg_look3d(void)
+{
+	return dlg_3d_ok() && dlg_3d_on && ncolors >= 16;
+}
+
+static void look_init(void)
+{
+	d3 = dlg_look3d();
+	bg = d3 ? LWHITE : 0;
+}
+
+/* a line drawn dimmed: the light grey is the ground in 3D */
+static short dim_line(void)
+{
+	return d3 ? LBLACK : grey_color();
+}
+
+/* a button's raised edge, inside its frame of two lines as the AES's
+   exit buttons have; in: pressed */
+static void bevel(const GRECT *r, int in)
+{
+	short x1 = r->x + 2, y1 = r->y + 2, x2 = r->x + r->w - 3, y2 = r->y + r->h - 3;
+	line_col(x1, y1, x2, y1, in ? LBLACK : 0);
+	line_col(x1, y1, x1, y2, in ? LBLACK : 0);
+	line_col(x1, y2, x2, y2, in ? 0 : LBLACK);
+	line_col(x2, y1, x2, y2, in ? 0 : LBLACK);
+}
 
 static int shown_now(const FIELD *f)
 {
@@ -131,7 +171,7 @@ static void draw_text_field(FIELD *f, int focus)
 	char s[256];
 	field_rect(f, &r);
 	fill(&r, 0);
-	frame(&r, (f->flags & FF_DISABLED) ? grey_color() : 1);
+	frame(&r, (f->flags & FF_DISABLED) ? dim_line() : 1);
 	if (focus) {
 		GRECT r2 = r;
 		r2.x--;
@@ -228,8 +268,7 @@ static void eye_rect(const FIELD *f, GRECT *r)
 static void draw_eye(const FIELD *f)
 {
 	static unsigned short bits[16];
-	static const short colors[2] = { 1, 0 };
-	short rows = ch >= 16 ? 16 : 8, r, c, pxy[8];
+	short colors[2] = { 1, 0 }, rows = ch >= 16 ? 16 : 8, r, c, pxy[8];
 	MFDB src, dst;
 	GRECT e;
 	for (r = 0; r < rows; r++) {
@@ -250,6 +289,7 @@ static void draw_eye(const FIELD *f)
 	src.fd_h = rows;
 	src.fd_wdwidth = 1;
 	src.fd_nplanes = 1;
+	colors[1] = bg;		/* on the dialog's ground */
 	pxy[0] = 0;
 	pxy[1] = 0;
 	pxy[2] = 15;
@@ -278,7 +318,7 @@ static void draw_field(DLG *d, short i)
 {
 	FIELD *f = &d->f[i];
 	GRECT r;
-	short dis = (f->flags & FF_DISABLED) ? TX_DIM : 0;
+	short dis = (f->flags & FF_DISABLED) ? (d3 ? TX_GREY : TX_DIM) : 0;	/* (the pale grey is the ground) */
 	switch (f->type) {
 	case FT_LABEL:
 	case FT_HEAD:
@@ -294,8 +334,17 @@ static void draw_field(DLG *d, short i)
 		break;
 	case FT_BUTTON:
 		field_rect(f, &r);
-		fill(&r, 0);
-		frame(&r, dis ? grey_color() : 1);
+		fill(&r, bg);
+		frame(&r, dis ? dim_line() : 1);
+		if (d3) {
+			GRECT in = r;
+			in.x++;
+			in.y++;
+			in.w -= 2;
+			in.h -= 2;
+			frame(&in, dis ? dim_line() : 1);
+			bevel(&r, 0);
+		}
 		if (f->flags & FF_DEFAULT) {
 			GRECT r2 = r;
 			r2.x--;
@@ -314,7 +363,7 @@ static void draw_field(DLG *d, short i)
 		b.w = 2 * cw - 4;
 		b.h = ch - 2;
 		fill(&b, 0);
-		frame(&b, dis ? grey_color() : 1);
+		frame(&b, dis ? dim_line() : 1);
 		if (f->val) {
 			line_col(b.x + 2, b.y + b.h / 2, b.x + b.w / 2 - 1, b.y + b.h - 3, 1);
 			line_col(b.x + b.w / 2 - 1, b.y + b.h - 3, b.x + b.w - 3, b.y + 2, 1);
@@ -328,7 +377,7 @@ static void draw_field(DLG *d, short i)
 		const char *l = f->val >= 0 && f->val < f->nitems ? f->items[f->val] : "";
 		field_rect(f, &r);
 		fill(&r, 0);
-		frame(&r, dis ? grey_color() : 1);
+		frame(&r, dis ? dim_line() : 1);
 		/* a shadow says "menu" */
 		line_col(r.x + 1, r.y + r.h, r.x + r.w, r.y + r.h, 1);
 		line_col(r.x + r.w, r.y + 1, r.x + r.w, r.y + r.h, 1);
@@ -349,7 +398,7 @@ static void draw_field(DLG *d, short i)
 			b.y = FY(f) - 1;
 			b.w = 2 * cw;
 			b.h = ch + 2;
-			fill(&b, 0);
+			fill(&b, bg);
 			b.x += 2;
 			b.y += 2;
 			b.w -= 4;
@@ -362,7 +411,7 @@ static void draw_field(DLG *d, short i)
 			b.y -= 2;
 			b.w += 4;
 			b.h += 4;
-			frame(&b, f->val == k ? 1 : 0);
+			frame(&b, f->val == k ? 1 : bg);
 			if (f->val == k) {
 				b.x--;
 				b.y--;
@@ -412,7 +461,7 @@ static void draw_sections(DLG *d)
 		GRECT r;
 		const char *s = d->pages[k];
 		section_rect(d, k, &r);
-		fill(&r, k + 1 == d->page ? 1 : 0);
+		fill(&r, k + 1 == d->page ? 1 : bg);
 		text_at(r.x + cw, r.y + 3, s, (long)strlen(s), d->side, TX_LTR | (k + 1 == d->page ? TX_INVERSE : 0));
 	}
 	line_col(lx, box.y + ch + 6, lx, box.y + box.h - 4, 1);
@@ -441,9 +490,10 @@ static void draw_all(DLG *d)
 	GRECT t;
 	short i;
 	char title[80];
+	look_init();
 	clip_on(&box);
 	graf_mouse(M_OFF, 0);
-	fill(&box, 0);
+	fill(&box, bg);
 	frame(&box, 1);
 	{
 		GRECT in = box;
@@ -484,13 +534,13 @@ void dlg_redraw_field(DLG *d, short i)
 		r.y = FY(f) - 3;
 		r.h = ch + 6;
 		rect_and(&r, &box);
-		fill(&r, 0);
+		fill(&r, bg);
 	} else {
 		r.x -= 2;
 		r.y -= 2;
 		r.w += 5;
 		r.h += 5;
-		fill(&r, 0);
+		fill(&r, bg);
 	}
 	draw_field(d, i);
 	graf_mouse(M_ON, 0);
@@ -527,6 +577,13 @@ static void press_effect(DLG *d, short i)
 	field_rect(&d->f[i], &r);
 	clip_on(&box);
 	graf_mouse(M_OFF, 0);
+	if (d3) {
+		bevel(&r, 1);
+		evnt_timer_(90);
+		bevel(&r, 0);
+		graf_mouse(M_ON, 0);
+		return;
+	}
 	set_wrmode(3);
 	fill(&r, 1);
 	evnt_timer_(90);
@@ -909,6 +966,7 @@ short dlg_pick(const char *title, const char *const *items, short n, short sel)
 	wind_update(BEG_UPDATE);
 	wind_update(3);
 	form_dial(FMD_START, b.x, b.y, b.w + 2, b.h + 2);
+	look_init();
 	while (res == -2) {
 		short mx, my, mb, ks;
 		if (first > n - rows)
@@ -917,8 +975,9 @@ short dlg_pick(const char *title, const char *const *items, short n, short sel)
 			first = 0;
 		clip_on(&b);
 		graf_mouse(M_OFF, 0);
-		fill(&b, 0);
+		fill(&b, bg);
 		frame(&b, 1);
+		fill(&list, 0);
 		text_at(b.x + cw, b.y + 4, title, (long)strlen(title), w, TX_BOLD | TX_LTR);
 		frame(&list, 1);
 		for (i = 0; i < rows && first + i < n; i++) {

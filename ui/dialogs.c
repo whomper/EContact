@@ -141,13 +141,13 @@ void dlg_add_account(void)
 {
 	enum { L1, B1, B2, B3, BCAN, N };
 	FIELD f[N];
-	short r;
+	short r, gap = dlg_look3d();	/* raised, they would touch (5.6) */
 	put(&f[L1], FT_LABEL, 0, 0, 1, 0, "Where are your contacts?");
 	put(&f[B1], FT_BUTTON, FF_DEFAULT, 0, 3, 40, "iCloud");
-	put(&f[B2], FT_BUTTON, 0, 0, 4, 40, "Other CardDAV account...");
-	put(&f[B3], FT_BUTTON, 0, 0, 5, 40, "On My Atari (no server)");
-	put(&f[BCAN], FT_BUTTON, FF_CANCEL, 30, 7, 10, "Cancel");
-	r = run("Add an account", f, N, 40, 8, -1);
+	put(&f[B2], FT_BUTTON, 0, 0, 4 + gap, 40, "Other CardDAV account...");
+	put(&f[B3], FT_BUTTON, 0, 0, 5 + 2 * gap, 40, "On My Atari (no server)");
+	put(&f[BCAN], FT_BUTTON, FF_CANCEL, 30, 7 + 2 * gap, 10, "Cancel");
+	r = run("Add an account", f, N, 40, 8 + 2 * gap, -1);
 	if (r == B1 || r == B2) {
 		ACCOUNT *a = acct_add(AK_CARDDAV);
 		int ai;
