@@ -147,7 +147,8 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   store_release lets it go with no connection open. tls_ovl_path is
   TLS.OVL in the folder, beside CACERT.PEM. The user sees "Direct
   connection", never "Falcon mode"; the INF keeps FALCON=. The AV and
-  twin names keep ECONTST until the hub says. falcon_dsp_ec_init()
+  twin names are ECONTACT and EMail's EMAIL alone (the ST editions'
+  names went with ECal 2.25, the hub). falcon_dsp_ec_init()
   follows every falcon_dsp_init(). tls_sigs_path is SIGS.DAT in the folder,
   tls_file_stamp is pf_stamp, and PF_UPDATE (plat.h) writes SEED.DAT and
   ROOTS.DAT in place. `tests/hatari/falcon_tls.py WORK [MACHINE]` checks

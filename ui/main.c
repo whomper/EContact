@@ -700,13 +700,13 @@ static void help_key_pressed(void)
 }
 
 /* Writing to someone: EMail, when it runs, gets "mailto:..." with VA_START
-   (EMAIL.PRG or EMAILST.PRG) and opens a new message to them (av_send,
+   and opens a new message to them (av_send,
    common/ui/help.c: the string stays where EMail may read it). */
 void cmd_mail(const char *addr)
 {
 	char line[1024];
 	snprintf(line, sizeof(line), "mailto:%s", addr);
-	if (!av_send("EMAIL|EMAILST", line)) {	/* either edition (the guidelines 4.1) */
+	if (!av_send("EMAIL", line)) {		/* the guidelines 4.1 */
 		cmd_copy(addr);
 		alert(1, "[1][EMail isn't running, so the address|is on the clipboard: paste it in|EMail's To: field (^V).][ OK ]");
 		return;
@@ -1842,7 +1842,7 @@ int main(void)
 	ap_id = appl_init();
 	if (ap_id < 0)
 		return 1;
-	twin_init("ECONTACT|ECONTST");
+	twin_init("ECONTACT");
 	if (!is_acc && twin_handover(av_command())) {
 		appl_exit();		/* ECONTACT.ACC runs, and has it */
 		return 0;
@@ -1868,7 +1868,7 @@ int main(void)
 	alert_hebrew = alert_heb;
 	crash_report = conn_log_append;	/* the report in ECONTACT.LOG too */
 	help_init();			/* memory the help viewer and EMail may read */
-	av_init("ECONTACT|ECONTST");	/* the desktop's AV server, if one runs yet */
+	av_init("ECONTACT");	/* the desktop's AV server, if one runs yet */
 	st_ram_init();
 	dlg_after = win_frame_refresh;
 	if (!is_acc && !screen_check("EContact", scr_w)) {	/* not in ST low */
@@ -1944,7 +1944,7 @@ int main(void)
 					aes_profile_tag("open");
 					if (twin_pass(""))	/* ECONTACT.PRG runs: its window to the front */
 						break;
-					av_init("ECONTACT|ECONTST");	/* a desktop started since */
+					av_init("ECONTACT");	/* a desktop started since */
 					open_window();
 				}
 				break;

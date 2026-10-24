@@ -72,12 +72,11 @@ loaded, PEOPLE is used and the file isn't read.
 EContact takes the AV protocol's `VA_START` (`0x4711`), as every AERA
 program does: with an empty string it opens (or tops) its window; with
 the names of `.vcf` files it imports them into the address book new
-contacts go into. The accessory's AES name is `ECONTACT` (or `ECONTST `
-for the ST edition, until 1.63). With the AERA programs' shared code
-(`common/ui/av.c`):
+contacts go into. The accessory's AES name is `ECONTACT`, on every Atari
+(since 1.64). With the AERA programs' shared code (`common/ui/av.c`):
 
 ```c
-if (!av_send("ECONTACT", "") && !av_send("ECONTST ", ""))
+if (!av_send("ECONTACT", ""))
 	alert(1, "[1][EContact isn't running.][ OK ]");
 ```
 
@@ -88,8 +87,8 @@ gone.)
 
 ## Writing to someone
 
-EContact's **mail** button sends `VA_START` to the first of EMail's
-editions running (`EMAIL`, or `EMAILST` on an ST), with a pointer in words 3 and 4 to
+EContact's **mail** button sends `VA_START` to EMail (`EMAIL`), with a
+pointer in words 3 and 4 to
 `mailto:Maya Carter <maya@pixelpress.example>` (or several addresses
 separated by commas, for a group). The text is in memory any program may
 read (global, under MiNT's memory protection) and stays there. EMail
