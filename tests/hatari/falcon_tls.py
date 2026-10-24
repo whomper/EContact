@@ -183,7 +183,7 @@ def main():
         first, took1 = run("1-first", "Server")
         second, took2 = run("2-second", "Server")
         os.remove(os.path.join(folder, "TLS.OVL"))
-        third, took3 = run("3-no-tls-ovl", "Server", ("TLS.OVL is missing",))
+        third, took3 = run("3-no-tls-ovl", "TLS.OVL", ("is missing",))
     finally:
         for p in procs:
             p.terminate()
