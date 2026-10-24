@@ -1639,6 +1639,9 @@ static void files_check(void)
 	find_workdir();			/* FOLDER= may name another folder now */
 }
 
+/* the welcome said this session (open_window) */
+static int welcomed;
+
 static void open_window(void)
 {
 	if (!vdi_h && !vwk_open()) {
@@ -1706,15 +1709,18 @@ static void open_window(void)
 	aes_profile_tag("open-after");
 	after_change();
 	win_hold = 0;
-	if (plain_untold || lost_untold || !naccts ||
+	if (plain_untold || lost_untold || (!naccts && !welcomed) ||
 	    (data_ready && contacts_lost() > 0 && contacts_lost() != warned_lost))
 		win_redraw(0);		/* behind the alert */
 	memory_check();
 	tell_untold();
-	if (!naccts) {
+	if (!naccts && !welcomed) {
+		/* once a session (ECal 2.22's way): a program started meanwhile
+		   closes the accessory's window, and every opening is a first */
+		welcomed = 1;
 		alert(1, "[1][Welcome to EContact!||Let's add your iCloud or other contacts.][ OK ]");
 		dlg_add_account();
-	} else if (opt.sync_open && !opt.offline) {
+	} else if (naccts && opt.sync_open && !opt.offline) {
 		sync_pending = 1;
 	}
 }
