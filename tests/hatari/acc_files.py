@@ -160,6 +160,17 @@ def main():
                 time.sleep(3)
             return False
 
+        def wait_quiet(secs, most):
+            """the log still for SECS seconds (at most MOST): after a refresh the
+            chosen contact's card is fetched whole for its photo, and a click
+            meanwhile is lost (busy)"""
+            t0, n, since = time.time(), len(log_text()), time.time()
+            while time.time() - t0 < most and time.time() - since < secs:
+                time.sleep(1)
+                m = len(log_text())
+                if m != n:
+                    n, since = m, time.time()
+
         r = Rig(d, machine, auto="C:\\ECONTACT\\ECONTACT.PRG" if prg else None, network=True,
                 extra=("--trace", "gemdos,aes", "--trace-file", os.path.join(d, "trace.txt")))
         try:
@@ -172,6 +183,7 @@ def main():
             time.sleep(3)
             r.shot("1-synced")
             r.key(0x01)			# Esc: an alert there (contacts that don't fit) goes
+            wait_quiet(5, 90)
             # Sync Contact Photos: the menu (the button at the toolbar's right)
             r.click(*MENU)
             time.sleep(2)
