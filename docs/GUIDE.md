@@ -219,7 +219,9 @@ it (a server's) or delete it (one on this Atari).
 - **On the right**: the card. Click a phone, address, birthday or note
   to copy it to the clipboard; click an email to copy it or write to it
   in EMail (a double-click writes at once). **mail** under the name writes
-  to the person (asking which address when there are several).
+  to the person (asking which address when there are several). A card
+  longer than the window scrolls with the window's own slider and
+  arrows, at its right edge.
 - **At the bottom of the card**: **+** for a new contact and **Edit**.
 - The info line says how many contacts are shown and when they were last
   updated.

@@ -419,6 +419,9 @@ tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi] [--flat]
                                                   # the list's own scroll bar: arrows and the
                                                   # track held, a page, the slider dragged; the
                                                   # rows moved match those drawn
+tests/hatari/card_scroll.py WORK [MACHINE] [--flat]
+                                                  # a long card in the window's own slider (5.1):
+                                                  # arrows and track scroll it, the list stays
 tests/hatari/busy_keys.py WORK [MACHINE]          # ^N typed while busy still opens New Contact
                                                   # (3.2: key_ctrl, not kstate alone)
 make build/ASKER.PRG && tests/hatari/people_ask.py WORK [MACHINE]

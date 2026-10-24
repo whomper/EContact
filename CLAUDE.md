@@ -169,7 +169,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   each piece after the copy, and a scroll draws pb_moved's part
   (win_bars). The window resizes by the AES's sizer only.
   `tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi] [--flat]`
-  checks it.
+  checks it. The card, the pane at the window's right edge, scrolls in
+  the window's own slider column (5.1: the AES keeps it anyway): card.c
+  card_top, win_slider sets WF_VSLSIZE/WF_VSLIDE after each redraw,
+  WM_ARROWED (the wheel over the list stays the list's) and WM_VSLID
+  scroll it; `tests/hatari/card_scroll.py WORK [MACHINE] [--flat]`.
 - EContact's dialogs are its own (ui/field.c, not GEM's fields nor
   common/ui/field.c, which is for GEM object trees): a text field holds
   what its setting holds and shows a window of it, scrolled with the
