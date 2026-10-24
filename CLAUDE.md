@@ -162,8 +162,14 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (win_scroll) and draws those that come in and the slider's old and
   new place only (the whole bar took an 8 MHz ST 70 ms); a held arrow
   keeps some 15 rows a second, a held track goes on to the pointer.
-  list_draw draws only the rows in its area. `tests/hatari/list_bar.py
-  WORK [MACHINE] [--acc] [--nvdi]` checks it.
+  list_draw draws only the rows in its area. The list's bar is the
+  family's pane bar (the guidelines 5.1, common/ui/panebar.c: AES objects
+  in the AES's look, flat, 3D or a theme's), never drawn by hand: AES
+  objects draw on the screen, so win_redraw draws it (list_bar_draw) on
+  each piece after the copy, and a scroll draws pb_moved's part
+  (win_bars). The window resizes by the AES's sizer only.
+  `tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi] [--flat]`
+  checks it.
 - EContact's dialogs are its own (ui/field.c, not GEM's fields nor
   common/ui/field.c, which is for GEM object trees): a text field holds
   what its setting holds and shows a window of it, scrolled with the

@@ -175,7 +175,8 @@ under a search field, the chosen person's card on the right.
 - **Fonts** (the system font or any fixed-width GDOS font, in the family's Font dialog), the window and everything else are
   remembered in `ECONTACT.INF`, which explains itself.
 - **Smooth on an ST**: the window is drawn off the screen and shown at once; the list scrolls by
-  moving what is shown, and the scroll bar's arrows and track go on while held. Text fields hold
+  moving what is shown, and the scroll bar's arrows and track go on while held. The scroll bar
+  is drawn by the AES, so it takes its look: TOS's, the 3D one, or a theme under XaAES. Text fields hold
   more than they show (a long server address, a name) and scroll with the cursor.
 - **A crash** in the program is caught: it says so, writes `CRASH.LOG` and quits, leaving the
   Atari running (the guide, When something goes wrong).
@@ -414,7 +415,7 @@ tests/hatari/esc_test.py WORK [MACHINE]           # Esc and Undo cancel dialogs 
 tests/hatari/search_click.py WORK [MACHINE]       # a click gives the search field the focus
 tests/hatari/long_field.py WORK [MACHINE]         # a field holds more than it shows: 52 letters
                                                   # in a field 30 wide, Shift+Left/Right to its ends
-tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi]
+tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi] [--flat]
                                                   # the list's own scroll bar: arrows and the
                                                   # track held, a page, the slider dragged; the
                                                   # rows moved match those drawn
