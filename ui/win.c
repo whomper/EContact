@@ -18,9 +18,10 @@
 short win_h = -1;
 GRECT work, r_tool, r_side, r_list, r_card, r_search;
 
-/* no slider of the window's own: the list in the middle has its scroll
-   bar beside it (list.c), the card needs none */
-#define KIND (NAME | CLOSER | FULLER | MOVER | SIZER | INFO)
+/* the window's own slider and arrows are the card's, the pane at its
+   right edge (the guidelines 5.1: the AES keeps the column anyway); the
+   list in the middle has its own bar beside it (list.c, panebar.c) */
+#define KIND (NAME | CLOSER | FULLER | MOVER | SIZER | INFO | VSLIDE | UPARROW | DNARROW)
 
 static char title[80], info[140];
 
@@ -534,6 +535,32 @@ void win_redraw(GRECT *area)
 	}
 	graf_mouse(M_ON, 0);
 	wind_update(END_UPDATE);
+	win_slider();		/* the card's height is known once it is drawn */
+}
+
+static short sl_size = -1, sl_pos = -1;	/* the window's slider as set */
+
+void win_slider(void)
+{
+	short total, shown, top, size, pos;
+	if (win_h <= 0 || win_iconified)
+		return;
+	card_scroll_info(&total, &shown, &top);
+	if (total <= shown || shown <= 0) {
+		size = 1000;
+		pos = 0;
+	} else {
+		size = (short)((long)shown * 1000 / total);
+		pos = (short)((long)top * 1000 / (total - shown));
+	}
+	if (size < 1)
+		size = 1;
+	if (size != sl_size)
+		wind_set(win_h, WF_VSLSIZE, size, 0, 0, 0);
+	if (pos != sl_pos)
+		wind_set(win_h, WF_VSLIDE, pos, 0, 0, 0);
+	sl_size = size;
+	sl_pos = pos;
 }
 
 /* the content of a moves up by dy pixels, down when dy < 0: copied on
@@ -648,6 +675,7 @@ void win_open(void)
 			w = desk_x + desk_w - sx;
 		x = sx;
 	}
+	sl_size = sl_pos = -1;		/* a new window's slider */
 	wind_open(win_h, x, y, w, h);
 	if (is_acc)		/* the desktop drops files on it (VA_DRAGACCWIND) */
 		av_window(win_h, 1);
@@ -761,15 +789,26 @@ void win_message(short *msg)
 		remember_place();
 		break;
 	}
-	case WM_ARROWED:
-		/* the mouse wheel, on AESes that send it without the window's
-		   arrows: 0 page up, 1 page down, 2 line up, 3 line down */
+	case WM_ARROWED: {
+		/* the window's arrows and track: the card's; the mouse wheel,
+		   which some AESes send so, over the list: the list's. 0 page
+		   up, 1 page down, 2 line up, 3 line down */
+		short mx, my, mb, ks;
+		graf_mkstate(&mx, &my, &mb, &ks);
+		if (!rect_hit(&r_list, mx, my)) {
+			card_arrowed(msg[4]);
+			break;
+		}
 		switch (msg[4]) {
 		case 0: list_scroll(-(r_list.h / (ch + 2)) + 1); break;
 		case 1: list_scroll(r_list.h / (ch + 2) - 1); break;
 		case 2: list_scroll(-1); break;
 		case 3: list_scroll(1); break;
 		}
+		break;
+	}
+	case WM_VSLID:
+		card_slid(msg[4]);
 		break;
 	}
 }

@@ -10,6 +10,10 @@
  * A click on a value offers what goes with it: write an email in EMail,
  * or copy it to the clipboard.
  *
+ * The card scrolls in the window's own slider and arrows (the
+ * guidelines 5.1: the pane at the window's right edge takes the AES's
+ * slider column); the bar under it stays.
+ *
  * The photo, when the card has one, takes the place of the initials. It
  * is read (src/photo.c) a moment after a contact is chosen, from the
  * event loop, so going down the list with the arrow keys doesn't wait
@@ -148,11 +152,19 @@ typedef struct {
 static HIT hits[48];
 static short nhits;
 static GRECT b_new, b_edit, r_bar;
+static GRECT hit_view;		/* the card's part shown: values outside it aren't hit */
+
+/* how far the card is scrolled, how tall it is, whose it is */
+static short card_top, card_total;
+static char top_uid[100];
+static short top_book = -1;
 
 static void add_hit(short x, short y, short w, short h, short kind, short idx)
 {
 	if (nhits >= (short)(sizeof(hits) / sizeof(hits[0])))
 		return;
+	if (y + h <= hit_view.y || y >= hit_view.y + hit_view.h)
+		return;		/* scrolled out of sight */
 	hits[nhits].r.x = x;
 	hits[nhits].r.y = y;
 	hits[nhits].r.w = w;
@@ -234,9 +246,26 @@ static void label_at(short x, short y, short lw, const char *label)
 	text_at(x + (lw - n) * cw, y, l, n, n, TX_GREY | TX_LTR);
 }
 
+/* the part of the card that scrolls: all of it but the bar */
+static void card_view(GRECT *v)
+{
+	layout_bar();
+	*v = r_card;
+	v->h = r_bar.y - 2 - r_card.y;
+	if (v->h < 0)
+		v->h = 0;
+}
+
+static short card_max(void)
+{
+	GRECT v;
+	card_view(&v);
+	return card_total > v.h ? card_total - v.h : 0;
+}
+
 void card_draw(GRECT *clip)
 {
-	GRECT r = r_card;
+	GRECT r = r_card, vis;
 	CONTACT *c;
 	short x0, y, lw, vx, cols, rh = ch + 4, ry, i, bottom;
 	char s[200];
@@ -248,18 +277,30 @@ void card_draw(GRECT *clip)
 	nhits = 0;
 	c = sel_contact();
 	bottom = r_bar.y - 2;
+	card_view(&hit_view);
+	vis = hit_view;
+	if (!rect_and(&vis, &r))
+		vis.w = vis.h = 0;
+	if (c && (c->book != top_book || strcmp(c->uid ? c->uid : "", top_uid))) {
+		card_top = 0;		/* another card: from its top */
+		top_book = c->book;
+		str_copy(top_uid, c->uid ? c->uid : "", sizeof(top_uid));
+	}
+	if (card_top > card_max())
+		card_top = card_max();
 	if (!c) {
 		const char *t = nlisted ? "No Card Selected" : "";
 		short n = (short)strlen(t);
 		text_at(r_card.x + (r_card.w - n * cw) / 2, r_card.y + (r_card.h - ch) / 2, t, n, n, TX_LTR | TX_GREY);
 	} else {
+		clip_on(&vis);		/* the values under the bar don't show */
 		x0 = r_card.x + 2 * cw;
-		y = r_card.y + ch;
+		y = r_card.y + ch - card_top;
 		/* the picture and the name beside it */
 		ry = ch >= 16 ? 2 * ch : 3 * ch;
 		if (ry * 2 > r_card.h / 3)
 			ry = r_card.h / 6;
-		avatar(c, x0 + (short)((long)ry * 2 * cw / ch), y + ry, ry, &r);
+		avatar(c, x0 + (short)((long)ry * 2 * cw / ch), y + ry, ry, &vis);
 		{
 			short nx = x0 + (short)((long)ry * 4 * cw / ch) + 2 * cw, ncols = (r_card.x + r_card.w - nx) / cw - 1;
 			short ny = y + ry - ch - ch / 2;
@@ -299,12 +340,10 @@ void card_draw(GRECT *clip)
 				b.y = y + 2 * ry + ch / 2;
 				b.w = 6 * cw;
 				b.h = ch + 2;
-				if (b.y + b.h < bottom) {
-					fill(&b, 0);
-					frame(&b, 1);
-					text_at(b.x + cw, b.y + 1, "mail", 4, 4, TX_LTR);
-					add_hit(b.x, b.y, b.w, b.h, HV_MAILBTN, 0);
-				}
+				fill(&b, 0);
+				frame(&b, 1);
+				text_at(b.x + cw, b.y + 1, "mail", 4, 4, TX_LTR);
+				add_hit(b.x, b.y, b.w, b.h, HV_MAILBTN, 0);
 			}
 		}
 		y += 2 * ry + ch / 2 + ch + 2 + ch / 2;
@@ -318,28 +357,28 @@ void card_draw(GRECT *clip)
 			vx = x0 + (lw + 1) * cw;
 			cols = (r_card.x + r_card.w - vx) / cw - 1;
 		}
-		for (i = 0; i < c->ntel && y + ch < bottom; i++, y += rh) {
+		for (i = 0; i < c->ntel; i++, y += rh) {
 			label_at(x0, y, lw, c->tel[i].label);
 			value_at(vx, y, c->tel[i].value, cols, 0);
 			add_hit(vx, y, cols * cw, ch, HV_TEL, i);
 		}
 		if (c->ntel)
 			y += rh / 3;
-		for (i = 0; i < c->nemail && y + ch < bottom; i++, y += rh) {
+		for (i = 0; i < c->nemail; i++, y += rh) {
 			label_at(x0, y, lw, c->email[i].label);
 			value_at(vx, y, c->email[i].value, cols, 0);
 			add_hit(vx, y, cols * cw, ch, HV_EMAIL, i);
 		}
 		if (c->nemail)
 			y += rh / 3;
-		for (i = 0; i < c->nurl && y + ch < bottom; i++, y += rh) {
+		for (i = 0; i < c->nurl; i++, y += rh) {
 			label_at(x0, y, lw, c->url[i].label);
 			value_at(vx, y, c->url[i].value, cols, 0);
 			add_hit(vx, y, cols * cw, ch, HV_URL, i);
 		}
 		if (c->nurl)
 			y += rh / 3;
-		for (i = 0; i < c->nadr && y + ch < bottom; i++) {
+		for (i = 0; i < c->nadr; i++) {
 			/* street, then "postcode city", region, country on their lines */
 			char tmp[400], *part[5], *p = tmp, line[200];
 			short k, y0 = y;
@@ -352,20 +391,20 @@ void card_draw(GRECT *clip)
 					part[k] = "";
 			}
 			label_at(x0, y, lw, c->adr[i].label);
-			if (part[0][0] && y + ch < bottom) {
+			if (part[0][0]) {
 				value_at(vx, y, part[0], cols, 0);
 				y += ch + 1;
 			}
-			if ((part[1][0] || part[3][0]) && y + ch < bottom) {
+			if (part[1][0] || part[3][0]) {
 				snprintf(line, sizeof(line), "%s%s%s", part[3], part[3][0] && part[1][0] ? " " : "", part[1]);
 				value_at(vx, y, line, cols, 0);
 				y += ch + 1;
 			}
-			if (part[2][0] && y + ch < bottom) {
+			if (part[2][0]) {
 				value_at(vx, y, part[2], cols, 0);
 				y += ch + 1;
 			}
-			if (part[4][0] && y + ch < bottom) {
+			if (part[4][0]) {
 				value_at(vx, y, part[4], cols, 0);
 				y += ch + 1;
 			}
@@ -374,18 +413,18 @@ void card_draw(GRECT *clip)
 		}
 		if (c->nadr)
 			y += rh / 3;
-		if (vcard_bday_format(c->bday, s, sizeof(s)) && y + ch < bottom) {
+		if (vcard_bday_format(c->bday, s, sizeof(s))) {
 			label_at(x0, y, lw, "birthday");
 			value_at(vx, y, s, cols, 0);
 			add_hit(vx, y, cols * cw, ch, HV_BDAY, 0);
 			y += rh + rh / 3;
 		}
-		if (c->note && *c->note && y + ch < bottom) {
+		if (c->note && *c->note) {
 			long br[40], len = (long)strlen(c->note), nl = wrap_text(c->note, len, cols, br, 40), k;
 			short y0 = y;
 			label_at(x0, y, lw, "note");
 			/* breaks[] are where each line starts */
-			for (k = 0; k < nl && y + ch < bottom; k++) {
+			for (k = 0; k < nl; k++) {
 				long st = br[k], e = k + 1 < nl ? br[k + 1] : len, n = e - st;
 				char ln[200];
 				if (n > (long)sizeof(ln) - 1)
@@ -400,12 +439,17 @@ void card_draw(GRECT *clip)
 			add_hit(vx, y0, cols * cw, y - y0, HV_NOTE, 0);
 		}
 		{
-			/* which book it is in, quietly at the bottom, when there are several */
-			if (nbooks > 1 && c->book >= 0 && c->book < nbooks && bottom - ch - 2 > y) {
+			/* which book it is in, quietly at the bottom, when there are
+			   several: under the rest when the card is taller */
+			if (nbooks > 1 && c->book >= 0 && c->book < nbooks) {
+				short by = bottom - ch - 2 > y ? bottom - ch - 2 : y + ch / 2;
 				snprintf(s, sizeof(s), "%s%s", books[c->book].name, book_writable(&books[c->book]) ? "" : " (read-only)");
-				text_at(x0, bottom - ch - 2, s, (long)strlen(s), (r_card.w - 4 * cw) / cw, TX_PALE | TX_LTR);
+				text_at(x0, by, s, (long)strlen(s), (r_card.w - 4 * cw) / cw, TX_PALE | TX_LTR);
+				y = by + ch + 2;
 			}
 		}
+		card_total = y + card_top - r_card.y + ch / 2;
+		clip_on(&r);
 	}
 	/* the bar: + and Edit */
 	line_col(r_bar.x, r_bar.y, r_bar.x + r_bar.w - 1, r_bar.y, grey_color());
@@ -418,6 +462,55 @@ void card_draw(GRECT *clip)
 	button(&b_new, "+", book_for_new() < 0);
 	button(&b_edit, "Edit", !c);
 	clip_on(clip);
+}
+
+void card_scroll_info(short *total, short *shown, short *top)
+{
+	GRECT v;
+	card_view(&v);
+	*total = sel_contact() ? card_total : 0;
+	*shown = v.h;
+	*top = card_top;
+}
+
+/* the card's top at t pixels: what shows moved on the screen and what
+   comes in drawn (win_scroll), the window's slider set */
+int card_scroll_to(long t)
+{
+	GRECT v;
+	short old = card_top, max = card_max();
+	if (t > max)
+		t = max;
+	if (t < 0)
+		t = 0;
+	if (t == old || !sel_contact())
+		return 0;
+	card_top = (short)t;
+	card_view(&v);
+	win_scroll(&v, card_top - old);
+	win_slider();
+	return 1;
+}
+
+/* WM_ARROWED: 0 page up, 1 page down, 2 line up, 3 line down */
+void card_arrowed(short how)
+{
+	GRECT v;
+	short line = ch + 4, page;
+	card_view(&v);
+	page = v.h - line > line ? v.h - line : line;
+	switch (how) {
+	case 0: card_scroll_to((long)card_top - page); break;
+	case 1: card_scroll_to((long)card_top + page); break;
+	case 2: card_scroll_to((long)card_top - line); break;
+	case 3: card_scroll_to((long)card_top + line); break;
+	}
+}
+
+/* WM_VSLID: the slider put at pos (0-1000) */
+void card_slid(short pos)
+{
+	card_scroll_to((long)card_max() * pos / 1000);
 }
 
 int card_instant(short mx, short my)

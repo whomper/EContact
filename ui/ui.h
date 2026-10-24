@@ -94,6 +94,8 @@ const char *win_drawing(void);	/* how the window is drawn, for the log */
 void win_scroll(const GRECT *a, short dy);	/* a's content up by dy pixels */
 /* the panes' bars drawn again where a is, on the screen (5.1) */
 void win_bars(const GRECT *a);
+/* the window's slider set from the card (5.1) */
+void win_slider(void);
 void draw_forget(void);		/* the VDI attributes set again at the next use */
 void win_message(short *msg);
 void win_status(const char *s);	/* the info line */
@@ -138,6 +140,12 @@ void contact_menu(short mx, short my, CONTACT *c);	/* right-click on a contact *
 void card_draw(GRECT *clip);
 int  card_click(short mx, short my, short clicks, short button);
 int  card_instant(short mx, short my);
+/* the card in the window's slider (5.1): its height, the part shown and
+   how far down it is, in pixels; WM_ARROWED and WM_VSLID */
+void card_scroll_info(short *total, short *shown, short *top);
+int  card_scroll_to(long t);
+void card_arrowed(short how);
+void card_slid(short pos);
 /* the chosen contact's photo is read a moment after the choice (arrow
    keys going down the list don't wait for each one) */
 int  card_photo_pending(void);	/* one is waiting */
