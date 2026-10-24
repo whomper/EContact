@@ -2631,6 +2631,7 @@ int book_fetch_job_room(long next)
 	   often, an open each fewer a round */
 	if (!out_flush(&fj.p))
 		fj.ok = 0;
+	pf_park();		/* (job_write says why) */
 	if (fj.d.n + fj.i.n + next <= ab_job_bytes)
 		return fj.ok;
 	return job_write();
@@ -2651,6 +2652,12 @@ static int job_write(void)
 		fj.idx = 0;
 	if (!ok)
 		fj.ok = 0;
+	/* let go of them at once, not at the next event call: on TOS 1.04
+	   any AES call before it (the progress box, the pointer) can let
+	   another accessory run, and ECal's evnt_multi came with them open
+	   (acc_files.py beside ECal 2.26). The next write opens them again,
+	   as it would after that event call */
+	pf_park();
 	return ok;
 }
 
