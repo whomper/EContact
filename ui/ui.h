@@ -238,8 +238,8 @@ void closing_down(int quitting);
 unsigned char key_char(short kstate, short key);
 void falcon_dsp_init(void);
 const char *falcon_dsp_state(void);
-/* the curves of Falcon mode's handshakes on the DSP (common/ui/dsp_ec.c;
-   the ST edition: dsp_ec_none.c) */
+/* the curves of a Direct connection's handshakes on the DSP (in TLS.OVL:
+   common/ui/dsp_ovl.c, the guidelines 7.4) */
 void falcon_dsp_ec_init(void);
 const char *falcon_dsp_ec_state(void);
 int  falcon_mode_set(int on);

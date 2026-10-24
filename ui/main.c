@@ -24,6 +24,7 @@
 #include "secret.h"
 #include "busy.h"
 #include "tls.h"
+#include "tlsovl.h"
 #include "../src/http.h"
 #include "../src/plat.h"
 #include "util.h"
@@ -272,6 +273,13 @@ static int warned_lost;
    more for growth. MEMKB= in ECONTACT.INF, which the next start takes
    (acc_heap): no more memory than the contacts need (Erez, 19 Oct 2026).
    The measuring is the family's (common/ui/accmem.c, the guidelines 2.1) */
+/* TLS.OVL wanted but not had for lack of memory: the accessory's
+   measure (mem_note) makes room for it at the next start */
+static int ovl_wanted;
+
+/* TLS.OVL's room in the heap (the guidelines 7.4: 140 KB, and a little) */
+#define OVL_ROOM (150L * 1024)
+
 static void mem_note(void)
 {
 	long need, kb;
@@ -279,6 +287,8 @@ static void mem_note(void)
 	if (!is_acc || !acc_heap_bytes || !data_ready)
 		return;
 	need = heap_use + 2 * ab_job_bytes + (opt.photos ? 50L * 1024 : 0L);
+	if ((opt.falcon || ovl_wanted) && !tls_ovl_loaded() && get_cookie(0x5F435055L) >= 20)
+		need += OVL_ROOM;	/* TLS.OVL, not loaded yet (7.4) */
 	need += (long)contacts_lost() * 640L;	/* those that didn't fit */
 	kb = acc_mem_kb(need, 0);
 	/* in the log: what it holds, its busiest, and what it took */
@@ -348,21 +358,29 @@ static void opens_note(int start)
 	mem_note();
 }
 
-/* ---------------- Falcon mode ---------------- */
+/* ---------------- Direct connection ---------------- */
 
+/* a Direct connection on: TLS.OVL loaded now (tls_ovl_load), so what
+   is wrong is said at once (the guidelines 7.4), not at the first
+   connection; the box stays unticked then */
 int falcon_mode_set(int on)
 {
 	if (on) {
-		if (!tls_available) {
-			alert(1, "[3][This is the ST edition: Falcon mode is in ECONTACT.ACC.][ OK ]");
+		char err[160];
+		if (get_cookie(0x5F435055L) >= 20 && !pf_exists(conn_cacert)) {	/* _CPU */
+			alert(1, "[3][A Direct connection needs the root certificates: put CACERT.PEM and ROOTS.DAT in EContact's folder.][ OK ]");
 			return 0;
 		}
-		if (get_cookie(0x5F435055L) < 20) {	/* _CPU */
-			alert(1, "[3][Falcon mode needs a 68020 or better (Falcon, TT): this Atari is too slow for TLS.][ OK ]");
-			return 0;
-		}
-		if (!pf_exists(conn_cacert)) {
-			alert(1, "[3][Falcon mode needs the root certificates: put CACERT.PEM and ROOTS.DAT in EContact's folder.][ OK ]");
+		if (!tls_ovl_load(err, sizeof(err))) {
+			if (err[0] >= 'a' && err[0] <= 'z')
+				err[0] -= 'a' - 'A';
+			if (is_acc && !strncmp(err, "No memory", 9)) {
+				ovl_wanted = 1;
+				mem_note();
+				alert(1, "[3][%s. EContact takes more memory the next time the Atari starts: tick Direct connection again then.][ OK ]", err);
+			} else {
+				alert(1, "[3][%s.][ OK ]", err);
+			}
 			return 0;
 		}
 	}
@@ -843,7 +861,7 @@ static const MBAR_ITEM m_opts[] = {
 	{ "Font...", 0, C_FONT },
 	{ "-", 0, 0 },
 	{ "Work offline", 0, C_OFFL },
-	{ "Falcon mode (TLS)", 0, C_FALC },
+	{ "Direct connection (TLS)", 0, C_FALC },
 	{ "Write a log", 0, C_LOG },
 	{ "Hebrew keyboard", "F10", C_KBD },
 	{ 0, 0, 0 }
@@ -977,7 +995,7 @@ void cmd_menu(short x, short y)
 		{ "  Hebrew keyboard     F10", C_KBD },
 		{ "-", 0 },
 		{ "  Work offline", C_OFFL },
-		{ "  Falcon mode (TLS)", C_FALC },
+		{ "  Direct connection (TLS)", C_FALC },
 		{ "  Write a log", C_LOG },
 		{ "-", 0 },
 		{ "  Settings...          ^,", C_SET },
@@ -1178,13 +1196,18 @@ static void job_memory(long free)
 static void acc_heap(void)
 {
 	char v[12];
-	long heapkb, memkb;
+	long heapkb, memkb, cpu, ovl;
 	inf_value("heapkb=", v, sizeof(v));	/* (find_workdir read the file) */
 	heapkb = atol(v);
 	inf_value("memkb=", v, sizeof(v));
 	memkb = atol(v);
-	if (acc_heap_take(tls_available && get_cookie(0x5F435055L) >= 30 ? 1536L * 1024 : 2048L * 1024,
-			  4096L * 1024, heapkb, memkb))
+	/* a Direct connection: TLS.OVL in the heap too, at the first start
+	   (MEMKB= counts it from then on: mem_note) */
+	inf_value("falcon=", v, sizeof(v));
+	cpu = get_cookie(0x5F435055L);
+	ovl = atoi(v) && cpu >= 20 ? OVL_ROOM : 0;
+	if (acc_heap_take((cpu >= 30 ? 1536L * 1024 : 2048L * 1024) + ovl,
+			  4096L * 1024 + ovl, heapkb, memkb))
 		job_memory(acc_heap_avail);
 }
 
@@ -1248,6 +1271,7 @@ static int load_settings(int quiet)
 	if (strcasecmp(opt.folder, workdir))
 		store_save_settings();	/* FOLDER= as it is now */
 	path_join(conn_cacert, sizeof(conn_cacert), workdir, "CACERT.PEM");
+	path_join(tls_ovl_path, sizeof(tls_ovl_path), workdir, "TLS.OVL");	/* the TLS (7.4) */
 	path_join(tls_roots_cache, sizeof(tls_roots_cache), workdir, "ROOTS.DAT");
 	path_join(tls_seed_path, sizeof(tls_seed_path), workdir, "SEED.DAT");
 	path_join(tls_sigs_path, sizeof(tls_sigs_path), workdir, "SIGS.DAT");

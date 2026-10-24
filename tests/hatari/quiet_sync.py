@@ -7,7 +7,7 @@ named), with an edition built to time the stretches between its event
 calls (see quiet_start.py):
 
     make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \\
-        WORK/bin/ECONTST.ACC WORK/bin/ECONTACT.ACC
+        WORK/bin/ECONTACT.ACC
     tests/hatari/quiet_sync.py WORK [MACHINE] [contacts]
 
 A Radicale with 40 contacts (by default) behind the gateway
@@ -62,7 +62,7 @@ def main():
     work = os.path.abspath(sys.argv[1])
     machine = machine_arg(sys.argv, 2, "ST:mono")
     n = int(sys.argv[3]) if len(sys.argv) > 3 else 40
-    st = machine.startswith("ST")          # a 68000: the ST edition
+    st = machine.startswith("ST")          # a 68000
     limit = 100 if st else 50
     d = os.path.join(work, machine.replace(":", "-"))
     shutil.rmtree(d, ignore_errors=True)
@@ -127,7 +127,7 @@ def main():
         inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
         os.remove(os.path.join(folder, "ECONTACT.INF"))
         open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
-        shutil.copy(os.path.join(work, "bin", "ECONTST.ACC" if st else "ECONTACT.ACC"),
+        shutil.copy(os.path.join(work, "bin", "ECONTACT.ACC"),
                     os.path.join(hd, "ECONTACT.ACC"))
         log = os.path.join(folder, "ECONTACT.LOG")
         r = Rig(d, machine, auto=None, network=True)

@@ -3,10 +3,10 @@
 # EContact - contacts for the Atari ST/STE/TT/Falcon, in C, a desk
 # accessory like ECal and a companion to EMail.
 #
-#   make            builds binary/ECONTACT.ACC (the desk accessory), ECONTACT.PRG
-#                   (the same program, to start from the desktop) and ECONTST.ACC
-#                   (the ST edition, through the Pi gateway) with a stock m68k ELF
-#                   cross compiler (Debian/Ubuntu: apt install gcc-m68k-linux-gnu).
+#   make            builds binary/ECONTACT.ACC (the desk accessory) and ECONTACT.PRG
+#                   (the same program, to start from the desktop), for every Atari,
+#                   with a stock m68k ELF cross compiler (Debian/Ubuntu: apt install
+#                   gcc-m68k-linux-gnu), and copies TLS.OVL beside them.
 #                   No MiNTLib: the program is freestanding and common/tools/elf2tos.py
 #                   writes the TOS header.
 #   make test       builds the contacts core for this computer and runs the
@@ -30,7 +30,7 @@ CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
            -DCAL_TOS -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
            -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc \
-           -DTLS_FULL_EDITION=\"ECONTACT.ACC\" -Ithird_party/tjpgd
+           -Ithird_party/tjpgd
 # `make EXTRA_CFLAGS=-DAES_PROFILE`: stretches between event calls over 50 ms
 # to the emulator's console (common/atari/gem.c)
 CFLAGS  += $(EXTRA_CFLAGS)
@@ -41,30 +41,36 @@ LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/ata
 # of its files first (ui/evwrap.c, the guidelines 2.2)
 EVWRAP  := -Wl,--wrap=evnt_multi_,--wrap=evnt_timer_,--wrap=form_do,--wrap=form_alert,--wrap=fsel_exinput
 
-# BearSSL 0.6 for Falcon mode, built for the 68030 (the rest stays 68000 code)
+# BearSSL 0.6: on the Atari only MD5 and its byte order (Digest logins),
+# as 68000 code (no byte reads joined into word reads: the guidelines,
+# The machines); the TLS is TLS.OVL's (below). The host builds take all
+# of it (HBSSLOBJ)
 BSSL    := common/third_party/bearssl
 BSSLSRC := $(wildcard $(BSSL)/src/*/*.c)
 BSSLDEF := -DBR_USE_URANDOM=0 -DBR_USE_GETENTROPY=0 -DBR_USE_UNIX_TIME=0 \
            -DBR_USE_WIN32_TIME=0 -DBR_USE_WIN32_RAND=0 -DBR_RDRAND=0
-BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
+BSSLST  := -m68000 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
            -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables -w \
-           -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include -I$(BSSL)/inc -I$(BSSL)/src $(BSSLDEF)
-# the same for the ST edition's few BearSSL files (MD5 and its byte order),
-# built for the 68000: no byte reads joined into word reads (the guidelines,
-# The machines)
-BSSLST  := $(subst -m68030,-m68000,$(BSSLCF)) -fno-store-merging -fdisable-tree-bswap
-BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
+           -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include -I$(BSSL)/inc -I$(BSSL)/src $(BSSLDEF) \
+           -fno-store-merging -fdisable-tree-bswap
+STBSSL  := hash/md5 codec/dec32le codec/enc32le
 HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
-CORE    := util charset conn tls bidi secret futil ctime xml inflate http vcard carddav abook photo photopack jpegdc pfkeep
-ATARI   := libc tos plat_tos net_tos sting gem dsprsa bigbuf
-UI      := main evwrap win draw popup dsp sidebar list card editor dialogs field about font fontsel accmem help av av_people alert dialog aboutbox iconify clip dd mbar twin busy bgwork people_ask answer
+# the TLS (tls.c, BearSSL, the DSP's RSA and curves, 68030 code) is in
+# TLS.OVL, the family's one file (common/tlsovl, the guidelines 7.4),
+# loaded on a 68020 or better the first time a Direct connection needs
+# it (tls_ovl.c, ovl.c, dsp_ovl.c); an ST never loads it. Copied, never
+# built here
+TLSOVL  := common/tlsovl/TLS.OVL
+
+CORE    := util charset conn ovl bidi secret futil ctime xml inflate http vcard carddav abook photo photopack jpegdc pfkeep
+ATARI   := libc tos plat_tos net_tos sting gem tls_ovl bigbuf
+UI      := main evwrap win draw popup dsp_ovl sidebar list card editor dialogs field about font fontsel accmem help av av_people alert dialog aboutbox iconify clip dd mbar twin busy bgwork people_ask answer
 
 OBJDIR  := build
-OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash.o $(OBJDIR)/crash_s.o \
-           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI)))
-# Falcon mode's curves on the DSP: the TLS editions only
-OBJS    := $(OBJS0) $(OBJDIR)/ecdsp.o $(OBJDIR)/dspec.o $(OBJDIR)/dsp_ec.o $(OBJDIR)/version.o
+OBJS    := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash.o $(OBJDIR)/crash_s.o \
+           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI))) \
+           $(addprefix $(OBJDIR)/bssl/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/version.o
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h \
            third_party/tjpgd/*.h)
@@ -79,7 +85,7 @@ BIN     := binary
 HCP     ?= hcp
 HAVEHCP := $(shell command -v $(HCP) 2>/dev/null)
 
-all: $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/ECONTST.ACC $(BIN)/ROOTS.DAT $(if $(HAVEHCP),$(BIN)/ECONTACT.HYP)
+all: $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/TLS.OVL $(BIN)/ROOTS.DAT $(if $(HAVEHCP),$(BIN)/ECONTACT.HYP)
 
 help: $(BIN)/ECONTACT.HYP
 
@@ -91,36 +97,6 @@ $(BIN)/ECONTACT.HYP: docs/GUIDE.md tools/mkhelp.py VERSION docs/front.json docs/
 	$(HCP) -q -o $@ $(OBJDIR)/ECONTACT.STG >/dev/null
 	test -s $(BIN)/ECONTACT.REF
 
-# the ST edition: no TLS of its own (it uses the Pi gateway), about 125 KB
-# smaller; only BearSSL's MD5 (for Digest logins), as 68000 code. Only
-# ever an accessory, so no crash catcher (crash_none.c). An ST never has
-# 256 colours: the About box without the 256-colour icon (NO_ICON256,
-# 2 KB), about.c and aboutbox.c built for it on their own
-STBSSL  := hash/md5 codec/dec32le codec/enc32le
-STOBJS  := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash_none.o \
-           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out tls,$(CORE)) $(ATARI) $(filter-out about aboutbox,$(UI)) tls_none)) \
-           $(OBJDIR)/st/about.o $(OBJDIR)/st/aboutbox.o \
-           $(addprefix $(OBJDIR)/st/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/dsp_ec_none.o $(OBJDIR)/version.o
-
-$(BIN)/ECONTST.ACC: $(OBJDIR)/econtst.elf common/tools/elf2tos.py | $(BIN)
-	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
-
-$(OBJDIR)/econtst.elf: $(STOBJS) common/atari/link.ld
-	$(CC) $(LDFLAGS) $(EVWRAP) -o $@ $(STOBJS) -lgcc
-
-$(OBJDIR)/st/about.o: ui/about.c $(HDRS)
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DNO_ICON256 -c -o $@ $<
-$(OBJDIR)/st/aboutbox.o: common/ui/aboutbox.c $(HDRS)
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DNO_ICON256 -c -o $@ $<
-$(OBJDIR)/st/%.o: $(BSSL)/src/hash/%.c
-	@mkdir -p $(dir $@)
-	$(CC) $(BSSLST) -c -o $@ $<
-$(OBJDIR)/st/%.o: $(BSSL)/src/codec/%.c
-	@mkdir -p $(dir $@)
-	$(CC) $(BSSLST) -c -o $@ $<
-
 # one program, two names: it sees at start-up whether TOS loaded it as
 # an accessory or started it as an application
 $(BIN)/ECONTACT.ACC: $(OBJDIR)/contact.elf common/tools/elf2tos.py | $(BIN)
@@ -128,16 +104,18 @@ $(BIN)/ECONTACT.ACC: $(OBJDIR)/contact.elf common/tools/elf2tos.py | $(BIN)
 $(BIN)/ECONTACT.PRG: $(BIN)/ECONTACT.ACC
 	cp $< $@
 
-$(OBJDIR)/contact.elf: $(OBJS) $(OBJDIR)/libbearssl.a common/atari/link.ld
-	$(CC) $(LDFLAGS) $(EVWRAP) -o $@ $(OBJS) $(OBJDIR)/libbearssl.a -lgcc
+$(OBJDIR)/contact.elf: $(OBJS) common/atari/link.ld
+	$(CC) $(LDFLAGS) $(EVWRAP) -o $@ $(OBJS) -lgcc
 
-$(OBJDIR)/bssl/%.o: $(BSSL)/src/%.c
+$(BIN)/TLS.OVL: $(TLSOVL) | $(BIN)
+	cp $< $@
+
+$(OBJDIR)/bssl/%.o: $(BSSL)/src/hash/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(BSSLCF) -c -o $@ $<
-
-$(OBJDIR)/libbearssl.a: $(BSSLOBJ)
-	rm -f $@
-	$(CROSS)ar rcs $@ $^
+	$(CC) $(BSSLST) -c -o $@ $<
+$(OBJDIR)/bssl/%.o: $(BSSL)/src/codec/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(BSSLST) -c -o $@ $<
 
 $(OBJDIR)/%.o: src/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -202,7 +180,8 @@ $(OBJDIR)/version.o: $(OBJDIR)/version.c
 HOSTCC     ?= cc
 HOSTCFLAGS := -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
               -Wno-format-truncation -Isrc -Icommon/src -Ithird_party/tjpgd -fsanitize=address,undefined
-HOSTSRC    := $(foreach m,$(CORE),$(firstword $(wildcard src/$(m).c common/src/$(m).c))) tests/host/plat_posix.c tests/host/version_host.c
+# the build machine's builds link tls.c, which answers tls_ovl_* too (7.4)
+HOSTSRC    := $(foreach m,$(patsubst ovl,tls,$(CORE)),$(firstword $(wildcard src/$(m).c common/src/$(m).c))) tests/host/plat_posix.c tests/host/version_host.c
 HOSTLIB    := $(OBJDIR)/libbearssl-host.a $(OBJDIR)/host-tjpgd.o
 
 $(OBJDIR)/host-tjpgd.o: $(TJPGD) | $(OBJDIR)
@@ -316,7 +295,7 @@ HYPCHECK = test ! -f $(BIN)/ECONTACT.HYP || grep -q "ECONTACT.HYP $$(cat VERSION
 
 # a release's files: each one in dist/, and all of them in
 # dist/ECONTACT-x.y.zip (the icons in icons/), for the release workflow
-DIST    := $(BIN)/ECONTACT.ACC $(BIN)/ECONTST.ACC $(BIN)/ECONTACT.PRG $(BIN)/CACERT.PEM $(BIN)/ROOTS.DAT \
+DIST    := $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/TLS.OVL $(BIN)/CACERT.PEM $(BIN)/ROOTS.DAT \
            $(BIN)/ECONTACT.HYP $(BIN)/ECONTACT.REF
 ICONS   := icons/ECONTACT.RSC icons/ECONTNV.RSC icons/ECONTACT.DEF icons/ECONTACT.ICN icons/ECONTMSK.ICN
 dist: all help

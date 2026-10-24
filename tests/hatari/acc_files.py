@@ -20,8 +20,7 @@ read back whole with card-cli: every card, the changed ones changed, a
 picture for every photo. The log says how many files each opened
 ("N files opened"), for TOS's internal pool (pfkeep.c). Hatari's GEMDOS
 trace checks that no file the accessory opened is still open when it
-next calls the AES (MACHINE is the Falcon in 16 colours by default; the
-ST edition on an ST).
+next calls the AES (MACHINE is the Falcon in 16 colours by default).
 """
 import base64
 import os
@@ -143,7 +142,7 @@ def main():
         if prg:
             shutil.copy(os.path.join(BIN, "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRG"))
         else:
-            shutil.copy(os.path.join(BIN, "ECONTST.ACC" if st else "ECONTACT.ACC"),
+            shutil.copy(os.path.join(BIN, "ECONTACT.ACC"),
                         os.path.join(hd, "ECONTACT.ACC"))
         log = os.path.join(folder, "ECONTACT.LOG")
 
@@ -265,7 +264,7 @@ def open_across_aes(trace, logtext, st):
     if not m or not os.path.exists(trace):
         return (1, "no trace or no address in the log")
     # the program's code starts where set_logging is, less its place in it
-    elf = os.path.join(OBJ, "econtst.elf" if st else "contact.elf")
+    elf = os.path.join(OBJ, "contact.elf")
     nm = subprocess.run(["m68k-linux-gnu-nm", elf], capture_output=True, text=True).stdout
     off = int(re.search(r"^([0-9a-f]+) T set_logging$", nm, re.M).group(1), 16)
     lo, hi = int(m.group(1), 16) - off, int(m.group(2), 16)

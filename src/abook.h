@@ -60,7 +60,7 @@ typedef struct {
 } ACCOUNT;
 
 typedef struct {
-	short falcon, dsp;	/* Falcon mode: TLS here, RSA on the DSP */
+	short falcon, dsp;	/* Direct connection (FALCON=): TLS here (TLS.OVL), RSA on the DSP */
 	char gate[64];		/* the Raspberry Pi gateway */
 	unsigned short gateport;
 	short log;

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
 """The accessory while the program changes its files, on single TOS,
-checked in Hatari on an ST (ECONTST.ACC):
+checked in Hatari on an ST (ECONTACT.ACC):
 
     tests/hatari/acc_reread.py WORK [MACHINE]
 
@@ -50,7 +50,7 @@ def main():
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
     with open(os.path.join(hd, "ECONTACT.INF"), "wb") as f:
         f.write(inf)
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTST.ACC"), os.path.join(hd, "ECONTACT.ACC"))
+    shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
     log = os.path.join(folder, "ECONTACT.LOG")
 
     def reads():

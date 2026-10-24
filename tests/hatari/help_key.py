@@ -68,7 +68,7 @@ def main():
     print("1. the accessory, with ECONTACT.HYP")
     w = os.path.join(work, "acc")
     hd, folder = disk(w)
-    shutil.copy(os.path.join(BIN, "ECONTST.ACC"), os.path.join(hd, "ECONTACT.ACC"))
+    shutil.copy(os.path.join(BIN, "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
     r = Rig(w, machine, auto="")
     try:
         time.sleep(15)

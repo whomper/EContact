@@ -73,7 +73,7 @@ EContact takes the AV protocol's `VA_START` (`0x4711`), as every AERA
 program does: with an empty string it opens (or tops) its window; with
 the names of `.vcf` files it imports them into the address book new
 contacts go into. The accessory's AES name is `ECONTACT` (or `ECONTST `
-for the ST edition). With the AERA programs' shared code
+for the ST edition, until 1.63). With the AERA programs' shared code
 (`common/ui/av.c`):
 
 ```c

@@ -3,7 +3,7 @@
 # Copyright (C) 2026 AERA | Erez Yaary
 """PEOPLE (the guidelines, 4.1) in Hatari on an ST: ASKER.PRG plays EMail
 (tests/atari/asker.c, make build/ASKER.PRG) and asks the accessory
-(ECONTST.ACC) at boot for the name behind an address:
+(ECONTACT.ACC) at boot for the name behind an address:
 
     tests/hatari/people_ask.py WORK [MACHINE]
 
@@ -48,7 +48,7 @@ def main():
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
     os.remove(os.path.join(folder, "ECONTACT.INF"))
     open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTST.ACC"), os.path.join(hd, "ECONTACT.ACC"))
+    shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
     shutil.copy(os.path.join(ROOT, "build", "ASKER.PRG"), os.path.join(hd, "ASKER.PRG"))
     said = os.path.join(hd, "ASKER.TXT")
 

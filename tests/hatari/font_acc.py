@@ -110,7 +110,7 @@ def main():
     inf = re.sub(rb"\nFONT_ID=[^\r\n]*", rb"\nFONT_ID=1", inf)
     with open(os.path.join(hd, "ECONTACT.INF"), "wb") as f:
         f.write(inf)
-    acc = "ECONTST.ACC" if machine.startswith("ST") else "ECONTACT.ACC"
+    acc = "ECONTACT.ACC"
     fnt = os.path.join(folder, "ECONTACT.FNT")
 
     def start(auto):

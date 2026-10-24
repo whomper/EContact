@@ -6,7 +6,7 @@ family's ST and Falcon (common/tools/machines.py; or the one named), with
 an edition built to time the stretches between its event calls:
 
     make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \\
-        WORK/bin/ECONTACT.ACC WORK/bin/ECONTST.ACC
+        WORK/bin/ECONTACT.ACC
     tests/hatari/quiet_start.py WORK [MACHINE] [contacts]
 
 600 contacts (by default; 350 on ST-1, whose 1 MB holds some 410: 1.49
@@ -16,7 +16,7 @@ Twice: the first time every card is parsed (card-cli's index is the
 host's), the second they come from the index. Each stretch of 50 ms or
 more goes to Hatari's console as "AESGAP <ms> ms <tag>" (common/atari/
 gem.c); at boot, in the background and when idle none may be longer
-than 100 ms on a 68000 (ST, ST-1: ECONTST.ACC) or 50 ms on a 68030 (TT,
+than 100 ms on a 68000 (ST, ST-1) or 50 ms on a 68030 (TT,
 Falcon: ECONTACT.ACC). The first opening and its
 drawing, which the user asked for, are reported (tags open-* and redraw).
 CONTACTS.TXT (for EMail and ECal: the guidelines 4.1) isn't there at the
@@ -70,7 +70,7 @@ def main():
     machines = [machine_arg(sys.argv, 2, "")] if len(sys.argv) > 2 else ["ST", "Falcon"]
     for machine in machines:
         n = int(sys.argv[3]) if len(sys.argv) > 3 else 350 if machine.startswith("ST-1") else 600
-        st = machine.startswith("ST")          # a 68000: the ST edition
+        st = machine.startswith("ST")          # a 68000
         limit = 100 if st else 50
         d = os.path.join(work, machine.replace(":", "-"))
         shutil.rmtree(d, ignore_errors=True)
@@ -89,7 +89,7 @@ def main():
         inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
         os.remove(os.path.join(folder, "ECONTACT.INF"))
         open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
-        acc = "ECONTST.ACC" if st else "ECONTACT.ACC"
+        acc = "ECONTACT.ACC"
         shutil.copy(os.path.join(work, "bin", acc), os.path.join(hd, "ECONTACT.ACC"))
         log = os.path.join(folder, "ECONTACT.LOG")
         for run in (1, 2):

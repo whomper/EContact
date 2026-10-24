@@ -68,7 +68,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 
 ## EContact
 
-- **A release** carries `ECONTACT.ACC`, `ECONTACT.PRG`, `ECONTST.ACC`, `ECONTACT.HYP` and `.REF`,
+- **A release** carries `ECONTACT.ACC`, `ECONTACT.PRG`, `TLS.OVL`, `ECONTACT.HYP` and `.REF`,
   `CACERT.PEM`, `ROOTS.DAT` and the icon. The icons are committed in `icons/` (`make icons`).
 - Before pushing: `make test` (the core) and `make itest` (card-cli against
   Radicale: `pip install radicale`), and `make` with no warnings.
@@ -133,13 +133,25 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   EContact is busy comes with Control already let go.
   `tests/hatari/busy_keys.py` checks it. (Ctrl+Return in a multi-line
   field still needs K_CTRL: Return's code says nothing.)
-- Falcon mode's curves go to the DSP (common/ui/dsp_ec.c, common/src/ecdsp.c,
-  common/atari/dspec.c: the TLS editions only; the ST edition links
-  ui/dsp_ec_none.c): falcon_dsp_ec_init() follows every
-  falcon_dsp_init(). tls_sigs_path is SIGS.DAT in the folder,
+- One program for every Atari (the guidelines 7.4): the TLS (tls.c,
+  BearSSL, the DSP's RSA and curves, 68030 code) is in TLS.OVL, common's
+  one file (common/tlsovl), copied to binary/ and shipped, never built
+  here. The program links common's atari/tls_ovl.c, src/ovl.c and
+  ui/dsp_ovl.c and only BearSSL's MD5 (Digest logins, 68000 code); the
+  host builds link src/tls.c, which answers the same calls. TLS.OVL is
+  loaded on a 68020 or better the first time a Direct connection needs
+  it, and when Direct connection is ticked (falcon_mode_set:
+  tls_ovl_load's error in an alert, the box left unticked), into the
+  program's memory: the accessory's heap holds 150 KB more for it when
+  FALCON= is on (main.c OVL_ROOM, and mem_note until it is loaded), and
+  store_release lets it go with no connection open. tls_ovl_path is
+  TLS.OVL in the folder, beside CACERT.PEM. The user sees "Direct
+  connection", never "Falcon mode"; the INF keeps FALCON=. The AV and
+  twin names keep ECONTST until the hub says. falcon_dsp_ec_init()
+  follows every falcon_dsp_init(). tls_sigs_path is SIGS.DAT in the folder,
   tls_file_stamp is pf_stamp, and PF_UPDATE (plat.h) writes SEED.DAT and
   ROOTS.DAT in place. `tests/hatari/falcon_tls.py WORK [MACHINE]` checks
-  it against an ECDSA server.
+  it against an ECDSA server, and a run without TLS.OVL.
 - The window is drawn off the screen and copied at once (ui/win.c, ECal's
   way: an EdDI bitmap under NVDI, else TOS's logical screen moved to a
   buffer while drawing; a test at start-up first, ECONTACT.LOG says

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""Falcon mode in Hatari: TLS on the Falcon itself, with an ECDSA server,
-the curves on the DSP (common/ui/dsp_ec.c), no gateway:
+"""A Direct connection in Hatari: TLS on the Falcon itself (TLS.OVL, the
+guidelines 7.4), with an ECDSA server, the curves on the DSP, no gateway:
 
     tests/hatari/falcon_tls.py WORK [MACHINE] [--no-dsp]
 
@@ -13,10 +13,12 @@ HTTP, lets card-cli make the account and its cache first; the INF then
 points at the HTTPS one. ECONTACT.PRG starts twice on the Falcon (TT RAM,
 the DSP: machines.py), refreshing as its window opens:
 
-- the first time: a card new on the server comes over TLS 1.2, the key
+- the first time: TLS.OVL loaded ("TLS.OVL 1.0 loaded" in the log); a
+  card new on the server comes over TLS 1.2, the key
   exchange and the root's ECDSA signature on the DSP, ROOTS.DAT given
   CACERT.PEM's date in place (PF_UPDATE), SIGS.DAT written;
 - the second time: the signature is one "checked before" (SIGS.DAT);
+- a third time without TLS.OVL: the log says it is missing, and no crash;
 - no CRASH.LOG.
 
 With --no-dsp (DSP=0) the curves are BearSSL's on the 68030: the same,
@@ -119,7 +121,7 @@ def main():
         p = os.path.join(folder, "ECONTACT.LOG")
         return open(p, encoding="latin-1").read() if os.path.exists(p) else ""
 
-    def run(tag, expect):
+    def run(tag, expect, until=("secure:", "error")):
         """ECONTACT.PRG on the Falcon until the log has the refresh's end"""
         start = len(log_text())
         r = Rig(d, machine, auto="C:\\ECONTACT\\ECONTACT.PRG", network=True)
@@ -128,7 +130,7 @@ def main():
             while time.time() - t0 < 600:
                 time.sleep(3)
                 t = log_text()[start:]
-                if expect in t and ("secure:" in t or "error" in t.lower()):
+                if expect in t and any(u in t or u in t.lower() for u in until):
                     break
             time.sleep(5)
             r.shot(tag)
@@ -176,22 +178,26 @@ def main():
         os.remove(os.path.join(folder, "ECONTACT.INF"))
         open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
         shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), folder)
+        shutil.copy(os.path.join(ROOT, "binary", "TLS.OVL"), folder)     # beside CACERT.PEM (7.4)
 
         first, took1 = run("1-first", "Server")
         second, took2 = run("2-second", "Server")
+        os.remove(os.path.join(folder, "TLS.OVL"))
+        third, took3 = run("3-no-tls-ovl", "Server", ("TLS.OVL is missing",))
     finally:
         for p in procs:
             p.terminate()
 
-    for name, t, took in (("first", first, took1), ("second", second, took2)):
+    for name, t, took in (("first", first, took1), ("second", second, took2), ("third", third, took3)):
         print("%s run, %.0f s:" % (name, took))
         for l in t.splitlines():
-            if re.search(r"secure:|certificate|on the DSP|on the 68030|self-test|seed|SEED|Server --", l):
+            if re.search(r"secure:|certificate|on the DSP|on the 68030|self-test|seed|SEED|Server --|TLS.OVL", l):
                 print("   " + l.strip()[:160])
     cache = ""
     for f in os.listdir(os.path.join(folder, "CACHE")):
         if f.endswith(".DAT"):
             cache += open(os.path.join(folder, "CACHE", f), "rb").read().decode("utf-8", "replace")
+    check("TLS.OVL loaded", re.search(r"TLS.OVL \d+\.\d+ loaded, \d+ KB", first) is not None)
     check("TLS 1.2 on the Falcon, with ECDHE and ECDSA", re.search(r"secure: TLS 1\.2, ECDHE?-ECDSA", first) is not None)
     check("the card new on the server came over it", "OverTLS" in cache)
     if dsp:
@@ -207,6 +213,7 @@ def main():
     check("the second time, the signature one checked before",
           re.search(r"[1-9]\d* of \d+ ECDSA signatures checked before", second) is not None)
     check("TLS the second time too", "secure: TLS 1.2" in second)
+    check("without TLS.OVL: the log says it is missing", "TLS.OVL is missing" in third)
     crash = [os.path.join(dd, f) for dd, _, fs in os.walk(hd) for f in fs if f.upper() == "CRASH.LOG"]
     check("no crash (CRASH.LOG)", not crash)
     for c in crash:

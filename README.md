@@ -34,10 +34,10 @@ and all of them together in `ECONTACT-x.y.zip`.
 
 | File | What it is |
 |---|---|
-| `ECONTACT.ACC` | Falcon and TT: the accessory with Falcon mode (TLS, DSP); also works through the Pi |
-| `ECONTST.ACC` | ST and STE: the same accessory without TLS (about 125 KB smaller), through the Pi |
+| `ECONTACT.ACC` | the accessory, for every ST, STE, TT and Falcon |
 | `ECONTACT.PRG` | the same as `ECONTACT.ACC`, to start from the desktop, with a menu bar |
-| `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode |
+| `TLS.OVL` | the Direct connection (TLS on a TT or Falcon, RSA and curves on the DSP), loaded only when used; an ST leaves it on the disk |
+| `CACERT.PEM`, `ROOTS.DAT` | the root certificates for a Direct connection |
 | `ECONTACT.HYP` | the user guide for ST-Guide or EHypView: in EContact's folder, the Help key opens it |
 | `ECONTACT.REF` | its pages' names, for ST-Guide's index (`ALL.REF`): goes with the .HYP |
 | `ECONTACT.RSC`, `ECONTNV.RSC`, `ECONTACT.DEF`, `ECONTACT.ICN`, `ECONTMSK.ICN` | the desktop icon (on their own, and in the zip's `icons/` folder): `ECONTACT.RSC` (black and white for TOS 1 and 2; 256 colours, 16 and black and white for the colour desktops), `ECONTNV.RSC` (the same, its 256 colours on NVDI's own palette), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
@@ -53,16 +53,16 @@ file with EContact's added (it says which number), for the root of the boot driv
 and black and white): `make icons` makes the files from AERA-Atari's drawing,
 `common/icons/ECONTACT.txt`, with `common/tools/appicon.py`.
 
-1. Copy `ECONTACT.ACC` (Falcon/TT) or `ECONTST.ACC` (ST/STE, renamed to `ECONTACT.ACC` or not) to
-   the root of your boot drive (e.g. `C:\`): TOS loads accessories only from there.
-2. Choose a folder for EContact, anywhere on any drive, and put the rest in it: `CACERT.PEM` and
-   `ROOTS.DAT` for Falcon mode, `ECONTACT.HYP` and `ECONTACT.REF` for the Help key, and
+1. Copy `ECONTACT.ACC` to the root of your boot drive (e.g. `C:\`): TOS loads accessories only
+   from there. (Until 1.63 an ST had `ECONTST.ACC`: delete it.)
+2. Choose a folder for EContact, anywhere on any drive, and put the rest in it: `TLS.OVL`,
+   `CACERT.PEM` and `ROOTS.DAT` for a Direct connection, `ECONTACT.HYP` and `ECONTACT.REF` for the Help key, and
    `ECONTACT.PRG` if you want the program. EContact keeps its address books there too. No folder
    has to exist beforehand, and none has a fixed name: the settings, `ECONTACT.INF` in the boot
    drive's root, say where it is in `FOLDER=`. Start `ECONTACT.PRG` from the folder once and it
    writes it there; or the first time you open the accessory it asks: **Locate...** (pick any file
    in the folder) or **Use C:** (the boot drive), which makes `C:\ECONTACT` for you.
-3. For an ST or STE (or a Falcon or TT without Falcon mode), set up the gateway on a Raspberry Pi
+3. For an ST or STE (or a Falcon or TT without a Direct connection), set up the gateway on a Raspberry Pi
    from [AERA-Gateway](https://github.com/whomper/AERA-Gateway)'s own copy, at its latest release
    (the copy in this repository is for EContact's tests). On the Pi:
 
@@ -117,14 +117,17 @@ took EFTP's downloads from 40 to 75 KB/s. On a NetUSBee, keep STinG's TCP receiv
 Contacts servers want HTTPS. EContact uses ECal's code and ECal's way:
 
 ```
-ST, STE:     Atari (ECONTST.ACC) --plain HTTP, home LAN--> Raspberry Pi (ecalgate.py) --HTTPS--> the server
-Falcon, TT:  Atari (ECONTACT.ACC, TLS 1.2, RSA and curves on the DSP) --------------------HTTPS--> the server
+ST, STE:     Atari (ECONTACT.ACC) --plain HTTP, home LAN--> Raspberry Pi (ecalgate.py) --HTTPS--> the server
+Falcon, TT:  Atari (ECONTACT.ACC + TLS.OVL: TLS 1.2, RSA and curves on the DSP) ----------HTTPS--> the server
+             (a Direct connection; or through the Pi, as an ST)
 ```
 
 - **Through the Pi.** The AERA gateway's `dav` service (`ecalgate.py`) serves EContact as it serves
   ECal, and `ECONTACT.ACC` can use it too, on any Atari. If ECal already works through your Pi,
   type the same address and port in **Settings > Connection**.
-- **Falcon mode.** TLS 1.2 on the Falcon or TT with BearSSL. On a Falcon the DSP56001 does the
+- **A Direct connection.** TLS 1.2 on the Falcon or TT (a 68020 or better) with BearSSL, in
+  `TLS.OVL`, the AERA family's one file (the guidelines 7.4): EContact loads it into its own memory
+  the first time it is needed, about 140 KB, and an ST never does. On a Falcon the DSP56001 does the
   heavy sums: the server's RSA signature, and the elliptic curves of ECDSA certificates and of the
   key exchange (P-256, P-384, P-521, X25519), which take the 68030 tens of seconds. A signature
   once checked is remembered in `SIGS.DAT`, so the next start doesn't check it again (names, dates
@@ -259,7 +262,8 @@ the account's own server (or iCloud's photo servers), never to a link elsewhere.
 
 ## How many contacts
 
-Measured in Hatari on an 8 MHz Mega ST under EmuTOS, with `ECONTST.ACC` and cards like iCloud's (a
+Measured in Hatari on an 8 MHz Mega ST under EmuTOS, with the ST edition of then (`ECONTST.ACC`; since
+1.64 `ECONTACT.ACC` runs on an ST, some 4 KB bigger) and cards like iCloud's (a
 name, a company, one or two emails, two phones, some with an address, birthday or note):
 
 | ST | EContact's memory | Contacts | Start-up |
@@ -298,20 +302,20 @@ name, a company, one or two emails, two phones, some with an address, birthday o
 - **Syncing a big address book** reads the server's list of cards as it arrives when memory is small,
   keeping only what needs fetching.
 - STinG takes 100 KB or more of its own: with it, a 1 MB ST holds about 400 contacts. A 512 KB ST
-  can't run EContact (`ECONTST.ACC` alone is about 490 KB: 277 KB of program, 166 KB of buffers and
-  its 48 KB stack).
+  can't run EContact (`ECONTACT.ACC` alone is about 505 KB: 288 KB of program, 166 KB of buffers and
+  its 48 KB stack; on an ST `TLS.OVL` stays on the disk).
 - **With EMail on a 1 MB ST, use `ECONTACT.PRG`, not the accessory.** The accessory and its memory
   take about 650 KB of the 1 MB for as long as the Atari runs, which leaves too little for EMail to
   start beside it. With the accessory, EMail needs 2 MB.
-- **On a 1 MB ST, `ECONTST.ACC` or ECal's `ECALST.ACC`, not both:** together (some 920 KB as they
+- **On a 1 MB ST, `ECONTACT.ACC` or ECal's accessory, not both:** together (some 920 KB as they
   load) they leave TOS no memory and the ST stops at boot. Run the other as a program.
 
 ## Building
 
 ```sh
 sudo apt install gcc-m68k-linux-gnu python3 zip   # Debian/Ubuntu; no MiNTLib needed
-make                     # binary/ECONTACT.ACC, ECONTACT.PRG, ECONTST.ACC, ROOTS.DAT,
-                         # and ECONTACT.HYP when hcp is installed
+make                     # binary/ECONTACT.ACC, ECONTACT.PRG, ROOTS.DAT, TLS.OVL (common's,
+                         # as it is), and ECONTACT.HYP when hcp is installed
 make help HCP=/path/to/hcp   # ECONTACT.HYP alone
 make dist                # a release's files in dist/: each file, and ECONTACT-x.y.zip
 make icons               # icons/, ui/icon*.h, docs/icon*.png from common/icons/ECONTACT.txt
@@ -391,16 +395,17 @@ tests/hatari/help_key.py WORK [MACHINE]           # the Help key, with a stand-i
 tests/hatari/stop_test.py WORK [MACHINE]          # Esc stops a server that says nothing
                                                   # (FAKESTNG and the serial bridge from common/)
 make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \
-     WORK/bin/ECONTACT.ACC WORK/bin/ECONTST.ACC   # an edition that times its event calls
+     WORK/bin/ECONTACT.ACC                        # an edition that times its event calls
 tests/hatari/quiet_start.py WORK [MACHINE]        # the accessory's quiet start: 600 contacts
                                                   # read in the background, at most 100 ms
                                                   # (ST) or 50 ms (TT, Falcon) between event calls
 tests/hatari/quiet_sync.py WORK [MACHINE]         # its refresh with the window closed, through
                                                   # the gateway (FAKESTNG and the bridge too)
 tests/hatari/falcon_tls.py WORK [MACHINE] [--no-dsp]
-                                                  # Falcon mode against an HTTPS Radicale with an
-                                                  # ECDSA certificate: the curves on the DSP,
-                                                  # SIGS.DAT, ROOTS.DAT dated in place
+                                                  # a Direct connection (TLS.OVL) against an HTTPS
+                                                  # Radicale with an ECDSA certificate: the curves
+                                                  # on the DSP, SIGS.DAT, ROOTS.DAT dated in place;
+                                                  # without TLS.OVL it says so, no crash
 tests/hatari/acc_files.py WORK [MACHINE] [cards]  # the accessory's refresh and Sync Contact Photos:
                                                   # no file open across an event call (2.2), from
                                                   # Hatari's GEMDOS and AES trace; what it wrote
@@ -448,7 +453,7 @@ It includes, under their own licences (compatible with the GPL):
   ([LICENSE.txt](common/third_party/bearssl/LICENSE.txt))
 - [TJpgDec](third_party/tjpgd) by ChaN: free use, the notice kept (at the
   top of [tjpgd.c](third_party/tjpgd/tjpgd.c))
-- `CACERT.PEM`, the root certificates for Falcon mode, from Mozilla's CA
+- `CACERT.PEM`, the root certificates for a Direct connection, from Mozilla's CA
   list (Mozilla Public License 2.0)
 
 ---

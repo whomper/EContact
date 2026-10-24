@@ -70,7 +70,7 @@ def main():
     inf = re.sub(rb"\nSTART=[^\r\n]*", rb"\nSTART=2", inf)
     with open(os.path.join(hd, "ECONTACT.INF"), "wb") as f:
         f.write(inf)
-    acc = "ECONTST.ACC" if machine.startswith("ST") else "ECONTACT.ACC"
+    acc = "ECONTACT.ACC"
     shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "ECONTACT.ACC"))
     shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRG"))
     log = os.path.join(folder, "ECONTACT.LOG")

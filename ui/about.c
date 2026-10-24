@@ -15,16 +15,21 @@
 #include "icon256.h"
 #include "../src/version.h"
 #include "../src/plat.h"
+#include "tlsovl.h"
 
 void dlg_about(void)
 {
 	static char conn[100];
+	char direct[40];
 	const char *ram = about_ram();
 	ABOUT a = { "EContact", app_version, "Contacts for the Atari ST, TT and Falcon", { conn, 0, 0 }, { 0, 0, 0 },
 		    icon_bits, icon16_px, icon16_rgb, icon256_px, icon256_rgb };
+	/* the TLS: TLS.OVL's version once it is loaded (the guidelines 7.4) */
+	snprintf(direct, sizeof(direct), tls_ovl_loaded() ? "Direct connection (TLS.OVL %s)" : "Direct connection",
+		 tls_ovl_version());
 	snprintf(conn, sizeof(conn), "%s  \xF9  %s  \xF9  %s%s%s",
 		 strcmp(net_stack(), "none") ? net_stack() : "no network",
-		 opt.falcon ? (strcmp(falcon_dsp_state(), "DSP") ? "Falcon" : "Falcon/DSP") : opt.gate[0] ? "Gateway" : "No gateway",
+		 opt.falcon ? direct : opt.gate[0] ? "Gateway" : "No gateway",
 		 opt.offline ? "offline" : "ready", ram[0] ? "  \xF9  " : "", ram);
 	about_show(&a);
 }

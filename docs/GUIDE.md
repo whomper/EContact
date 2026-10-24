@@ -30,10 +30,11 @@ before it is done, it reads the rest at once.
 
 | Your Atari        | Copy to the root | Connects                        |
 |-------------------|------------------|---------------------------------|
-| Falcon, TT        | `ECONTACT.ACC`   | by itself (Falcon mode) or through the Pi |
-| ST, STE, Mega ST  | `ECONTST.ACC`    | through the Raspberry Pi gateway |
+| Falcon, TT        | `ECONTACT.ACC`   | by itself (a Direct connection, with `TLS.OVL` in the folder) or through the Pi |
+| ST, STE, Mega ST  | `ECONTACT.ACC`   | through the Raspberry Pi gateway |
 
-`ECONTST.ACC` may be renamed `ECONTACT.ACC`; either name works.
+The same `ECONTACT.ACC` runs on every Atari. (Until 1.63 an ST had
+`ECONTST.ACC`: delete it.)
 
 The settings are in `ECONTACT.INF` in the root of the boot drive, where
 the accessory can always find them at boot. Everything else is in
@@ -51,10 +52,11 @@ C:\ECONTACT\              EContact's folder (any folder will do):
                           .PHO their photos, .IDX the contacts ready to read
     CACHE\PHOTOS.PAK      the photos, made small for the screen, in one file
     ECONTACT.FNT          which GDOS fonts are fixed-width (made by Font...)
-    CACERT.PEM            Falcon mode: root certificates (copy them here)
-    ROOTS.DAT             Falcon mode: the same, decoded ahead of time
-    SEED.DAT              Falcon mode: randomness kept for the next start
-    SIGS.DAT              Falcon mode: certificate signatures already checked
+    TLS.OVL               a Direct connection: the TLS, loaded when it is used (copy it here)
+    CACERT.PEM            a Direct connection: root certificates (copy them here)
+    ROOTS.DAT             a Direct connection: the same, decoded ahead of time
+    SEED.DAT              a Direct connection: randomness kept for the next start
+    SIGS.DAT              a Direct connection: certificate signatures already checked
     ECONTACT.LOG          with Write a log on
     CRASH.LOG             what happened, if ECONTACT.PRG ever crashes
     ECONTACT.HYP          this guide, for EHypView or ST-Guide: the Help key opens it
@@ -93,7 +95,8 @@ it needs: it measures what its contacts take at their busiest, with room
 for a photo shown and a sync, and writes that to ECONTACT.INF (`MEMKB=`)
 for the next start. 200 contacts take about 200 KB. The first start,
 before it has measured, takes 1.5 MB on a Falcon or TT (4 MB from TT/Fast
-RAM where there is some) and 2 MB on an ST, at most half of what's free,
+RAM where there is some; 150 KB more with a Direct connection on, for
+`TLS.OVL`) and 2 MB on an ST, at most half of what's free,
 or a quarter where 1 MB or more is free: about 250 KB on a 1 MB ST (some
 490 contacts), 375 KB on 2 MB (750), 850 KB on 4 MB (1,700), and up to
 half of what's free at the next start when the contacts need it (1.8 MB
@@ -108,7 +111,7 @@ little to start. On 1 MB, use `ECONTACT.PRG` with EMail instead of the
 accessory (take `ECONTACT.ACC` out of the boot drive's root); EMail
 beside the accessory needs 2 MB or more.
 
-**With ECal on a 1 MB ST.** `ECONTST.ACC` or ECal's `ECALST.ACC`, not
+**With ECal on a 1 MB ST.** `ECONTACT.ACC` or ECal's accessory, not
 both: together they leave TOS no memory and the ST stops at boot. Run
 the other as a program.
 
@@ -123,8 +126,8 @@ the program and its memory are.
 
 ## Updating
 
-Copy the new release's files over the old ones, `ECONTACT.ACC` (or
-`ECONTST.ACC`) to the root of the boot drive and the rest into
+Copy the new release's files over the old ones, `ECONTACT.ACC` to the
+root of the boot drive and the rest into
 EContact's folder, and reboot. The settings, the accounts and the
 copies of your address books are kept. Now and then a new version reads
 every card once more at its first start (when the way cards are read
@@ -148,8 +151,12 @@ top right):
 - **On My Atari**: an address book kept only on this computer.
 
 Servers want a secure connection: in **Settings > Connection** either
-type the address of the Raspberry Pi gateway or, on a Falcon or TT, turn
-on **Falcon mode**.
+type the address of the Raspberry Pi gateway or, on a Falcon or TT (a
+68020 or better), turn on **Direct connection**. That is TLS on the
+Atari itself, in `TLS.OVL` in EContact's folder: EContact loads it into
+its memory (about 140 KB) when you turn it on, and says at once if
+something is wrong (the file missing, an Atari without a 68020). An ST
+never loads it.
 
 The gateway is the `dav` service of the AERA gateways, set up on the Pi
 from AERA-Gateway's own copy at its latest release. On the Pi:
@@ -346,7 +353,7 @@ Right-click your own card > **Make This My Card**. The list marks it
   copy has to be written anew, and a new account's books, wait for a
   refresh with the window open. Opening the window stops a refresh in
   the background; what it had fetched is kept.
-- **Connection**: Falcon mode and the DSP, the Pi gateway's address and
+- **Connection**: Direct connection and the DSP, the Pi gateway's address and
   port, and the log. With the DSP on, a Falcon checks the servers'
   certificates and makes the secure connection's keys there, many
   times faster than its 68030.

@@ -5,7 +5,7 @@
 
     tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi]
 
---acc runs the accessory (ECONTST.ACC on an ST) from the Desk menu,
+--acc runs the accessory (ECONTACT.ACC) from the Desk menu,
 --nvdi under NVDI (AERA_WITH_NVDI, a Falcon: the window drawn in an EdDI
 bitmap). ECONTACT.LOG says how the window is drawn (win.c).
 
@@ -110,7 +110,7 @@ def main():
     if acc:     # in the root, FOLDER= naming the folder
         os.remove(inf_path)
         inf_path = os.path.join(hd, "ECONTACT.INF")
-        shutil.copy(os.path.join(ROOT, "binary", "ECONTST.ACC" if machine.startswith("ST") else "ECONTACT.ACC"),
+        shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.ACC"),
                     os.path.join(hd, "ECONTACT.ACC"))
     else:
         shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), folder)

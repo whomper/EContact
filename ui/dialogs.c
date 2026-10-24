@@ -54,7 +54,7 @@ static int connection_ready(const char *url)
 	URL u;
 	if (!url_parse(url, &u) || !u.tls || opt.falcon || opt.gate[0])
 		return 1;
-	if (alert(1, "[1][Contacts servers want a secure connection. Set up the Raspberry Pi gateway (ECal's serves EContact too), or Falcon mode, in Settings, Connection.][Settings|Cancel]") == 1)
+	if (alert(1, "[1][Contacts servers want a secure connection. Set up the Raspberry Pi gateway (ECal's serves EContact too), or a Direct connection, in Settings, Connection.][Settings|Cancel]") == 1)
 		dlg_connection();
 	return opt.falcon || opt.gate[0];
 }
@@ -257,7 +257,7 @@ static void settings(short first)
 	static const char *book_items[MAXBOOK];
 	short book_id[MAXBOOK], nb = 0;
 	short r, i, row;
-	int can_falcon = tls_available && get_cookie(0x5F435055L) >= 20;	/* _CPU: 68020 or better */
+	int can_falcon = get_cookie(0x5F435055L) >= 20;	/* _CPU: 68020 or better */
 	str_copy(gate, opt.gate, sizeof(gate));
 	snprintf(port, sizeof(port), "%u", opt.gateport);
 	for (i = 0; i < nbooks && nb < MAXBOOK; i++)
@@ -337,15 +337,14 @@ static void settings(short first)
 
 	/* Connection */
 	row = 3;
-	put(&f[C1], FT_CHECK, 0, CX, row, 44, "Falcon mode: TLS on this Atari");
+	put(&f[C1], FT_CHECK, 0, CX, row, 44, "Direct connection: TLS on this Atari");
 	f[C1].val = opt.falcon;
 	row++;
 	put(&f[C2], FT_CHECK, 0, CX + 3, row, 40, "Check certificates on the DSP");
 	f[C2].val = opt.dsp;
 	row++;
-	put(&f[N1], FT_LABEL, FF_LTR, CX + 3, row, 0, can_falcon ? "Needs CACERT.PEM, ROOTS.DAT in the folder"
-							  : !tls_available ? "Not in the ST edition: ECONTACT.ACC has it"
-							  : "Needs a 68030 (Falcon or TT)");
+	put(&f[N1], FT_LABEL, FF_LTR, CX + 3, row, 0, can_falcon ? "Needs TLS.OVL, CACERT.PEM and ROOTS.DAT"
+							  : "Needs a 68020 or better (TT, Falcon)");
 	row += 2;
 	put(&f[L7], FT_LABEL, 0, CX, row, 0, "Pi gateway:");
 	text(&f[C3], FF_LTR, CX + 12, row, 20, gate, sizeof(gate));

@@ -61,7 +61,7 @@ def main():
 
     stop = threading.Event()
     threading.Thread(target=silent_server, args=(stop,), daemon=True).start()
-    acc = "ECONTST.ACC" if machine.startswith("ST") else "ECONTACT.ACC"
+    acc = "ECONTACT.ACC"
     shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "ECONTACT.ACC"))
     with open(os.path.join(hd, "ECONTACT", "ECONTACT.INF"), "w", newline="") as f:
         f.write("gate=127.0.0.1\r\ngateport=%d\r\n"

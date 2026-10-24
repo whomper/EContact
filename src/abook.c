@@ -31,6 +31,7 @@
 #include "photo.h"
 #include "photopack.h"
 #include "http.h"
+#include "tlsovl.h"
 #include "conn.h"
 #include "secret.h"
 #include "charset.h"
@@ -318,7 +319,7 @@ void store_save_settings(void)
 	S("START", start, "when the accessory reads the address books after the Atari starts, a little at a time: now, opened (when its window first opens), or seconds after boot")
 	I("FONT_ID", font_id, "the font, as a GDOS id; 1: the system font (the accessory loads GDOS fonts only as the Atari starts: always with NVDI, else when one is chosen here)")
 	I("FONT_PT", font_pt, "the font's size in points; 0: the system font's")
-	I("FALCON", falcon, "Falcon mode: TLS on this Atari (Falcon, TT); 0: through the Pi gateway")
+	I("FALCON", falcon, "Direct connection: TLS on this Atari (68020 or better, TLS.OVL); 0: through the Pi gateway")
 	I("DSP", dsp, "check certificates on the Falcon's DSP56001")
 	S("GATE", gate, "the Raspberry Pi gateway's address (Settings > Connection); ECal's gateway serves both")
 	if (!sb_printf(&b, "; the gateway's port\r\nGATEPORT=%u\r\n\r\n", opt.gateport))
@@ -640,6 +641,8 @@ void store_release(void)
 	store_lost_passwords = store_plain_passwords = 0;
 	pack_forget();
 	people_file_forget();		/* (the folder may be another) */
+	http_close_all();		/* no connection open: TLS.OVL let go too, */
+	tls_ovl_unload();		/* loaded again by the next one (7.4) */
 }
 
 /* the files as they are now: ECONTACT.INF, ECONTACT.KEY and the books'

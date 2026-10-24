@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
 """Where EContact finds its settings and its folder, as ECal does, checked
-in Hatari (an ST: ECONTST.ACC; a Falcon: ECONTACT.ACC; and ECONTACT.PRG):
+in Hatari (ECONTACT.ACC, on an ST or a Falcon, and ECONTACT.PRG):
 
     tests/hatari/placement.py WORK [MACHINE]
 
@@ -70,7 +70,7 @@ def main():
     global DESK_Y, USE_C_Y
     work, machine = sys.argv[1], machine_arg(sys.argv, 2, "ST:mono")
     st = machine.startswith("ST")
-    acc = os.path.join(BIN, "ECONTST.ACC" if st else "ECONTACT.ACC")
+    acc = os.path.join(BIN, "ECONTACT.ACC")
     if not st:
         DESK_Y, USE_C_Y = 61, 289
 

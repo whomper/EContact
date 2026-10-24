@@ -11,7 +11,7 @@ On the family's machines (common/tools/machines.py): the Falcon at 640x480
 in 16 colours (--falcon names another, Falcon:256 say) and the ST in mono
 (--st).
 
---memory takes memory-full: ECONTST.ACC on a 1 MB ST (ST-1 in mono)
+--memory takes memory-full: ECONTACT.ACC on a 1 MB ST (ST-1 in mono)
 with 1,000 contacts, more than fit, and the alert that says so.
 
 --email and --ecal take the shots of EContact working with EMail (1.35 or
@@ -107,7 +107,7 @@ def memory_full(work, machine):
               else ln) for ln in t.split("\r\n")]
     with open(os.path.join(hd, "ECONTACT.INF"), "w", newline="") as f:
         f.write("\r\n".join(lines))
-    shutil.copy(os.path.join(BIN, "ECONTST.ACC"), os.path.join(hd, "ECONTACT.ACC"))
+    shutil.copy(os.path.join(BIN, "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
     r = Rig(work, machine, auto="")
     try:
         time.sleep(120)                 # read in the background, as far as memory goes
