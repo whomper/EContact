@@ -45,6 +45,7 @@
 #include "bgwork.h"
 #include "people_ask.h"
 #include "answer.h"
+#include "dialog.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 short gl_wchar, gl_hchar, ap_id, is_acc, ncolors, hebrew_kbd, quit_now;
@@ -1090,6 +1091,9 @@ static void find_workdir(void)
 		inf_folder(workdir, sizeof(workdir));
 		inf_value("start=", boot_start, sizeof(boot_start));
 		inf_value("font_id=", boot_font, sizeof(boot_font));
+		inf_value("dialogs3d=", path, sizeof(path));
+		if (path[0])
+			dlg_3d_on = atoi(path) != 0;	/* before any dialog (5.6) */
 		if (inf_n < 0) {
 			/* settings in the folder instead (copied there, or written
 			   by card-cli): taken to the root at the first opening */
@@ -1290,6 +1294,7 @@ static int load_settings(int quiet)
 		store_save_settings();
 	secret_warn = warn_plain;
 	hebrew_kbd = opt.hebrew;
+	dlg_3d_on = opt.dialogs3d != 0;
 	fonts_ready = 0;
 	if (!quiet) {
 		font_apply();

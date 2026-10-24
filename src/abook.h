@@ -73,6 +73,7 @@ typedef struct {
 	short sync_open;	/* refresh when the window opens */
 	short sync_after;	/* the accessory: once, minutes after boot (0: no) */
 	short photos;		/* show contacts' photos */
+	short dialogs3d;	/* the AES's 3D look in dialogs where it has one (5.6) */
 	short offline;		/* Work offline: no connections */
 	short hebrew;		/* start with the Hebrew keyboard */
 	short heapkb;		/* the accessory's memory, KB; 0: chosen */

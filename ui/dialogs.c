@@ -14,6 +14,7 @@
 #include "../src/version.h"
 #include "../src/plat.h"
 #include "tls.h"
+#include "dialog.h"
 
 static void put(FIELD *f, short type, short flags, short x, short y, short w, const char *label)
 {
@@ -246,7 +247,7 @@ static const char *const section_names[] = { "General", "Refresh", "Connection" 
 
 static void settings(short first)
 {
-	enum { L1, F1, L2, F2, L3, F3, L4, F4, F5, L6, F6,
+	enum { L1, F1, L2, F2, L3, F3, L4, F4, F5, L6, F6, L9, F9,
 	       L11, F11, F12, L13, F13, N3,
 	       C1, C2, N1, L7, C3, L8, C4, N2, C7,
 	       BCAN, BOK, N };
@@ -307,7 +308,11 @@ static void settings(short first)
 	put(&f[L6], FT_LABEL, 0, CX, row, 0, "Photos:");
 	put(&f[F6], FT_CHECK, 0, VX, row, 32, "Show contacts' photos");
 	f[F6].val = opt.photos;
-	for (i = L1; i <= F6; i++)
+	row++;
+	put(&f[L9], FT_LABEL, 0, CX, row, 0, "Dialogs:");
+	put(&f[F9], FT_CHECK, dlg_3d_ok() ? 0 : FF_DISABLED, VX, row, 32, "3D dialogs");
+	f[F9].val = opt.dialogs3d;	/* (greyed without the AES's 3D: 5.6) */
+	for (i = L1; i <= F9; i++)
 		f[i].page = S_GENERAL;
 
 	/* Refresh */
@@ -358,7 +363,7 @@ static void settings(short first)
 	for (i = C1; i <= C7; i++)
 		f[i].page = S_CONN;
 
-	row = 11;
+	row = 13;
 	put(&f[BCAN], FT_BUTTON, FF_CANCEL, SW - 24, row, 10, "Cancel");
 	put(&f[BOK], FT_BUTTON, FF_DEFAULT, SW - 12, row, 10, "OK");
 
@@ -389,6 +394,8 @@ static void settings(short first)
 		opt.default_book = book_id[f[F3].val];
 	opt.hebfont = f[F4].val;
 	opt.photos = f[F6].val;
+	opt.dialogs3d = f[F9].val;
+	dlg_3d_on = opt.dialogs3d != 0;
 	opt.hebrew = f[F5].val;
 	set_hebrew_kbd(opt.hebrew);
 	opt.refresh = refresh_min[f[F11].val];

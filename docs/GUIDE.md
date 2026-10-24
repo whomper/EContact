@@ -341,8 +341,10 @@ Right-click your own card > **Make This My Card**. The list marks it
 
 - **General**: sort by last or first name, show names as "First Last" or
   "Last, First", which address book new contacts go into, where the font
-  has its Hebrew letters, starting with the Hebrew keyboard, and showing
-  photos.
+  has its Hebrew letters, starting with the Hebrew keyboard, showing
+  photos, and **3D dialogs**: dialogs and alerts in the 3D look where the
+  Atari draws one (TOS 4, MagiC, XaAES; greyed elsewhere), on unless
+  you turn it off.
 - **Refresh**: refresh all every 15 minutes, hour or day, or only by
   hand (^R, the Refresh button); when the window opens, unless that is
   turned off; and, for the accessory, **Once at start**: 2, 5 or 15
