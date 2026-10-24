@@ -516,6 +516,7 @@ void win_redraw(GRECT *area)
 				   the piece's own, not one left by a dialog */
 				clip_on(&d);
 				vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &scr);	/* S_ONLY */
+				list_bar_draw(&d);	/* AES objects: on the screen (5.1) */
 			}
 			wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
 		}
@@ -524,8 +525,10 @@ void win_redraw(GRECT *area)
 		wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
 		while (box.w && box.h) {
 			GRECT d = box;
-			if (rect_and(&d, &full))
+			if (rect_and(&d, &full)) {
 				draw_all(&d);
+				list_bar_draw(&d);
+			}
 			wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
 		}
 	}
@@ -572,6 +575,24 @@ void win_scroll(const GRECT *a, short dy)
 	}
 	wind_update(END_UPDATE);
 	win_redraw(&strip);
+}
+
+void win_bars(const GRECT *a)
+{
+	GRECT box;
+	if (win_h <= 0 || win_iconified || win_hold)
+		return;
+	wind_update(BEG_UPDATE);
+	graf_mouse(M_OFF, 0);
+	wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
+	while (box.w && box.h) {
+		GRECT d = box;
+		if (rect_and(&d, a))
+			list_bar_draw(&d);
+		wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
+	}
+	graf_mouse(M_ON, 0);
+	wind_update(END_UPDATE);
 }
 
 short win_popup(short x, short y, const char *const *labels, short n)

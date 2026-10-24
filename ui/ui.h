@@ -92,6 +92,8 @@ void win_buffer_end(void);	/* the program's end */
 void win_buffer_fonts(void);	/* GDOS fonts loaded later: on the bitmap too */
 const char *win_drawing(void);	/* how the window is drawn, for the log */
 void win_scroll(const GRECT *a, short dy);	/* a's content up by dy pixels */
+/* the panes' bars drawn again where a is, on the screen (5.1) */
+void win_bars(const GRECT *a);
 void draw_forget(void);		/* the VDI attributes set again at the next use */
 void win_message(short *msg);
 void win_status(const char *s);	/* the info line */
@@ -128,6 +130,8 @@ void list_step(int dir);	/* the next / previous one */
 void list_scroll_to_sel(void);
 int list_scroll(int rows);	/* the list's scroll bar, the wheel: 0 at an end */
 int  list_bar_hit(short mx, short my);
+/* the list's bar, on the screen, within clip (after the copy) */
+void list_bar_draw(const GRECT *clip);
 void contact_menu(short mx, short my, CONTACT *c);	/* right-click on a contact */
 
 /* ---- the card (card.c) ---- */

@@ -3,14 +3,17 @@
 # Copyright (C) 2026 AERA | Erez Yaary
 """The list's own scroll bar, in Hatari with ECONTACT.PRG and 80 contacts:
 
-    tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi]
+    tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi] [--flat]
 
 --acc runs the accessory (ECONTACT.ACC) from the Desk menu,
 --nvdi under NVDI (AERA_WITH_NVDI, a Falcon: the window drawn in an EdDI
-bitmap). ECONTACT.LOG says how the window is drawn (win.c).
+bitmap), --flat with DIALOGS3D=0 (the bar flat where the AES has 3D).
+ECONTACT.LOG says how the window is drawn (win.c).
 
 The window has no slider of its own; the bar is at the right of the
-middle list (list.c). Its slider is found on the screen, then:
+middle list (list.c), the family's pane bar of AES objects
+(common/ui/panebar.c, the guidelines 5.1). Its slider is found on the
+screen, then:
 - a click on the down arrow scrolls the list a row, and the slider moves;
 - a click in the track under the slider scrolls a page;
 - the up arrow then the down arrow leave the list as it was: the rows
@@ -51,36 +54,56 @@ def cards(path, n):
                     "EMAIL;type=INTERNET:ada%d@example.com\r\nUID:BAR-%03d\r\nEND:VCARD\r\n" % (i, i, i, i))
 
 
+def bar_x(px, w, h):
+    """the bar: two long black lines down (its frame, or the track's in
+    3D), 12 to 32 pixels apart"""
+    def longest(x):
+        best = n = 0
+        for y in range(h):
+            n = n + 1 if px[x, y] < 128 else 0
+            best = max(best, n)
+        return best
+    lines = [x for x in range(60, w - 60) if longest(x) > h // 4]
+    for a in lines:
+        for b in lines:
+            if 12 <= b - a <= 32:
+                return a, b + 1
+    return None
+
+
 def thumb(png):
-    """the slider: (x, top, bottom) of the tallest solid black rectangle
-    10 to 24 pixels wide, or None"""
+    """the slider: (the bar's x, top, bottom), or None. The bar is the
+    AES's objects (panebar.c), in its look: flat, a white slider on
+    TOS's dotted track; in 3D, a raised one, without the track's black
+    frame at its left. The longest run of such rows, so not an arrow's"""
     from PIL import Image
     im = Image.open(png).convert("L")
     px = im.load()
     w, h = im.size
+    bx = bar_x(px, w, h)
+    if not bx:
+        return None
+    x0, x1 = bx
+    xs = range(x0 + 4, x1 - 4)
 
-    def black(x, y):
-        return px[x, y] < 128
+    def slider_row(y):
+        v = [px[x, y] for x in xs]
+        if min(v) != max(v):
+            return False
+        if v[0] == 255:
+            return True                 # flat: white
+        return 0 < v[0] and px[x0, y] >= 128 and px[x0 + 1, y] >= 128   # 3D
 
-    def width(x, y):
-        n = 0
-        while x + n < w and black(x + n, y):
-            n += 1
-        return n
-
-    best = None
-    for x in range(1, w - 24):
-        y = 0
-        while y < h:
-            wd = width(x, y) if black(x, y) and not black(x - 1, y) else 0
-            if 10 <= wd <= 24:
-                y0 = y
-                while y < h and not black(x - 1, y) and width(x, y) == wd:
-                    y += 1
-                if y - y0 >= 14 and (best is None or y - y0 > best[2] - best[1]):
-                    best = (x, y0, y)
-            else:
+    best, y = None, 0
+    while y < h:
+        if slider_row(y):
+            y0 = y
+            while y < h and slider_row(y):
                 y += 1
+            if y - y0 >= 6 and (best is None or y - y0 > best[2] - best[1]):
+                best = (x0, y0, y)
+        else:
+            y += 1
     return best
 
 
@@ -106,6 +129,8 @@ def main():
     inf_path = os.path.join(folder, "ECONTACT.INF")
     inf = open(inf_path, "rb").read().replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = inf.replace(b"\nLOG=0", b"\nLOG=1")
+    if "--flat" in sys.argv:
+        inf = inf.replace(b"\nDIALOGS3D=1", b"\nDIALOGS3D=0")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
     if acc:     # in the root, FOLDER= naming the folder
         os.remove(inf_path)
@@ -140,12 +165,15 @@ def main():
         from PIL import Image
         w, h = Image.open(s0).size
         card = (x + 30, top, w - 30, bottom)
-        # the down arrow: under the track's end, found going down from the slider
+        # the down arrow: its glyph, the first row going up from the
+        # screen's foot with some black in the bar but not all of it
         im = Image.open(s0).convert("L").load()
-        y = bottom
-        while y < h - 1 and not (im[bx, y] < 128 and im[bx + 1, y] < 128 and im[bx + 2, y] < 128):
-            y += 1                      # the track to the arrow box's top line
-        arrow = y + 6
+        x0, x1 = bar_x(im, w, h)
+        xs = range(x0 + 3, x1 - 3)
+        y = h - 1
+        while y > bottom and not (0 < sum(1 for i in xs if im[i, y] < 128) < len(xs) - 2):
+            y -= 1
+        arrow = y - 3
         print("  (the slider at x %d, the down arrow at y %d)" % (x, arrow))
         def away():                     # the pointer off the slider for the shot
             r.move(600, 250)
@@ -216,7 +244,7 @@ def main():
         time.sleep(2)
         s3 = r.shot("3-dragged-down")
         t3 = thumb(s3)
-        check("dragged to the bottom: the slider at the track's end (%s)" % (t3,), t3 and t3[2] >= arrow - 12)
+        check("dragged to the bottom: the slider at the track's end (%s)" % (t3,), t3 and t3[2] >= arrow - 16)
         drag(bx, (t3[1] + t3[2]) // 2, 5)
         away()
         time.sleep(2)

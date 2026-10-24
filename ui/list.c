@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include "ui.h"
 #include "../src/plat.h"
+#include "panebar.h"
 
 short src_kind = SRC_ALL, src_idx;
 char search_text[64];
@@ -171,182 +172,56 @@ static int list_scroll_to(int t);
 
 /* The list's own scroll bar, at the right of its column (Erez, 20 Oct
    2026: the window's slider, at the far right by the card, moved the
-   list in the middle). It looks as the family's Font dialog's lists do
-   (common/ui/fontsel.c): an arrow box at each end, a black slider */
-static short bar_w(void)
-{
-	return 2 * cw;
-}
+   list in the middle): the family's pane bar (common/ui/panebar.c, the
+   guidelines 5.1), AES objects in the AES's own look, as wide as its
+   slider column. The window is drawn off the screen and copied; the bar
+   is drawn on the screen after the copy (list_bar_draw, from win.c) */
+static PANEBAR pb;
 
-static short arrow_h(void)
+/* the bar, its right edge on the column's dividing line, with the
+   list's numbers as they are now */
+static PANEBAR *bar(void)
 {
-	return ch + 2;
-}
-
-/* the bar, its right edge on the column's dividing line */
-static GRECT bar_rect(void)
-{
-	GRECT b = r_list;
-	b.x = r_list.x + r_list.w - bar_w();
-	b.w = bar_w();
-	return b;
+	pb.r = r_list;
+	pb.r.w = pb_width();
+	pb.r.x = r_list.x + r_list.w - pb.r.w;
+	pb.total = nrows;
+	pb.shown = visible_rows();
+	pb.top = top;
+	pb.across = 0;
+	return &pb;
 }
 
 /* the rows' width, left of the bar */
 static short rows_w(void)
 {
-	return r_list.w - bar_w();
-}
-
-/* the track between the arrows and the slider in it: *sh 0 when all
-   the rows are shown */
-static void bar_thumb(short *ty, short *th, short *sy, short *sh)
-{
-	GRECT b = bar_rect();
-	short vis = visible_rows(), ah = arrow_h();
-	*ty = b.y + ah;
-	*th = b.h - 2 * ah;
-	*sy = *ty;
-	*sh = 0;
-	if (nrows <= vis || *th <= 0)
-		return;
-	*sh = (short)((long)*th * vis / nrows);
-	if (*sh < ch)
-		*sh = ch;
-	if (*sh > *th)
-		*sh = *th;
-	*sy = *ty + (short)((long)(*th - *sh) * top / (nrows - vis));
-}
-
-static void bar_arrow(short x, short y, short w, short h, int up)
-{
-	GRECT r;
-	short cx = x + w / 2, cy = y + h / 2, k = h >= 14 ? 3 : 2;
-	short y1 = up ? cy + k / 2 + 1 : cy - k / 2 - 1, y2 = up ? cy - k / 2 - 1 : cy + k / 2 + 1;
-	r.x = x;
-	r.y = y;
-	r.w = w;
-	r.h = h;
-	frame(&r, 1);
-	line_col(cx - k, y1, cx, y2, 1);
-	line_col(cx, y2, cx + k, y1, 1);
-}
-
-static void bar_draw(void)
-{
-	GRECT b = bar_rect(), t;
-	short ty, th, sy, sh, ah = arrow_h();
-	if (b.h < 2 * ah + 4)
-		return;
-	fill(&b, 0);
-	bar_arrow(b.x, b.y, b.w, ah, 1);
-	bar_arrow(b.x, b.y + b.h - ah, b.w, ah, 0);
-	bar_thumb(&ty, &th, &sy, &sh);
-	if (sh) {
-		t.x = b.x;
-		t.y = sy;
-		t.w = b.w;
-		t.h = sh;
-		fill(&t, 1);
-	}
-	frame(&b, 1);
+	return r_list.w - pb_width();
 }
 
 /* on the bar: a click there acts at once (no wait for a second) */
 int list_bar_hit(short mx, short my)
 {
-	GRECT b = bar_rect();
-	return rect_hit(&b, mx, my);
+	return rect_hit(&bar()->r, mx, my);
 }
 
-/* the button still down; *y where the mouse is */
-static short left_down(short *y)
+void list_bar_draw(const GRECT *clip)
 {
-	short mx, my, mb, ks;
-	graf_mkstate(&mx, &my, &mb, &ks);
-	if (y)
-		*y = my;
-	return mb & 1;
+	GRECT r;
+	ensure();
+	clamp_top();
+	r = bar()->r;
+	if (rect_and(&r, clip))
+		pb_draw(&pb, &r);
 }
 
-/* an arrow held: some 15 rows a second, each step as many rows as the
-   time the one before took asks for, so a slow machine takes bigger
-   steps rather than scrolling slower (ECal's hours glide so) */
-static void arrow_held(int d)
+static int bar_scroll(long n)
 {
-	unsigned long last, now;
-	long due = 0, n;
-	if (!list_scroll(d))
-		return;
-	evnt_timer_(250);
-	last = pf_ms();
-	while (left_down(0)) {
-		now = pf_ms();
-		due += (long)(now - last) * 15;	/* rows due, in thousandths */
-		last = now;
-		n = due / 1000;
-		if (n < 1)
-			n = 1;
-		if (n > 8)
-			n = 8;
-		due -= n * 1000;
-		if (due < 0)
-			due = 0;
-		if (!list_scroll(d * (int)n))
-			evnt_timer_(50);	/* at the end: wait for the button */
-		else
-			evnt_timer_(20);
-	}
+	return list_scroll((int)n);
 }
 
-/* a press on the bar: an arrow scrolls a row while held, the track a
-   page at a time while held until the slider reaches the mouse (Erez:
-   a held press did one page), the slider follows the mouse */
-static void bar_click(short my)
+static int bar_goto(long t)
 {
-	GRECT b = bar_rect();
-	short ah = arrow_h(), vis = visible_rows(), ty, th, sy, sh;
-	if (my < b.y + ah || my >= b.y + b.h - ah) {
-		arrow_held(my < b.y + ah ? -1 : 1);
-		while (left_down(0))
-			evnt_timer_(20);
-		return;
-	}
-	bar_thumb(&ty, &th, &sy, &sh);
-	if (!sh)
-		return;
-	if (my < sy || my >= sy + sh) {
-		int up = my < sy, first = 1;
-		for (;;) {
-			bar_thumb(&ty, &th, &sy, &sh);
-			if (up ? my >= sy : my < sy + sh)
-				break;		/* the slider got to the mouse */
-			if (!list_scroll(up ? -(vis - 1) : vis - 1))
-				break;
-			evnt_timer_(first ? 300 : 100);
-			first = 0;
-			if (!left_down(&my))
-				break;
-		}
-		while (left_down(0))	/* the rest of the press does nothing */
-			evnt_timer_(20);
-		return;
-	}
-	{
-		short grab = my - sy, mx, mb, ks, y;
-		wind_update(3);		/* BEG_MCTRL: the mouse is the bar's while held */
-		do {
-			graf_mkstate(&mx, &y, &mb, &ks);
-			y -= grab;
-			if (y < ty)
-				y = ty;
-			if (y > ty + th - sh)
-				y = ty + th - sh;
-			list_scroll_to(th > sh ? (int)(((long)(y - ty) * (nrows - vis) + (th - sh) / 2) / (th - sh)) : 0);
-			evnt_timer_(20);
-		} while (mb & 1);
-		wind_update(2);		/* END_MCTRL */
-	}
+	return list_scroll_to((int)t);
 }
 
 static void clamp_top(void)
@@ -365,10 +240,8 @@ static void clamp_top(void)
 static int list_scroll_to(int t)
 {
 	int old = top;
-	GRECT a, b;
-	short ty, th, sy, sh, ny, nh;
+	GRECT a;
 	ensure();
-	bar_thumb(&ty, &th, &sy, &sh);
 	top = t;
 	clamp_top();
 	if (top == old)
@@ -381,14 +254,8 @@ static int list_scroll_to(int t)
 		long dy = (long)(top - old) * (rh ? rh : ch + 2);
 		win_scroll(&a, dy >= a.h || dy <= -a.h ? a.h : (short)dy);
 	}
-	b = bar_rect();
-	bar_thumb(&ty, &th, &ny, &nh);
-	if (sh && nh && sh == nh) {
-		short y1 = sy < ny ? sy : ny, y2 = sy + sh > ny + nh ? sy + sh : ny + nh;
-		b.y = y1;
-		b.h = y2 - y1;
-	}
-	win_redraw(&b);
+	a = pb_moved(bar(), old);
+	win_bars(&a);
 	return 1;
 }
 
@@ -457,7 +324,6 @@ void list_draw(GRECT *clip)
 	clip_on(&r);
 	fill(&r, 0);
 	clamp_top();
-	bar_draw();
 	if (!nrows) {
 		const char *s = search_text[0] ? "No Results" : naccts ? "No Contacts" : "No accounts yet";
 		short n = (short)strlen(s);
@@ -698,7 +564,7 @@ int list_click(short mx, short my, short clicks, short button, short kstate)
 	int i;
 	ensure();
 	if (mx >= r_list.x + rows_w()) {
-		bar_click(my);
+		pb_click(bar(), mx, my, bar_scroll, bar_goto);
 		return 1;
 	}
 	if (!rh)
