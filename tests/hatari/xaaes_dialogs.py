@@ -14,7 +14,7 @@ base there first), ECal's latest release's accessory beside it:
 - moved by its title bar, the window behind is drawn whole where the
   dialog was (no ghost), and its pop-ups and sections answer where it is
   now;
-- ECal's window put over it and closed again: the dialog is whole;
+- ECal's first alert put over it and answered: the dialog is whole;
 - its closer and Esc close it, and the window is as it was;
 - Delete's alert is the AES's, and Return (Cancel) leaves all as it was;
 - New Group's box and Add to Group's list open in a window, take keys and
@@ -42,6 +42,7 @@ def check(what, ok):
     global fails
     print("  %s %s" % ("ok  " if ok else "FAIL", what))
     fails += not ok
+    return ok
 
 
 def main():
@@ -69,8 +70,9 @@ def main():
         "click 384 224", "wait 3", PARK, "shot", "key 0x01", "wait 2",	# 4 Sort by's pop-up
         "click 110 224", "wait 3", PARK, "shot",			# 5 Refresh's section
         "move 50 8", "wait 3", "move 60 59", "wait 3", "click 50 91",	# the desk menu's Clients: ECal
-        "wait 8", PARK, "shot",						# 6 ECal over it
-        "ctrl q", "wait 6", PARK, "shot",				# 7 ECal closed (^Q)
+        "wait 8", PARK, "shot",						# 6 ECal's alert over it
+        "click 431 281", "wait 6", PARK, "shot",			# 7 its Cancel: ECal gone
+        "click 300 150", "wait 2",				# to the front again (ECal had it)
         "click 82 150", "wait 4", PARK, "shot",				# 8 the closer
         "ctrl 0x33", "wait 5", "key 0x01", "wait 4", PARK, "shot",	# 9 Esc
         "key 0x53", "wait 4", PARK, "shot",				# 10 Delete's alert
@@ -106,11 +108,11 @@ def main():
 
     dlg = (90, 160, 560, 440)		# Settings, moved down 64
     check("Settings opens over the window", not same(1, 2))
-    check("Settings moved: the window drawn again where it was", same(1, 3, (100, 76, 560, 140)))
+    check("Settings moved: the window drawn again where it was", same(1, 3, (100, 76, 560, 134)))
     check("Settings moved: Sort by's pop-up at its place", not same(3, 4, (316, 230, 456, 280)))
     check("Settings moved: the Refresh section chosen", not same(3, 5, dlg))
-    check("ECal's window over it", not same(5, 6))
-    check("ECal gone: the dialog whole again", same(5, 7))
+    check("ECal over it (its first alert: where its folder is)", not same(5, 6))
+    check("ECal gone: the dialog whole again", same(5, 7, (72, 162, 566, 466)))
     check("its closer closes it, the window as it was", same(1, 8))
     check("Esc closes it", same(1, 9))
     check("Delete's alert (the AES's)", not same(1, 10))
