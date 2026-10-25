@@ -90,7 +90,7 @@ and black and white): `make icons` makes the files from AERA-Atari's drawing,
    - In EContact: **Settings > Connection**, **Pi gateway:** the Pi's address (`PI_IP`),
      **Port:** 8180.
 4. Reboot, choose **EContact** in the Desk menu, and add your iCloud account with an
-   [app-specific password](https://support.apple.com/en-us/102654).
+   app-specific password, not your Apple ID's own password (see [App passwords](#app-passwords-icloud-fastmail)).
 5. Press **Help** in EContact for the guide (with EHypView or ST-Guide installed as an accessory);
    the [user guide](docs/GUIDE.md) describes the rest.
 
@@ -111,6 +111,33 @@ Falcon or TT, 25 to 50 on an ST, as STinG's manual says. STinG looks at the netw
 often, so it sets the speed of every STinG program: on Erez's Falcon with a NetUSBee, Delay 10
 took EFTP's downloads from 40 to 75 KB/s. On a NetUSBee, keep STinG's TCP receive window at 5840
 (MSS 1460): the card holds about four full packets.
+
+### App passwords (iCloud, Fastmail)
+
+Cloud services refuse your normal password from a program like EContact (it says the server refused
+the user name or password). Make an **app password** on the service's website instead, a password
+for EContact alone, and type it into EContact's **Password** field in place of your normal one. You
+can revoke it there at any time; your normal password and your other programs aren't touched.
+
+- **iCloud** (an app-specific password): your Apple Account needs two-factor authentication. Sign
+  in at account.apple.com, choose **Sign-In and Security**, then **App-Specific Passwords**, and make
+  one. In EContact (File > **Add account...** > **iCloud**) type your Apple Account's email address in
+  **Apple ID** and the app-specific password in **Password**. Changing your Apple Account's password
+  revokes them all: then make a new one and type it in again (right-click the account, **Account
+  Settings...**). Apple's page: https://support.apple.com/en-us/102654
+- **Fastmail** (Standard and Professional plans; Basic has no CardDAV): **Settings > Privacy &
+  Security**, **Connected apps & API tokens**, **Manage app passwords and access**, **New app
+  password**, with access that includes contacts (the default does). In EContact (**Other CardDAV
+  account**): `https://carddav.fastmail.com/` in **Server**, your whole Fastmail address in **User
+  name**, the app password in **Password**. Fastmail's page:
+  https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords
+- **Google Contacts**: an app password doesn't help. Google's CardDAV takes only an OAuth sign-in
+  (https://developers.google.com/people/carddav: it supports no other way), which EContact can't
+  do. Export your contacts as a .vcf file at contacts.google.com and import them into an On My Atari
+  address book.
+
+The [user guide](docs/GUIDE.md#app-passwords-icloud-fastmail) has the same, step by step, and the
+Help key shows it on the Atari.
 
 ## How it reaches the servers
 

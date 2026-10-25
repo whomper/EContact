@@ -139,15 +139,16 @@ About box says which version is running.
 File > **Add account...** (in the accessory, the menu: the button at the
 top right):
 
-- **iCloud**: your Apple ID and an **app-specific password** (make one at
-  account.apple.com > Sign-In and Security > App-Specific Passwords; your
-  own password doesn't work for other programs). EContact finds your
-  address book at contacts.icloud.com.
+- **iCloud**: your Apple ID and an **app-specific password**, not your
+  Apple ID's own password (see
+  [App passwords (iCloud, Fastmail)](#app-passwords-icloud-fastmail)).
+  EContact finds your address book at contacts.icloud.com.
 - **Other CardDAV account**: the server's address (for instance
   `https://carddav.fastmail.com/`, `https://cloud.example.org/remote.php/dav`,
-  or the address of one address book), user name and password. Google
-  wants OAuth, which EContact can't do: export your contacts as a .vcf
-  file at contacts.google.com and import it into an On My Atari book.
+  or the address of one address book), user name and password. Fastmail
+  wants an app password too (the same page). Google wants OAuth, which
+  EContact can't do: export your contacts as a .vcf file at
+  contacts.google.com and import it into an On My Atari book.
 - **On My Atari**: an address book kept only on this computer.
 
 Servers want a secure connection: in **Settings > Connection** either
@@ -196,6 +197,53 @@ An On My Atari account's menu makes more address books (**New Address
 Book...**). Right-click an address book to make a group in it, import
 into it, export it, make it the one new contacts go into, and refresh
 it (a server's) or delete it (one on this Atari).
+
+## App passwords (iCloud, Fastmail)
+
+Cloud services don't take your normal password from a program like
+EContact: they refuse it, and EContact says the server refused the user
+name or password. Instead you make an **app password** on the service's
+website, a password for EContact alone, and type it into EContact's
+**Password** field in place of your normal one. You can revoke it on
+the same page at any time: EContact is then refused until you give it a
+new one, and your normal password and other programs aren't touched.
+
+**iCloud** (Apple calls it an app-specific password):
+
+- Your Apple Account needs two-factor authentication. Most have it
+   already; if yours doesn't, turn it on in your iPhone's, iPad's or
+   Mac's settings first.
+- On a computer or phone, sign in at account.apple.com.
+- In **Sign-In and Security**, choose **App-Specific Passwords**, then
+   make a new one (give it a name such as EContact).
+- In EContact (File > **Add account...** > **iCloud**): your Apple
+   Account's email address in **Apple ID**, the app-specific password in
+   **Password**.
+
+Apple's own page: https://support.apple.com/en-us/102654. You can have
+up to 25 of them. Changing your Apple Account's password revokes them
+all: make a new one then and type it in again (right-click the account
+on the left, **Account Settings...**).
+
+**Fastmail** (it calls them app passwords; Standard and Professional
+plans, not Basic, which has no CardDAV):
+
+- On fastmail.com: **Settings > Privacy & Security**, **Connected apps &
+   API tokens**, **Manage app passwords and access**.
+- **New app password**: a name such as EContact, and access that
+   includes contacts (the default, mail, contacts and calendars, does).
+- In EContact (File > **Add account...** > **Other CardDAV account**):
+   `https://carddav.fastmail.com/` in **Server**, your whole Fastmail
+   address in **User name**, the app password in **Password**.
+
+Fastmail's own page:
+https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords
+
+**Google Contacts**: an app password doesn't help. Google's CardDAV
+takes only an OAuth sign-in (Google's own page says it supports no other
+way), and EContact can't sign in that way. Export your contacts as a
+.vcf file at contacts.google.com and import them into an On My Atari
+address book (File > **Import vCards...**).
 
 ## The window
 
@@ -484,6 +532,12 @@ Anything else you type meanwhile is kept for afterwards.
 
 ## When something goes wrong
 
+- **"The server refused the user name or password"**: iCloud and
+  Fastmail want an app password, not your normal one (see
+  [App passwords (iCloud, Fastmail)](#app-passwords-icloud-fastmail)), and
+  an app password stops working when it is revoked or, at Apple, when
+  the account's password is changed. Right-click the account on the left,
+  **Account Settings...**, to type a new one.
 - `ECONTACT.LOG` (Settings > Connection: the log) has the conversation
   with the servers.
 - **A crash**: if EContact itself goes wrong (what would be 2 to 8 bombs),
