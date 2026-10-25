@@ -197,6 +197,9 @@ void  dlg_redraw(DLG *d);
 extern void (*dlg_after)(void);
 #include "alert.h"		/* alert(): common/ui */
 short dlg_pick(const char *title, const char *const *items, short n, short sel);
+/* the dialogs in a window where the AES runs several programs (3.5) */
+void dlg_window_init(void);
+void menu_drop(const short *msg);
 int   dlg_ask(const char *title, const char *label, char *buf, short len);
 /* a box for long work: a line of what is done, a bar, a second line (the
    time left) and Cancel. prog_update returns 0 once Cancel was chosen */
@@ -225,6 +228,8 @@ int font_gdos_loaded(void);	/* GDOS fonts on the window's workstation */
 extern short heb_mode;
 extern unsigned short heb_idx[27];
 void font_sys_push(void);
+short font_sys_out(void);
+void font_sys_back(short d);
 void font_sys_pop(void);
 
 /* ---- main.c ---- */

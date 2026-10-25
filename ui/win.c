@@ -260,7 +260,7 @@ static void draw_toolbar(GRECT *clip)
 		else
 			str_copy(t, "All Contacts", sizeof(t));
 		if (w > 0)
-			text_at(x, r.y + 4, t, (long)strlen(t), w, TX_BOLD | (line_rtl(t, (long)strlen(t)) ? 0 : TX_LTR));
+			text_at(x, r_tool.y + 4, t, (long)strlen(t), w, TX_BOLD | (line_rtl(t, (long)strlen(t)) ? 0 : TX_LTR));
 	}
 	hline(work.x, work.x + work.w - 1, work.y + r_tool.h - 1);
 }

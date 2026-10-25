@@ -178,6 +178,8 @@ under a search field, the chosen person's card on the right.
   moving what is shown, and the scroll bar's arrows and track go on while held. The scroll bar
   is drawn by the AES, so it takes its look: TOS's, the 3D one, or a theme under XaAES. Text fields hold
   more than they show (a long server address, a name) and scroll with the cursor.
+- **At home under MiNT and MagiC**: there the dialogs are windows of their own, moved and closed as
+  any window while other programs go on, and the alerts are the system's.
 - **A crash** in the program is caught: it says so, writes `CRASH.LOG` and quits, leaving the
   Atari running (the guide, When something goes wrong).
 

@@ -230,6 +230,12 @@ Where the AES can iconify windows (MultiTOS, MagiC, XaAES, N.AES), the
 window has the iconify button: EContact shrinks to its icon, with the
 number of contacts under it.
 
+Under MagiC, and MiNT with XaAES, N.AES or MyAES, where other programs
+run alongside EContact, its dialogs open in windows of their own, with
+their names in the title bar: move one by its title bar, and its close
+button is Esc (Cancel). Other programs go on while a dialog is open.
+Alerts are the system's own there, as every program's are.
+
 ![A group](group.png) ![Searching](search.png)
 
 ## Photos

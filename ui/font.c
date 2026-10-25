@@ -179,6 +179,26 @@ void font_sys_pop(void)
 		font_apply();
 }
 
+/* the window's own font for a while (drawn while a dialog of ours is
+   open: field.c win_behind), and then the system font again */
+short font_sys_out(void)
+{
+	short d = sys_depth;
+	if (d) {
+		sys_depth = 0;
+		font_apply();
+	}
+	return d;
+}
+
+void font_sys_back(short d)
+{
+	if (d && !sys_depth) {
+		sys_depth = d;
+		use_sys();
+	}
+}
+
 /* ---------------- the fonts ---------------- */
 
 /* the format of the font with this id (0 not known, 1 bitmap, 2 Speedo,

@@ -884,6 +884,15 @@ static const MBAR_TITLE bar[] = {
 static MBAR mb;
 static int has_menu;
 
+/* a menu title chosen while a dialog window waited (MiNT, MagiC: the
+   menu bar isn't held there): nothing is done, as on TOS, where it can't
+   be reached; its title shown normal again */
+void menu_drop(const short *msg)
+{
+	if (has_menu)
+		menu_tnormal(mb.tree, msg[3], 1);
+}
+
 static void check(int cmd, int on)
 {
 	short o = mbar_object(&mb, cmd);
@@ -1876,6 +1885,7 @@ int main(void)
 	av_init("ECONTACT");	/* the desktop's AV server, if one runs yet */
 	st_ram_init();
 	dlg_after = win_frame_refresh;
+	dlg_window_init();
 	if (!is_acc && !screen_check("EContact", scr_w)) {	/* not in ST low */
 		v_clsvwk(vdi_h);
 		appl_exit();

@@ -189,7 +189,20 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   line), fields, ticks, lists and the progress bar white, the chosen
   section a black bar; anything cleared is cleared with
   the ground (bg), never white. Elsewhere they are drawn as before: TOS
-  1.04 and DIALOGS3D=0 pixel for pixel as 1.65.
+  1.04 and DIALOGS3D=0 pixel for pixel as 1.65. Where the AES runs
+  several programs (MiNT, MagiC: dlg_windowed; the guidelines 3.5) each
+  one, the pick list and the progress box open in a window of the
+  AES's (field.c box_open, common's dlg_open_area), less their own
+  frame and title bar, which are the AES's: box follows the window
+  (box_follow), all drawing goes through clip_dlg (dlg_cut), a piece
+  of any dialog open is drawn when the AES asks (piece_at, the levels),
+  the loops take events through evnt_dlg (dlg_evnt), the main window is
+  drawn behind them (win_behind, dlg_redraw_hook; not during Sync
+  Contact Photos), other messages are kept and sent back when the last
+  one closes, and a menu title chosen meanwhile does nothing
+  (menu_drop). On TOS and EmuTOS box_open does what it always did:
+  form_dial and the screen held. `tests/hatari/xaaes_dialogs.py WORK`
+  checks it under FreeMiNT and XaAES.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000
