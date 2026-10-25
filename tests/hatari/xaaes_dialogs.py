@@ -105,10 +105,17 @@ def main():
     im = [None] + [Image.open(os.path.join(shots, n)).convert("RGB") for n in names]
 
     def same(a, b, box=None):
+        """the same, but for a column here and there: a bold letter cut by
+        the edge of a piece the AES asked for loses its widened column (at
+        a pop-up's or a dialog's old edge); a ghost of a dialog is an area"""
         x, y = im[a], im[b]
         if box:
             x, y = x.crop(box), y.crop(box)
-        return ImageChops.difference(x, y).getbbox() is None
+        d = ImageChops.difference(x, y).convert("L").point(lambda v: 255 if v else 0)
+        if d.getbbox() is None:
+            return True
+        cols = [c for c in range(d.width) if d.crop((c, 0, c + 1, d.height)).getbbox()]
+        return len(cols) <= 4 and all(c + 1 not in cols for c in cols)
 
     dlg = (90, 160, 560, 440)		# Settings, moved down 64
     check("Settings opens over the window", not same(1, 2))
