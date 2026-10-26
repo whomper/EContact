@@ -2036,7 +2036,7 @@ int main(void)
 		unsigned long wait = sync_pending ? 150 : card_photo_pending() || answer_busy() || pf_fg ? 100 : 1000;
 		if (is_acc)
 			wait = bg_timer(bg_pending(), wait);
-		if (prg_loading || (win_h > 0 && (card_photo_dithering() || win_later_pending())))
+		if (prg_loading || (win_h > 0 && (card_photo_dithering() || win_later_pending() || list_search_pending())))
 			wait = 0;		/* the next slice when nothing else came */
 		if (win_h > 0)
 			flags |= MU_KEYBD | MU_BUTTON;
@@ -2178,9 +2178,13 @@ int main(void)
 		}
 		if ((which & MU_TIMER) && settings_dirty && pf_ms() - settings_at >= 3000UL)
 			settings_flush();
-		/* a part of the window drawn later (the card), a few bands a
-		   turn of its own */
-		if (which == MU_TIMER && win_h > 0 && win_later_pending() && turn_free()) {
+		/* a search's matching, then a part of the window drawn later
+		   (the card, the list), some 30 ms a turn of its own */
+		if (which == MU_TIMER && win_h > 0 && list_search_pending() && turn_free()) {
+			aes_profile_tag("search");
+			later_at = pf_ms();
+			win_search_step(later_more);
+		} else if (which == MU_TIMER && win_h > 0 && win_later_pending() && turn_free()) {
 			aes_profile_tag("card");
 			later_at = pf_ms();
 			win_later_slice(later_more);

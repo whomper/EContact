@@ -45,11 +45,6 @@ void list_invalidate(void)
 	narrow_ok = 0;
 }
 
-/* the search's text changed (win.c) */
-void list_search_changed(void)
-{
-	dirty = 1;
-}
 
 /* the sidebar's choice of group, kept by name */
 static void resolve_source(void)
@@ -133,12 +128,45 @@ static int narrows(void)
 	return 1;
 }
 
+/* the rows for what is listed: a heading for each letter, only for the
+   whole list (not a search's few) */
+static void make_rows(void)
+{
+	int i;
+	char last = 0;
+	nrows = 0;
+	str_copy(narrow_from, search_text, sizeof(narrow_from));
+	narrow_ok = 1;
+	for (i = 0; i < nlisted; i++) {
+		char h = heading_of(listed[i]);
+		if (h != last && !search_text[0])
+			add_row(-1, h);
+		last = h;
+		add_row((short)i, 0);
+	}
+	if (top > nrows - 1)
+		top = nrows > 0 ? nrows - 1 : 0;
+}
+
+/* The search's matching as a job, a slice a turn (search_step from the
+   event loop): 621 contacts took an 8 MHz ST 0.3 s. What is listed stays
+   as it was till it is done, and a key typed meanwhile starts it again */
+static CONTACT **sj;		/* those found so far */
+static int sj_on, sj_n, sj_i, sj_of, sj_listed;
+
+static void search_cancel(void)
+{
+	free(sj);
+	sj = 0;
+	sj_on = 0;
+}
+
 static void rebuild(void)
 {
 	int i, k;
-	char last = 0;
 	nrows = 0;
 	rh = ch + 2;
+	search_cancel();	/* made whole now */
 	/* the program reading its books (main.c, in slices): nothing listed
 	   until they are all read and sorted, then made again */
 	if (books_loading()) {
@@ -162,24 +190,64 @@ static void rebuild(void)
 			if (wanted(people[i]))
 				listed[nlisted++] = people[i];
 	}
-	str_copy(narrow_from, search_text, sizeof(narrow_from));
-	narrow_ok = 1;
-	for (i = 0; i < nlisted; i++) {
-		char h = heading_of(listed[i]);
-		/* headings only for the whole list, not for a search's few */
-		if (h != last && !search_text[0])
-			add_row(-1, h);
-		last = h;
-		add_row((short)i, 0);
-	}
-	if (top > nrows - 1)
-		top = nrows > 0 ? nrows - 1 : 0;
+	make_rows();
 }
 
 static void ensure(void)
 {
 	if (dirty)
 		rebuild();
+}
+
+/* the search's text changed (win.c): its matching begun as a job, or
+   the list made whole at the next look when it is due anyway */
+void list_search_changed(void)
+{
+	search_cancel();
+	if (dirty || !listed || books_loading()) {
+		dirty = 1;
+		return;
+	}
+	resolve_source();
+	sj_listed = narrows();
+	sj_of = sj_listed ? nlisted : npeople;
+	sj = malloc((sj_of + 1) * sizeof(CONTACT *));
+	if (!sj) {
+		dirty = 1;
+		return;
+	}
+	sj_n = sj_i = 0;
+	sj_on = 1;
+}
+
+int list_search_pending(void)
+{
+	return sj_on;
+}
+
+/* the job's contacts while more() says so (some at least); 1: done, the
+   list is what was found */
+int list_search_step(int (*more)(void))
+{
+	int k = 0;
+	if (!sj_on)
+		return 0;
+	while (sj_i < sj_of && (k++ < 8 || !more || more())) {
+		CONTACT *c = sj_listed ? listed[sj_i] : people[sj_i];
+		if (wanted(c))
+			sj[sj_n++] = c;
+		sj_i++;
+	}
+	if (sj_i < sj_of)
+		return 0;
+	free(listed);
+	listed = sj;
+	nlisted = sj_n;
+	sj = 0;
+	sj_on = 0;
+	rh = ch + 2;
+	make_rows();
+	return 1;
 }
 
 /* the chosen one, found again only when another is chosen or the people

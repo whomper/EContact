@@ -279,7 +279,12 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   for a text with a space. Typing on narrows what the last search found
   (list.c narrows), not after digits (a phone number matches without its
   dashes); anything else that makes the list again (list_invalidate)
-  looks through everyone. `make test` sets it against the old matcher
+  looks through everyone. A search's matching is a job, some 30 ms a turn
+  from the event loop (list_search_step, win_search_step; 621 contacts
+  took an ST 0.3 s): the field shows the text at once, the list stays as
+  it was until the job is done (it is valid meanwhile), then it is drawn
+  in bands with the card (win_redraw_later takes both, from the top), the
+  card only when another is chosen; a key meanwhile starts it again. `make test` sets it against the old matcher
   over 17,000 cards and texts (tests/unit.c test_matches): it must find
   the same.
 - Photo failures say why (photo_why, PW_...): the status line, the alert

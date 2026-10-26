@@ -93,6 +93,7 @@ void win_redraw_later(const GRECT *area);	/* in bands from the event loop, copie
 int win_later_pending(void);
 void win_later_slice(int (*more)(void));	/* bands while more() says so */
 void win_later_finish(void);
+void win_search_step(int (*more)(void));	/* a slice of a search's matching */
 void win_buffer_init(long free);	/* at start-up: the buffer the window is drawn in */
 void win_buffer_end(void);	/* the program's end */
 void win_buffer_fonts(void);	/* GDOS fonts loaded later: on the bitmap too */
@@ -130,6 +131,8 @@ extern CONTACT **listed;		/* the people the list shows */
 extern int nlisted;
 void list_invalidate(void);	/* people, the source or the search changed */
 void list_search_changed(void);	/* the search only: typing on narrows (list.c) */
+int list_search_pending(void);	/* its matching under way, a slice a turn */
+int list_search_step(int (*more)(void));	/* 1: done */
 void list_source(short kind, short idx);	/* the sidebar's choice */
 void list_fix_selection(void);	/* the first one, if the chosen one isn't shown */
 void list_draw(GRECT *clip);

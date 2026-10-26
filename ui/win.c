@@ -653,10 +653,18 @@ void win_redraw_later(const GRECT *area)
 	}
 	if (!rect_and(&a, area))
 		return;
-	if (!later_on)
+	if (!later_on) {
 		later_whole = obuf_whole;
-	else if (a.x != later.x || a.y != later.y || a.w != later.w || a.h != later.h)
-		win_later_finish();	/* another part: the one under way first */
+	} else {
+		/* another part too (a search's list and card): both, from the
+		   top again (nothing of them is on the screen yet) */
+		short x2 = later.x + later.w > a.x + a.w ? later.x + later.w : a.x + a.w;
+		short y2 = later.y + later.h > a.y + a.h ? later.y + later.h : a.y + a.h;
+		a.x = later.x < a.x ? later.x : a.x;
+		a.y = later.y < a.y ? later.y : a.y;
+		a.w = x2 - a.x;
+		a.h = y2 - a.y;
+	}
 	later = a;
 	later_y = a.y;
 	later_on = 1;
@@ -1042,18 +1050,39 @@ void win_search_set(void)
 }
 
 /* the search changed: the list again, the card if the choice went */
-static void search_changed(void)
+/* the chosen one when the search began: the card again only if another
+   is chosen when it is done */
+static char search_was[sizeof(sel_uid)];
+static short search_was_book;
+
+/* the search's result: the list in bands from the event loop (the next
+   key meanwhile), the card only when another is chosen */
+static void search_done(void)
 {
-	char was[sizeof(sel_uid)];
-	short book = sel_book;
-	str_copy(was, sel_uid, sizeof(was));
-	list_search_changed();
 	list_fix_selection();
 	status_updated();		/* "2 of 21 contacts" */
-	search_redraw();
-	win_redraw(&r_list);
-	if (strcmp(was, sel_uid) || book != sel_book)	/* the card only when another is chosen */
+	win_redraw_later(&r_list);
+	if (strcmp(search_was, sel_uid) || search_was_book != sel_book)
 		win_redraw_later(&r_card);
+}
+
+static void search_changed(void)
+{
+	if (!list_search_pending()) {
+		str_copy(search_was, sel_uid, sizeof(search_was));
+		search_was_book = sel_book;
+	}
+	list_search_changed();		/* its matching a slice a turn (win_search_step) */
+	search_redraw();
+	if (!list_search_pending())
+		search_done();
+}
+
+/* from the event loop: a slice of the search's matching */
+void win_search_step(int (*more)(void))
+{
+	if (list_search_step(more))
+		search_done();
 }
 
 int win_mouse(short mx, short my, short button, short clicks, short kstate)
