@@ -269,11 +269,14 @@ def prg_actions(r, con, run, d):
             y -= 1
         bx, arrow = t0[0] + 6, y - (3 if ch == 16 else 2)
 
-        def press(x, y):
+        def press(x, y, name):
             r.move(x, y)
             time.sleep(1.5)
-            con.mark()
-            r.click()
+            if PROFILE:
+                profiled(r, con, d, name, r.click)
+            else:
+                con.mark()
+                r.click()
         for name, limit, y in (("the list's down arrow: a line", T_LINE, arrow),
                                ("the track under the slider: a page", T_PAGE, None)):
             r.move(w - 20, h - 4)
@@ -281,8 +284,10 @@ def prg_actions(r, con, run, d):
             if y is None:
                 t = list_bar.thumb(r.shot("_bar2"))
                 y = (t[2] if t else t0[2]) + 6
-            press(bx, y)
+            press(bx, y, name)
             settle(r)
+            if PROFILE:
+                profile_report(r, con, d, name)
             gaps, _ = con.since()
             run.add(name, limit, gaps)
             r.shot(name.split(":")[0].replace(" ", "-"))

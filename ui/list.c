@@ -377,10 +377,21 @@ static int list_scroll_to(int t)
 		long dy = (long)(top - old) * (rh ? rh : ch + 2);
 		win_scroll(&a, dy >= a.h || dy <= -a.h ? a.h : (short)dy);
 	}
-	/* a raised slider's edge stands out of the track too, over the
-	   arrow's foot at the top: pb_moved stops at the track (common's
-	   panebar.c), so a few pixels more, within the bar */
-	a = pb_moved(bar(), old);
+	/* the bar only when its slider moved: a row of 600 is half a pixel
+	   of the track, and TOS 1.04's objc_draw takes an ST 50 ms for the
+	   slider's part. A raised slider's edge stands out of the track too,
+	   over the arrow's foot at the top: pb_moved stops at the track
+	   (common's panebar.c), so a few pixels more, within the bar */
+	{
+		PANEBAR o = *bar();
+		short ty, th, sy, sh, ny, nh;
+		o.top = old;
+		pb_slider(&o, &ty, &th, &sy, &sh);
+		pb_slider(&pb, &ty, &th, &ny, &nh);
+		if (sy == ny && sh == nh)
+			return 1;
+	}
+	a = pb_moved(&pb, old);
 	a.y -= 3;
 	a.h += 6;
 	rect_and(&a, &pb.r);
