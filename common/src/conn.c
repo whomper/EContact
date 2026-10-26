@@ -304,7 +304,7 @@ CONN *conn_open(const char *name, const char *host, unsigned short port, long bu
 {
 	int attempt;
 	unsigned long refused = 0;	/* the handshakes of the tries before */
-	if (sec == SEC_TLS && !tls_ready(name, err, errlen))
+	if ((sec == SEC_TLS || sec == SEC_STARTTLS) && !tls_ready(name, err, errlen))
 		return 0;
 	for (attempt = 0; attempt < 3; attempt++) {	/* ChaCha20 alone, then ECDSA */
 		CONN *c = open_plain(name, host, port, bufsize, err, errlen);
