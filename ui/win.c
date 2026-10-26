@@ -96,10 +96,18 @@ static int obuf_whole;
 /* A part drawn later, a band a turn (win_redraw_later: the card when
    another contact is chosen, 0.24 s of an ST's time): into the buffer,
    then copied when it is all there; the screen keeps what it shows till
-   then. Forgotten with the layout. */
+   then. Forgotten with the layout. The whole window once the program's
+   books are read (win_redraw_bands: 1.2 s of an ST's) is drawn a pane
+   at a time, a line of it a band (a line across the window was 120 ms),
+   each copied when drawn (later_prog), and the list's bar at the end:
+   TOS 1.04's objc_draw takes 50 ms for any piece of it. A part asked for
+   meanwhile is drawn again only when its pane was drawn already. */
 static GRECT later;
 static short later_y;
-static int later_on, later_whole;
+static int later_on, later_whole, later_prog;
+#define PARTS 6
+static GRECT part[PARTS];
+static short nparts, part_i;
 
 void win_layout(void)
 {
@@ -653,8 +661,22 @@ void win_redraw_later(const GRECT *area)
 	}
 	if (!rect_and(&a, area))
 		return;
+	if (later_on && later_prog) {
+		short k;
+		for (k = part_i; k < nparts; k++) {
+			GRECT o = part[k];
+			if (rect_and(&o, &a) && o.x == a.x && o.y == a.y && o.w == a.w && o.h == a.h &&
+			    (k > part_i || a.y >= later_y))
+				return;		/* within what is still to come */
+		}
+		if (nparts < PARTS) {
+			part[nparts++] = a;
+			return;
+		}
+	}
 	if (!later_on) {
 		later_whole = obuf_whole;
+		later_prog = 0;
 	} else {
 		/* another part too (a search's list and card): both, from the
 		   top again (nothing of them is on the screen yet) */
@@ -671,9 +693,81 @@ void win_redraw_later(const GRECT *area)
 	obuf_whole = 0;		/* (the buffer has the new part's bands) */
 }
 
+void win_redraw_bands(void)
+{
+	const GRECT *pane[4];
+	short k;
+	later_on = 0;
+	win_redraw_later(&work);
+	if (!later_on)
+		return;
+	later_prog = 1;
+	later_whole = 1;	/* (all of it in the buffer at the end) */
+	pane[0] = &r_tool;
+	pane[1] = &r_side;
+	pane[2] = &r_list;
+	pane[3] = &r_card;
+	nparts = part_i = 0;
+	for (k = 0; k < 4; k++) {
+		GRECT o = *pane[k];
+		if (rect_and(&o, &work))
+			part[nparts++] = o;
+	}
+	later_y = nparts ? part[0].y : later.y + later.h;
+}
+
 int win_later_pending(void)
 {
 	return later_on;
+}
+
+/* a band drawn in the buffer, on the screen: each piece but the list's
+   bar, which keeps what it showed */
+static void blit(const GRECT *d)
+{
+	MFDB scr;
+	short pxy[8];
+	if (d->w <= 0 || d->h <= 0)
+		return;
+	memset(&scr, 0, sizeof(scr));
+	pxy[0] = pxy[4] = d->x;
+	pxy[1] = pxy[5] = d->y;
+	pxy[2] = pxy[6] = d->x + d->w - 1;
+	pxy[3] = pxy[7] = d->y + d->h - 1;
+	clip_on((GRECT *)d);
+	vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &scr);	/* S_ONLY */
+}
+
+static void copy_band(const GRECT *b)
+{
+	GRECT box, bar;
+	list_bar_area(&bar);
+	wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
+	while (box.w && box.h) {
+		GRECT d = box, o;
+		if (rect_and(&d, b)) {
+			o = d;
+			if (!bar.w || !rect_and(&o, &bar)) {
+				blit(&d);
+			} else {
+				GRECT p = d;
+				p.h = o.y - d.y;		/* above the bar */
+				blit(&p);
+				p.y = o.y + o.h;		/* under it */
+				p.h = d.y + d.h - p.y;
+				blit(&p);
+				p = o;				/* beside it */
+				p.x = d.x;
+				p.w = o.x - d.x;
+				blit(&p);
+				p.x = o.x + o.w;
+				p.w = d.x + d.w - p.x;
+				blit(&p);
+			}
+		}
+		wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
+	}
+	clip_off();
 }
 
 /* bands of it while more() says so (one at least); copied when done */
@@ -684,6 +778,38 @@ void win_later_slice(int (*more)(void))
 		return;
 	if (win_h <= 0 || win_iconified || !buffered()) {
 		later_on = 0;
+		return;
+	}
+	if (later_prog) {
+		GRECT av;
+		if (part_i >= nparts) {
+			/* all drawn: the bar, in a turn of its own */
+			GRECT bar;
+			later_on = 0;
+			obuf_whole = later_whole;
+			list_bar_area(&bar);
+			win_bars(&bar);
+			win_slider();
+			return;
+		}
+		wind_update(BEG_UPDATE);
+		graf_mouse(M_OFF, 0);
+		do {
+			GRECT *p = &part[part_i], b = *p;
+			b.y = later_y;
+			b.h = p->y + p->h - later_y < ch ? p->y + p->h - later_y : ch;
+			card_avatar_area(&av);
+			if (av.h && b.y < av.y + av.h && b.y + b.h > av.y && av.y + av.h > b.y + b.h &&
+			    b.x < av.x + av.w && b.x + b.w > av.x)
+				b.h = (av.y + av.h < p->y + p->h ? av.y + av.h : p->y + p->h) - b.y;
+			draw_off(&b);
+			copy_band(&b);
+			later_y += b.h;
+			if (later_y >= p->y + p->h && ++part_i < nparts)
+				later_y = part[part_i].y;
+		} while (part_i < nparts && (!more || more()));
+		graf_mouse(M_ON, 0);
+		wind_update(END_UPDATE);
 		return;
 	}
 	wind_update(BEG_UPDATE);
@@ -721,7 +847,8 @@ void win_later_slice(int (*more)(void))
 
 void win_later_finish(void)
 {
-	win_later_slice(0);
+	while (later_on)
+		win_later_slice(0);
 }
 
 static short sl_size = -1, sl_pos = -1;	/* the window's slider as set */

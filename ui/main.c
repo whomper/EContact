@@ -1779,10 +1779,10 @@ static void prg_load_slice(int (*more)(void))
 	busy(1);
 	loaded();
 	busy(0);
-	/* "my card" chosen, one drawing of the whole window */
+	/* "my card" chosen, one drawing of the whole window, a band a turn */
 	win_hold = 1;
 	window_ready();
-	win_redraw(0);
+	win_redraw_bands();
 	while (nload_msgs && nheld < 16)	/* the menu entries chosen meanwhile, in turn */
 		memcpy(held[nheld++], load_msgs[--nload_msgs], 16);
 }

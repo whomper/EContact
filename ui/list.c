@@ -337,6 +337,14 @@ void list_bar_draw(const GRECT *clip)
 		pb_draw(&pb, &r);
 }
 
+/* where the bar is (w 0: none) */
+void list_bar_area(GRECT *r)
+{
+	ensure();
+	clamp_top();
+	*r = bar()->r;
+}
+
 static int bar_scroll(long n)
 {
 	return list_scroll((int)n);

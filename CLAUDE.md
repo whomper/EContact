@@ -172,7 +172,8 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   event call, only when it is a sixteenth of what was free at most (not
   on a 1 MB ST). Scrolling the list moves the rows on the screen
   (win_scroll) and draws those that come in and the slider's old and
-  new place only (the whole bar took an 8 MHz ST 70 ms); a held arrow
+  new place only, and nothing of it when the slider stays in its pixels
+  (the whole bar took an 8 MHz ST 70 ms, its slider's part 50); a held arrow
   keeps some 15 rows a second, a held track goes on to the pointer.
   list_draw draws only the rows in its area, and choosing someone
   (select_contact) draws only the old and the new chosen rows, the rows
@@ -412,5 +413,9 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   VA_START and keys wait and come afterwards, as if typed then (^Q and ^W,
   the window's messages and PEOPLE at once), a click does nothing, and the
   list stays empty until they are all read and sorted (list.c rebuild);
-  a .vcf given at the start reads what is left at once. speed.py times
-  the window drawn and the longest slice.
+  a .vcf given at the start reads what is left at once. Then the window
+  is drawn a pane at a time, a text line of it a turn, each band copied
+  when drawn and the list's bar at the end (win.c win_redraw_bands: 1.2 s
+  of an ST's in one piece; a line across the window was 120 ms); a part
+  asked for meanwhile is drawn again only if its pane was drawn already.
+  speed.py times the window drawn and the longest slice.
