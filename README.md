@@ -36,7 +36,7 @@ These files were the same code in ECal, EContact, EMail and EFTP when they moved
 | `ui/` | `dsp.c` | checks the DSP and turns it on for a Direct connection |
 | `dsp/` | `rsa.a56`, `rsa_prog.h`, `mkh.py` | the DSP program (source, and as a C array); `ec.a56` since 18 Oct 2026, `jpeg.a56` since 20 Oct 2026, `dither.a56` since 21 Oct 2026 (below) |
 | `tools/` | `elf2tos.py`, `mkroots.c`, `build-hcp.sh` | ELF to TOS program header; root certificates to `ROOTS.DAT`; `build-hcp.sh DIR` builds the `hcp` help compiler (th-otto/hypview at a fixed commit) for `make help` and the Release workflow |
-| `third_party/bearssl/` | BearSSL 0.6 | TLS for a Direct connection (MIT licence) |
+| `third_party/bearssl/` | BearSSL 0.6 | TLS for a Direct connection (MIT licence); as upstream: TLS.OVL builds `tlsovl/i31_montmul_030.c` (its loop in 68030 assembly) in place of `src/int/i31_montmul.c` |
 | `certs/` | `CACERT.PEM` | Mozilla's root certificates (MPL 2.0) |
 
 ### What the app provides
@@ -215,6 +215,40 @@ runs. It allocates nothing, so an accessory may use it at any time. Built with `
 `make prg` and `run.py etos512us.img` run `BGT.PRG` in Hatari: 300 ms of work in one go shows as
 300 ms, and 3 s of work through bgwork never held the machine longer than 85 ms on an ST (80 ms
 slices) and 40 ms on a Falcon (40 ms slices).
+
+## Speed (26 Oct 2026)
+
+The guidelines' Speed section (Erez: the stock machines set it) times what the user waits for as the
+longest stretch between event calls. Built with `-DAES_PROFILE=20`, `atari/gem.c` also reports the
+start, from `appl_init` to the first event call, as `AESSTART <ms> ms`. `tests/speed/speed.py` is
+the family's speed rig: an app's own `tests/hatari/speed.py` imports it, starts its program on one
+of the family's machines, does the user's actions one at a time (keys, clicks, menu entries), and
+checks each action's longest stretch against the guidelines' time (`speed.LINE`, `PAGE`, `DIALOG`,
+`WINDOW`, `ACC`, `START`); `report()` prints the table. `make prg` and
+`speed.py --selftest WORK [MACHINE]` run `SPT.PRG`, whose stretches are known (300, 30, 200 and
+80 ms). On `ST` (TOS 1.04) and `Falcon-4` (TOS 4.04) each is read back to the millisecond, and only
+the 200 ms one is over its time.
+
+Every build keeps its four longest stretches with what started each (a key, WM_REDRAW, or the
+app's `aes_profile_tag`): `aes_slowest()` gives them as one line for the app's log, so a real
+machine says where it waits. `tests/speed/vdt.py WORK MACHINE [--nvdi]` runs `VDT.PRG`, which
+times the VDI: text on and off a byte, fills, screen copies, and under NVDI a GDOS font (FreeMono)
+as runs and a letter at a time. On TOS a dialog, a popup and the About box keep the screen under
+them and put it back (`dialog.c`'s `dlg_under`), so nothing under them is drawn again.
+`tests/mem` checks `libc.c`'s `memcpy`, `memmove`, `memset` and `memchr` (68000 loops by hand)
+against plain C under qemu-m68k, as 68000 and 68030 code.
+`src/inflate.c` also unpacks a piece at a time (`inflate_open`, `inflate_read`): a file of any
+size through a 32 KB window, with a turn for GEM between pieces; `tests/inflate` checks it against
+`inflate_raw` and zlib (every level and strategy, stored blocks after compressed ones). `str_istr`
+looks for the needle's first letter before comparing the rest (`tests/istr`).
+`src/ctime.c` divides with one `divu.w` where a quotient fits in 16 bits (the days of 1970 to
+2149, a day's minutes, a 400-year cycle's parts), not libgcc's long division (`tests/ctime`, also as
+68000 code). `pf_wopen`, `pf_wwrite` and `pf_wclose` save a file a piece at a time, as `pf_save`
+does in one (`tests/futil`).
+A TLS connection takes a turn for GEM (`pf_idle`) every 40 ms wherever it works long: a record's
+ChaCha20-Poly1305 in 2 KB pieces (`src/chapol.c`, `tests/chapol` against BearSSL's), the DSP's
+curves (`atari/dspec.c`, back to user mode between commands) and RSA (`atari/dsprsa.c`, the answer
+waited for in user mode), the chain's certificates, and a record that trickles in.
 
 ## People from EContact (17 Oct 2026)
 
