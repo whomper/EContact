@@ -232,6 +232,10 @@ void dlg_window_init(void)
 static short evnt_dlg(short flags, short clicks, short mask, short state, unsigned long ms,
 		      short *m, AEVENT *e)
 {
+#ifdef AES_PROFILE
+	extern void prof_turn_end(void);
+	prof_turn_end();		/* the speed rig: a dialog's stretch ends here too */
+#endif
 	if (!dlg_win)
 		return evnt_multi_(flags, clicks, mask, state, ms, m, e);
 	for (;;) {

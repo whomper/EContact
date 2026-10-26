@@ -18,6 +18,12 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 
   When a change touches one of these, do it the guideline's way, even if the old code here did it
   differently.
+- **Speed is set by the stock machines** (Erez, 26 Oct 2026; the guidelines' "Speed"): an 8 MHz ST
+  and a stock Falcon (`ST`, `ST-1`, `Falcon-4`), not the DFB1. Design and code for them: draw only
+  what changed, keep the 68000's slow operations out of inner loops, do work once. A change to
+  drawing, a loop over the data or the start gives its `AESGAP` stretches on `ST` and `Falcon-4`,
+  before and after, in its commit message. A GEM release passes the speed rig within the
+  guidelines' times.
 - **Shared code lives in [AERA-Atari](https://github.com/whomper/AERA-Atari).** Files under `common/` come from it. Change them
   there, not here, and pull them in with `tools/sync-common.sh`. A fix made only in this repo will drift
   again.
@@ -119,6 +125,12 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   4.3): common/tools/helpfront.py makes it from docs/front.json, with
   docs/help/WINDOW.IMG (made once with `helpfront.py thumb` from
   docs/window.png). `tests/hatari/help_key.py` checks the Help key.
+- The speed rig is `tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--profile ELF]` (README,
+  Tests): an AES_PROFILE=20 build, 621 contacts, each action's longest stretch set against the
+  guidelines' time. The profile build's ui/main.c says when the start and the accessory's opening
+  have drawn the window (AESDRAWN) and has prof_turn_end, where --profile stops Hatari to save its
+  profiler's counts (hatari_profile -p reads them); -DWIN_DIRECT draws straight on the screen, to
+  measure the off-screen buffer against it.
 - The UI is checked in Hatari. The rigs take a machine of the family's
   (`ST`, `ST-1`, `TT`, `Falcon`, a screen after a colon: common/tools/machines.py,
   the guidelines, The machines) and get Hatari's arguments, the TOS and the

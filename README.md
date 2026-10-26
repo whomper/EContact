@@ -429,6 +429,14 @@ make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \
 tests/hatari/quiet_start.py WORK [MACHINE]        # the accessory's quiet start: 600 contacts
                                                   # read in the background, at most 100 ms
                                                   # (ST) or 50 ms (TT, Falcon) between event calls
+make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE=20 \
+     WORK/bin/ECONTACT.PRG WORK/bin/ECONTACT.ACC
+tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--profile WORK/build/contact.elf]
+                                                  # how long the user waits (the guidelines'
+                                                  # Speed): 621 contacts on ST:mono, ST:med and
+                                                  # Falcon-4:16, each action's longest stretch
+                                                  # against its time; --profile: Hatari's
+                                                  # profiler says where it went
 tests/hatari/quiet_sync.py WORK [MACHINE]         # its refresh with the window closed, through
                                                   # the gateway (FAKESTNG and the bridge too)
 tests/hatari/falcon_tls.py WORK [MACHINE] [--no-dsp]

@@ -411,6 +411,11 @@ void win_buffer_init(long free)
 	long size = (long)((scr_w + 15) / 16) * 2 * planes * scr_h;
 	unsigned char *p, *b;
 	int multitasking = get_cookie(0x4D694E54L) || get_cookie(0x4D616758L);	/* MiNT, MagiC */
+#ifdef WIN_DIRECT
+	(void)free;			/* the speed rig's other way: straight on the screen */
+	(void)multitasking;
+	return;
+#endif
 	if (planes < 1 || size > 640L * 1024 || (free && size > free / 16)) {
 		drawing = "straight on the screen (no memory for a buffer)";
 		return;

@@ -47,7 +47,7 @@ def machine_arg(argv, i, default):
 
 class Rig:
     def __init__(self, work, machine="ST", display=None, extra=(), auto="C:\\ECONTACT.PRG",
-                 network=False):
+                 network=False, stdin=None):
         """Hatari as MACHINE with WORK/hd as C:; screenshots in WORK/shots"""
         # RIG_DISPLAY=:98 runs a second rig beside one on :99
         display = display or os.environ.get("RIG_DISPLAY", ":99")
@@ -71,7 +71,8 @@ class Rig:
         args += list(extra)
         print("  on", self.machine.describe())
         self.log = open(os.path.join(work, "hatari.log"), "w")
-        self.proc = subprocess.Popen(args, env=self.env, stdout=self.log, stderr=subprocess.STDOUT)
+        self.proc = subprocess.Popen(args, env=self.env, stdin=stdin, stdout=self.log,
+                                     stderr=subprocess.STDOUT)
         # NVDI (AERA_WITH_NVDI) reads every font before the desktop: some
         # 35 s more than the rigs' own waits, which are TOS's
         self.nvdi = os.path.exists(os.path.join(work, "hd", "AUTO", "NVDI.PRG"))

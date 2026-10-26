@@ -1843,12 +1843,44 @@ static int vwk_open(void)
 	return 1;
 }
 
+#ifdef AES_PROFILE
+/* the speed rig's (tests/hatari/speed.py): from the start, or the Desk
+   menu's opening, to the window drawn, as "AESDRAWN <ms> ms <what>" */
+static u32 prof_from;
+static const char *prof_what;
+
+static void prof_drawn(void)
+{
+	char b[64];
+	if (!prof_what)
+		return;
+	snprintf(b, sizeof(b), "AESDRAWN %lu ms %s\n", (unsigned long)(tos_ms() - prof_from), prof_what);
+	nf_debug(b);
+	prof_what = 0;
+}
+#define prof_mark(what) (prof_from = tos_ms(), prof_what = (what))
+
+/* the end of a turn that took a key, a click or a message: where the
+   speed rig's --profile stops Hatari to hear what its profiler found */
+void prof_turn_end(void) __attribute__((noinline));
+void prof_turn_end(void)
+{
+	__asm__ volatile("");
+}
+#else
+#define prof_turn_end() ((void)0)
+#define prof_mark(what) ((void)0)
+#define prof_drawn() ((void)0)
+#endif
+
 int main(void)
 {
 	short msg[8], d;
 	AEVENT ev;
 
 	is_acc = _is_acc;
+	if (!is_acc)
+		prof_mark("start");
 	{
 		extern int mem_unaligned_ok;
 		mem_unaligned_ok = get_cookie(0x5F435055L) >= 20;	/* _CPU */
@@ -1957,6 +1989,7 @@ int main(void)
 				/* from the Desk menu (or another program, with -1) */
 				if (msg[4] == menu_id || msg[4] == -1) {
 					aes_profile_tag("open");
+					prof_mark("acc-open");
 					if (twin_pass(""))	/* ECONTACT.PRG runs: its window to the front */
 						break;
 					av_init("ECONTACT");	/* a desktop started since */
@@ -2010,6 +2043,8 @@ int main(void)
 				dd_done(&d);
 			}
 			}
+			if (msg[0] == WM_REDRAW)
+				prof_drawn();
 		}
 		if ((which & MU_KEYBD) && win_h > 0) {
 			short scan = KEY_SCAN(ev.kreturn);
@@ -2018,8 +2053,10 @@ int main(void)
 			else if (scan == 0x62) {
 				help_key_pressed();
 			}
-			else if (!crash_test(scan))	/* test builds: F1-F5 crash */
+			else if (!crash_test(scan)) {	/* test builds: F1-F5 crash */
+				aes_profile_tag("key");
 				win_key(ev.kstate, ev.kreturn);
+			}
 		}
 		if ((which & MU_BUTTON) && win_h > 0) {
 			short h = wind_find(ev.mx, ev.my), t, dd;
@@ -2031,13 +2068,16 @@ int main(void)
 					short n = click_count(ev.mx, ev.my, ev.mbutton);
 					if (is_acc && ev.breturn >= 2 && !(ev.mbutton & 2) && !win_instant(ev.mx, ev.my))
 						n = 2;
+					aes_profile_tag("click");
 					win_mouse(ev.mx, ev.my, ev.mbutton, n, ev.kstate);
 				}
 			}
 			wait_release();
 		}
-		if (which & (MU_KEYBD | MU_BUTTON | MU_MESAG))
+		if (which & (MU_KEYBD | MU_BUTTON | MU_MESAG)) {
 			menu_update();
+			prof_turn_end();
+		}
 		if ((which & MU_TIMER) && settings_dirty && pf_ms() - settings_at >= 3000UL)
 			settings_flush();
 		if ((which & MU_TIMER) && win_h > 0)
