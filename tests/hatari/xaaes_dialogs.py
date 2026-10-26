@@ -84,7 +84,7 @@ def main():
         "ctrl 0x33", "wait 5", "drag 300 86 300 150", "wait 4", PARK, "shot",	# 15 Settings, moved
         "move 50 8", "wait 3", "move 60 59", "wait 3", "click 50 91",	# the desk menu's Clients: ECal
         "wait 8", PARK, "shot",						# 16 ECal's alert over it
-        "click 431 281", "wait 6", PARK, "shot",			# 17 its Cancel: ECal gone
+        "click 438 305", "wait 6", PARK, "shot",			# 17 its Cancel: ECal gone
         "click 300 150", "wait 2", "key 0x01", "wait 3",		# Settings to the front, closed
     ]
     run = os.path.join(work, "run")
