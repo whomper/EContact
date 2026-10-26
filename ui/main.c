@@ -55,6 +55,8 @@ static short menu_id = -1;
 static int data_ready;
 static void files_left(void);
 static void open_window(void);
+static void window_ready(void);
+static int prg_loading;		/* the program reading its books in slices */
 static int vwk_open(void);
 static char workdir[160];	/* EContact's folder: address books, keys, certificates, log */
 static char inf_file[40];	/* ECONTACT.INF, in the root of the boot drive */
@@ -1700,12 +1702,30 @@ static void open_window(void)
 	}
 	if (!data_ready) {
 		win_redraw(0);
+		if (!is_acc) {
+			/* the program reads its books a slice at a time from the
+			   event loop (the guidelines' Speed: they were 9 s of an
+			   8 MHz ST's start in one stretch), its window drawn and
+			   answering meanwhile; the rest once they are read */
+			if (!books_loading())
+				books_load_begin();
+			bg_init(BG_NOW);	/* its slices as long as the accessory's */
+			prg_loading = 1;
+			return;
+		}
 		load_contacts();
 	} else {
 		/* read in the background: drawn once, when the AES asks for the
 		   new window (WM_REDRAW), not for each thing set up here */
 		win_hold = 1;
 	}
+	window_ready();
+}
+
+/* the window open and the books read: the first contact chosen, what
+   there is to say said */
+static void window_ready(void)
+{
 	aes_profile_tag("open-select");
 	/* the timed refresh counts from now: the 200 Hz timer counts from
 	   when the Atari was switched on, and the window may have been
@@ -1739,6 +1759,54 @@ static void open_window(void)
 	}
 }
 
+/* The program's books, a slice of them (all with more = 0); once they
+   are read, the window as at an opening and what waited for them */
+static short load_msgs[8][8], load_keys[8][2];
+static int nload_msgs, nload_keys;
+
+static void prg_load_slice(int (*more)(void))
+{
+	if (!prg_loading || books_load_run(more))
+		return;
+	prg_loading = 0;
+	busy(1);
+	loaded();
+	busy(0);
+	/* "my card" chosen, one drawing of the whole window */
+	win_hold = 1;
+	window_ready();
+	win_redraw(0);
+	while (nload_msgs && nheld < 16)	/* the menu entries chosen meanwhile, in turn */
+		memcpy(held[nheld++], load_msgs[--nload_msgs], 16);
+}
+
+/* while the program reads its books: a menu entry, files dropped or
+   given with VA_START wait for them, as a key does (as if typed then);
+   ^Q and ^W, the window's messages and PEOPLE are taken at once. 1: msg
+   kept */
+static int load_hold_msg(const short *msg)
+{
+	if (!prg_loading || nload_msgs >= 8 ||
+	    (msg[0] != MN_SELECTED && msg[0] != 0x4711 && msg[0] != 63))	/* VA_START, AP_DRAGDROP */
+		return 0;
+	memmove(load_msgs[1], load_msgs[0], sizeof(load_msgs[0]) * nload_msgs);
+	memcpy(load_msgs[0], msg, 16);
+	nload_msgs++;
+	return 1;
+}
+
+static int load_hold_key(const AEVENT *ev)
+{
+	short scan = KEY_SCAN(ev->kreturn);
+	if (!prg_loading || nload_keys >= 8 ||
+	    (key_ctrl(ev->kstate, ev->kreturn) && (scan == 0x10 || scan == 0x11)))
+		return 0;
+	load_keys[nload_keys][0] = ev->kstate;
+	load_keys[nload_keys][1] = ev->kreturn;
+	nload_keys++;
+	return 1;
+}
+
 /* VA_START (common/ui/av.c), from the desktop or another program:
    nothing opens the window; .vcf files go into the address book new
    contacts go into */
@@ -1749,6 +1817,8 @@ static void av_start(const char *s)
 	open_window();
 	if (win_h <= 0)
 		return;
+	if (prg_loading)
+		prg_load_slice(0);	/* what is left read at once: the cards go in among them */
 	while ((p = av_arg(p, path, sizeof(path))) != 0) {
 		long l = (long)strlen(path);
 		int book = book_for_new();
@@ -1959,13 +2029,21 @@ int main(void)
 		unsigned long wait = sync_pending ? 150 : card_photo_pending() || answer_busy() || pf_fg ? 100 : 1000;
 		if (is_acc)
 			wait = bg_timer(bg_pending(), wait);
+		if (prg_loading)
+			wait = 0;		/* the next slice when nothing else came */
 		if (win_h > 0)
 			flags |= MU_KEYBD | MU_BUTTON;
 		conn_stop = 0;		/* a stop is for one operation */
 		/* a key typed while busy comes first, as if typed now */
 		if (win_h > 0 && busy_key(&ev))
 			which = MU_KEYBD;
-		else if (nheld) {
+		else if (win_h > 0 && !prg_loading && nload_keys) {
+			/* one typed while the books were read */
+			ev.kstate = load_keys[0][0];
+			ev.kreturn = load_keys[0][1];
+			memmove(load_keys[0], load_keys[1], sizeof(load_keys[0]) * --nload_keys);
+			which = MU_KEYBD;
+		} else if (nheld) {
 			/* one that came while the background refresh waited */
 			memcpy(msg, held[0], sizeof(held[0]));
 			memmove(held[0], held[1], sizeof(held[0]) * --nheld);
@@ -1977,6 +2055,19 @@ int main(void)
 			which &= ~(MU_KEYBD | MU_BUTTON);
 		if (is_acc)
 			bg_tick();
+		if (prg_loading) {
+			if ((which & MU_MESAG) && load_hold_msg(msg)) {
+				if (msg[0] == MN_SELECTED && has_menu)
+					menu_tnormal(mb.tree, msg[3], 1);
+				which &= ~MU_MESAG;
+			}
+			if ((which & MU_KEYBD) && load_hold_key(&ev))
+				which &= ~MU_KEYBD;
+			if (which & MU_BUTTON) {	/* nothing listed yet to click on */
+				which &= ~MU_BUTTON;
+				wait_release();
+			}
+		}
 		aes_profile_tag("idle");
 		answer_poll(data_ready);
 		if (pick_new)
@@ -2098,6 +2189,12 @@ int main(void)
 			do
 				bg_step();
 			while (bg_pending() && bg_more_step());
+		}
+		/* the program's books, a slice a turn when nothing else came */
+		if (prg_loading && !(which & MU_MESAG) && turn_free()) {
+			aes_profile_tag("load");
+			bg_slice();
+			prg_load_slice(bg_more_step);
 		}
 		/* CONTACTS.TXT in the program and with the window open: its
 		   steps for some 40 ms a timer event, only when nothing else

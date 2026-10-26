@@ -137,10 +137,16 @@ static void rebuild(void)
 {
 	int i, k;
 	char last = 0;
-	dirty = 0;
-	resolve_source();
 	nrows = 0;
 	rh = ch + 2;
+	/* the program reading its books (main.c, in slices): nothing listed
+	   until they are all read and sorted, then made again */
+	if (books_loading()) {
+		nlisted = 0;
+		return;
+	}
+	dirty = 0;
+	resolve_source();
 	if (narrows()) {
 		for (i = k = 0; i < nlisted; i++)
 			if (wanted(listed[i]))

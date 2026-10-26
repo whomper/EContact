@@ -376,3 +376,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   refresh keeps what came in memory and writes it with no event call
   between open and close. `tests/hatari/quiet_start.py` and
   `quiet_sync.py` check it with an AES_PROFILE build (README, Tests).
+- The program reads its books the same way, after its window is drawn
+  (main.c prg_loading, a slice a turn: in one stretch they were 9 s of an
+  8 MHz ST's start). Meanwhile a menu entry, files dropped or given by
+  VA_START and keys wait and come afterwards, as if typed then (^Q and ^W,
+  the window's messages and PEOPLE at once), a click does nothing, and the
+  list stays empty until they are all read and sorted (list.c rebuild);
+  a .vcf given at the start reads what is left at once. speed.py times
+  the window drawn and the longest slice.

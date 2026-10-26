@@ -52,6 +52,7 @@ SAMPLE = os.path.join(ROOT, "tests", "hatari", "sample.vcf")
 
 # the guidelines' times (ms)
 T_KEY, T_LINE, T_PAGE, T_DIALOG, T_WINDOW, T_ACC, T_START = 50, 50, 150, 150, 300, 500, 2000
+T_READ = 100		# a longer job in slices: a key answered within 100 ms
 
 
 def cards(path, n):
@@ -326,7 +327,9 @@ def machine_run(work, machine, bin_dir, only):
     con = Console(os.path.join(d, "hatari.log"))
     if only in (None, "prg"):
         shutil.copy(os.path.join(bin_dir, "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRG"))
+        log = os.path.join(folder, "ECONTACT.LOG")
         for n in (1, 2):
+            n0 = open(log, encoding="latin-1").read().count("the list sorted") if os.path.exists(log) else 0
             r = Rig(d, machine, auto="C:\\ECONTACT\\ECONTACT.PRG",
                     stdin=subprocess.PIPE if PROFILE else None)
             try:
@@ -334,9 +337,20 @@ def machine_run(work, machine, bin_dir, only):
                     start_symbols(r, d, folder)
                     profiled(r, con, d, "start", lambda: None)
                 ok = boot_wait(con, "start")
+                t0 = time.time()
+                at = len(con.text())
+                # the books read (the window answers meanwhile: the program
+                # reads them in slices), and sorted
+                while time.time() - t0 < 600:
+                    if os.path.exists(log) and open(log, encoding="latin-1").read().count("the list sorted") > n0:
+                        break
+                    time.sleep(2)
                 settle(r, 3)
                 gaps, drawn = con.since()
                 start = max([g for g, t in drawn if t == "start"] or [0])
+                reading = [(int(m.group(1)), m.group(2)) for m in
+                           re.finditer(r"AESGAP (\d+) ms (\S+)", con.text()[at:])]
+                said = [l for l in open(log, encoding="latin-1").read().splitlines() if "cards in" in l][-1:]
                 if n == 1:
                     print("  (the first start, the index made: drawn after %d ms)" % start)
                 else:
@@ -344,8 +358,9 @@ def machine_run(work, machine, bin_dir, only):
                         profile_report(r, con, d, "the start")
                     run.add("the program started: its window drawn", T_START, [], start,
                             note="" if ok else "never drawn")
-                    after = [(g, t) for g, t in gaps]
-                    run.add("  its longest stretch till then", T_START, after)
+                    run.add("  its books read: the longest stretch", T_READ, reading)
+                    if said:
+                        print("    (%s)" % said[0].split(" -- ", 1)[-1])
                     prg_actions(r, con, run, d)
                 if n == 1:
                     time.sleep(40)		# CONTACTS.TXT written, in steps
