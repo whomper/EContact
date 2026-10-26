@@ -16,6 +16,8 @@
 #include "photopack.h"
 #include "photo_vec.h"
 #include "plat.h"
+#include "abook.h"
+#include <ctype.h>
 #include <unistd.h>
 
 static int fails, checks;
@@ -850,6 +852,147 @@ static void test_pieces(void)
 	rmdir(dir);
 }
 
+/* contact_matches as it was before the search was made fast (1.69): the
+   reference the new one must agree with */
+static int old_contains(const char *h, const char *n)
+{
+	return h && *h && str_istr(h, n) != 0;
+}
+
+static int old_matches(const CONTACT *c, const char *t)
+{
+	int i;
+	char name[160];
+	if (!*t)
+		return 1;
+	vcard_display_name(c, 0, name, sizeof(name));
+	if (old_contains(name, t) || old_contains(c->fn, t) || old_contains(c->nick, t) || old_contains(c->org, t) ||
+	    old_contains(c->dept, t) || old_contains(c->title, t) || old_contains(c->note, t) || old_contains(c->family, t))
+		return 1;
+	for (i = 0; i < c->nemail; i++)
+		if (old_contains(c->email[i].value, t))
+			return 1;
+	for (i = 0; i < c->ntel; i++) {
+		char a[48], b[48];
+		int k, n = 0, m = 0;
+		for (k = 0; c->tel[i].value[k] && n < 47; k++)
+			if (isdigit((unsigned char)c->tel[i].value[k]) || c->tel[i].value[k] == '+')
+				a[n++] = c->tel[i].value[k];
+		a[n] = 0;
+		for (k = 0; t[k] && m < 47; k++)
+			if (isdigit((unsigned char)t[k]) || t[k] == '+')
+				b[m++] = t[k];
+		b[m] = 0;
+		if (m >= 3 && strstr(a, b))
+			return 1;
+		if (old_contains(c->tel[i].value, t))
+			return 1;
+	}
+	for (i = 0; i < c->nadr; i++)
+		if (old_contains(c->adr[i].value, t))
+			return 1;
+	return 0;
+}
+
+/* the search finds what it found before, over made-up cards of every
+   kind (people, companies, groups, no name at all) and texts taken from
+   them, in other cases, with spaces, digits and dashes */
+static void test_matches(void)
+{
+	static const char *const words[] = { "Ada", "Erez", "Cohen", "ACME", "Lovelace", "van", "de",
+		"Mike", "o'Neil", "Smith-Jones", "\xE9", "St", "Tel Aviv", "Herzl", "1", "x" };
+	static const char *const extra[] = { "a", "A", "e", "co", "CO", "n c", "a c", "ada coh", "054",
+		"+972", "54-555", "555 01", "no", "No Name", "nam", "group", "Group", "ou", " ", "z",
+		"@", ".com", "e@", "1 h", "ti", "MANAGER", "-", "5", "55", "555" };
+	unsigned long seed = 12345;
+	int k, q, same = 0, found = 0, total = 0;
+	for (k = 0; k < 400; k++) {
+		char card[1200], *p = card, texts[40][64];
+		int nt = 0, kind;
+		CONTACT *c;
+#define RND(n) ((int)(((seed = seed * 1103515245UL + 12345UL) >> 16) & 0x7fff) % (n))
+#define W() words[RND((int)(sizeof(words) / sizeof(words[0])))]
+		kind = RND(6);
+		p += sprintf(p, "BEGIN:VCARD\r\nVERSION:3.0\r\n");
+		if (kind == 4)
+			p += sprintf(p, "X-ADDRESSBOOKSERVER-KIND:group\r\n");
+		if (kind != 5) {
+			const char *f = RND(4) ? W() : "", *g = RND(4) ? W() : "", *m = RND(3) ? "" : W();
+			p += sprintf(p, "N:%s;%s;%s;;\r\n", f, g, m);
+			snprintf(texts[nt++], 64, "%s", f);
+			snprintf(texts[nt++], 64, "%s %s", g, f);
+			snprintf(texts[nt++], 64, "%.2s %.2s", g, f);
+			snprintf(texts[nt++], 64, "%s %s", g, m);
+		}
+		if (RND(2)) {
+			const char *a = W(), *b = W();
+			p += sprintf(p, "FN:%s %s\r\n", a, b);
+			snprintf(texts[nt++], 64, "%s %s", a, b);
+		}
+		if (RND(2)) {
+			const char *o = W();
+			p += sprintf(p, "ORG:%s;%s\r\n", o, W());
+			snprintf(texts[nt++], 64, "%s", o);
+			if (kind == 3)
+				p += sprintf(p, "X-ABShowAs:COMPANY\r\n");
+		}
+		if (RND(2))
+			p += sprintf(p, "NICKNAME:%s\r\nTITLE:Manager\r\n", W());
+		if (RND(2)) {
+			p += sprintf(p, "EMAIL;type=INTERNET:%s.%d@example.com\r\n", W(), k);
+			snprintf(texts[nt++], 64, "%d@ex", k);
+		}
+		if (RND(2)) {
+			p += sprintf(p, "TEL;type=CELL:+972 54-555-%04d\r\n", k);
+			snprintf(texts[nt++], 64, "555%04d", k);
+			snprintf(texts[nt++], 64, "5-%02d", k % 100);
+		}
+		if (RND(3) == 0)
+			p += sprintf(p, "item1.ADR;type=HOME:;;%d Herzl St;Tel Aviv;;61000;Israel\r\n", k);
+		if (RND(3) == 0)
+			p += sprintf(p, "NOTE:Met %s at the meeting %d\r\n", W(), k);
+		p += sprintf(p, "UID:MATCH-%d\r\nEND:VCARD\r\n", k);
+		c = vcard_parse(card, (long)(p - card));
+		CHECK(c != 0);
+		if (!c)
+			continue;
+		for (q = 0; q < nt + (int)(sizeof(extra) / sizeof(extra[0])) + 8; q++) {
+			char t[64];
+			int i, o, n;
+			if (q < nt)
+				snprintf(t, sizeof(t), "%s", texts[q]);
+			else if (q < nt + (int)(sizeof(extra) / sizeof(extra[0])))
+				snprintf(t, sizeof(t), "%s", extra[q - nt]);
+			else {
+				snprintf(t, sizeof(t), "%s", texts[RND(nt ? nt : 1)]);
+				for (i = 0; t[i]; i++)
+					if (RND(2))
+						t[i] = (char)(isupper((unsigned char)t[i]) ? tolower((unsigned char)t[i])
+							      : toupper((unsigned char)t[i]));
+				n = (int)strlen(t);
+				if (n > 2 && RND(2)) {
+					o = RND(n - 1);
+					memmove(t, t + o, (size_t)(n - o + 1));
+				}
+			}
+			if (!t[0])
+				continue;
+			o = old_matches(c, t);
+			n = contact_matches(c, t);
+			total++;
+			found += n;
+			same += o == n;
+			if (o != n)
+				printf("FAIL matches \"%s\" in card %d: %d, was %d\n", t, k, n, o);
+		}
+		free(c);
+#undef W
+#undef RND
+	}
+	CHECK_EQ(same, total);
+	CHECK(found > total / 5 && found < total);
+}
+
 int main(void)
 {
 	test_parse_icloud();
@@ -866,6 +1009,7 @@ int main(void)
 	test_photopack();
 	test_park();
 	test_pieces();
+	test_matches();
 	printf("%d checks, %d failed\n", checks, fails);
 	return fails != 0;
 }

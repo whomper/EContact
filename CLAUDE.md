@@ -232,6 +232,15 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   pen; a change there must leave the photos as they were, pixel for pixel. src/jpegdc.c reads two
   bytes through a volatile pointer for the same reason (rd16): check the
   sample formats in Hatari on an ST after touching it.
+- The search (contact_matches, src/abook.c) makes the text ready once
+  (match_ready: its first letter in both cases, its digits) and compares
+  only where that letter is; the name as the list shows it is made only
+  for a text with a space. Typing on narrows what the last search found
+  (list.c narrows), not after digits (a phone number matches without its
+  dashes); anything else that makes the list again (list_invalidate)
+  looks through everyone. `make test` sets it against the old matcher
+  over 17,000 cards and texts (tests/unit.c test_matches): it must find
+  the same.
 - Photo failures say why (photo_why, PW_...): the status line, the alert
   after Sync Contact Photos, a line each in the log. A failure is kept in
   the pack's entry with the decoder's number (PHOTO_DECODER): raise it when

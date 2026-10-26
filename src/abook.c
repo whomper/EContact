@@ -3344,43 +3344,111 @@ int contact_delete(CONTACT *c)
 	return cache_change(b, res, 0, 0, 0, 0, 0);
 }
 
-static int contains(const char *h, const char *n)
+/* The search's text, made ready once for all the contacts it is looked
+   for in: its first letter in both cases, to find the places worth
+   comparing at (str_istr's strncasecmp at every place of every field took
+   an 8 MHz ST 2.1 s a letter over 621 contacts: speed.py, 26 Oct 2026),
+   and its digits, for the phone numbers. ASCII's case only, as
+   strncasecmp's. */
+static char mt_text[80];
+static unsigned char mt_low[80], mt_lo, mt_up;
+static int mt_len, mt_space, mt_ndig;
+static char mt_dig[48];
+
+static unsigned char low(unsigned char ch)
 {
-	return h && *h && str_istr(h, n) != 0;
+	return ch >= 'A' && ch <= 'Z' ? (unsigned char)(ch + 32) : ch;
+}
+
+static void match_ready(const char *t)
+{
+	int k;
+	if (!strcmp(mt_text, t))
+		return;
+	str_copy(mt_text, t, sizeof(mt_text));
+	mt_len = (int)strlen(mt_text);
+	mt_space = 0;
+	for (k = 0; k < mt_len; k++) {
+		mt_low[k] = low((unsigned char)mt_text[k]);
+		if (mt_text[k] == ' ')
+			mt_space = 1;
+	}
+	mt_lo = mt_low[0];
+	mt_up = mt_lo >= 'a' && mt_lo <= 'z' ? (unsigned char)(mt_lo - 32) : mt_lo;
+	mt_ndig = 0;
+	for (k = 0; t[k] && mt_ndig < 47; k++)
+		if (isdigit((unsigned char)t[k]) || t[k] == '+')
+			mt_dig[mt_ndig++] = t[k];
+	mt_dig[mt_ndig] = 0;
+}
+
+/* the search's text in h, in any case */
+static int contains(const char *h)
+{
+	const unsigned char *p = (const unsigned char *)h;
+	int k;
+	if (!p)
+		return 0;
+	for (; *p; p++)
+		if (*p == mt_lo || *p == mt_up) {
+			for (k = 1; k < mt_len && low(p[k]) == mt_low[k]; k++)
+				;
+			if (k == mt_len)
+				return 1;
+		}
+	return 0;
 }
 
 int contact_matches(const CONTACT *c, const char *t)
 {
 	int i;
-	char name[160];
 	if (!*t)
 		return 1;
-	vcard_display_name(c, 0, name, sizeof(name));
-	if (contains(name, t) || contains(c->fn, t) || contains(c->nick, t) || contains(c->org, t) ||
-	    contains(c->dept, t) || contains(c->title, t) || contains(c->note, t) || contains(c->family, t))
+	match_ready(t);
+	/* the name as the list shows it: made only when the text has a space
+	   (it may span the given and family names) or the name is one of
+	   its stand-ins; otherwise it is in one of its parts */
+	if (!c->group && !(c->company && c->org && *c->org) &&
+	    ((c->given && *c->given) || (c->family && *c->family))) {
+		if (mt_space) {
+			char name[160];
+			vcard_display_name(c, 0, name, sizeof(name));
+			if (contains(name))
+				return 1;
+		} else if (contains(c->given) || contains(c->middle)) {
+			return 1;
+		}
+	} else if ((c->group && !(c->fn && *c->fn) && !(c->family && *c->family)) ||
+		   (!c->group && !(c->company && c->org && *c->org) && !(c->fn && *c->fn) &&
+		    !(c->org && *c->org) && !c->nemail && !c->ntel)) {
+		char name[160];
+		vcard_display_name(c, 0, name, sizeof(name));	/* "Group", "No Name" */
+		if (contains(name))
+			return 1;
+	}
+	if (contains(c->fn) || contains(c->nick) || contains(c->org) ||
+	    contains(c->dept) || contains(c->title) || contains(c->note) || contains(c->family))
 		return 1;
 	for (i = 0; i < c->nemail; i++)
-		if (contains(c->email[i].value, t))
+		if (contains(c->email[i].value))
 			return 1;
 	for (i = 0; i < c->ntel; i++) {
 		/* phone numbers match without their spaces and dashes */
-		char a[48], b[48];
-		int k, n = 0, m = 0;
-		for (k = 0; c->tel[i].value[k] && n < 47; k++)
-			if (isdigit((unsigned char)c->tel[i].value[k]) || c->tel[i].value[k] == '+')
-				a[n++] = c->tel[i].value[k];
-		a[n] = 0;
-		for (k = 0; t[k] && m < 47; k++)
-			if (isdigit((unsigned char)t[k]) || t[k] == '+')
-				b[m++] = t[k];
-		b[m] = 0;
-		if (m >= 3 && strstr(a, b))
-			return 1;
-		if (contains(c->tel[i].value, t))
+		if (mt_ndig >= 3) {
+			char a[48];
+			int k, n = 0;
+			for (k = 0; c->tel[i].value[k] && n < 47; k++)
+				if (isdigit((unsigned char)c->tel[i].value[k]) || c->tel[i].value[k] == '+')
+					a[n++] = c->tel[i].value[k];
+			a[n] = 0;
+			if (strstr(a, mt_dig))
+				return 1;
+		}
+		if (contains(c->tel[i].value))
 			return 1;
 	}
 	for (i = 0; i < c->nadr; i++)
-		if (contains(c->adr[i].value, t))
+		if (contains(c->adr[i].value))
 			return 1;
 	return 0;
 }

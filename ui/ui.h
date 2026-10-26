@@ -123,6 +123,7 @@ void select_contact(CONTACT *c);	/* and show it */
 extern CONTACT **listed;		/* the people the list shows */
 extern int nlisted;
 void list_invalidate(void);	/* people, the source or the search changed */
+void list_search_changed(void);	/* the search only: typing on narrows (list.c) */
 void list_source(short kind, short idx);	/* the sidebar's choice */
 void list_fix_selection(void);	/* the first one, if the chosen one isn't shown */
 void list_draw(GRECT *clip);

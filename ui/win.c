@@ -853,12 +853,16 @@ void win_search_set(void)
 /* the search changed: the list again, the card if the choice went */
 static void search_changed(void)
 {
-	list_invalidate();
+	char was[sizeof(sel_uid)];
+	short book = sel_book;
+	str_copy(was, sel_uid, sizeof(was));
+	list_search_changed();
 	list_fix_selection();
 	status_updated();		/* "2 of 21 contacts" */
 	search_redraw();
 	win_redraw(&r_list);
-	win_redraw(&r_card);
+	if (strcmp(was, sel_uid) || book != sel_book)	/* the card only when another is chosen */
+		win_redraw(&r_card);
 }
 
 int win_mouse(short mx, short my, short button, short clicks, short kstate)

@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "ui.h"
 #include "../src/plat.h"
 #include "panebar.h"
@@ -32,7 +33,20 @@ static LROW *rows;
 static int nrows, maxrows, top;
 static short rh;		/* pixels per row */
 
+/* the search the list was last made for: typing on narrows those it
+   found, rather than looking through everyone again (the guidelines'
+   Speed). Anything else that makes the list again forgets it */
+static char narrow_from[64];
+static int narrow_ok;
+
 void list_invalidate(void)
+{
+	dirty = 1;
+	narrow_ok = 0;
+}
+
+/* the search's text changed (win.c) */
+void list_search_changed(void)
 {
 	dirty = 1;
 }
@@ -105,22 +119,45 @@ static void add_row(short contact, char letter)
 	nrows++;
 }
 
+/* more typed after the text the list was made for, nothing else changed
+   since (list_invalidate): what matches now is among those it found. Not
+   after digits: a phone number's match leaves its dashes out */
+static int narrows(void)
+{
+	int n = (int)strlen(narrow_from), k;
+	if (!narrow_ok || !listed || !n || strncmp(search_text, narrow_from, n) || !search_text[n])
+		return 0;
+	for (k = 0; k < n; k++)
+		if (isdigit((unsigned char)narrow_from[k]) || narrow_from[k] == '+')
+			return 0;
+	return 1;
+}
+
 static void rebuild(void)
 {
-	int i;
+	int i, k;
 	char last = 0;
 	dirty = 0;
 	resolve_source();
-	free(listed);
-	listed = malloc((npeople + 1) * sizeof(CONTACT *));
-	nlisted = 0;
 	nrows = 0;
 	rh = ch + 2;
-	if (!listed)
-		return;
-	for (i = 0; i < npeople; i++)
-		if (wanted(people[i]))
-			listed[nlisted++] = people[i];
+	if (narrows()) {
+		for (i = k = 0; i < nlisted; i++)
+			if (wanted(listed[i]))
+				listed[k++] = listed[i];
+		nlisted = k;
+	} else {
+		free(listed);
+		listed = malloc((npeople + 1) * sizeof(CONTACT *));
+		nlisted = 0;
+		if (!listed)
+			return;
+		for (i = 0; i < npeople; i++)
+			if (wanted(people[i]))
+				listed[nlisted++] = people[i];
+	}
+	str_copy(narrow_from, search_text, sizeof(narrow_from));
+	narrow_ok = 1;
 	for (i = 0; i < nlisted; i++) {
 		char h = heading_of(listed[i]);
 		/* headings only for the whole list, not for a search's few */
