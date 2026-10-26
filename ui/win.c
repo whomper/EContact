@@ -93,10 +93,19 @@ void win_status(const char *s)
    too; a new layout, a move or the window closed forget it. */
 static int obuf_whole;
 
+/* A part drawn later, a band a turn (win_redraw_later: the card when
+   another contact is chosen, 0.24 s of an ST's time): into the buffer,
+   then copied when it is all there; the screen keeps what it shows till
+   then. Forgotten with the layout. */
+static GRECT later;
+static short later_y;
+static int later_on, later_whole;
+
 void win_layout(void)
 {
 	short th = ch + 8, sw, lw, x, i, bw;
 	obuf_whole = 0;
+	later_on = 0;
 	if (win_h <= 0 || win_iconified)
 		return;
 	wind_get(win_h, WF_WORKXYWH, &work.x, &work.y, &work.w, &work.h);
@@ -550,6 +559,11 @@ void win_redraw(GRECT *area)
 			draw_all(&full);
 			xbios_setscreen(screen);
 		}
+		if (later_on && full.x <= later.x && full.y <= later.y && full.x + full.w >= later.x + later.w &&
+		    full.y + full.h >= later.y + later.h) {
+			later_on = 0;	/* drawn now, all of it */
+			obuf_whole = later_whole;
+		}
 		if (full.x == work.x && full.y == work.y && full.w == work.w && full.h == work.h)
 			obuf_whole = 1;
 		copy_pieces(&full);
@@ -611,6 +625,97 @@ static void win_uncover(GRECT *area)
 	wind_update(END_UPDATE);
 }
 
+/* area drawn into the buffer, nothing copied (the buffer is in use) */
+static void draw_off(GRECT *area)
+{
+	if (bm_h) {
+		short keep = vdi_h;
+		vdi_h = bm_h;
+		draw_forget();
+		font_reselect();
+		draw_all(area);
+		vdi_h = keep;
+		draw_forget();
+	} else {
+		void *screen = xbios_base(3);
+		xbios_setscreen(obuf);
+		draw_all(area);
+		xbios_setscreen(screen);
+	}
+}
+
+void win_redraw_later(const GRECT *area)
+{
+	GRECT a = work;
+	if (win_h <= 0 || win_hold || win_iconified || !buffered()) {
+		win_redraw((GRECT *)area);
+		return;
+	}
+	if (!rect_and(&a, area))
+		return;
+	if (!later_on)
+		later_whole = obuf_whole;
+	else if (a.x != later.x || a.y != later.y || a.w != later.w || a.h != later.h)
+		win_later_finish();	/* another part: the one under way first */
+	later = a;
+	later_y = a.y;
+	later_on = 1;
+	obuf_whole = 0;		/* (the buffer has the new part's bands) */
+}
+
+int win_later_pending(void)
+{
+	return later_on;
+}
+
+/* bands of it while more() says so (one at least); copied when done */
+void win_later_slice(int (*more)(void))
+{
+	short band = 2 * ch;
+	if (!later_on)
+		return;
+	if (win_h <= 0 || win_iconified || !buffered()) {
+		later_on = 0;
+		return;
+	}
+	wind_update(BEG_UPDATE);
+	graf_mouse(M_OFF, 0);
+	do {
+		GRECT b = later, av;
+		b.y = later_y;
+		b.h = later.y + later.h - later_y < band ? later.y + later.h - later_y : band;
+		/* a band that cuts the round picture takes the rest of it:
+		   its filled circle costs the VDI the same in any part */
+		card_avatar_area(&av);
+		if (av.h && b.y < av.y + av.h && b.y + b.h > av.y && av.y + av.h > b.y + b.h)
+			b.h = (av.y + av.h < later.y + later.h ? av.y + av.h : later.y + later.h) - b.y;
+		draw_off(&b);
+		later_y += b.h;
+	} while (later_y < later.y + later.h && (!more || more()));
+	if (later_y >= later.y + later.h) {
+#ifdef AES_PROFILE
+		unsigned long t0 = tos_ms();
+		char m[48];
+#endif
+		later_on = 0;
+		copy_pieces(&later);
+		obuf_whole = later_whole;
+#ifdef AES_PROFILE
+		snprintf(m, sizeof(m), "LATERCOPY %lu ms\n", tos_ms() - t0);
+		nf_debug(m);
+#endif
+	}
+	graf_mouse(M_ON, 0);
+	wind_update(END_UPDATE);
+	if (!later_on)
+		win_slider();
+}
+
+void win_later_finish(void)
+{
+	win_later_slice(0);
+}
+
 static short sl_size = -1, sl_pos = -1;	/* the window's slider as set */
 
 void win_slider(void)
@@ -645,6 +750,11 @@ void win_scroll(const GRECT *a, short dy)
 	short ady = dy < 0 ? -dy : dy, whole = 0;
 	if (win_h <= 0 || win_iconified || win_hold)
 		return;
+	if (later_on) {
+		GRECT o = later;
+		if (rect_and(&o, a))
+			win_later_finish();	/* the screen shows it before it moves */
+	}
 	wind_update(BEG_UPDATE);
 	if (ady < a->h) {
 		wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
@@ -792,6 +902,7 @@ void win_close(void)
 	wind_delete(win_h);
 	win_h = -1;
 	obuf_whole = 0;
+	later_on = 0;
 }
 
 void win_message(short *msg)
@@ -799,6 +910,9 @@ void win_message(short *msg)
 	GRECT r;
 	if (msg[3] != win_h || win_h <= 0)
 		return;
+	if (later_on && (msg[0] == WM_MOVED || msg[0] == WM_SIZED || msg[0] == WM_FULLED ||
+			 msg[0] == WM_ICONIFY || msg[0] == WM_ALLICONIFY))
+		win_later_finish();	/* where the window is now, before it goes */
 	switch (msg[0]) {
 	case WM_REDRAW:
 		r.x = msg[4];
@@ -939,7 +1053,7 @@ static void search_changed(void)
 	search_redraw();
 	win_redraw(&r_list);
 	if (strcmp(was, sel_uid) || book != sel_book)	/* the card only when another is chosen */
-		win_redraw(&r_card);
+		win_redraw_later(&r_card);
 }
 
 int win_mouse(short mx, short my, short button, short clicks, short kstate)

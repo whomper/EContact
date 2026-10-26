@@ -176,8 +176,19 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   keeps some 15 rows a second, a held track goes on to the pointer.
   list_draw draws only the rows in its area, and choosing someone
   (select_contact) draws only the old and the new chosen rows, the rows
-  that stay moved when the list scrolls to it, and the card; a search
-  draws the card only when another one is chosen. The buffer holds the
+  that stay moved when the list scrolls to it, and the card later: bands
+  of two text lines, some 40 ms a turn from the event loop, into the
+  buffer, copied when it is all there (win_redraw_later; 0.47 s of an
+  ST's time in one piece with the rows). A band that cuts the round
+  picture takes all of it (card_avatar_area: the VDI's filled circle
+  costs 60 ms whatever part shows), and the picture, the buttons and
+  text_at's text (the system font's cells) draw nothing outside the clip:
+  a band's own cost is what keeps it short. The screen keeps the old card
+  meanwhile, another choice starts it again (a held Down only moves the
+  bar), and a scroll, a move or a whole redraw finishes it first; the
+  photo waits for it. A search draws the card (later) only when another
+  one is chosen. sel_contact() is kept until another is chosen or
+  people_serial moves (its uid against 621 others: 12 ms on an ST). The buffer holds the
   whole window as it was last drawn (obuf_whole): what the AES asks for
   again (WM_REDRAW: a dialog, an alert or a window gone from over it) is
   copied from it (win_uncover), a scroll moves it too, a move at the

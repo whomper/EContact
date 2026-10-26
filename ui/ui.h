@@ -89,6 +89,10 @@ extern GRECT work;		/* its work area */
 void win_open(void);
 void win_close(void);
 void win_redraw(GRECT *area);	/* NULL: everything */
+void win_redraw_later(const GRECT *area);	/* in bands from the event loop, copied when all drawn */
+int win_later_pending(void);
+void win_later_slice(int (*more)(void));	/* bands while more() says so */
+void win_later_finish(void);
 void win_buffer_init(long free);	/* at start-up: the buffer the window is drawn in */
 void win_buffer_end(void);	/* the program's end */
 void win_buffer_fonts(void);	/* GDOS fonts loaded later: on the bitmap too */
@@ -153,6 +157,7 @@ void card_slid(short pos);
    keys going down the list don't wait for each one) */
 int  card_photo_pending(void);	/* one is waiting */
 int  card_photo_dithering(void);	/* one got, its pens made a slice a turn */
+void card_avatar_area(GRECT *r);	/* the round picture, as last drawn */
 void card_photo_tick(void);	/* from the event loop: reads it when it's time */
 void card_photo_recheck(void);	/* after a refresh: photos may have changed */
 

@@ -595,6 +595,15 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 		n = BIDI_MAX;
 	if (n <= 0)
 		return;
+	/* wholly outside the clip: nothing the VDI would draw, and nothing
+	   asked of it (a part of the window drawn again: a row, what an
+	   alert covered). The system font's cells only: another font's
+	   letters may be wider than cw */
+	if (clip_now.w && font_is_system() &&
+	    (y >= clip_now.y + clip_now.h || y + ch <= clip_now.y ||
+	     (!(flags & (TX_RIGHT | TX_CENTER)) &&
+	      (x >= clip_now.x + clip_now.w || x + (short)n * cw + 1 < clip_now.x))))
+		return;
 	if (bidi_has_rtl(s, (short)n)) {
 		short rtl = (flags & TX_LTR) ? 0 : bidi_is_rtl(s, (short)n);
 		bidi_visual(s, (short)n, rtl, vis);

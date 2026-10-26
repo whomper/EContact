@@ -36,6 +36,7 @@ static unsigned long cur_key, tried_key;
 static int want;
 static unsigned long want_at;
 static GRECT r_avatar;
+static GRECT clip_card;		/* the part of the card being drawn */
 /* the photo got, its pens made a slice a turn (draw.c photo_dither: an
    8 MHz ST took 390 ms for one in ST high), the initials shown till then */
 static int cur_ready, shown_quick;
@@ -59,6 +60,13 @@ static void ask_for(const CONTACT *c)
 int card_photo_pending(void)
 {
 	return want;
+}
+
+/* where the round picture was last drawn (win.c: a band that cuts it
+   takes all of it, the VDI's filled circle being costly) */
+void card_avatar_area(GRECT *r)
+{
+	*r = r_avatar;
 }
 
 int card_photo_dithering(void)
@@ -241,6 +249,13 @@ static void layout_bar(void)
 static void button(GRECT *b, const char *label, short dim)
 {
 	short n = (short)strlen(label);
+	GRECT a = *b;
+	a.x--;			/* (its frame) */
+	a.y--;
+	a.w += 2;
+	a.h += 2;
+	if (!rect_and(&a, &clip_card))
+		return;
 	fill(b, 0);
 	frame(b, dim ? grey_color() : 1);
 	text_at(b->x + (b->w - n * cw) / 2, b->y + 1, label, n, n, TX_LTR | (dim ? TX_DIM : 0));
@@ -263,6 +278,16 @@ static void avatar(const CONTACT *c, short cx, short cy, short ry, const GRECT *
 	r_avatar.y = cy - ry;
 	r_avatar.w = 2 * rx + 1;
 	r_avatar.h = 2 * ry + 1;
+	{
+		/* not in the part drawn now (the card a band at a time): the
+		   VDI's filled circle and its big letters cost an ST 60 ms
+		   even when nothing of them shows */
+		GRECT a = r_avatar;
+		if (!rect_and(&a, clip)) {
+			ask_for(c);
+			return;
+		}
+	}
 	if (opt.photos && cur_ok && cur_ready && same(c, cur_uid, cur_book, cur_key)) {
 		draw_photo(cur.px, cur_serial, cx, cy, rx, ry, clip);
 		/* a refresh may have changed the picture behind a link */
@@ -318,6 +343,7 @@ void card_draw(GRECT *clip)
 	char s[200];
 	if (!rect_and(&r, clip))
 		return;
+	clip_card = r;
 	clip_on(&r);
 	fill(&r, 0);
 	layout_bar();

@@ -1759,6 +1759,13 @@ static void window_ready(void)
 	}
 }
 
+static unsigned long later_at;
+
+static int later_more(void)
+{
+	return pf_ms() - later_at < 30;
+}
+
 /* The program's books, a slice of them (all with more = 0); once they
    are read, the window as at an opening and what waited for them */
 static short load_msgs[8][8], load_keys[8][2];
@@ -2029,7 +2036,7 @@ int main(void)
 		unsigned long wait = sync_pending ? 150 : card_photo_pending() || answer_busy() || pf_fg ? 100 : 1000;
 		if (is_acc)
 			wait = bg_timer(bg_pending(), wait);
-		if (prg_loading || (win_h > 0 && card_photo_dithering()))
+		if (prg_loading || (win_h > 0 && (card_photo_dithering() || win_later_pending())))
 			wait = 0;		/* the next slice when nothing else came */
 		if (win_h > 0)
 			flags |= MU_KEYBD | MU_BUTTON;
@@ -2171,8 +2178,17 @@ int main(void)
 		}
 		if ((which & MU_TIMER) && settings_dirty && pf_ms() - settings_at >= 3000UL)
 			settings_flush();
-		/* (a slice of a photo's pens only in a turn of its own) */
-		if ((which & MU_TIMER) && win_h > 0 && (!card_photo_dithering() || (which == MU_TIMER && turn_free()))) {
+		/* a part of the window drawn later (the card), a few bands a
+		   turn of its own */
+		if (which == MU_TIMER && win_h > 0 && win_later_pending() && turn_free()) {
+			aes_profile_tag("card");
+			later_at = pf_ms();
+			win_later_slice(later_more);
+		}
+		/* (a slice of a photo's pens only in a turn of its own; the card
+		   first, the photo goes in it) */
+		else if ((which & MU_TIMER) && win_h > 0 && !win_later_pending() &&
+			 (!card_photo_dithering() || (which == MU_TIMER && turn_free()))) {
 			aes_profile_tag("photo");
 			card_photo_tick();
 		}

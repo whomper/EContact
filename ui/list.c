@@ -182,12 +182,24 @@ static void ensure(void)
 		rebuild();
 }
 
+/* the chosen one, found again only when another is chosen or the people
+   changed (people_serial counts up before any CONTACT goes): its uid
+   compared with 621 others took an 8 MHz ST 12 ms, and it is asked for
+   at every turn and in every part of a drawing */
 CONTACT *sel_contact(void)
 {
-	CONTACT *c;
+	static CONTACT *c;
+	static unsigned long serial;
+	static char uid[sizeof(sel_uid)];
+	static short book = -2;
 	if (!sel_uid[0])
 		return 0;
+	if (c && serial == people_serial && book == sel_book && !strcmp(uid, sel_uid))
+		return c;
 	c = contact_by_uid(sel_uid, sel_book);
+	serial = people_serial;
+	book = sel_book;
+	str_copy(uid, sel_uid, sizeof(uid));
 	return c;
 }
 
@@ -477,7 +489,7 @@ void select_contact(CONTACT *c)
 		win_redraw(&a);
 	if (row_area(now, &a))
 		win_redraw(&a);
-	win_redraw(&r_card);
+	win_redraw_later(&r_card);	/* a band a turn: keys meanwhile (a held Down) */
 }
 
 /* what is shown changed: the chosen one stays if it is still there,
