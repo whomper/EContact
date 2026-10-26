@@ -187,7 +187,14 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   speed.py checks that the screen is what a whole redraw draws. On TOS
   1.04 (an 8 MHz ST, ST:mono) a v_gtext of 18 letters takes 2.9 ms at an
   x on a byte, 17 ms off it and 24 ms in bold (6 to 8 times as long;
-  under NVDI each under 1 ms): measure before adding text to a row. The
+  under NVDI each under 1 ms): measure before adding text to a row.
+  Bold with TX_WHITE (the ground under it is pen 0: the list's rows and
+  headings, the card's name, flat dialogs) is drawn plain and ORed onto
+  itself a pixel to the right under TOS's own VDI (draw.c smear: what
+  its bold is, in the system font; a third of the time), the VDI's bold
+  elsewhere (NVDI, EdDI, another font, inverse, a grey ground). The
+  screen must stay the same: compare screenshots of the old and new
+  builds on ST:mono, ST:med, Falcon:16 and EmuTOS. The
   list's bar is the
   family's pane bar (the guidelines 5.1, common/ui/panebar.c: AES objects
   in the AES's look, flat, 3D or a theme's), never drawn by hand: AES

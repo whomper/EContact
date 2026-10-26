@@ -260,6 +260,11 @@ void font_menu(void)
 /* whether another workstation (win.c's bitmap) loads them too: only
    when the window's has (the program loads them when a font is chosen,
    and win_buffer_fonts then) */
+int font_is_system(void)
+{
+	return cur_id == 1;
+}
+
 int font_gdos_loaded(void)
 {
 	return gdos_fonts > 0;

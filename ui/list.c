@@ -426,13 +426,13 @@ void list_draw(GRECT *clip)
 			char s[2];
 			s[0] = lr->letter;
 			s[1] = 0;
-			text_at(r_list.x + cw, y + 1, s, 1, 1, TX_BOLD | TX_GREY | TX_LTR);
+			text_at(r_list.x + cw, y + 1, s, 1, 1, TX_BOLD | TX_GREY | TX_LTR | TX_WHITE);
 			line_col(r_list.x + 3 * cw, y + rh / 2, r_list.x + rw - cw, y + rh / 2, grey_color());
 			continue;
 		}
 		{
 			CONTACT *c = listed[lr->contact];
-			short flags = 0;
+			short flags = TX_WHITE;
 			if (c == sel) {
 				GRECT b;
 				b.x = r_list.x + 2;

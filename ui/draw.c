@@ -60,9 +60,12 @@ static void set_text(short color, short effects)
 		vst_effects(vdi_h, c_teff = effects);
 }
 
+static GRECT clip_now;		/* the clip as set, w 0: none */
+
 void clip_on(GRECT *r)
 {
 	short pxy[4];
+	clip_now = *r;
 	pxy[0] = r->x;
 	pxy[1] = r->y;
 	pxy[2] = r->x + r->w - 1;
@@ -73,6 +76,7 @@ void clip_on(GRECT *r)
 void clip_off(void)
 {
 	short pxy[4] = { 0, 0, 0, 0 };
+	clip_now.w = 0;
 	pxy[2] = scr_w - 1;
 	pxy[3] = scr_h - 1;
 	vs_clip(vdi_h, 0, pxy);
@@ -522,6 +526,55 @@ void text_color(short color)
 	next_text_color = color;
 }
 
+/* TOS's own VDI draws bold slowly (an ST in ST high: 24 ms for 18 letters,
+   2.9 for them plain on a byte): there, on a white ground, the text is
+   drawn plain and then ORed onto itself a pixel to the right, which is
+   what its bold is (the same pixels in ST high, ST medium and a Falcon's
+   16 colours: speed.py's bench, 26 Oct 2026). Not under NVDI or an EdDI
+   driver (fast already, and drawing in a bitmap of its own) nor in
+   another font than the system one, whose thickening may differ. */
+static int smear_ok(void)
+{
+	static int ok = -1;
+	if (ok < 0)
+		ok = !get_cookie(0x4E564449L) && !get_cookie(0x45644449L);	/* NVDI, EdDI */
+	return ok && font_is_system();
+}
+
+/* the cell x, y (n letters) ORed a pixel to the right; the VDI's raster
+   copy doesn't clip: by hand, to the clip and the screen */
+static void smear(short x, short y, short n)
+{
+	GRECT d;
+	MFDB scr;
+	short pxy[8];
+	d.x = x + 1;
+	d.y = y;
+	d.w = n * cw;
+	d.h = ch;
+	if (clip_now.w && !rect_and(&d, &clip_now))
+		return;
+	{
+		GRECT s;
+		s.x = 0;
+		s.y = 0;
+		s.w = scr_w;
+		s.h = scr_h;
+		if (!rect_and(&d, &s) || d.x < 1)
+			return;
+	}
+	memset(&scr, 0, sizeof(scr));
+	pxy[0] = d.x - 1;
+	pxy[1] = d.y;
+	pxy[2] = d.x + d.w - 2;
+	pxy[3] = d.y + d.h - 1;
+	pxy[4] = d.x;
+	pxy[5] = d.y;
+	pxy[6] = d.x + d.w - 1;
+	pxy[7] = d.y + d.h - 1;
+	vro_cpyfm(vdi_h, 7, pxy, &scr, &scr);	/* S_OR_D */
+}
+
 void text_at(short x, short y, const char *s, long n, short cols, short flags)
 {
 	char vis[BIDI_MAX];
@@ -574,6 +627,18 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 		heb_font_map(vis, n, opt.hebfont);
 	}
 	set_wrmode(2);
+	/* (not when the clip cuts the text's start: the column left of the
+	   clip would be ORed in as it is, not as the letter makes it) */
+	if (effects == 1 && (flags & TX_WHITE) && !(flags & TX_INVERSE) && (!clip_now.w || clip_now.x <= x) &&
+	    smear_ok()) {
+		set_text(color, 0);
+		for (i = 0; i < n; i += 120) {
+			short k = n - i > 120 ? 120 : (short)(n - i);
+			v_gtext_n(vdi_h, x + i * cw, y, out + i, k);
+		}
+		smear(x, y, (short)n);
+		return;
+	}
 	set_text((flags & TX_INVERSE) ? 0 : color, effects);
 	for (i = 0; i < n; i += 120) {
 		short k = n - i > 120 ? 120 : (short)(n - i);

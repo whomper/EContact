@@ -328,7 +328,7 @@ void card_draw(GRECT *clip)
 				snprintf(t, sizeof(t), "%s %s", c->prefix, s);
 				str_copy(s, t, sizeof(s));
 			}
-			value_at(nx, ny, s, ncols, TX_BOLD);
+			value_at(nx, ny, s, ncols, TX_BOLD | TX_WHITE);
 			/* "Chief Tinkerer, Hardware, Atari Club", or the person at a company */
 			job[0] = 0;
 			if (c->company) {

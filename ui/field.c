@@ -612,7 +612,8 @@ static void draw_field(DLG *d, short i)
 	case FT_LABEL:
 	case FT_HEAD:
 		text_at(FX(f), FY(f), f->label, (long)strlen(f->label), f->w ? f->w : (short)strlen(f->label),
-			(f->type == FT_HEAD ? TX_BOLD : 0) | (line_rtl(f->label, (long)strlen(f->label)) ? TX_RIGHT : TX_LTR) | dis);
+			(f->type == FT_HEAD ? TX_BOLD : 0) | (line_rtl(f->label, (long)strlen(f->label)) ? TX_RIGHT : TX_LTR) | dis |
+			(bg ? 0 : TX_WHITE));
 		break;
 	case FT_TEXT:
 	case FT_PASS:
@@ -643,7 +644,7 @@ static void draw_field(DLG *d, short i)
 			frame(&r2, 1);
 		}
 		text_at(FX(f), FY(f), f->label, (long)strlen(f->label), f->w, TX_CENTER | TX_LTR | dis |
-			((f->flags & FF_DEFAULT) ? TX_BOLD : 0));
+			((f->flags & FF_DEFAULT) ? TX_BOLD : 0) | (bg ? 0 : TX_WHITE));
 		break;
 	case FT_CHECK: {
 		GRECT b;
@@ -760,7 +761,7 @@ static void draw_sections(DLG *d)
 	line_col(lx, box.y + ch + 6, lx, box.y + box.h - 4, 1);
 	if (d->page >= 1 && d->page <= d->npages) {
 		const char *s = d->pages[d->page - 1];
-		text_at(hx, hy, s, (long)strlen(s), d->w - d->side - 2, TX_LTR | TX_BOLD);
+		text_at(hx, hy, s, (long)strlen(s), d->w - d->side - 2, TX_LTR | TX_BOLD | (bg ? 0 : TX_WHITE));
 		line_col(hx, hy + ch + 3, box.x + box.w - pad, hy + ch + 3, 1);
 	}
 }
@@ -1259,7 +1260,7 @@ static void pick_paint(void)
 	}
 	fill(&list, 0);
 	if (!dlg_win)
-		text_at(box.x + cw, box.y + 4, pk_title, (long)strlen(pk_title), w, TX_BOLD | TX_LTR);
+		text_at(box.x + cw, box.y + 4, pk_title, (long)strlen(pk_title), w, TX_BOLD | TX_LTR | (bg ? 0 : TX_WHITE));
 	frame(&list, 1);
 	for (i = 0; i < pk_rows && pk_first + i < pk_n; i++) {
 		GRECT r;
