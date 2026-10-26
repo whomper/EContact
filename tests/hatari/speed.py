@@ -236,12 +236,16 @@ def prg_actions(r, con, run, d):
         the whole window shows: the sidebar hidden and shown again
         (Shift+^S twice: a new layout, all drawn)"""
         r.move(w - 20, h - 4)
-        time.sleep(0.5)
-        a = r.shot("_before-whole")
+        settle(r, 1)
+        tag = re.sub(r"\W+", "-", what).strip("-")[:30]
+        a = r.shot("whole-%s-before" % tag)
         for _ in range(2):
+            # (the screen stands still while the window is drawn off it,
+            # 1.5 s on an ST: a key sent then would be read without its
+            # Shift, the sidebar left as it was)
             r.key(0x1f, shift=True, ctrl=True)
-            settle(r, 2)
-        b = r.shot("_after-whole")
+            settle(r, 4)
+        b = r.shot("whole-%s-after" % tag)
         from PIL import Image, ImageChops
         same = ImageChops.difference(Image.open(a).convert("RGB"), Image.open(b).convert("RGB")).getbbox()
         run.check("%s: as the whole window drawn again" % what, same is None, same)

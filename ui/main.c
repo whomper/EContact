@@ -2029,7 +2029,7 @@ int main(void)
 		unsigned long wait = sync_pending ? 150 : card_photo_pending() || answer_busy() || pf_fg ? 100 : 1000;
 		if (is_acc)
 			wait = bg_timer(bg_pending(), wait);
-		if (prg_loading)
+		if (prg_loading || (win_h > 0 && card_photo_dithering()))
 			wait = 0;		/* the next slice when nothing else came */
 		if (win_h > 0)
 			flags |= MU_KEYBD | MU_BUTTON;
@@ -2171,7 +2171,8 @@ int main(void)
 		}
 		if ((which & MU_TIMER) && settings_dirty && pf_ms() - settings_at >= 3000UL)
 			settings_flush();
-		if ((which & MU_TIMER) && win_h > 0) {
+		/* (a slice of a photo's pens only in a turn of its own) */
+		if ((which & MU_TIMER) && win_h > 0 && (!card_photo_dithering() || (which == MU_TIMER && turn_free()))) {
 			aes_profile_tag("photo");
 			card_photo_tick();
 		}

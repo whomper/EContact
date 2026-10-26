@@ -62,6 +62,7 @@ void disc(short cx, short cy, short rx, short ry, short color);	/* a filled elli
 /* a contact's picture (PHOTO_N square, RGB 5-6-5) in an ellipse; serial
    changes when the picture does (the dithering is kept until then) */
 void draw_photo(const unsigned short *px, int serial, short cx, short cy, short rx, short ry, const GRECT *clip);
+int photo_dither(const unsigned short *px, int serial, short rx, short ry, int (*more)(void));
 
 #define NCOLORS 12	/* red orange yellow green blue purple brown grey pink teal navy dark green */
 typedef struct {
@@ -151,6 +152,7 @@ void card_slid(short pos);
 /* the chosen contact's photo is read a moment after the choice (arrow
    keys going down the list don't wait for each one) */
 int  card_photo_pending(void);	/* one is waiting */
+int  card_photo_dithering(void);	/* one got, its pens made a slice a turn */
 void card_photo_tick(void);	/* from the event loop: reads it when it's time */
 void card_photo_recheck(void);	/* after a refresh: photos may have changed */
 

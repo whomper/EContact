@@ -36,6 +36,10 @@ static unsigned long cur_key, tried_key;
 static int want;
 static unsigned long want_at;
 static GRECT r_avatar;
+/* the photo got, its pens made a slice a turn (draw.c photo_dither: an
+   8 MHz ST took 390 ms for one in ST high), the initials shown till then */
+static int cur_ready, shown_quick;
+static unsigned long shown_t0, shown_tl, dz_at;
 
 static int same(const CONTACT *c, const char *uid, short book, unsigned long key)
 {
@@ -57,6 +61,46 @@ int card_photo_pending(void)
 	return want;
 }
 
+int card_photo_dithering(void)
+{
+	return cur_ok && !cur_ready;
+}
+
+static int dz_more(void)
+{
+	return pf_ms() - dz_at < 40;
+}
+
+/* a slice of the photo's pens; drawn once they are all made */
+static void photo_slice(void)
+{
+	CONTACT *c = sel_contact();
+	if (!c || !same(c, cur_uid, cur_book, cur_key)) {
+		/* another one chosen meanwhile: this one is got again when
+		   it is chosen again */
+		cur_ok = 0;
+		tried_uid[0] = 0;
+		tried_book = -1;
+		return;
+	}
+	dz_at = pf_ms();
+	if (!photo_dither(cur.px, cur_serial, (r_avatar.w - 1) / 2, (r_avatar.h - 1) / 2, dz_more))
+		return;
+	cur_ready = 1;
+	win_redraw(&r_avatar);
+	if (!shown_quick) {
+		/* with Write a log on: the whole wait, as the user saw it */
+		char m[100];
+		unsigned long ms = pf_ms() - shown_t0;
+		snprintf(m, sizeof(m), "shown after %lu.%02lu s", ms / 1000, ms % 1000 / 10);
+		if (shown_tl)
+			snprintf(m + strlen(m), sizeof(m) - strlen(m), " (the list read again: %lu.%02lu s)",
+				 shown_tl / 1000, shown_tl % 1000 / 10);
+		conn_log("Photo", " -- ", m, (long)strlen(m));
+		conn_log_flush();
+	}
+}
+
 void card_photo_recheck(void)
 {
 	/* a refresh may have brought new photos, or new pictures behind links */
@@ -73,6 +117,10 @@ void card_photo_tick(void)
 	PHOTOIMG *img;
 	int how, r, quick;
 	unsigned long serial = people_serial, t0, tl = 0;
+	if (!want && card_photo_dithering()) {
+		photo_slice();
+		return;
+	}
 	if (!want || pf_ms() - want_at < 250UL)
 		return;
 	want = 0;
@@ -134,28 +182,10 @@ void card_photo_tick(void)
 		str_copy(cur_uid, tried_uid, sizeof(cur_uid));
 		cur_book = tried_book;
 		cur_key = tried_key;
-#ifdef AES_PROFILE
-		{
-			unsigned long td = pf_ms();
-			char m[64];
-			win_redraw(&r_avatar);
-			snprintf(m, sizeof(m), "PHOTOTIME drawn %lu ms\n", pf_ms() - td);
-			nf_debug(m);
-		}
-#else
-		win_redraw(&r_avatar);
-#endif
-		if (!quick) {
-			/* with Write a log on: the whole wait, as the user saw it */
-			char m[100];
-			unsigned long ms = pf_ms() - t0;
-			snprintf(m, sizeof(m), "shown after %lu.%02lu s", ms / 1000, ms % 1000 / 10);
-			if (tl)
-				snprintf(m + strlen(m), sizeof(m) - strlen(m), " (the list read again: %lu.%02lu s)",
-					 tl / 1000, tl % 1000 / 10);
-			conn_log("Photo", " -- ", m, (long)strlen(m));
-			conn_log_flush();
-		}
+		cur_ready = 0;		/* its pens in the next turns (photo_slice) */
+		shown_t0 = t0;
+		shown_tl = tl;
+		shown_quick = quick;
 	}
 	free(img);
 }
@@ -233,7 +263,7 @@ static void avatar(const CONTACT *c, short cx, short cy, short ry, const GRECT *
 	r_avatar.y = cy - ry;
 	r_avatar.w = 2 * rx + 1;
 	r_avatar.h = 2 * ry + 1;
-	if (opt.photos && cur_ok && same(c, cur_uid, cur_book, cur_key)) {
+	if (opt.photos && cur_ok && cur_ready && same(c, cur_uid, cur_book, cur_key)) {
 		draw_photo(cur.px, cur_serial, cx, cy, rx, ry, clip);
 		/* a refresh may have changed the picture behind a link */
 		ask_for(c);

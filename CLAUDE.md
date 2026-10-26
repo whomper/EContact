@@ -254,7 +254,10 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   pen from its own list of pixels rather than scanning the photo once a
   pen; black and white (ST high and medium) is dithered in a loop of its
   own, one channel (the three-channel loop took an ST 720 ms a photo,
-  this one 390); a change there must leave the photos as they were,
+  this one 390). A photo got is dithered a few rows a turn (draw.c
+  photo_dither, card.c photo_slice), the initials shown until it is
+  ready; a redraw meanwhile finishes it at once. A change there must
+  leave the photos as they were,
   pixel for pixel (compare screenshots of the old and new builds on
   ST:mono, ST:med and Falcon:16). src/jpegdc.c reads two
   bytes through a volatile pointer for the same reason (rd16): check the

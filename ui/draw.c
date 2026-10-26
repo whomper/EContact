@@ -830,19 +830,32 @@ static void ph_copy(unsigned short *bits, short wpl, const GRECT *vis, short cx,
 	vrt_cpyfm(vdi_h, 2, pxy, &src, &dst, colors);	/* transparent */
 }
 
-void draw_photo(const unsigned short *px, int serial, short cx, short cy, short rx, short ry, const GRECT *clip)
+/* The photo's pens, dithered: kept for the picture, size and palette
+   they were made for. dither() makes them a few rows at a time when
+   asked (more), so a photo shown for the first time doesn't hold the
+   machine (an 8 MHz ST: 390 ms for 65 by 65 in ST high), or all at
+   once; the rows are the same either way. */
+static unsigned char *pens;
+static short pw, ph, pserial = -1, pnpal;
+static unsigned char used[256];
+/* with many pens (256 colours), each pen's pixels in a list, so
+   drawing a pen goes through its own pixels and not the whole
+   picture once a pen: (y << 8) | x, pen by pen, from ph_first[pen] */
+static unsigned short *at, first[257];
+static short lists;
+static long pcap, acap;		/* what pens and at hold: the picture's size, not the most */
+/* dithering under way: the next row, -1 none; errors carried to the
+   right and the next row */
+static short dz_y = -1, dz_serial, dz_w, dz_h, dz_npal;
+static short err[2][PH_MAXW + 2][3];
+static short ge[2][PH_MAXW + 2];	/* black and white's one channel */
+static short half[PH_MAXH];	/* the ellipse's half width on each row */
+static unsigned char row[PH_MAXW];	/* the source column of each x */
+
+static int dither(const unsigned short *px, int serial, short rx, short ry, int (*more)(void))
 {
-	static unsigned char *pens;
-	static short pw, ph, pserial = -1, pnpal;
-	static unsigned char used[256];
-	/* with many pens (256 colours), each pen's pixels in a list, so
-	   drawing a pen goes through its own pixels and not the whole
-	   picture once a pen: (y << 8) | x, pen by pen, from ph_first[pen] */
-	static unsigned short *at, first[257];
-	static short lists;
-	static long pcap, acap;		/* what pens and at hold: the picture's size, not the most */
-	short W, H, x, y, k, wpl;
-	GRECT vis;
+	short W, H, x, y, k;
+	int grey, nq;
 	if (rx > PH_MAXW / 2)
 		rx = PH_MAXW / 2;
 	if (ry > PH_MAXH / 2)
@@ -855,22 +868,20 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 		pcap = (long)W * H + 4;
 		if (!(pens = malloc(pcap))) {
 			pcap = 0;
-			return;
+			return 0;
 		}
 		pserial = -1;		/* dithered again into it */
+		dz_y = -1;
 	}
-#ifdef AES_PROFILE
-	unsigned long tdither = tos_ms();
-#endif
-	if (serial != pserial || W != pw || H != ph || pnpal != ph_npal) {
-		/* dithered again: errors carried to the right and the next row.
-		   Shifts and adds only: a 68000 multiplies and divides 32-bit
-		   numbers in software */
-		static short err[2][PH_MAXW + 2][3];
-		static short half[PH_MAXH];	/* the ellipse's half width on each row */
-		static unsigned char row[PH_MAXW];	/* the source column of each x */
-		int grey = ph_npal == 2, nq = grey ? 1 : 3;	/* black and white: one channel */
+	if (serial == pserial && W == pw && H == ph && pnpal == ph_npal)
+		return 1;
+	grey = ph_npal == 2;	/* black and white: one channel */
+	nq = grey ? 1 : 3;
+	if (dz_y < 0 || serial != dz_serial || W != dz_w || H != dz_h || ph_npal != dz_npal) {
+		/* begun: shifts and adds only, a 68000 multiplies and divides
+		   32-bit numbers in software */
 		memset(err, 0, sizeof(err));
+		memset(ge, 0, sizeof(ge));
 		memset(used, 0, sizeof(used));
 		for (y = 0; y < H; y++) {
 			/* rx * sqrt(1 - ((y - ry) / ry)^2), once a row */
@@ -890,17 +901,25 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 		}
 		for (x = 0; x < W; x++)
 			row[x] = (unsigned char)((long)x * PHOTO_N / W);
-		for (y = 0; grey && y < H; y++) {
+		dz_y = 0;
+		dz_serial = (short)serial;
+		dz_w = W;
+		dz_h = H;
+		dz_npal = ph_npal;
+	}
+	for (y = dz_y; y < H; y++) {
+		if (more && y > dz_y && !more()) {
+			dz_y = y;
+			return 0;
+		}
+		if (grey) {
 			/* black and white (ST high): one channel, its own loop, the
 			   same sums as the colours' below (the three-channel loop
 			   took an 8 MHz ST 720 ms for a 65 by 65 picture) */
-			static short ge[2][PH_MAXW + 2];
 			short *g0 = ge[y & 1], *g1 = ge[(y + 1) & 1];
 			const unsigned short *src = px + ((long)y * PHOTO_N / H) * PHOTO_N;
 			unsigned char *out = pens + (long)y * W;
 			short lo = rx - half[y], hi = rx + half[y], white = ph_rgb[0][0], black = ph_rgb[1][0];
-			if (!y)
-				memset(ge, 0, sizeof(ge));
 			memset(g1, 0, sizeof(ge[0]));
 			for (x = 0; x < W; x++) {
 				unsigned short p = src[row[x]];
@@ -921,8 +940,9 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 				g1[x + 1] += (e << 2) + e;		/* 5/16 below */
 				g1[x + 2] += e;				/* 1/16 below right */
 			}
+			continue;
 		}
-		for (y = 0; !grey && y < H; y++) {
+		{
 			short (*e0)[3] = err[y & 1], (*e1)[3] = err[(y + 1) & 1];
 			const unsigned short *src = px + ((long)y * PHOTO_N / H) * PHOTO_N;
 			unsigned char *out = pens + (long)y * W;
@@ -964,47 +984,61 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 				}
 			}
 		}
-		pserial = (short)serial;
-		pw = W;
-		ph = H;
-		pnpal = ph_npal;
-		lists = 0;
-		if (ph_npal > 16 && (long)W * H > acap) {
-			free(at);
-			acap = (long)W * H;
-			if (!(at = malloc(acap * 2)))
-				acap = 0;
+	}
+	dz_y = -1;
+	pserial = (short)serial;
+	pw = W;
+	ph = H;
+	pnpal = ph_npal;
+	lists = 0;
+	if (ph_npal > 16 && (long)W * H > acap) {
+		free(at);
+		acap = (long)W * H;
+		if (!(at = malloc(acap * 2)))
+			acap = 0;
+	}
+	if (ph_npal > 16 && at) {
+		/* how many each pen has, where each one's list starts,
+		   then the pixels in order: the lists come out top to bottom */
+		static unsigned short fill[256];
+		memset(fill, 0, sizeof(fill));
+		for (y = 0; y < H; y++)
+			for (x = 0; x < W; x++)
+				if (pens[(long)y * W + x] != 255)
+					fill[pens[(long)y * W + x]]++;
+		first[0] = 0;
+		for (k = 0; k < 256; k++) {
+			first[k + 1] = first[k] + fill[k];
+			fill[k] = first[k];
 		}
-		if (ph_npal > 16 && at) {
-			/* how many each pen has, where each one's list starts,
-			   then the pixels in order: the lists come out top to bottom */
-			static unsigned short fill[256];
-			memset(fill, 0, sizeof(fill));
-			for (y = 0; y < H; y++)
-				for (x = 0; x < W; x++)
-					if (pens[(long)y * W + x] != 255)
-						fill[pens[(long)y * W + x]]++;
-			first[0] = 0;
-			for (k = 0; k < 256; k++) {
-				first[k + 1] = first[k] + fill[k];
-				fill[k] = first[k];
+		for (y = 0; y < H; y++)
+			for (x = 0; x < W; x++) {
+				short pn = pens[(long)y * W + x];
+				if (pn != 255)
+					at[fill[pn]++] = (unsigned short)((y << 8) | x);
 			}
-			for (y = 0; y < H; y++)
-				for (x = 0; x < W; x++) {
-					short pn = pens[(long)y * W + x];
-					if (pn != 255)
-						at[fill[pn]++] = (unsigned short)((y << 8) | x);
-				}
-			lists = 1;
-		}
+		lists = 1;
 	}
-#ifdef AES_PROFILE
-	{
-		char m[80];
-		snprintf(m, sizeof(m), "PHOTOTIME dither %lu ms (%dx%d, %d pens)\n", tos_ms() - tdither, W, H, ph_npal);
-		nf_debug(m);
-	}
-#endif
+	return 1;
+}
+
+int photo_dither(const unsigned short *px, int serial, short rx, short ry, int (*more)(void))
+{
+	return dither(px, serial, rx, ry, more);
+}
+
+void draw_photo(const unsigned short *px, int serial, short cx, short cy, short rx, short ry, const GRECT *clip)
+{
+	short W, H, x, y, k, wpl;
+	GRECT vis;
+	if (rx > PH_MAXW / 2)
+		rx = PH_MAXW / 2;
+	if (ry > PH_MAXH / 2)
+		ry = PH_MAXH / 2;
+	W = 2 * rx + 1;
+	H = 2 * ry + 1;
+	if (!dither(px, serial, rx, ry, 0))
+		return;
 	/* where it shows: the VDI's raster copy may not clip, so by hand */
 	vis.x = cx - rx;
 	vis.y = cy - ry;
