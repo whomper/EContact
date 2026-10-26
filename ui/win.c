@@ -85,9 +85,18 @@ void win_status(const char *s)
 		wind_set_str(win_h, WF_INFO, info);
 }
 
+/* The buffer holds the whole work area as it was last drawn: then what
+   the AES asks for again (WM_REDRAW: a dialog, an alert or another
+   window gone from over it) is copied from the buffer, not drawn again
+   (Settings' area took an 8 MHz ST 1 s to draw: speed.py, 26 Oct 2026).
+   Every change is drawn through it (win_redraw) and a scroll moves it
+   too; a new layout, a move or the window closed forget it. */
+static int obuf_whole;
+
 void win_layout(void)
 {
 	short th = ch + 8, sw, lw, x, i, bw;
+	obuf_whole = 0;
 	if (win_h <= 0 || win_iconified)
 		return;
 	wind_get(win_h, WF_WORKXYWH, &work.x, &work.y, &work.w, &work.h);
@@ -474,6 +483,40 @@ void win_buffer_fonts(void)
 	}
 }
 
+/* each piece of the window in full shown: copied from the buffer, the
+   list's bar drawn over it (AES objects: on the screen, 5.1) */
+static void copy_pieces(const GRECT *full)
+{
+	GRECT box;
+	MFDB scr;
+	memset(&scr, 0, sizeof(scr));
+	wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
+	while (box.w && box.h) {
+		GRECT d = box;
+		if (rect_and(&d, full)) {
+			short pxy[8];
+			pxy[0] = pxy[4] = d.x;
+			pxy[1] = pxy[5] = d.y;
+			pxy[2] = pxy[6] = d.x + d.w - 1;
+			pxy[3] = pxy[7] = d.y + d.h - 1;
+			/* NVDI clips raster copies too (TOS's VDI doesn't):
+			   the piece's own, not one left by a dialog */
+			clip_on(&d);
+			vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &scr);	/* S_ONLY */
+			list_bar_draw(&d);
+		}
+		wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
+	}
+	clip_off();
+}
+
+/* the buffer is drawn in now (TOS's way: only while its logical screen
+   is the one shown) */
+static int buffered(void)
+{
+	return obuf && (bm_h || xbios_base(3) == xbios_base(2));
+}
+
 void win_redraw(GRECT *area)
 {
 	GRECT box, full;
@@ -491,10 +534,8 @@ void win_redraw(GRECT *area)
 		wind_update(END_UPDATE);
 		return;
 	}
-	if (obuf && (bm_h || xbios_base(3) == xbios_base(2))) {
+	if (buffered()) {
 		/* all of it off the screen, then each visible piece copied */
-		MFDB scr;
-		memset(&scr, 0, sizeof(scr));
 		if (bm_h) {
 			short keep = vdi_h;
 			vdi_h = bm_h;
@@ -509,24 +550,9 @@ void win_redraw(GRECT *area)
 			draw_all(&full);
 			xbios_setscreen(screen);
 		}
-		wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
-		while (box.w && box.h) {
-			GRECT d = box;
-			if (rect_and(&d, &full)) {
-				short pxy[8];
-				pxy[0] = pxy[4] = d.x;
-				pxy[1] = pxy[5] = d.y;
-				pxy[2] = pxy[6] = d.x + d.w - 1;
-				pxy[3] = pxy[7] = d.y + d.h - 1;
-				/* NVDI clips raster copies too (TOS's VDI doesn't):
-				   the piece's own, not one left by a dialog */
-				clip_on(&d);
-				vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &scr);	/* S_ONLY */
-				list_bar_draw(&d);	/* AES objects: on the screen (5.1) */
-			}
-			wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
-		}
-		clip_off();
+		if (full.x == work.x && full.y == work.y && full.w == work.w && full.h == work.h)
+			obuf_whole = 1;
+		copy_pieces(&full);
 	} else {
 		wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
 		while (box.w && box.h) {
@@ -541,6 +567,48 @@ void win_redraw(GRECT *area)
 	graf_mouse(M_ON, 0);
 	wind_update(END_UPDATE);
 	win_slider();		/* the card's height is known once it is drawn */
+}
+
+/* the window moved, its size the same: its picture moved in the buffer
+   too, so what the move brings into view is copied (when both places
+   are on the screen: the buffer is the screen's size) */
+static void buffer_moved(const GRECT *was)
+{
+	short pxy[8];
+	if (!buffered() || was->w != work.w || was->h != work.h ||
+	    was->x < 0 || was->y < 0 || was->x + was->w > scr_w || was->y + was->h > scr_h ||
+	    work.x < 0 || work.y < 0 || work.x + work.w > scr_w || work.y + work.h > scr_h)
+		return;
+	pxy[0] = was->x;
+	pxy[1] = was->y;
+	pxy[2] = was->x + was->w - 1;
+	pxy[3] = was->y + was->h - 1;
+	pxy[4] = work.x;
+	pxy[5] = work.y;
+	pxy[6] = work.x + work.w - 1;
+	pxy[7] = work.y + work.h - 1;
+	wind_update(BEG_UPDATE);
+	clip_off();
+	vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &obuf_mfdb);	/* S_ONLY */
+	wind_update(END_UPDATE);
+	obuf_whole = 1;
+}
+
+/* what the AES asks for again: from the buffer when it holds it all */
+static void win_uncover(GRECT *area)
+{
+	GRECT full = work;
+	if (win_h <= 0 || win_hold || win_iconified || !obuf_whole || !buffered()) {
+		win_redraw(area);
+		return;
+	}
+	if (!rect_and(&full, area))
+		return;
+	wind_update(BEG_UPDATE);
+	graf_mouse(M_OFF, 0);
+	copy_pieces(&full);
+	graf_mouse(M_ON, 0);
+	wind_update(END_UPDATE);
 }
 
 static short sl_size = -1, sl_pos = -1;	/* the window's slider as set */
@@ -599,6 +667,8 @@ void win_scroll(const GRECT *a, short dy)
 		graf_mouse(M_OFF, 0);
 		clip_on((GRECT *)a);	/* NVDI clips raster copies */
 		vro_cpyfm(vdi_h, 3, pxy, &scr, &scr);	/* S_ONLY */
+		if (obuf_whole)
+			vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &obuf_mfdb);	/* the buffer as the screen */
 		clip_off();
 		graf_mouse(M_ON, 0);
 		strip.h = ady;
@@ -721,6 +791,7 @@ void win_close(void)
 	wind_close(win_h);
 	wind_delete(win_h);
 	win_h = -1;
+	obuf_whole = 0;
 }
 
 void win_message(short *msg)
@@ -734,7 +805,7 @@ void win_message(short *msg)
 		r.y = msg[5];
 		r.w = msg[6];
 		r.h = msg[7];
-		win_redraw(&r);
+		win_uncover(&r);
 		break;
 	case WM_TOPPED:
 		wind_set(win_h, WF_TOP, 0, 0, 0, 0);
@@ -787,10 +858,16 @@ void win_message(short *msg)
 		}
 		if (sx + w > desk_x + desk_w)
 			w = desk_x + desk_w - sx;
-		wind_set(win_h, WF_CURRXYWH, sx, msg[5], w, h);
-		win_layout();
-		if (msg[0] == WM_SIZED)
-			win_redraw(0);
+		{
+			GRECT was = work;
+			int whole = obuf_whole;
+			wind_set(win_h, WF_CURRXYWH, sx, msg[5], w, h);
+			win_layout();
+			if (msg[0] == WM_SIZED)
+				win_redraw(0);
+			else if (whole)
+				buffer_moved(&was);
+		}
 		remember_place();
 		break;
 	}

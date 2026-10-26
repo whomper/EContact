@@ -20,7 +20,11 @@ second is timed), then in its window
 - ^G: New Group's dialog opened, a letter typed in its field, Esc;
 - ^,: Settings opened, Esc: the window uncovered;
 - Delete: its alert, Return (Cancel): uncovered;
+- Return: the editor opened, Esc: uncovered;
 and the accessory opened from the Desk menu, its books read at boot.
+After some of them the screen is set against the whole window drawn
+again (Shift+^S twice: the sidebar hidden and shown): what was drawn in
+part, or copied from the buffer, must be what a whole drawing draws.
 Each action's longest stretch ("AESGAP" lines of 20 ms and more, the
 "AESDRAWN" times of the start and the opening: ui/main.c) is set against
 the guidelines' time for it. The table goes to WORK/speed.txt and
@@ -108,7 +112,12 @@ class Console:
 
 class Run:
     def __init__(self, machine, label):
-        self.machine, self.label, self.rows = machine, label, []
+        self.machine, self.label, self.rows, self.fails = machine, label, [], []
+
+    def check(self, what, ok, detail=None):
+        print("  %s %s%s" % ("ok  " if ok else "FAIL", what, "" if ok else " (%s)" % (detail,)))
+        if not ok:
+            self.fails.append(what)
 
     def add(self, action, limit, gaps, drawn=None, note=""):
         longest = max([g for g, _ in gaps] or [0])
@@ -221,8 +230,28 @@ def prg_actions(r, con, run, d):
         run.add(name, limit, gaps, max([g for g, t in dr if t == drawn] or [0]) if drawn else None)
         r.shot(re.sub(r"\W+", "-", name).strip("-")[:40])
 
+    def whole(what):
+        """what partial drawing left on the screen is what a drawing of
+        the whole window shows: the sidebar hidden and shown again
+        (Shift+^S twice: a new layout, all drawn)"""
+        r.move(w - 20, h - 4)
+        time.sleep(0.5)
+        a = r.shot("_before-whole")
+        for _ in range(2):
+            r.key(0x1f, shift=True, ctrl=True)
+            settle(r, 2)
+        b = r.shot("_after-whole")
+        from PIL import Image, ImageChops
+        same = ImageChops.difference(Image.open(a).convert("RGB"), Image.open(b).convert("RGB")).getbbox()
+        run.check("%s: as the whole window drawn again" % what, same is None, same)
+
     act("Clr/Home: a card with its photo", T_KEY, lambda: r.key(K["HOME"]), secs=4)
     act("Down: the next row", T_KEY, lambda: r.key(K["DOWN"]))
+    for _ in range(25):			# past the list's foot: rows moved
+        r.key(K["DOWN"])
+        time.sleep(0.3)
+    settle(r, 3)
+    whole("Down to below the list's foot")
     s0 = r.shot("_bar")
     t0 = list_bar.thumb(s0)
     if t0:
@@ -256,6 +285,7 @@ def prg_actions(r, con, run, d):
         print("  (no list bar found: the scroll actions not done)")
     act("a letter typed in the search field", T_KEY, lambda: r.type("c"), secs=2)
     act("a second letter", T_KEY, lambda: r.type("o"), secs=2)
+    whole("searched")
     act("both taken out (Backspace twice)", T_KEY,
         lambda: (r.key(K["BACKSPACE"]), r.key(K["BACKSPACE"])), secs=2)
     act("^G: New Group's dialog", T_DIALOG, lambda: r.ctrl("g"))
@@ -263,8 +293,15 @@ def prg_actions(r, con, run, d):
     act("Esc: closed, the window uncovered", T_WINDOW, lambda: r.key(K["ESC"]))
     act("^,: Settings opened", T_DIALOG, lambda: r.key(0x33, ctrl=True), secs=2)
     act("Esc: Settings closed, the window uncovered", T_WINDOW, lambda: r.key(K["ESC"]), secs=2)
+    whole("Settings closed")
+    r.key(K["DOWN"])			# the list's turn again (the search field had it)
+    settle(r, 2)
     act("Delete: its alert", T_DIALOG, lambda: r.key(K["DELETE"]))
     act("Return (Cancel): uncovered", T_WINDOW, lambda: r.key(K["RETURN"]))
+    whole("the alert answered")
+    act("Return: the editor opened", T_DIALOG, lambda: r.key(K["RETURN"]), secs=2)
+    act("Esc: the editor closed, uncovered", T_WINDOW, lambda: r.key(K["ESC"]), secs=2)
+    whole("the editor closed")
 
 
 def boot_wait(con, what, limit=600):
@@ -385,8 +422,11 @@ def main():
             for x in r.rows:
                 f.write("  %-40s %6d ms  limit %d%s\n" % (x["action"], x["ms"], x["limit"],
                                                         "  OVER" if x["over"] else ""))
+    wrong = [(r.label, f) for r in runs for f in r.fails]
     print("%d over their time" % len(over) if over else "all within their times")
-    sys.exit(1 if over else 0)
+    if wrong:
+        print("%d drawn wrong: %s" % (len(wrong), wrong))
+    sys.exit(1 if over or wrong else 0)
 
 
 if __name__ == "__main__":

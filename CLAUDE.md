@@ -174,12 +174,28 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (win_scroll) and draws those that come in and the slider's old and
   new place only (the whole bar took an 8 MHz ST 70 ms); a held arrow
   keeps some 15 rows a second, a held track goes on to the pointer.
-  list_draw draws only the rows in its area. The list's bar is the
+  list_draw draws only the rows in its area, and choosing someone
+  (select_contact) draws only the old and the new chosen rows, the rows
+  that stay moved when the list scrolls to it, and the card; a search
+  draws the card only when another one is chosen. The buffer holds the
+  whole window as it was last drawn (obuf_whole): what the AES asks for
+  again (WM_REDRAW: a dialog, an alert or a window gone from over it) is
+  copied from it (win_uncover), a scroll moves it too, a move at the
+  same size moves it (buffer_moved), a new layout or the window closed
+  forget it. So everything in the window is drawn through win_redraw,
+  never on the screen alone, or the next uncover shows the old picture;
+  speed.py checks that the screen is what a whole redraw draws. On TOS
+  1.04 (an 8 MHz ST, ST:mono) a v_gtext of 18 letters takes 2.9 ms at an
+  x on a byte, 17 ms off it and 24 ms in bold (6 to 8 times as long;
+  under NVDI each under 1 ms): measure before adding text to a row. The
+  list's bar is the
   family's pane bar (the guidelines 5.1, common/ui/panebar.c: AES objects
   in the AES's look, flat, 3D or a theme's), never drawn by hand: AES
   objects draw on the screen, so win_redraw draws it (list_bar_draw) on
   each piece after the copy, and a scroll draws pb_moved's part
-  (win_bars). The window resizes by the AES's sizer only.
+  (win_bars), with 3 pixels more each way within the bar: a raised
+  slider's edge stands out of the track, over the up arrow's foot. The
+  window resizes by the AES's sizer only.
   `tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi] [--flat]`
   checks it. The card, the pane at the window's right edge, scrolls in
   the window's own slider column (5.1: the AES keeps it anyway): card.c

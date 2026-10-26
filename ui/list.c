@@ -291,7 +291,13 @@ static int list_scroll_to(int t)
 		long dy = (long)(top - old) * (rh ? rh : ch + 2);
 		win_scroll(&a, dy >= a.h || dy <= -a.h ? a.h : (short)dy);
 	}
+	/* a raised slider's edge stands out of the track too, over the
+	   arrow's foot at the top: pb_moved stops at the track (common's
+	   panebar.c), so a few pixels more, within the bar */
 	a = pb_moved(bar(), old);
+	a.y -= 3;
+	a.h += 6;
+	rect_and(&a, &pb.r);
 	win_bars(&a);
 	return 1;
 }
@@ -302,19 +308,41 @@ int list_scroll(int n)
 	return list_scroll_to(top + n);
 }
 
+/* the top that shows the chosen one, or -1 when it isn't listed */
+static int top_for_sel(void)
+{
+	int r = sel_row(), vis = visible_rows(), t = top;
+	if (r < 0)
+		return -1;
+	/* its heading too, when it is the first under one */
+	if (r > 0 && rows[r - 1].contact < 0 && r - 1 < t)
+		t = r - 1;
+	else if (r < t)
+		t = r;
+	else if (r >= t + vis)
+		t = r - vis + 1;
+	return t;
+}
+
 void list_scroll_to_sel(void)
 {
-	int r = sel_row(), vis = visible_rows();
-	if (r < 0)
+	int t = top_for_sel();
+	if (t < 0)
 		return;
-	/* its heading too, when it is the first under one */
-	if (r > 0 && rows[r - 1].contact < 0 && r - 1 < top)
-		top = r - 1;
-	else if (r < top)
-		top = r;
-	else if (r >= top + vis)
-		top = r - vis + 1;
+	top = t;
 	clamp_top();
+}
+
+/* row r's strip on the screen, if it is shown */
+static int row_area(int r, GRECT *a)
+{
+	if (r < top || r > top + visible_rows())
+		return 0;
+	a->x = r_list.x;
+	a->y = r_list.y + 2 + (short)(r - top) * rh;
+	a->w = rows_w();
+	a->h = rh;
+	return 1;
 }
 
 /* "Erez" plain and "Yaary" bold: the part the list is sorted by in bold */
@@ -423,6 +451,8 @@ void list_draw(GRECT *clip)
 /* the chosen one changed: its row and the old one, and the card */
 void select_contact(CONTACT *c)
 {
+	int was = sel_row(), now, t;
+	GRECT a;
 	if (c) {
 		str_copy(sel_uid, c->uid ? c->uid : "", sizeof(sel_uid));
 		sel_book = c->book;
@@ -430,8 +460,17 @@ void select_contact(CONTACT *c)
 		sel_uid[0] = 0;
 		sel_book = -1;
 	}
-	list_scroll_to_sel();
-	win_redraw(&r_list);
+	/* the rows that stay are moved (win_scroll), only those that come
+	   in drawn, then the old and the new chosen rows: each row's text is
+	   two of TOS 1.04's slowest calls, 24 ms in bold on an ST */
+	t = top_for_sel();
+	if (t >= 0 && t != top)
+		list_scroll_to(t);
+	now = sel_row();
+	if (was != now && row_area(was, &a))
+		win_redraw(&a);
+	if (row_area(now, &a))
+		win_redraw(&a);
 	win_redraw(&r_card);
 }
 
@@ -644,7 +683,6 @@ int list_key(short kstate, short key)
 	case 0x50: list_step(1); return 1;			/* down */
 	case 0x47:						/* Clr/Home: the first, Shift: the last */
 		ensure();
-		top = 0;
 		sel_uid[0] = 0;
 		list_step((kstate & (K_LSHIFT | K_RSHIFT)) ? -1 : 1);
 		return 1;
