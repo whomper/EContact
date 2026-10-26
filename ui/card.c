@@ -95,6 +95,13 @@ void card_photo_tick(void)
 		int job = img && c->photo_key == VC_KEY_UNKNOWN && !opt.offline && ab_job_bytes > 24L * 1024 &&
 			  book_fetch_job(c->book);	/* (a 1 MB ST: written first, for the decoder's room) */
 		r = img ? photo_get(c, img, !opt.offline, &how) : PH_FAILED;
+#ifdef AES_PROFILE
+		{
+			char m[64];
+			snprintf(m, sizeof(m), "PHOTOTIME get %lu ms\n", pf_ms() - t0);
+			nf_debug(m);
+		}
+#endif
 		if (job)
 			book_fetch_job_end();
 	}
@@ -127,7 +134,17 @@ void card_photo_tick(void)
 		str_copy(cur_uid, tried_uid, sizeof(cur_uid));
 		cur_book = tried_book;
 		cur_key = tried_key;
+#ifdef AES_PROFILE
+		{
+			unsigned long td = pf_ms();
+			char m[64];
+			win_redraw(&r_avatar);
+			snprintf(m, sizeof(m), "PHOTOTIME drawn %lu ms\n", pf_ms() - td);
+			nf_debug(m);
+		}
+#else
 		win_redraw(&r_avatar);
+#endif
 		if (!quick) {
 			/* with Write a log on: the whole wait, as the user saw it */
 			char m[100];

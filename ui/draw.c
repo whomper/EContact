@@ -794,6 +794,9 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 		}
 		pserial = -1;		/* dithered again into it */
 	}
+#ifdef AES_PROFILE
+	unsigned long tdither = tos_ms();
+#endif
 	if (serial != pserial || W != pw || H != ph || pnpal != ph_npal) {
 		/* dithered again: errors carried to the right and the next row.
 		   Shifts and adds only: a 68000 multiplies and divides 32-bit
@@ -822,7 +825,39 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 		}
 		for (x = 0; x < W; x++)
 			row[x] = (unsigned char)((long)x * PHOTO_N / W);
-		for (y = 0; y < H; y++) {
+		for (y = 0; grey && y < H; y++) {
+			/* black and white (ST high): one channel, its own loop, the
+			   same sums as the colours' below (the three-channel loop
+			   took an 8 MHz ST 720 ms for a 65 by 65 picture) */
+			static short ge[2][PH_MAXW + 2];
+			short *g0 = ge[y & 1], *g1 = ge[(y + 1) & 1];
+			const unsigned short *src = px + ((long)y * PHOTO_N / H) * PHOTO_N;
+			unsigned char *out = pens + (long)y * W;
+			short lo = rx - half[y], hi = rx + half[y], white = ph_rgb[0][0], black = ph_rgb[1][0];
+			if (!y)
+				memset(ge, 0, sizeof(ge));
+			memset(g1, 0, sizeof(ge[0]));
+			for (x = 0; x < W; x++) {
+				unsigned short p = src[row[x]];
+				short v = (short)((((p >> 8) & 0xF8) + (((p >> 3) & 0xFC) << 1) + ((p << 3) & 0xF8)) >> 2), e;
+				unsigned char pen;
+				v = v + (g0[x + 1] >> 4);
+				v = v < 0 ? 0 : v > 255 ? 255 : v;
+				pen = v < 128;
+				if (x < lo || x > hi) {
+					out[x] = 255;
+				} else {
+					out[x] = pen;
+					used[pen] = 1;
+				}
+				e = v - (pen ? black : white);
+				g0[x + 2] += (e << 3) - e;		/* 7/16 to the right */
+				g1[x] += (e << 1) + e;			/* 3/16 below left */
+				g1[x + 1] += (e << 2) + e;		/* 5/16 below */
+				g1[x + 2] += e;				/* 1/16 below right */
+			}
+		}
+		for (y = 0; !grey && y < H; y++) {
 			short (*e0)[3] = err[y & 1], (*e1)[3] = err[(y + 1) & 1];
 			const unsigned short *src = px + ((long)y * PHOTO_N / H) * PHOTO_N;
 			unsigned char *out = pens + (long)y * W;
@@ -898,6 +933,13 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 			lists = 1;
 		}
 	}
+#ifdef AES_PROFILE
+	{
+		char m[80];
+		snprintf(m, sizeof(m), "PHOTOTIME dither %lu ms (%dx%d, %d pens)\n", tos_ms() - tdither, W, H, ph_npal);
+		nf_debug(m);
+	}
+#endif
 	/* where it shows: the VDI's raster copy may not clip, so by hand */
 	vis.x = cx - rx;
 	vis.y = cy - ry;

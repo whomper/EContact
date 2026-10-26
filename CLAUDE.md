@@ -245,7 +245,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   colour's nearest pen the first time a photo has it (ph_pen: the whole
   table took 18 s in 256 colours) and, with more than 16 pens, draws each
   pen from its own list of pixels rather than scanning the photo once a
-  pen; a change there must leave the photos as they were, pixel for pixel. src/jpegdc.c reads two
+  pen; black and white (ST high and medium) is dithered in a loop of its
+  own, one channel (the three-channel loop took an ST 720 ms a photo,
+  this one 390); a change there must leave the photos as they were,
+  pixel for pixel (compare screenshots of the old and new builds on
+  ST:mono, ST:med and Falcon:16). src/jpegdc.c reads two
   bytes through a volatile pointer for the same reason (rd16): check the
   sample formats in Hatari on an ST after touching it.
 - The search (contact_matches, src/abook.c) makes the text ready once

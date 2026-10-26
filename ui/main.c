@@ -2171,9 +2171,12 @@ int main(void)
 		}
 		if ((which & MU_TIMER) && settings_dirty && pf_ms() - settings_at >= 3000UL)
 			settings_flush();
-		if ((which & MU_TIMER) && win_h > 0)
+		if ((which & MU_TIMER) && win_h > 0) {
+			aes_profile_tag("photo");
 			card_photo_tick();
+		}
 		if ((which & MU_TIMER) && sync_pending && win_h > 0) {
+			aes_profile_tag("refresh");
 			sync_pending = 0;
 			refresh(0, 0);
 		}
@@ -2209,6 +2212,7 @@ int main(void)
 			unsigned long now = pf_ms();
 			if (now - last_minute >= 30000UL) {
 				last_minute = now;
+				aes_profile_tag("auto-refresh");
 				auto_refresh();
 			}
 		}
