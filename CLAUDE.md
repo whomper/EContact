@@ -104,7 +104,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   1.3 ms an address) and its steps stop after some 20 ms. It is made
   8 KB at a time (PF_CHUNK), each piece added to CONTACTS.TMP in a step
   of its own, which is then renamed: the whole file (40 KB for 350
-  contacts) wasn't to be had on a 1 MB ST (`quiet_start.py WORK ST-1`).
+  contacts) wasn't to be had on a 1 MB ST, nor 10 KB at its first boot
+  (a quarter of the heap): a piece is half as big while the heap hasn't
+  its room, down to 1 KB (PF_LEAST; `quiet_start.py WORK ST-1`). The
+  stamp's steps go by the piece's size too: pfw.chunk is set where the
+  stamp starts.
   A load collects the groups in steps too
   (groups_collect_step: 600 contacts with categories took an ST 165 ms).
 - Where the accessory and the program find ECONTACT.INF and the folder

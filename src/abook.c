@@ -3935,15 +3935,19 @@ static void names_stamp(void)
    each piece added to CONTACTS.TMP in a step of its own (a file opened
    and closed in each: 2.2), which is then put in its place, so EMail or
    ECal never read half of it. Only a piece is held: the whole file (40 KB
-   for 350 contacts) wasn't to be had on a 1 MB ST ---- */
+   for 350 contacts) wasn't to be had on a 1 MB ST, nor 10 KB at its first
+   boot (a quarter of the heap), so a piece is smaller when the heap has
+   less, down to PF_LEAST ---- */
 enum { PF_IDLE, PF_STAMP, PF_PEOPLE, PF_GROUPS, PF_SAVE };
 #define PF_CHUNK (8L * 1024)
+#define PF_LEAST 1024L
 
 static struct {
 	int st, i, k, first, known, has;
 	unsigned long have;		/* the stamp of the file there is (has) */
 	unsigned long h, serial;	/* what is being made from */
 	long pos;			/* CONTACTS.TMP written up to here */
+	long chunk;			/* a piece's size: PF_CHUNK, less when short */
 	SBUF out;			/* the piece being made */
 } pfw;
 
@@ -4037,13 +4041,15 @@ static int pfw_begin(void)
 		pfw_stop("contacts left out");
 		return 0;
 	}
-	/* a piece's room at once, and a contact's lines over it */
+	/* a piece's room at once, and a contact's lines over it (a quarter
+	   more); half of it while the heap hasn't that */
 	sb_free(&pfw.out);
 	pfw.pos = 0;
-	if (!sb_reserve(&pfw.out, PF_CHUNK + 2048)) {
-		pfw_stop("no memory");
-		return 0;
-	}
+	for (pfw.chunk = PF_CHUNK; !sb_reserve(&pfw.out, pfw.chunk + pfw.chunk / 4); pfw.chunk /= 2)
+		if (pfw.chunk <= PF_LEAST) {
+			pfw_stop("no memory");
+			return 0;
+		}
 	sb_adds(&pfw.out, "; EContact's people, for EMail and ECal when EContact isn't loaded. EContact\r\n"
 			  "; writes it whenever the contacts change: change them in EContact, not here.\r\n"
 			  "; P<tab>name<tab>email<tab>label    one line for each email address\r\n"
@@ -4058,7 +4064,7 @@ static int pfw_begin(void)
 /* a step's work: some 20 ms of it, at least one, until a piece is made */
 static int pfw_more(unsigned long t0, int n, int max)
 {
-	return n < max && pfw.out.len < PF_CHUNK && (!n || pf_ms() - t0 < 20);
+	return n < max && pfw.out.len < pfw.chunk && (!n || pf_ms() - t0 < 20);
 }
 
 /* one step; 1 while there is more */
@@ -4089,10 +4095,11 @@ int people_file_step(void)
 		pfw.serial = people_serial;
 		pfw.h = people_names_stamp;
 		pfw.i = 0;
+		pfw.chunk = PF_CHUNK;
 		return 1;
 	}
 	/* a piece made: written, in a step of its own */
-	if (pfw.st > PF_STAMP && pfw.out.len >= PF_CHUNK)
+	if (pfw.st > PF_STAMP && pfw.out.len >= pfw.chunk)
 		return pfw_flush();
 	switch (pfw.st) {
 	case PF_STAMP:
