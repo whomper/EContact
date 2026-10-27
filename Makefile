@@ -281,9 +281,13 @@ REPLAYSRC   := common/tests/fuzz/fuzz_net.c common/tests/fuzz/replay.c
 $(OBJDIR)/replay_%: tests/fuzz/fuzz_%.c $(HOSTSRC) $(HDRS) $(HOSTLIB) $(REPLAYSRC) | $(OBJDIR)
 	$(HOSTCC) $(REPLAYFLAGS) -o $@ $< $(HOSTSRC) $(REPLAYSRC) $(HOSTLIB)
 
-test: $(OBJDIR)/unit $(OBJDIR)/lowmem $(addprefix $(OBJDIR)/replay_,$(FUZZERS))
+test: $(OBJDIR)/unit $(OBJDIR)/lowmem $(addprefix $(OBJDIR)/replay_,$(FUZZERS)) $(OBJDIR)/contact.elf
 	$(OBJDIR)/unit
 	$(OBJDIR)/lowmem
+	@# no word or long at an odd stack offset: an address error on a 68000
+	@# (the guidelines, The machines; common's accmem, 27 Oct 2026)
+	python3 common/tools/oddaccess.py $(OBJDIR)/contact.elf \
+	  $(wildcard $(OBJDIR)/fakeguide.elf $(OBJDIR)/asker.elf $(OBJDIR)/vcbench.elf)
 	@for f in $(FUZZERS); do \
 	  $(OBJDIR)/replay_$$f tests/fuzz/seeds/$$f $$(ls -d tests/fuzz/found/$$f 2>/dev/null) || exit 1; \
 	done

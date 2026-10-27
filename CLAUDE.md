@@ -266,7 +266,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   and -fdisable-tree-bswap (GCC 13's bswap pass, the guidelines, The
   machines; not -fno-expensive-optimizations, which GCC 13.3 miscompiles
   with), and `-fdump-tree-bswap-details` must leave no "load in target
-  endianness". GCC notes each file's disabled pass on stderr: not a warning. 32-bit `*` and `/` are software routines there: keep them out of
+  endianness". Nor a word or long at an odd stack offset (GCC fills an
+  initialised char array on the stack with long moves wherever it lies:
+  common's accmem, 27 Oct 2026): `make test` runs common/tools/oddaccess.py
+  over the 68000 ELFs; such an array gets `__attribute__((aligned(4)))`
+  or is filled by strcpy. GCC notes each file's disabled pass on stderr: not a warning. 32-bit `*` and `/` are software routines there: keep them out of
   per-pixel loops (photo.c, draw.c's draw_photo). draw_photo finds a
   colour's nearest pen the first time a photo has it (ph_pen: the whole
   table took 18 s in 256 colours) and, with more than 16 pens, draws each
