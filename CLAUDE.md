@@ -228,15 +228,22 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   and dlg_ask's len is what the buffer holds (it shows 30 at most).
   Shift+Left/Right go to the ends, known by their '4' and '6' too (as
   key_ctrl does: Shift may be let go before a busy EContact reads them).
-  `tests/hatari/long_field.py` checks it. Where the AES draws 3D and
-  DIALOGS3D= is on (the guidelines 5.6; dlg_look3d), in 16 colours or more,
-  they take the AES's look: the ground its grey (pen 8), buttons raised as
-  its exit buttons are (two black lines, white above and left, pen 9 below
-  and right, pressed in when clicked), pop-ups raised too (one black
-  line), fields, ticks, lists and the progress bar white, the chosen
-  section a black bar; anything cleared is cleared with
-  the ground (bg), never white. Elsewhere they are drawn as before: TOS
-  1.04 and DIALOGS3D=0 pixel for pixel as 1.65. Where the AES runs
+  `tests/hatari/long_field.py` checks it. Esc empties the text field the
+  cursor is in and the dialog stays open, Undo (and a dialog window's
+  closer, common's dlg_evnt) cancels, Esc cancels a dialog without a
+  text field (dlg_cancel_key; the guidelines 3.5, GEM's way since 27 Oct
+  2026); a text of several lines never empties on Esc. The window's
+  search field empties on Esc too, and in the choose mode Esc cancels
+  once it is empty (`tests/hatari/esc_test.py`). The buttons are the
+  AES's own G_BUTTONs, drawn by objc_draw in the clip set (field.c
+  aes_button; 5.6), a dialog's together in one call (aes_buttons: TOS
+  1.04 takes some 10 ms a call), and a pop-up opens over its button with
+  its choice ticked (popup_over; 5.7). Where the AES draws 3D (the guidelines 5.6;
+  dlg_look3d: no setting since 27 Oct 2026), in 16 colours or more,
+  they take the AES's look: the ground its grey (pen 8), pop-ups raised
+  (one black line), fields, ticks, lists and the progress bar white,
+  the chosen section a black bar; anything cleared is cleared with the
+  ground (bg), never white. Elsewhere they are flat, as before. Where the AES runs
   several programs (MiNT, MagiC: dlg_windowed; the guidelines 3.5) each
   one, the pick list and the progress box open in a window of the
   AES's (field.c box_open, common's dlg_open_area), less their own
@@ -288,6 +295,12 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   card only when another is chosen; a key meanwhile starts it again. `make test` sets it against the old matcher
   over 17,000 cards and texts (tests/unit.c test_matches): it must find
   the same.
+- Sync Contact Photos that ends with the window behind another
+  program's says so as a BGEM.NG notification, its Open bringing the
+  window to the front (main.c note_behind, common/ui/notify.c; the
+  guidelines 4.5); where notify_send gives 0 (TOS, MagiC, no BGEM.NG) and
+  with the window in front, the alert as before. notify_init runs before
+  the first event call.
 - Photo failures say why (photo_why, PW_...): the status line, the alert
   after Sync Contact Photos, a line each in the log. A failure is kept in
   the pack's entry with the decoder's number (PHOTO_DECODER): raise it when
@@ -410,7 +423,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 - The program reads its books the same way, after its window is drawn
   (main.c prg_loading, a slice a turn: in one stretch they were 9 s of an
   8 MHz ST's start). Meanwhile a menu entry, files dropped or given by
-  VA_START and keys wait and come afterwards, as if typed then (^Q and ^W,
+  VA_START and keys wait and come afterwards, as if typed then (^Q and ^U,
   the window's messages and PEOPLE at once), a click does nothing, and the
   list stays empty until they are all read and sorted (list.c rebuild);
   a .vcf given at the start reads what is left at once. Then the window

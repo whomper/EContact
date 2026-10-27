@@ -85,7 +85,7 @@ def main():
         # Hatari's --auto starts it again whenever the desktop comes back:
         # moved aside now, so that after Quit the desktop stays
         os.rename(os.path.join(folder, "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRX"))
-        r.click(216, 8)                 # View
+        r.click(168, 8)                 # View
         time.sleep(1)
         r.shot("4-view-menu")
         r.key(0x01)                     # Esc: the menu closes
@@ -96,9 +96,9 @@ def main():
         r.click(60, 8 + 3 * 16 + 8)     # its first accessory: ECONTACT.ACC
         time.sleep(5)
         r.shot("6-acc-chosen")
-        r.click(216, 8)                 # View > Groups (off)
+        r.click(168, 8)                 # View > Groups (off)
         time.sleep(1)
-        r.click(240, 19 + 2 * 16 + 8)
+        r.click(192, 19 + 2 * 16 + 8)
         time.sleep(4)
         r.shot("7-no-sidebar")
         r.ctrl("q")                     # Quit

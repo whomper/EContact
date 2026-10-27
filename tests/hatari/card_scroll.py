@@ -5,13 +5,13 @@
 the window's right edge takes the AES's slider column), in Hatari with
 ECONTACT.PRG and a card longer than the window:
 
-    tests/hatari/card_scroll.py WORK [MACHINE] [--flat]
+    tests/hatari/card_scroll.py WORK [MACHINE]
 
 - the window's down arrow scrolls the card, and the list beside it stays;
 - the track under the slider scrolls it a page;
 - the track over the slider and the up arrow bring it back as it was;
 - a short card, chosen next, starts from its top and fits.
---flat runs with DIALOGS3D=0. Screenshots in WORK/shots.
+Screenshots in WORK/shots.
 """
 import os
 import shutil
@@ -60,8 +60,6 @@ def main():
     subprocess.run([CLI, hd, "import", "Contacts", vcf], check=True, stdout=subprocess.DEVNULL)
     inf = os.path.join(hd, "ECONTACT.INF")
     t = open(inf, "rb").read().replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
-    if "--flat" in sys.argv:
-        t = t.replace(b"\nDIALOGS3D=1", b"\nDIALOGS3D=0")
     open(inf, "wb").write(t)
     shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), hd)
     r = Rig(work, machine)

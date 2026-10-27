@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""Esc cancels (the guidelines, 3.5), in Hatari on an ST with ECONTACT.PRG:
+"""Esc and Undo (the guidelines, 3.5, GEM's way since 27 Oct 2026), and
+^U and ^W (3.2), in Hatari on an ST with ECONTACT.PRG:
 
     tests/hatari/esc_test.py WORK [MACHINE]
 
-- a new contact (^N), a name typed, then Esc: no contact added, and the
-  name typed doesn't stay in the field (the dialog closes);
-- the same with Undo;
-- Settings (^,), then Esc: ECONTACT.INF as it was;
+- a new contact (^N), a name typed, then Esc: the field empty again and
+  the dialog still open; a name typed again, then Undo: the dialog closes
+  as Cancel, and no contact is added;
+- Settings (^,), whose first page has no text field, then Esc: it closes
+  as Cancel, ECONTACT.INF as it was;
 - Delete on a contact, then Esc at "Are you sure?", and again with Undo:
   the alert closes as Cancel (common/ui/alert.c), and nothing is deleted;
-- a search typed, then Esc: the query and the list stay as they were (Esc
-  never clears text).
+- a search typed, then Esc: the search field empty, the list as before;
+- ^W, the next window: there is one, so nothing changes;
+- ^U: the program's one window closes, and the program ends.
 Screenshots in WORK/shots.
 """
 import os
@@ -36,10 +39,12 @@ def check(what, ok):
     fails += not ok
 
 
-def same(a, b):
-    """the share of pixels two screenshots have alike"""
+def same(a, b, box=None):
+    """the share of pixels two screenshots (or a box of them) have alike"""
     from PIL import Image
     ia, ib = Image.open(a).convert("RGB"), Image.open(b).convert("RGB")
+    if box:
+        ia, ib = ia.crop(box), ib.crop(box)
     pa, pb = ia.load(), ib.load()
     w, h = ia.size
     n = sum(1 for y in range(0, h, 2) for x in range(0, w, 2) if pa[x, y] == pb[x, y])
@@ -71,15 +76,20 @@ def main():
         time.sleep(25)
         r.shot("0-start")
         inf_start = open(inf_path, "rb").read()
-        for key, name in (("ESC", "esc"), ("UNDO", "undo")):
-            r.ctrl("n")                     # a new contact
-            time.sleep(3)
-            r.type("Zed")
-            time.sleep(1)
-            r.shot("1-new-%s" % name)
-            r.key(K[key])
-            time.sleep(3)
-            r.shot("2-after-%s" % name)
+        r.ctrl("n")                         # a new contact
+        time.sleep(3)
+        r.shot("1-new")
+        r.type("Zed")
+        time.sleep(1)
+        r.shot("1-new-typed")
+        r.key(K["ESC"])                     # the field emptied, the dialog open
+        time.sleep(2)
+        r.shot("2-new-esc")
+        r.type("Zed")
+        time.sleep(1)
+        r.key(K["UNDO"])                    # Cancel
+        time.sleep(3)
+        r.shot("2-after-undo")
         r.ctrl(",")                         # Settings
         time.sleep(3)
         r.shot("3-settings")
@@ -98,21 +108,27 @@ def main():
         time.sleep(3)
         r.shot("7-delete-undo")
         r.type("ma")                        # a search
-        time.sleep(3)
-        r.shot("8-search")
+        time.sleep(8)                       # Maya Carter's photo, decoded the first time:
+        r.shot("8-search")                  # while the bee shows, Esc is a stop (busy.c)
         r.key(K["ESC"])
         time.sleep(3)
         r.shot("9-search-esc")
-        r.ctrl("q")
+        r.ctrl("w")                         # the next window: there is none
+        time.sleep(2)
+        r.shot("10-ctrl-w")
+        r.ctrl("u")                         # closes: the program ends
         time.sleep(8)
+        r.shot("11-ctrl-u")
     finally:
         r.stop()
     shots = os.path.join(work, "shots")
     shot = lambda n: os.path.join(shots, n + ".png")  # noqa: E731
-    check("Esc and Undo in the new contact: none added", count() == before)
-    for k in ("esc", "undo"):
-        check("%s closed the new contact's dialog: the window as before" % k.capitalize(),
-              same(shot("2-after-" + k), shot("0-start")) > 0.995)
+    check("Esc then Undo in the new contact: none added", count() == before)
+    check("the name typed in the new contact", same(shot("1-new-typed"), shot("1-new")) < 0.9995)
+    check("Esc emptied the field, the dialog still open",
+          same(shot("2-new-esc"), shot("1-new")) > 0.999 and same(shot("2-new-esc"), shot("0-start")) < 0.99)
+    check("Undo closed the new contact's dialog: the window as before",
+          same(shot("2-after-undo"), shot("0-start")) > 0.995)
     check("Esc in Settings: ECONTACT.INF as it was", open(inf_path, "rb").read() == inf_start)
     check("the Delete alert came", same(shot("5-delete-asked"), shot("4-settings-esc")) < 0.99)
     check("Esc closed it (as Cancel): the window as before",
@@ -120,8 +136,12 @@ def main():
     check("Undo closed it too", same(shot("7-delete-undo"), shot("4-settings-esc")) > 0.995)
     check("Esc and Undo at \"Are you sure?\": nothing deleted", count() == before)
     check("the search typed", same(shot("8-search"), shot("7-delete-undo")) < 0.99)
-    check("Esc in the search: the query and the list as they were",
-          same(shot("9-search-esc"), shot("8-search")) > 0.995)
+    check("Esc in the search: every contact listed again (the info line; the one found stays chosen)",
+          same(shot("9-search-esc"), shot("7-delete-undo"), (0, 38, 330, 58)) > 0.999)
+    check("and the field empty (it keeps the cursor)",
+          same(shot("9-search-esc"), shot("8-search"), (140, 58, 330, 80)) < 0.99)
+    check("^W with one window: nothing", same(shot("10-ctrl-w"), shot("9-search-esc")) > 0.999)
+    check("^U: the window closed, the program ended", same(shot("11-ctrl-u"), shot("10-ctrl-w")) < 0.9)
     print("screenshots in", os.path.join(work, "shots"))
     print("all passed" if not fails else "%d failed" % fails)
     sys.exit(1 if fails else 0)

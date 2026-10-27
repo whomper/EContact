@@ -13,6 +13,7 @@
 #include "iconify.h"
 #include "av.h"
 #include "clip.h"
+#include "dialog.h"
 #include <tos.h>
 
 short win_h = -1;
@@ -1282,9 +1283,9 @@ static int search_clip(int what)
 	return 1;
 }
 
-/* typing goes into the search field, as on the Mac. Esc leaves the
-   query as it is (the guidelines, 3.5): only Backspace, ^X and the clear
-   button take text out */
+/* typing goes into the search field, as on the Mac. Esc empties it, as
+   a one-line field of a window (the guidelines, 3.5; Erez, 27 Oct 2026),
+   and does nothing else: it never closes the window */
 static int search_key(short kstate, short key)
 {
 	short scan = KEY_SCAN(key);
@@ -1292,9 +1293,13 @@ static int search_key(short kstate, short key)
 	int n = (int)strlen(search_text);
 	if (key_ctrl(kstate, key) && (clip_key(key) == CLIP_CUT || clip_key(key) == CLIP_PASTE))
 		return search_clip(clip_key(key));
-	if (key_ctrl(kstate, key) || (kstate & K_ALT))
+	if (dlg_esc(key) && !dlg_undo(key)) {	/* Esc, ^[ */
+		if (!n)
+			return 1;
+		search_text[0] = 0;
+	} else if (key_ctrl(kstate, key) || (kstate & K_ALT)) {
 		return 0;
-	if (scan == 0x0e) {			/* Backspace */
+	} else if (scan == 0x0e) {		/* Backspace */
 		if (!n)
 			return 1;
 		search_text[n - 1] = 0;
@@ -1340,11 +1345,13 @@ int win_key(short kstate, short key)
 		case 0x22:						/* ^G: a new group */
 			cmd_new_group(-1);
 			return 1;
-		case 0x11:						/* ^W */
+		case 0x16:						/* ^U: closes */
 		case 0x10:						/* ^Q */
 			if (!is_acc)
 				quit_now = 1;
 			win_close();
+			return 1;
+		case 0x11:	/* ^W: the next window of ours; there is one (3.2) */
 			return 1;
 		case 0x1f:						/* Shift+^S; ^S is Save */
 			if (!(kstate & (K_LSHIFT | K_RSHIFT)))
@@ -1362,7 +1369,12 @@ int win_key(short kstate, short key)
 	if (picking && !key_ctrl(kstate, key) && !(kstate & K_ALT)) {
 		switch (scan) {
 		case 0x1c: case 0x72: pick_end(1); return 1;	/* Return: Choose */
-		case 0x01: case 0x61: pick_end(0); return 1;	/* Esc, Undo: Cancel */
+		}
+		/* Undo cancels, and Esc once the search field is empty: Esc
+		   empties it first, as a dialog's field (3.5) */
+		if (dlg_cancel_key(key, search_text[0] != 0)) {
+			pick_end(0);
+			return 1;
 		}
 	}
 	/* in the search field Delete takes what is after the cursor: there

@@ -17,8 +17,8 @@ other CardDAV servers.
 - **The address book of [EMail](https://github.com/whomper/EMail) and
   [ECal](https://github.com/whomper/ECal):** pick people to write to and to invite
 - **Modern but Atari:** a desk accessory that opens from the Desk menu over whatever program you're
-  in, or a program; right-click menus, .vcf files dropped on the window, iconify, Esc cancels any
-  dialog, and the Help key opens the guide in EHypView or ST-Guide
+  in, or a program; right-click menus, .vcf files dropped on the window, iconify, Undo cancels any
+  dialog and Esc empties a field, as GEM has them, and the Help key opens the guide in EHypView or ST-Guide
 - **Secure:** TLS 1.2 on the Falcon and TT, with RSA and the elliptic curves on the Falcon's DSP; the ST and STE through the AERA
   Raspberry Pi gateway, the one ECal uses
 - **Hebrew** throughout: names and notes right to left, the Israeli keyboard (F10)
@@ -448,7 +448,7 @@ tests/hatari/acc_files.py WORK [MACHINE] [cards]  # the accessory's refresh and 
                                                   # no file open across an event call (2.2), from
                                                   # Hatari's GEMDOS and AES trace; what it wrote
                                                   # reads back whole
-tests/hatari/esc_test.py WORK [MACHINE]           # Esc and Undo cancel dialogs and alerts (3.5)
+tests/hatari/esc_test.py WORK [MACHINE]           # Esc empties a field, Undo cancels (3.5)
 tests/hatari/search_click.py WORK [MACHINE]       # a click gives the search field the focus
 tests/hatari/long_field.py WORK [MACHINE]         # a field holds more than it shows: 52 letters
                                                   # in a field 30 wide, Shift+Left/Right to its ends

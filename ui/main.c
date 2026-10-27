@@ -46,6 +46,7 @@
 #include "people_ask.h"
 #include "answer.h"
 #include "dialog.h"
+#include "notify.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 short gl_wchar, gl_hchar, ap_id, is_acc, ncolors, hebrew_kbd, quit_now;
@@ -758,6 +759,27 @@ static int photo_progress(void *ud, int done, int total, const char *name)
 	return 1;
 }
 
+/* news that came while the window was behind another program's is a
+   notification where BGEM.NG runs (the guidelines 4.5; a tester, Erez 27
+   Oct 2026), its Open bringing the window to the front; elsewhere, and
+   with the window in front, 0: the alert, as before */
+enum { NOTE_PHOTOS = 1 };
+
+static int note_behind(const char *title, const char *text, short id)
+{
+	short top, d;
+	if (win_h <= 0)
+		return 0;
+	wind_get(0, WF_TOP, &top, &d, &d, &d);
+	return top != win_h && notify_send(title, text, "Open", id);
+}
+
+static void note_clicked(short id, short button)
+{
+	if (id == NOTE_PHOTOS && button == 1)
+		open_window();
+}
+
 /* every photo fetched and made now, rather than as each card is opened */
 void cmd_sync_photos(void)
 {
@@ -817,8 +839,12 @@ void cmd_sync_photos(void)
 		alert(1, "[1][%d photo%s made, %d not: %s.%s][ OK ]", made, made == 1 ? "" : "s", failed, why,
 		      opt.log ? " Each one is in the log." : " Write a log (in the menu) for each one.");
 	}
-	else
-		alert(1, "[1][%d photo%s made.][ OK ]", made, made == 1 ? "" : "s");
+	else {
+		char m[60];
+		snprintf(m, sizeof(m), "%d photo%s made.", made, made == 1 ? "" : "s");
+		if (!note_behind("Contact photos synced", m, NOTE_PHOTOS))
+			alert(1, "[1][%s][ OK ]", m);
+	}
 	updated_status();
 }
 
@@ -832,8 +858,6 @@ static const MBAR_ITEM m_desk[] = {
 	{ 0, 0, 0 }
 };
 static const MBAR_ITEM m_file[] = {
-	{ "New contact", "^N", C_NEW },
-	{ "New group", "^G", C_GROUP },
 	{ "Add account...", 0, C_ADD },
 	{ "-", 0, 0 },
 	{ "Import vCards...", 0, C_IMP },
@@ -846,10 +870,14 @@ static const MBAR_ITEM m_file[] = {
 	{ "Quit", "^Q", C_QUIT },
 	{ 0, 0, 0 }
 };
-static const MBAR_ITEM m_edit[] = {
-	{ "Copy contact", "^C", C_COPY },
+/* the contacts' own commands, New among them (the guidelines, 3.1; Erez,
+   27 Oct 2026): Edit, with nothing else, is left out */
+static const MBAR_ITEM m_contact[] = {
+	{ "New contact", "^N", C_NEW },
+	{ "New group", "^G", C_GROUP },
 	{ "-", 0, 0 },
 	{ "Edit contact...", "^E", C_EDIT },
+	{ "Copy contact", "^C", C_COPY },
 	{ "Delete...", "Del", C_DELETE },
 	{ 0, 0, 0 }
 };
@@ -877,8 +905,8 @@ static const MBAR_ITEM m_help[] = {
 static const MBAR_TITLE bar[] = {
 	{ " EContact ", m_desk },
 	{ " File ", m_file },
-	{ " Edit ", m_edit },
 	{ " View ", m_view },
+	{ " Contact ", m_contact },
 	{ " Options ", m_opts },
 	{ " Help ", m_help },
 	{ 0, 0 }
@@ -1102,9 +1130,6 @@ static void find_workdir(void)
 		inf_folder(workdir, sizeof(workdir));
 		inf_value("start=", boot_start, sizeof(boot_start));
 		inf_value("font_id=", boot_font, sizeof(boot_font));
-		inf_value("dialogs3d=", path, sizeof(path));
-		if (path[0])
-			dlg_3d_on = atoi(path) != 0;	/* before any dialog (5.6) */
 		if (inf_n < 0) {
 			/* settings in the folder instead (copied there, or written
 			   by card-cli): taken to the root at the first opening */
@@ -1305,7 +1330,6 @@ static int load_settings(int quiet)
 		store_save_settings();
 	secret_warn = warn_plain;
 	hebrew_kbd = opt.hebrew;
-	dlg_3d_on = opt.dialogs3d != 0;
 	fonts_ready = 0;
 	if (!quiet) {
 		font_apply();
@@ -1789,7 +1813,7 @@ static void prg_load_slice(int (*more)(void))
 
 /* while the program reads its books: a menu entry, files dropped or
    given with VA_START wait for them, as a key does (as if typed then);
-   ^Q and ^W, the window's messages and PEOPLE are taken at once. 1: msg
+   ^Q and ^U, the window's messages and PEOPLE are taken at once. 1: msg
    kept */
 static int load_hold_msg(const short *msg)
 {
@@ -1806,7 +1830,7 @@ static int load_hold_key(const AEVENT *ev)
 {
 	short scan = KEY_SCAN(ev->kreturn);
 	if (!prg_loading || nload_keys >= 8 ||
-	    (key_ctrl(ev->kstate, ev->kreturn) && (scan == 0x10 || scan == 0x11)))
+	    (key_ctrl(ev->kstate, ev->kreturn) && (scan == 0x10 || scan == 0x16)))
 		return 0;
 	load_keys[nload_keys][0] = ev->kstate;
 	load_keys[nload_keys][1] = ev->kreturn;
@@ -1972,6 +1996,8 @@ int main(void)
 	}
 	if (is_acc)
 		menu_id = menu_register(ap_id, "  EContact");
+	notify_init("ECONTACT");	/* before the first event call (4.5) */
+	notify_clicked = note_clicked;
 	phys_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
 	cw = gl_wchar;
 	ch = gl_hchar;
@@ -2058,6 +2084,8 @@ int main(void)
 		} else
 			which = evnt_multi_(flags, is_acc ? 0x102 : 0x101, 3, 0, wait, msg, &ev);
 		turn_at = pf_ms();
+		if ((which & MU_MESAG) && notify_message(msg))
+			which &= ~MU_MESAG;	/* BGEM.NG's */
 		if (win_iconified)	/* an icon takes no keys or clicks (taken, not left for later) */
 			which &= ~(MU_KEYBD | MU_BUTTON);
 		if (is_acc)

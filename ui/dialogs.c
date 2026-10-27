@@ -247,7 +247,7 @@ static const char *const section_names[] = { "General", "Refresh", "Connection" 
 
 static void settings(short first)
 {
-	enum { L1, F1, L2, F2, L3, F3, L4, F4, F5, L6, F6, L9, F9,
+	enum { L1, F1, L2, F2, L3, F3, L4, F4, F5, L6, F6,
 	       L11, F11, F12, L13, F13, N3,
 	       C1, C2, N1, L7, C3, L8, C4, N2, C7,
 	       BCAN, BOK, N };
@@ -308,11 +308,7 @@ static void settings(short first)
 	put(&f[L6], FT_LABEL, 0, CX, row, 0, "Photos:");
 	put(&f[F6], FT_CHECK, 0, VX, row, 32, "Show contacts' photos");
 	f[F6].val = opt.photos;
-	row++;
-	put(&f[L9], FT_LABEL, 0, CX, row, 0, "Dialogs:");
-	put(&f[F9], FT_CHECK, dlg_3d_ok() ? 0 : FF_DISABLED, VX, row, 32, "3D dialogs");
-	f[F9].val = opt.dialogs3d;	/* (greyed without the AES's 3D: 5.6) */
-	for (i = L1; i <= F9; i++)
+	for (i = L1; i <= F6; i++)
 		f[i].page = S_GENERAL;
 
 	/* Refresh */
@@ -394,8 +390,6 @@ static void settings(short first)
 		opt.default_book = book_id[f[F3].val];
 	opt.hebfont = f[F4].val;
 	opt.photos = f[F6].val;
-	opt.dialogs3d = f[F9].val;
-	dlg_3d_on = opt.dialogs3d != 0;
 	opt.hebrew = f[F5].val;
 	set_hebrew_kbd(opt.hebrew);
 	opt.refresh = refresh_min[f[F11].val];
@@ -449,7 +443,7 @@ void dlg_keys(void)
 		{ 9, 0, "^R", "refresh" },
 		{ 9, 1, "Shift+^R", "everything again" },
 		{ 10, 0, "\x01^S", "show the groups" },
-		{ 10, 1, "^W  ^Q", "close the window" },
+		{ 10, 1, "^U  ^Q", "close the window" },
 		{ 11, 0, "Double-click", "edit; an email: write" },
 		{ 11, 1, "Right-click", "more choices" },
 		{ 12, 0, "Help", "the guide, in a viewer" },

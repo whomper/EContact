@@ -10,7 +10,7 @@ Hatari with ECONTACT.PRG:
 is typed while it does; the AES hands the key over afterwards, with the
 Control key long let go (kstate 0), so only its code says it was ^N
 (key_ctrl, common/atari/gem.h). The New Contact dialog must open once
-the contacts are read, and Esc closes it.
+the contacts are read, and Undo closes it.
 Screenshots in WORK/shots.
 """
 import os
@@ -70,7 +70,7 @@ def main():
         busy = time.time() - typed
         time.sleep(5)
         r.shot("2-read")
-        r.key(K["ESC"])
+        r.key(K["UNDO"])                    # the new contact's dialog: Cancel (3.5)
         time.sleep(3)
         r.shot("3-esc")
         r.ctrl("q")

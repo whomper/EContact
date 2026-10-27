@@ -73,6 +73,13 @@ void clip_on(GRECT *r)
 	vs_clip(vdi_h, 1, pxy);
 }
 
+/* the clip as set; 0: none */
+int clip_rect(GRECT *r)
+{
+	*r = clip_now;
+	return clip_now.w > 0;
+}
+
 void clip_off(void)
 {
 	short pxy[4] = { 0, 0, 0, 0 };

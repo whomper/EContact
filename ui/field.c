@@ -324,12 +324,11 @@ static void box_close(void)
 	}
 }
 
-/* The AES's 3D look (the guidelines 5.6), where it draws one and it is
-   on (DIALOGS3D=), in 16 colours or more: the dialog on the AES's grey
-   (LWHITE), its buttons raised as the AES's exit buttons are (white
-   above and left, dark grey below and right, pressed in when clicked),
-   its pop-ups raised too, its fields, tick boxes and lists left white.
-   Elsewhere the flat look, as before */
+/* The AES's 3D look (the guidelines 5.6), wherever it draws one (no
+   setting since 27 Oct 2026), in 16 colours or more: the dialog on the
+   AES's grey (LWHITE), its pop-ups raised (white above and left, dark
+   grey below and right), its fields, tick boxes and lists left white;
+   the buttons are the AES's own (aes_button). Elsewhere the flat look */
 #define LWHITE 8
 #define LBLACK 9
 static int d3;
@@ -337,7 +336,7 @@ static short bg;		/* the dialog's ground: white, or LWHITE */
 
 int dlg_look3d(void)
 {
-	return dlg_3d_ok() && dlg_3d_on && ncolors >= 16;
+	return dlg_3d_ok() && ncolors >= 16;
 }
 
 static void look_init(void)
@@ -603,6 +602,78 @@ static int eye_hit(const FIELD *f, short mx, short my)
 	return rect_hit(&e, mx, my);
 }
 
+/* an exit button is the AES's G_BUTTON, drawn by the AES in its look,
+   flat or 3D, never by hand (the guidelines 5.6; Erez, 27 Oct 2026);
+   pressed: SELECTED. objc_draw takes the clip that is set */
+static void aes_button(const FIELD *f, int pressed)
+{
+	OBJECT t;
+	GRECT r, c;
+	field_rect(f, &r);
+	if (!clip_rect(&c)) {
+		c.x = c.y = 0;
+		c.w = scr_w;
+		c.h = scr_h;
+	}
+	memset(&t, 0, sizeof(t));
+	t.ob_next = t.ob_head = t.ob_tail = -1;
+	t.ob_type = G_BUTTON;
+	t.ob_flags = SELECTABLE | EXIT | LASTOB | ((f->flags & FF_DEFAULT) ? DEFAULT : 0);
+	t.ob_state = ((f->flags & FF_DISABLED) ? DISABLED : 0) | (pressed ? SELECTED : 0);
+	t.ob_spec = (long)f->label;
+	t.ob_x = r.x;
+	t.ob_y = r.y;
+	t.ob_width = r.w;
+	t.ob_height = r.h;
+	dlg_3d(&t);
+	objc_draw(&t, 0, 0, c.x, c.y, c.w, c.h);
+}
+
+/* the shown buttons in one objc_draw, under a G_IBOX that draws nothing:
+   each call costs TOS 1.04 some 10 ms of its own (an 8 MHz ST: the
+   editor's three buttons 30 ms) */
+#define NBUT 8
+static void aes_buttons(DLG *d)
+{
+	OBJECT t[1 + NBUT];
+	GRECT r, c;
+	short i, n = 0;
+	if (!clip_rect(&c))
+		return;
+	memset(t, 0, sizeof(t));
+	t[0].ob_next = t[0].ob_head = t[0].ob_tail = -1;
+	t[0].ob_type = G_IBOX;
+	t[0].ob_width = scr_w;		/* at 0,0: its children's places are the screen's */
+	t[0].ob_height = scr_h;
+	for (i = 0; i < d->n && n < NBUT; i++) {
+		const FIELD *f = &d->f[i];
+		OBJECT *o = &t[1 + n];
+		if (f->type != FT_BUTTON || !shown_now(f))
+			continue;
+		field_rect(f, &r);
+		o->ob_next = 0;
+		o->ob_head = o->ob_tail = -1;
+		o->ob_type = G_BUTTON;
+		o->ob_flags = SELECTABLE | EXIT | LASTOB | ((f->flags & FF_DEFAULT) ? DEFAULT : 0);
+		o->ob_state = (f->flags & FF_DISABLED) ? DISABLED : 0;
+		o->ob_spec = (long)f->label;
+		o->ob_x = r.x;
+		o->ob_y = r.y;
+		o->ob_width = r.w;
+		o->ob_height = r.h;
+		dlg_3d(o);		/* the button alone: LASTOB stops it there */
+		if (n) {
+			t[n].ob_flags &= ~LASTOB;
+			t[n].ob_next = (short)(1 + n);
+		} else
+			t[0].ob_head = 1;
+		t[0].ob_tail = (short)(1 + n);
+		n++;
+	}
+	if (n)
+		objc_draw(t, 0, 1, c.x, c.y, c.w, c.h);
+}
+
 static void draw_field(DLG *d, short i)
 {
 	FIELD *f = &d->f[i];
@@ -624,27 +695,12 @@ static void draw_field(DLG *d, short i)
 		break;
 	case FT_BUTTON:
 		field_rect(f, &r);
-		fill(&r, bg);
-		frame(&r, dis ? dim_line() : 1);
-		if (d3) {
-			GRECT in = r;
-			in.x++;
-			in.y++;
-			in.w -= 2;
-			in.h -= 2;
-			frame(&in, dis ? dim_line() : 1);
-			bevel(&r, 2, 0);
-		}
-		if (f->flags & FF_DEFAULT) {
-			GRECT r2 = r;
-			r2.x--;
-			r2.y--;
-			r2.w += 2;
-			r2.h += 2;
-			frame(&r2, 1);
-		}
-		text_at(FX(f), FY(f), f->label, (long)strlen(f->label), f->w, TX_CENTER | TX_LTR | dis |
-			((f->flags & FF_DEFAULT) ? TX_BOLD : 0) | (bg ? 0 : TX_WHITE));
+		r.x -= 3;
+		r.y -= 3;
+		r.w += 6;
+		r.h += 6;
+		fill(&r, bg);		/* the AES's 3D edge stands out of it */
+		aes_button(f, 0);
 		break;
 	case FT_CHECK: {
 		GRECT b;
@@ -812,8 +868,9 @@ static void draw_all(DLG *d)
 	if (d->npages)
 		draw_sections(d);
 	for (i = 0; i < d->n; i++)
-		if (shown_now(&d->f[i]))
+		if (shown_now(&d->f[i]) && d->f[i].type != FT_BUTTON)
 			draw_field(d, i);
+	aes_buttons(d);
 	graf_mouse(M_ON, 0);
 }
 
@@ -870,24 +927,11 @@ static void set_focus(DLG *d, short i)
 
 static void press_effect(DLG *d, short i)
 {
-	GRECT r;
-	field_rect(&d->f[i], &r);
 	if (!clip_dlg(0))
 		return;
-	graf_mouse(M_OFF, 0);
-	if (d3) {
-		bevel(&r, 2, 1);
-		evnt_timer_(90);
-		bevel(&r, 2, 0);
-		graf_mouse(M_ON, 0);
-		return;
-	}
-	set_wrmode(3);
-	fill(&r, 1);
+	aes_button(&d->f[i], 1);	/* pressed in, the AES's way */
 	evnt_timer_(90);
-	fill(&r, 1);
-	set_wrmode(1);
-	graf_mouse(M_ON, 0);
+	aes_button(&d->f[i], 0);
 }
 
 /* ^C ^X ^V (common/ui/clip.c). With nothing selected, the field, and in a
@@ -966,11 +1010,6 @@ static int edit_key(DLG *d, FIELD *f, short kstate, short key)
 	case 0x47:		/* Clr/Home: start, with Shift the end */
 		f->cur = (kstate & (K_LSHIFT | K_RSHIFT)) ? n : 0;
 		break;
-	case 0x61:		/* Undo: empty the field */
-		f->buf[0] = 0;
-		f->cur = 0;
-		f->first = 0;
-		break;
 	case 0x48:
 	case 0x50:
 		if (f->type == FT_MULTI) {
@@ -1010,6 +1049,25 @@ static int edit_key(DLG *d, FIELD *f, short kstate, short key)
 	}
 	dlg_redraw_field(d, (short)(f - d->f));
 	return 1;
+}
+
+/* a pop-up button's menu: over the button, the choice it shows ticked
+   (the guidelines 5.7; Erez, 27 Oct 2026). Its items start with two
+   spaces, the first of which the tick takes (popup.c) */
+#define POP_MAX 64
+static short popup_over(const GRECT *r, const FIELD *f)
+{
+	const char *items[POP_MAX];
+	char ticked[80];
+	short i, n = f->nitems < POP_MAX ? f->nitems : POP_MAX;
+	for (i = 0; i < n; i++)
+		items[i] = f->items[i];
+	if (f->val >= 0 && f->val < n && f->items[f->val][0] == ' ') {
+		ticked[0] = '\x08';
+		str_copy(ticked + 1, f->items[f->val] + 1, sizeof(ticked) - 1);
+		items[f->val] = ticked;
+	}
+	return popup(r->x, r->y, items, n);
 }
 
 static int click_field(DLG *d, short i, short mx, short my)
@@ -1132,13 +1190,23 @@ short dlg_run(DLG *d)
 				set_hebrew_kbd(!hebrew_kbd);
 				win_name(d->title);
 				draw_all(d);
-			} else if (scan == 0x01 || scan == 0x61) {
-				/* Esc, Undo: as Cancel, in a text field too (the
+			} else if (dlg_cancel_key(e.kreturn, f != 0)) {
+				/* Undo, and Esc with no text field: as Cancel (the
 				   guidelines, 3.5); without a Cancel, no button at
 				   all: nothing is done */
 				result = find_flag(d, FF_CANCEL);
 				if (result < 0)
 					result = -1;
+			} else if (f && dlg_esc(e.kreturn)) {
+				/* Esc in a text field empties it, as GEM's form_do
+				   does (3.5; Erez, 27 Oct 2026); a text of several
+				   lines never */
+				if (f->type != FT_MULTI && f->buf[0]) {
+					f->buf[0] = 0;
+					f->cur = 0;
+					f->first = 0;
+					dlg_redraw_field(d, d->focus);
+				}
 			} else if (scan == 0x0f || ((scan == 0x48 || scan == 0x50) && (!f || f->type != FT_MULTI))) {
 				short dir = (scan == 0x48 || (scan == 0x0f && (e.kstate & (K_LSHIFT | K_RSHIFT)))) ? -1 : 1;
 				if (d->focus >= 0)
@@ -1194,9 +1262,9 @@ short dlg_run(DLG *d)
 					GRECT r;
 					short k;
 					field_rect(f, &r);
-					/* the popup draws over the dialog: it saves nothing, so redraw after */
-					k = popup(r.x, r.y + r.h, f->items, f->nitems);
-					draw_all(d);
+					k = popup_over(&r, f);
+					if (!popup_put_back)	/* the screen not put back: drawn again */
+						draw_all(d);
 					if (k >= 0 && k != f->val) {
 						f->val = k;
 						dlg_redraw_field(d, hit);
@@ -1324,7 +1392,7 @@ short dlg_pick(const char *title, const char *const *items, short n, short sel)
 		if (e.which & MU_KEYBD) {
 			short sc = KEY_SCAN(e.kreturn);
 			unsigned char a = KEY_ASCII(e.kreturn);
-			if (sc == 0x01 || sc == 0x61)		/* Esc, Undo: none */
+			if (dlg_esc(e.kreturn))			/* Esc, Undo: none */
 				res = -1;
 			else if (sc == 0x1c || sc == 0x72)
 				res = sel;
@@ -1462,7 +1530,7 @@ static void prog_poll(short ms)
 		evnt_dlg(MU_KEYBD | MU_BUTTON | MU_TIMER, 1, 1, 1, ms, m, &e);
 		ms = 0;
 		if (e.which & MU_KEYBD) {
-			if (KEY_SCAN(e.kreturn) == 0x01 || KEY_SCAN(e.kreturn) == 0x61)	/* Esc, Undo */
+			if (dlg_esc(e.kreturn))	/* Esc, Undo: no field here */
 				prog_stopping();
 			continue;
 		}

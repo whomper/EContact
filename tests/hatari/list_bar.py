@@ -3,11 +3,12 @@
 # Copyright (C) 2026 AERA | Erez Yaary
 """The list's own scroll bar, in Hatari with ECONTACT.PRG and 80 contacts:
 
-    tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi] [--flat]
+    tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi]
 
 --acc runs the accessory (ECONTACT.ACC) from the Desk menu,
 --nvdi under NVDI (AERA_WITH_NVDI, a Falcon: the window drawn in an EdDI
-bitmap), --flat with DIALOGS3D=0 (the bar flat where the AES has 3D).
+bitmap). The bar is flat where the AES is (TOS 1.04), 3D where it has
+3D: there is no setting (the guidelines 5.6, 27 Oct 2026).
 ECONTACT.LOG says how the window is drawn (win.c).
 
 The window has no slider of its own; the bar is at the right of the
@@ -129,8 +130,6 @@ def main():
     inf_path = os.path.join(folder, "ECONTACT.INF")
     inf = open(inf_path, "rb").read().replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = inf.replace(b"\nLOG=0", b"\nLOG=1")
-    if "--flat" in sys.argv:
-        inf = inf.replace(b"\nDIALOGS3D=1", b"\nDIALOGS3D=0")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
     if acc:     # in the root, FOLDER= naming the folder
         os.remove(inf_path)
@@ -245,7 +244,7 @@ def main():
         s3 = r.shot("3-dragged-down")
         t3 = thumb(s3)
         check("dragged to the bottom: the slider at the track's end (%s)" % (t3,), t3 and t3[2] >= arrow - 16)
-        drag(bx, (t3[1] + t3[2]) // 2, 5)
+        drag(bx, (t3[1] + t3[2]) // 2, 30)    # past the track's top, short of the menu bar
         away()
         time.sleep(2)
         s4 = r.shot("4-dragged-up")

@@ -65,11 +65,14 @@ C:\ECONTACT\              EContact's folder (any folder will do):
 
 `ECONTACT.HYP` can also go in your help viewer's own folder of guides
 (e.g. `C:\GUIDES`) instead: the Help key looks in EContact's folder
-first, then asks the viewer to find it.
+first, then asks the viewer to find it. Under MiNT and MagiC, the viewer
+named by `STGUIDE=` in the system's environment (`setenv STGUIDE
+C:\HYPVIEW\HYPVIEW.APP` in XAAES.CNF, `#_ENV STGUIDE=...` in MAGX.INF)
+is asked first, and started when it isn't running.
 
 - **`ECONTACT.PRG`** is the same program, to start from the desktop or a
   shell; it ends when its window closes. It has a menu bar (**File**,
-  **Edit**, **View**, **Options**, **Help**) with the commands of the
+  **View**, **Contact**, **Options**, **Help**) with the commands of the
   accessory's menu. It uses the folder it was started from as EContact's
   folder and writes that into `FOLDER=`, so starting it once from your
   folder is all it takes for the accessory to find it too.
@@ -262,8 +265,8 @@ address book (File > **Import vCards...**).
   the field takes the focus (a black frame and the cursor) until you
   click elsewhere. The list keeps those whose name, company, email,
   phone number, address or note has what you typed ("0170 123" finds
-  "0170 1234567"); Backspace takes a letter back, ^X or the clear button
-  in the field takes it all (Esc leaves it as it is).
+  "0170 1234567"); Backspace takes a letter back, and Esc, ^X or the
+  clear button in the field takes it all.
 - **On the right**: the card. Click a phone, address, birthday or note
   to copy it to the clipboard; click an email to copy it or write to it
   in EMail (a double-click writes at once). **mail** under the name writes
@@ -281,7 +284,7 @@ number of contacts under it.
 Under MagiC, and MiNT with XaAES, N.AES or MyAES, where other programs
 run alongside EContact, its dialogs open in windows of their own, with
 their names in the title bar: move one by its title bar, and its close
-button is Esc (Cancel). Other programs go on while a dialog is open.
+button is Undo (Cancel). Other programs go on while a dialog is open.
 Alerts are the system's own there, as every program's are.
 
 ![A group](group.png) ![Searching](search.png)
@@ -397,10 +400,9 @@ Right-click your own card > **Make This My Card**. The list marks it
 
 - **General**: sort by last or first name, show names as "First Last" or
   "Last, First", which address book new contacts go into, where the font
-  has its Hebrew letters, starting with the Hebrew keyboard, showing
-  photos, and **3D dialogs**: dialogs and alerts in the 3D look where the
-  Atari draws one (TOS 4, MagiC, XaAES; greyed elsewhere), on unless
-  you turn it off.
+  has its Hebrew letters, starting with the Hebrew keyboard, and showing
+  photos. Dialogs take the 3D look wherever the Atari draws one (TOS 4,
+  MagiC, XaAES), as other programs' do.
 - **Refresh**: refresh all every 15 minutes, hour or day, or only by
   hand (^R, the Refresh button); when the window opens, unless that is
   turned off; and, for the accessory, **Once at start**: 2, 5 or 15
@@ -465,8 +467,8 @@ contacts change (handy on a 1 MB ST, with ECONTACT.PRG run now and then).
 When EMail or ECal asks you to choose, EContact's window opens with
 **Cancel** and **Choose** in place of Refresh and the menu: click people
 to tick them (a double click chooses at once), or choose a group on the
-left, then **Choose** (Return); **Cancel** (Esc), closing the window or
-quitting chooses no one. In EMail 1.35 and ECal 2.8 or later:
+left, then **Choose** (Return); **Cancel** (Undo, or Esc when the
+search field is empty), closing the window or quitting chooses no one. In EMail 1.35 and ECal 2.8 or later:
 
 - **EMail**: the addresses it shows carry EContact's names; ^B on a To:
   line, and its **Address book...** (^B, in the Message menu), pick people
@@ -519,9 +521,10 @@ next time EContact saves its settings.
 | Shift+^S | the groups on the left |
 | ^, | Settings |
 | F10 | Hebrew keyboard |
-| ^W, ^Q | close the window (^Q also quits the program) |
-| Esc, Undo | in a dialog or an alert: Cancel (nothing is changed) |
-| Help | this guide in EHypView, ST-Guide or HypView (without one: how to get one, or the keys) |
+| ^U, ^Q | close the window (^U and ^Q also quit the program) |
+| Esc | in a text field: empty it (the search too); in a dialog without one, or an alert: Cancel |
+| Undo | in a dialog: Cancel (nothing is changed) |
+| Help | this guide in the viewer `STGUIDE=` names, EHypView, ST-Guide or HypView (without one: how to get one, or the keys) |
 | Double-click | edit; on an email: write to it |
 | Right-click | more choices |
 

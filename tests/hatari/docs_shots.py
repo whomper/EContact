@@ -135,7 +135,7 @@ def falcon_shots(r):
     r.click(120, 191)                    # Phone
     time.sleep(1)
     r.shot("edit-phone")
-    r.key(K["ESC"])
+    r.key(K["UNDO"])                     # Cancel (Esc would empty a field: 3.5)
     time.sleep(1)
     r.click(80, 166)                     # the Atari Club group
     time.sleep(5)
@@ -145,9 +145,7 @@ def falcon_shots(r):
     r.type("pi", pace=0.15)
     time.sleep(1.5)
     r.shot("search")
-    r.key(K["ESC"])
-    time.sleep(1)
-    r.click(200, 132)
+    r.click(200, 114)                    # Piotr Kowalski, the second found
     time.sleep(1)
     r.xdo("click", "3")                  # right-click: the contact's menu
     time.sleep(1.5)

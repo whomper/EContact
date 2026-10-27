@@ -17,10 +17,10 @@ second is timed), then in its window
 - Down: the next row;
 - the list's down arrow: a line; the track under the slider: a page;
 - a letter typed in the search field, a second, and both taken out;
-- ^G: New Group's dialog opened, a letter typed in its field, Esc;
+- ^G: New Group's dialog opened, a letter typed in its field, Undo;
 - ^,: Settings opened, Esc: the window uncovered;
 - Delete: its alert, Return (Cancel): uncovered;
-- Return: the editor opened, Esc: uncovered;
+- Return: the editor opened, Undo: uncovered;
 and the accessory opened from the Desk menu, its books read at boot.
 After some of them the screen is set against the whole window drawn
 again (Shift+^S twice: the sidebar hidden and shown): what was drawn in
@@ -300,7 +300,7 @@ def prg_actions(r, con, run, d):
         lambda: (r.key(K["BACKSPACE"]), r.key(K["BACKSPACE"])), secs=2)
     act("^G: New Group's dialog", T_DIALOG, lambda: r.ctrl("g"))
     act("a letter typed in its field", T_KEY, lambda: r.type("a"))
-    act("Esc: closed, the window uncovered", T_WINDOW, lambda: r.key(K["ESC"]))
+    act("Undo: closed, the window uncovered", T_WINDOW, lambda: r.key(K["UNDO"]))
     act("^,: Settings opened", T_DIALOG, lambda: r.key(0x33, ctrl=True), secs=2)
     act("Esc: Settings closed, the window uncovered", T_WINDOW, lambda: r.key(K["ESC"]), secs=2)
     whole("Settings closed")
@@ -310,7 +310,7 @@ def prg_actions(r, con, run, d):
     act("Return (Cancel): uncovered", T_WINDOW, lambda: r.key(K["RETURN"]))
     whole("the alert answered")
     act("Return: the editor opened", T_DIALOG, lambda: r.key(K["RETURN"]), secs=2)
-    act("Esc: the editor closed, uncovered", T_WINDOW, lambda: r.key(K["ESC"]), secs=2)
+    act("Undo: the editor closed, uncovered", T_WINDOW, lambda: r.key(K["UNDO"]), secs=2)
     whole("the editor closed")
 
 

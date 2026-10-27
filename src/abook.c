@@ -93,7 +93,6 @@ static void defaults(void)
 	opt.sidebar = 1;
 	opt.sync_open = 1;
 	opt.photos = 1;
-	opt.dialogs3d = 1;
 	opt.default_book = -1;
 	str_copy(opt.start, "60", sizeof(opt.start));
 	opt.sync_after = 0;
@@ -107,7 +106,7 @@ static void set_opt(const char *k, const char *v)
 #define I(name) if (c == #name[0] && !strcasecmp(k, #name)) { opt.name = (short)atoi(v); return; }
 	S(gate) S(folder) S(me) S(start)
 	I(falcon) I(dsp) I(log) I(font_id) I(font_pt) I(hebfont) I(win_x) I(win_y) I(win_w) I(win_h)
-	I(sidebar) I(sort_first) I(last_first) I(refresh) I(sync_open) I(sync_after) I(photos) I(dialogs3d) I(offline) I(hebrew) I(heapkb) I(memkb) I(default_book)
+	I(sidebar) I(sort_first) I(last_first) I(refresh) I(sync_open) I(sync_after) I(photos) I(offline) I(hebrew) I(heapkb) I(memkb) I(default_book)
 	if (!strcasecmp(k, "gateport")) {
 		opt.gateport = (unsigned short)atoi(v);
 		return;
@@ -331,7 +330,6 @@ void store_save_settings(void)
 	I("SYNC_OPEN", sync_open, "refresh when the window opens")
 	I("SYNC_AFTER", sync_after, "the accessory: refresh once in the background, this many minutes after the Atari starts; 0: no")
 	I("PHOTOS", photos, "show contacts' photos (kept small in CACHE\\PHOTOS)")
-	I("DIALOGS3D", dialogs3d, "dialogs and alerts in the 3D look where the Atari draws one (TOS 4, MagiC, XaAES); 0: flat")
 	I("SORT_FIRST", sort_first, "sort by first name; 0: by last name")
 	I("LAST_FIRST", last_first, "show names as Last, First; 0: First Last")
 	I("DEFAULT_BOOK", default_book, "new contacts go into this address book (its ID below); -1: the first")
