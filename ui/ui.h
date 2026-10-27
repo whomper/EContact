@@ -92,6 +92,7 @@ void win_close(void);
 void win_redraw(GRECT *area);	/* NULL: everything */
 void win_redraw_later(const GRECT *area);	/* in bands from the event loop, copied when all drawn */
 void win_redraw_bands(void);			/* all of it, a line a band, each copied when drawn */
+void win_open_bands(void);			/* the accessory's window as it opens: the same */
 int win_later_pending(void);
 void win_later_slice(int (*more)(void));	/* bands while more() says so */
 void win_later_finish(void);
@@ -146,6 +147,7 @@ int list_scroll(int rows);	/* the list's scroll bar, the wheel: 0 at an end */
 int  list_bar_hit(short mx, short my);
 /* the list's bar, on the screen, within clip (after the copy) */
 void list_bar_draw(const GRECT *clip);
+short list_band(short y, short h);	/* a band of it to a row's end */
 void list_bar_area(GRECT *r);
 void contact_menu(short mx, short my, CONTACT *c);	/* right-click on a contact */
 

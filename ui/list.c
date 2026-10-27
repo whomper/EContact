@@ -321,6 +321,18 @@ static short rows_w(void)
 	return r_list.w - pb_width();
 }
 
+/* the height of a band of the list from y, h or a little more: to where
+   a row ends (win.c win_redraw_bands; a row two bands cut was drawn in
+   each) */
+short list_band(short y, short h)
+{
+	short r0 = r_list.y + 2, end = y + h;
+	if (rh <= 0 || end <= r0)
+		return h;
+	end = r0 + (short)((end - r0 + rh - 1) / rh) * rh;
+	return end - y;
+}
+
 /* on the bar: a click there acts at once (no wait for a second) */
 int list_bar_hit(short mx, short my)
 {

@@ -442,4 +442,12 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   when drawn and the list's bar at the end (win.c win_redraw_bands: 1.2 s
   of an ST's in one piece; a line across the window was 120 ms); a part
   asked for meanwhile is drawn again only if its pane was drawn already.
-  speed.py times the window drawn and the longest slice.
+  The accessory's window, its books read, opens the same way
+  (win_open_bands: 1.27 s of an ST's in one piece), the AES's WM_REDRAW
+  meanwhile showing what is drawn and white for the rest (uncover_bands).
+  A band's cost is mostly the band's (some 35 ms whatever its height on
+  TOS 1.04): its height doubles while a band takes 60 ms at most, halves
+  over 120, the toolbar is one band and the list's end on a row's edge
+  (list_band); anything drawn skips what is outside the clip before
+  making it (side_draw's rows). speed.py times the window drawn and the
+  longest slice.

@@ -1738,12 +1738,14 @@ static void open_window(void)
 			return;
 		}
 		load_contacts();
-	} else {
-		/* read in the background: drawn once, when the AES asks for the
-		   new window (WM_REDRAW), not for each thing set up here */
-		win_hold = 1;
+		window_ready();
+		return;
 	}
+	/* read in the background: not drawn for each thing set up here,
+	   then a pane at a time (the AES's WM_REDRAW copies what is drawn) */
+	win_hold = 1;
 	window_ready();
+	win_open_bands();
 }
 
 /* the window open and the books read: the first contact chosen, what
@@ -2170,7 +2172,7 @@ int main(void)
 				dd_done(&d);
 			}
 			}
-			if (msg[0] == WM_REDRAW)
+			if (msg[0] == WM_REDRAW && !win_later_pending())
 				prof_drawn();
 		}
 		if ((which & MU_KEYBD) && win_h > 0) {
@@ -2217,6 +2219,8 @@ int main(void)
 			aes_profile_tag("card");
 			later_at = pf_ms();
 			win_later_slice(later_more);
+			if (!win_later_pending())
+				prof_drawn();
 		}
 		/* (a slice of a photo's pens only in a turn of its own; the card
 		   first, the photo goes in it) */

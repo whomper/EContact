@@ -103,6 +103,10 @@ void side_draw(GRECT *clip)
 	for (i = 0; i < nrows; i++) {
 		SROW *s = &srow[i];
 		short x = r_side.x + cw / 2, flags = TX_RIGHT;
+		/* only the rows in the area: a band of the window, a part
+		   uncovered (each row's marks and text were drawn for any) */
+		if (s->y + row_h <= r.y || s->y - 1 >= r.y + r.h)
+			continue;
 		row_text(s, t, sizeof(t));
 		if (s->kind == -1) {
 			text_at(x, s->y, t, (long)strlen(t), cols - 1, TX_BOLD | TX_RIGHT | TX_GREY);

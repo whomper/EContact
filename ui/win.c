@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "ui.h"
+#include "../src/plat.h"
 #include "bidi.h"
 #include "iconify.h"
 #include "av.h"
@@ -106,6 +107,7 @@ static int obuf_whole;
 static GRECT later;
 static short later_y;
 static int later_on, later_whole, later_prog;
+static short later_bh, part_list;	/* (win_redraw_bands) a band's height, the list's part */
 #define PARTS 6
 static GRECT part[PARTS];
 static short nparts, part_i;
@@ -617,11 +619,42 @@ static void buffer_moved(const GRECT *was)
 	obuf_whole = 1;
 }
 
-/* what the AES asks for again: from the buffer when it holds it all */
+static void copy_band(const GRECT *b);
+
+/* while the window is drawn a pane at a time (win_redraw_bands): what is
+   drawn of it from the buffer, the rest white until its band comes, the
+   list's bar at the end (the whole copied with the bar took an 8 MHz ST
+   250 ms) */
+static void uncover_bands(const GRECT *full)
+{
+	GRECT box, d;
+	short k;
+	wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
+	while (box.w && box.h) {
+		d = box;
+		if (rect_and(&d, full)) {
+			clip_on(&d);
+			fill(&d, 0);
+		}
+		wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
+	}
+	clip_off();
+	for (k = 0; k <= part_i && k < nparts; k++) {
+		d = part[k];
+		if (k == part_i)
+			d.h = later_y - d.y;
+		if (d.h > 0 && rect_and(&d, full))
+			copy_band(&d);
+	}
+}
+
+/* what the AES asks for again: from the buffer when it holds it all, or
+   what is drawn of it while it is drawn a pane at a time */
 static void win_uncover(GRECT *area)
 {
 	GRECT full = work;
-	if (win_h <= 0 || win_hold || win_iconified || !obuf_whole || !buffered()) {
+	int bands = later_on && later_prog;
+	if (win_h <= 0 || win_hold || win_iconified || !(obuf_whole || bands) || !buffered()) {
 		win_redraw(area);
 		return;
 	}
@@ -629,7 +662,10 @@ static void win_uncover(GRECT *area)
 		return;
 	wind_update(BEG_UPDATE);
 	graf_mouse(M_OFF, 0);
-	copy_pieces(&full);
+	if (bands)
+		uncover_bands(&full);
+	else
+		copy_pieces(&full);
 	graf_mouse(M_ON, 0);
 	wind_update(END_UPDATE);
 }
@@ -709,12 +745,30 @@ void win_redraw_bands(void)
 	pane[2] = &r_list;
 	pane[3] = &r_card;
 	nparts = part_i = 0;
+	part_list = -1;
 	for (k = 0; k < 4; k++) {
 		GRECT o = *pane[k];
-		if (rect_and(&o, &work))
+		if (rect_and(&o, &work)) {
+			if (k == 2)
+				part_list = nparts;
 			part[nparts++] = o;
+		}
 	}
 	later_y = nparts ? part[0].y : later.y + later.h;
+	later_bh = ch;
+}
+
+/* The accessory's window as it opens, its books read: drawn a pane at a
+   time as win_redraw_bands does (in one piece it was 1.27 s of an 8 MHz
+   ST's: speed.py, 27 Oct 2026), the AES's WM_REDRAW meanwhile showing
+   what is drawn (uncover_bands). Without the buffer the WM_REDRAW draws
+   it whole. */
+void win_open_bands(void)
+{
+	if (win_h <= 0 || win_hold || win_iconified || !buffered())
+		return;
+	obuf_whole = 0;
+	win_redraw_bands();
 }
 
 int win_later_pending(void)
@@ -797,8 +851,13 @@ void win_later_slice(int (*more)(void))
 		graf_mouse(M_OFF, 0);
 		do {
 			GRECT *p = &part[part_i], b = *p;
+			unsigned long t = pf_ms();
 			b.y = later_y;
-			b.h = p->y + p->h - later_y < ch ? p->y + p->h - later_y : ch;
+			b.h = part_i ? later_bh : p->h;	/* the toolbar's buttons in one */
+			if (part_i == part_list)
+				b.h = list_band(b.y, b.h);
+			if (b.h > p->y + p->h - later_y)
+				b.h = p->y + p->h - later_y;
 			card_avatar_area(&av);
 			if (av.h && b.y < av.y + av.h && b.y + b.h > av.y && av.y + av.h > b.y + b.h &&
 			    b.x < av.x + av.w && b.x + b.w > av.x)
@@ -806,8 +865,20 @@ void win_later_slice(int (*more)(void))
 			draw_off(&b);
 			copy_band(&b);
 			later_y += b.h;
-			if (later_y >= p->y + p->h && ++part_i < nparts)
+			/* much of a band's cost is the band's, whatever its
+			   height: twice as many lines while a band is quick, half
+			   when it isn't (a band of a line each was 2.9 s of an
+			   8 MHz ST's for the window, in one piece 1.27 s); one
+			   line in a new pane */
+			t = pf_ms() - t;
+			if (t <= 60 && later_bh < 8 * ch)
+				later_bh *= 2;
+			else if (t > 120 && later_bh > ch)
+				later_bh /= 2;
+			if (later_y >= p->y + p->h && ++part_i < nparts) {
 				later_y = part[part_i].y;
+				later_bh = ch;
+			}
 		} while (part_i < nparts && (!more || more()));
 		graf_mouse(M_ON, 0);
 		wind_update(END_UPDATE);
