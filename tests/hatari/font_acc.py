@@ -127,7 +127,7 @@ def main():
         return r.shot(name)
 
     def close_acc(r, name):
-        r.ctrl("w")
+        r.ctrl("u")		# (^W does nothing since 1.72)
         time.sleep(3)
         return r.shot(name)
 

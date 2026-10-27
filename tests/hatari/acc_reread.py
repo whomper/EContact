@@ -67,7 +67,7 @@ def main():
             time.sleep(wait)
 
         def close_acc(name):
-            r.ctrl("w")
+            r.ctrl("u")		# (^W does nothing since 1.72)
             time.sleep(3)
             r.shot(name)
 
