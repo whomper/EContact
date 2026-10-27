@@ -299,8 +299,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   program's says so as a BGEM.NG notification, its Open bringing the
   window to the front (main.c note_behind, common/ui/notify.c; the
   guidelines 4.5); where notify_send gives 0 (TOS, MagiC, no BGEM.NG) and
-  with the window in front, the alert as before. notify_init runs before
-  the first event call.
+  with the window in front, the alert as before. notify_init and
+  notify_ask (notify_send gives 0 until BGEM.NG said yes) run before the
+  first event call. The About box's three status lines are the family's
+  (ui/about.c: common's about_net_line and about_mem_line, and "N
+  contacts in M address books"; the guidelines 1.3).
 - Photo failures say why (photo_why, PW_...): the status line, the alert
   after Sync Contact Photos, a line each in the log. A failure is kept in
   the pack's entry with the decoder's number (PHOTO_DECODER): raise it when

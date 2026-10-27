@@ -2,7 +2,7 @@
  * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * about.c - EContact's About box: the AERA programs' shared one
- * (common/ui/aboutbox.c), with EContact's status line.
+ * (common/ui/aboutbox.c), with its three status lines (aboutline.c).
  */
 #include <string.h>
 #include <stdio.h>
@@ -15,22 +15,27 @@
 #include "icon256.h"
 #include "../src/version.h"
 #include "../src/plat.h"
-#include "tlsovl.h"
+#include "aboutline.h"
+#include "../src/http.h"
 
 void dlg_about(void)
 {
-	static char conn[100];
-	char direct[40];
-	const char *ram = about_ram();
-	ABOUT a = { "EContact", app_version, "Contacts for the Atari ST, TT and Falcon", { conn, 0, 0 }, { 0, 0, 0 },
-		    icon_bits, icon16_px, icon16_rgb, icon256_px, icon256_rgb };
-	/* the TLS: TLS.OVL's version once it is loaded (the guidelines 7.4) */
-	snprintf(direct, sizeof(direct), tls_ovl_loaded() ? "Direct connection (TLS.OVL %s)" : "Direct connection",
-		 tls_ovl_version());
-	snprintf(conn, sizeof(conn), "%s  \xF9  %s  \xF9  %s%s%s",
-		 strcmp(net_stack(), "none") ? net_stack() : "no network",
-		 opt.falcon ? direct : opt.gate[0] ? "Gateway" : "No gateway",
-		 opt.offline ? "offline" : "ready", ram[0] ? "  \xF9  " : "", ram);
+	/* three status lines in the family's words (the guidelines 1.3;
+	   Erez, 27 Oct 2026): the connection, the contacts, the memory */
+	static char conn[64], held[64], mem[64];
+	char host[64];
+	int i, n = 0;
+	ABOUT a = { "EContact", app_version, "Contacts for the Atari ST, TT and Falcon", { conn, held, mem },
+		    { 0, 0, 0 }, icon_bits, icon16_px, icon16_rgb, icon256_px, icon256_rgb };
+	http_kept_host(host, sizeof(host));
+	about_net_line(conn, sizeof(conn), net_stack(),
+		       opt.falcon ? ABOUT_DIRECT : opt.gate[0] ? ABOUT_GATEWAY : ABOUT_NO_GATEWAY,
+		       opt.offline ? ABOUT_OFFLINE : host[0] ? ABOUT_ONLINE : ABOUT_READY);
+	for (i = 0; i < npeople; i++)
+		n += !people[i]->group;
+	snprintf(held, sizeof(held), "%d contact%s in %d address book%s", n, n == 1 ? "" : "s", nbooks,
+		 nbooks == 1 ? "" : "s");
+	about_mem_line(mem, sizeof(mem));
 	about_show(&a);
 }
 

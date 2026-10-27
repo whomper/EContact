@@ -1997,6 +1997,7 @@ int main(void)
 	if (is_acc)
 		menu_id = menu_register(ap_id, "  EContact");
 	notify_init("ECONTACT");	/* before the first event call (4.5) */
+	notify_ask();			/* notify_send waits for BGEM.NG's yes */
 	notify_clicked = note_clicked;
 	phys_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
 	cw = gl_wchar;
