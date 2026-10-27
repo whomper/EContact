@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ui.h"
+#include "text.h"
 #include "../src/plat.h"
 #include "fontsel.h"
 
@@ -113,6 +114,7 @@ static int set_font(short id, short pt)
 		return 0;
 	cw = w;
 	ch = h;
+	text_font(vdi_h, id, w, h);	/* common's text.c: its cell */
 	vst_alignment(vdi_h, 0, 5);
 	cur_id = id;
 	cur_pt = pt;

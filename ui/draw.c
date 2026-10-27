@@ -14,6 +14,7 @@
 #include "../src/photo.h"
 #include "bidi.h"
 #include "conn.h"
+#include "text.h"
 
 static short next_text_color = 1;
 
@@ -632,8 +633,10 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 	}
 	if (heb_mode != HM_MAP && has_heb(out, n)) {
 		set_wrmode(2);
-		set_text((flags & TX_INVERSE) ? 0 : color, effects);
+		set_text((flags & TX_INVERSE) ? 0 : color, effects & ~1);
 		runs_at(x, y, out, (short)n);
+		if (effects & 1)	/* bold: struck again a pixel right, as below */
+			runs_at(x + 1, y, out, (short)n);
 		return;
 	}
 	if (opt.hebfont != HEB_ATARI && has_heb(out, n)) {
@@ -655,10 +658,19 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 		smear(x, y, (short)n);
 		return;
 	}
-	set_text((flags & TX_INVERSE) ? 0 : color, effects);
+	/* bold off that path: plain, struck again a pixel to the right
+	   (common's text_bold_strike), never the VDI's bold, which NVDI makes
+	   wider than the cells (the guidelines, Speed: text; EHypView, 27 Oct
+	   2026) */
+	set_text((flags & TX_INVERSE) ? 0 : color, effects & ~1);
 	for (i = 0; i < n; i += 120) {
 		short k = n - i > 120 ? 120 : (short)(n - i);
 		v_gtext_n(vdi_h, x + i * cw, y, out + i, k);
+		if (effects & 1) {
+			text_bold_strike(vdi_h, x + i * cw, y, out + i, k);
+			c_wr = 1;	/* it leaves MD_REPLACE */
+			set_wrmode(2);
+		}
 	}
 }
 
