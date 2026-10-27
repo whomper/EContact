@@ -141,10 +141,8 @@ void side_draw(GRECT *clip)
 		if (s->kind == SRC_BOOK && books[s->idx].readonly)
 			text_at(r_side.x + r_side.w - 2 * cw, s->y, "\xBF", 1, 1, TX_LTR | TX_GREY);
 	}
-	if (!naccts) {
-		text_at(r_side.x + cw / 2, srow[0].y + 3 * ch, "No accounts yet:", 16, cols, TX_LTR | TX_GREY);
-		text_at(r_side.x + cw / 2, srow[0].y + 4 * ch, "\xF0 > Add account...", 18, cols, TX_LTR | TX_GREY);
-	}
+	/* with no account the list says how to add one: the pane is too
+	   narrow for it, and would only cut it (the hub, 27 Oct 2026) */
 	clip_on(clip);
 }
 
