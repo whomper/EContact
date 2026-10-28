@@ -118,8 +118,9 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   current folder (the guidelines 6.1, 28 Oct 2026): TOS 1.04 and 4.04
   start a program another one starts with shel_write in the desktop's
   folder. placement.py's fourth case starts it from a floppy with
-  common/tests/appdir's LAUNCH.PRG (on an ST: Hatari's Falcon can't
-  write the floppy). The accessory keeps FOLDER=.
+  common/tests/appdir's LAUNCH.PRG (a Falcon as Falcon-4 on a mono
+  monitor: on VGA Hatari starts it in ST low with a floppy in, and the
+  floppy is found damaged). The accessory keeps FOLDER=.
 - The accessory's memory outlives its window: when ECONTACT.INF, the key
   or a book's cache changed while it was closed (store_stamp), it lets
   everything go (store_release) and reads it all again (ui/main.c

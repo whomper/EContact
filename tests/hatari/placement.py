@@ -17,7 +17,8 @@ in Hatari (ECONTACT.ACC, on an ST or a Falcon, and ECONTACT.PRG):
    EWeb (common/tests/appdir's LAUNCH.PRG, which starts A:\\APP\\PROBE.PRG:
    ECONTACT.PRG under that name, on a real FAT floppy): TOS 1.04 and 4.04
    start it in the desktop's folder, and its folder is still A:\\APP, its
-   own (app_dir, the guidelines 6.1); on an ST
+   own (app_dir, the guidelines 6.1); on an ST, or a Falcon-4 on a mono
+   monitor
 """
 import os
 import shutil
@@ -117,10 +118,9 @@ def main():
     check("the book with it", "[BOOK]" in open(os.path.join(w, "hd", "ECONTACT.INF"), encoding="latin-1").read())
 
     print("4. the program started by another one, from A:\\APP")
-    if not st:
-        # (TOS 4.04 in Hatari finds the floppy "may be damaged" when the
-        # program writes to it: common/tests/appdir checks app_dir() there)
-        print("  skipped: on an ST only")
+    falcon = machine.startswith("Falcon")
+    if not st and not falcon:
+        print("  skipped: on an ST or a Falcon only")
     else:
         w = os.path.join(work, "d")
         shutil.rmtree(w, ignore_errors=True)
@@ -134,7 +134,14 @@ def main():
         subprocess.run(["mmd", "-i", img, "::/APP"], check=True, capture_output=True)
         subprocess.run(["mcopy", "-i", img, os.path.join(BIN, "ECONTACT.PRG"), "::/APP/PROBE.PRG"], check=True,
                        capture_output=True)
-        boot(w, machine, "C:\\LAUNCH.PRG", [45], extra=["--disk-a", img])  # (a floppy is slow)
+        # a Falcon as sold, on a mono monitor: with a floppy in A: Hatari's
+        # desktop file has no screen mode and a VGA Falcon comes up in ST
+        # low, where the floppy is found "damaged" (the hub, common/tests/
+        # appdir, 28 Oct 2026); a floppy on a 16 MHz Falcon is slow
+        if falcon:
+            boot(w, "Falcon-4", "C:\\LAUNCH.PRG", [120], extra=["--disk-a", img, "--monitor", "mono"])
+        else:
+            boot(w, machine, "C:\\LAUNCH.PRG", [45], extra=["--disk-a", img])  # (a floppy is slow)
         on_a = subprocess.run(["mdir", "-b", "-i", img, "::/APP"], capture_output=True, text=True).stdout.upper()
         # (its welcome is up: ECONTACT.INF comes later)
         check("its key and cache in A:\\APP, its own folder", "ECONTACT.KEY" in on_a and "CACHE" in on_a)
