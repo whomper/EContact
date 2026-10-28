@@ -232,7 +232,9 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   the window's own slider column (5.1: the AES keeps it anyway): card.c
   card_top, win_slider sets WF_VSLSIZE/WF_VSLIDE after each redraw,
   WM_ARROWED (the wheel over the list stays the list's) and WM_VSLID
-  scroll it; `tests/hatari/card_scroll.py WORK [MACHINE]`.
+  scroll it, one click a line or a page (5.1, "One click, one step": TOS
+  4's AES sends each click twice, common's evnt_multi_ drops the echo);
+  `tests/hatari/card_scroll.py WORK [MACHINE]` measures both.
 - EContact's dialogs are its own (ui/field.c, not GEM's fields nor
   common/ui/field.c, which is for GEM object trees): a text field holds
   what its setting holds and shows a window of it, scrolled with the
