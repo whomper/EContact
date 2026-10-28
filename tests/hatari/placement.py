@@ -13,6 +13,11 @@ in Hatari (ECONTACT.ACC, on an ST or a Falcon, and ECONTACT.PRG):
    uses it without asking
 3. the accessory with settings only in C:\\ECONTACT\\ECONTACT.INF (copied
    there, or made by card-cli): copied to the root, contacts shown
+4. the program started by another one with shel_write, as EMail starts
+   EWeb (common/tests/appdir's LAUNCH.PRG, which starts A:\\APP\\PROBE.PRG:
+   ECONTACT.PRG under that name, on a real FAT floppy): TOS 1.04 and 4.04
+   start it in the desktop's folder, and its folder is still A:\\APP, its
+   own (app_dir, the guidelines 6.1); on an ST
 """
 import os
 import shutil
@@ -44,8 +49,8 @@ def folder_of(hd):
     return ""
 
 
-def boot(work, machine, auto, steps):
-    r = Rig(work, machine, auto=auto)
+def boot(work, machine, auto, steps, extra=()):
+    r = Rig(work, machine, auto=auto, extra=extra)
     try:
         time.sleep(15)
         for s in steps:
@@ -110,6 +115,31 @@ def main():
     boot(w, machine, "", desk_contacts() + [6])
     check("copied to the root, FOLDER=C:\\ECONTACT", folder_of(os.path.join(w, "hd")) == "C:\\ECONTACT")
     check("the book with it", "[BOOK]" in open(os.path.join(w, "hd", "ECONTACT.INF"), encoding="latin-1").read())
+
+    print("4. the program started by another one, from A:\\APP")
+    if not st:
+        # (TOS 4.04 in Hatari finds the floppy "may be damaged" when the
+        # program writes to it: common/tests/appdir checks app_dir() there)
+        print("  skipped: on an ST only")
+    else:
+        w = os.path.join(work, "d")
+        shutil.rmtree(w, ignore_errors=True)
+        os.makedirs(os.path.join(w, "hd"))
+        appdir = os.path.join(ROOT, "common", "tests", "appdir")
+        subprocess.run(["make", "-s", "-C", appdir, "B=" + os.path.join(w, "appdir"),
+                        os.path.join(w, "appdir", "LAUNCH.PRG")], check=True, capture_output=True)
+        shutil.copy(os.path.join(w, "appdir", "LAUNCH.PRG"), os.path.join(w, "hd"))
+        img = os.path.join(w, "a.st")
+        subprocess.run(["mformat", "-i", img, "-f", "720", "-C", "::"], check=True, capture_output=True)
+        subprocess.run(["mmd", "-i", img, "::/APP"], check=True, capture_output=True)
+        subprocess.run(["mcopy", "-i", img, os.path.join(BIN, "ECONTACT.PRG"), "::/APP/PROBE.PRG"], check=True,
+                       capture_output=True)
+        boot(w, machine, "C:\\LAUNCH.PRG", [45], extra=["--disk-a", img])  # (a floppy is slow)
+        on_a = subprocess.run(["mdir", "-b", "-i", img, "::/APP"], capture_output=True, text=True).stdout.upper()
+        # (its welcome is up: ECONTACT.INF comes later)
+        check("its key and cache in A:\\APP, its own folder", "ECONTACT.KEY" in on_a and "CACHE" in on_a)
+        check("nothing in the desktop's folder", not os.path.exists(os.path.join(w, "hd", "ECONTACT.KEY"))
+              and not os.path.exists(os.path.join(w, "hd", "CACHE")))
 
     print("all passed" if not fails else "%d failed" % fails)
     sys.exit(1 if fails else 0)

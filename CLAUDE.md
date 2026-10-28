@@ -113,7 +113,13 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (groups_collect_step: 600 contacts with categories took an ST 165 ms).
 - Where the accessory and the program find ECONTACT.INF and the folder
   follows ECal (ui/main.c: find_workdir, move_inf, locate_folder);
-  `tests/hatari/placement.py WORK [MACHINE]` checks it.
+  `tests/hatari/placement.py WORK [MACHINE]` checks it. The program's
+  folder is common's app_dir() (its shel_read command), never the
+  current folder (the guidelines 6.1, 28 Oct 2026): TOS 1.04 and 4.04
+  start a program another one starts with shel_write in the desktop's
+  folder. placement.py's fourth case starts it from a floppy with
+  common/tests/appdir's LAUNCH.PRG (on an ST: Hatari's Falcon can't
+  write the floppy). The accessory keeps FOLDER=.
 - The accessory's memory outlives its window: when ECONTACT.INF, the key
   or a book's cache changed while it was closed (store_stamp), it lets
   everything go (store_release) and reads it all again (ui/main.c

@@ -1122,8 +1122,8 @@ static char boot_font[8];	/* FONT_ID=: the GDOS fonts loaded at boot or never */
 
 static void find_workdir(void)
 {
-	char path[160], old[200];
-	short drv = (short)Dgetdrv(), boot = boot_drive();
+	char old[200];
+	short boot = boot_drive();
 	snprintf(inf_file, sizeof(inf_file), "%c:\\ECONTACT.INF", 'A' + boot);
 	if (is_acc) {
 		inf_read(inf_file);	/* once: FOLDER=, START=, FONT_ID=, HEAPKB= */
@@ -1143,9 +1143,11 @@ static void find_workdir(void)
 						   drive's root has no entry to find) */
 		return;
 	}
-	path[0] = 0;
-	Dgetpath(path, 0);
-	snprintf(workdir, sizeof(workdir), "%c:%s", 'A' + drv, path);
+	/* the program's own folder (common's app_dir, from its shel_read
+	   command), not the current one: TOS 1.04 and 4.04 leave a program
+	   another one starts (shel_write) in the desktop's (the guidelines
+	   6.1, 28 Oct 2026) */
+	str_copy(workdir, app_dir(), sizeof(workdir));
 	if (strlen(workdir) > 3 && workdir[strlen(workdir) - 1] == '\\')
 		workdir[strlen(workdir) - 1] = 0;
 }
