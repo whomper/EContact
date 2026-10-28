@@ -8,8 +8,9 @@ sample contacts (tests/hatari/sample.vcf, made-up people):
                                [--ecal-src DIR] [--falcon M] [--st M] [--update]
 
 On the family's machines (common/tools/machines.py): the Falcon at 640x480
-in 16 colours (--falcon names another, Falcon:256 say) and the ST in mono
-(--st).
+in 256 colours, where the photos look their best (Erez, 28 Oct 2026: every
+app picture in 256 colours; --falcon names another) and the ST in mono
+(--st: st-mono.png, there to show it).
 
 --memory takes memory-full: ECONTACT.ACC on a 1 MB ST (ST-1 in mono)
 with 1,000 contacts, more than fit, and the alert that says so.
@@ -233,7 +234,7 @@ def with_ecal(work, machine, spec, ecal_src):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("work")
-    ap.add_argument("--falcon", default="Falcon:16")
+    ap.add_argument("--falcon", default="Falcon:256")
     ap.add_argument("--st", default="ST:mono")
     ap.add_argument("--memory", action="store_true", help="memory-full, on ST-1")
     ap.add_argument("--email", nargs="?", const="EMail")

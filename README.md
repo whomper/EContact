@@ -472,7 +472,7 @@ The Hatari rigs run under Xvfb, with xdotool for the mouse, on the family's test
 (AERA-Atari's guidelines, The machines; `common/tools/machines.py list`): `ST` (Erez's 1040 ST,
 4 MB), `ST-1` (1 MB), `TT` and `Falcon` (Erez's, with the DFB1: 32 MHz, 14 MB ST RAM, 128 MB TT
 RAM), with a screen after a colon (`ST:mono`, `Falcon:256`). MACHINE is the ST in high
-resolution by default, the Falcon in 16 colours for `twin_test.py` and the colour screenshots,
+resolution by default, the Falcon in 16 colours for `twin_test.py`, in 256 for the screenshots,
 and `quiet_start.py` runs on both. machines.py gives each Hatari its arguments and its own
 settings, and the TOS: EmuTOS 1.4, fetched and checked once, or Erez's own TOS when
 `~/.aera/tos` has it. `quiet_sync.py`, `stop_test.py` and `falcon_tls.py` reach the network

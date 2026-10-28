@@ -147,7 +147,8 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   the guidelines, The machines) and get Hatari's arguments, the TOS and the
   network from it (tests/hatari/rig.py), never their own options.
   `tests/hatari/docs_shots.py WORK` takes the screenshots in docs/ (on
-  Falcon:16 and ST:mono); with `--email` and `--ecal` it fetches EMail's
+  Falcon:256, every app picture in 256 colours: Erez, 28 Oct 2026; and
+  st-mono.png on ST:mono); with `--email` and `--ecal` it fetches EMail's
   and ECal's latest releases (getrelease.py). The rigs' stand-ins (fakeguide for ST-Guide, ASKER.PRG
   for EMail) are EContact's own test programs; `quiet_sync.py` uses
   common's FAKESTNG and serial bridge (common/tools/fakesting).
