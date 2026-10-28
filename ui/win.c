@@ -776,6 +776,13 @@ int win_later_pending(void)
 	return later_on;
 }
 
+/* the whole window drawn a pane at a time (the accessory's opening, the
+   program's start), not a part of it later: for AES_PROFILE's notes */
+int win_later_whole(void)
+{
+	return later_on && later_prog;
+}
+
 /* a band drawn in the buffer, on the screen: each piece but the list's
    bar, which keeps what it showed */
 static void blit(const GRECT *d)

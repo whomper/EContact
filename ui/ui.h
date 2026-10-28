@@ -94,6 +94,7 @@ void win_redraw_later(const GRECT *area);	/* in bands from the event loop, copie
 void win_redraw_bands(void);			/* all of it, a line a band, each copied when drawn */
 void win_open_bands(void);			/* the accessory's window as it opens: the same */
 int win_later_pending(void);
+int win_later_whole(void);			/* the whole window, a pane at a time */
 void win_later_slice(int (*more)(void));	/* bands while more() says so */
 void win_later_finish(void);
 void win_search_step(int (*more)(void));	/* a slice of a search's matching */

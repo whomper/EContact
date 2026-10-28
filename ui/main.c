@@ -2351,7 +2351,9 @@ int main(void)
 			later_at = pf_ms();
 			win_search_step(later_more);
 		} else if (which == MU_TIMER && win_h > 0 && win_later_pending() && turn_free()) {
-			aes_profile_tag("card");
+			/* (the whole window's bands: the opening's, which the
+			   user asked for, as its drawing in one piece was) */
+			aes_profile_tag(win_later_whole() ? "open-bands" : "card");
 			later_at = pf_ms();
 			win_later_slice(later_more);
 			if (!win_later_pending())
