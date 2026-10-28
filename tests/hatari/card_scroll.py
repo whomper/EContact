@@ -8,8 +8,9 @@ ECONTACT.PRG and a card longer than the window:
     tests/hatari/card_scroll.py WORK [MACHINE]
 
 - the window's down arrow scrolls the card, and the list beside it stays;
-  one click one line (the guidelines 5.1, "One click, one step": TOS 4's
-  AES sent each click twice, common's evnt_multi_ drops the echo);
+  one click one line, ten ten (the guidelines 5.1, "One click, one step":
+  TOS 4's AES sent each click twice, TOS 1.04 some; common's evnt_multi_
+  drops the echo);
 - the track under the slider scrolls it a page, one, not two;
 - the track over the slider and the up arrow bring it back as it was;
 - a short card, chosen next, starts from its top and fits.
@@ -114,20 +115,24 @@ def main():
         down, up = (w - 8, h - 30), (w - 8, 66)
         card = (w // 2 + 20, 70, w - 30, h - 40)    # the card's values
         lst = (w // 4, 70, w // 2 - 40, h - 40)     # the list
-        cardm = (w // 2 + 20, 95, w - 70, h - 40)   # for the shift: under the toolbar,
-                                                    # left of the pointer (away)
+        # for the shift: the card's view, under the toolbar and over its
+        # bar, left of the pointer (away)
+        cardm = (w // 2 + 20, 86, w - 70, view_foot(s0, w // 2 + 20, w - 70, h))
         r.click(*down)                  # one click: one line (ch + 4)
         time.sleep(1.5)
         away()
         s1a = r.shot("1-down-once")
-        d = shift_of(s0, s1a, cardm)
+        d = shift_of(s0, s1a, cardm, 6)
         print("   one click on the down arrow: %d pixels" % d)
         check("one click on the arrow, one line (not two)", d == 20)
-        for _ in range(2):
-            r.click(*down)
-            time.sleep(1.5)
+        for _ in range(9):              # ten in all: ten lines (TOS 1.04 too sent
+            r.click(*down)              # some clicks twice: ClaudeST, 28 Oct 2026)
+            time.sleep(1.2)
         away()
         s1 = r.shot("1-down")
+        d = shift_of(s0, s1, cardm, 6)
+        print("   ten clicks on the down arrow: %d pixels" % d)
+        check("ten clicks on the arrow, ten lines", d == 200)
         check("the window's down arrow scrolled the card", region(s0, card) != region(s1, card))
         check("and the list stayed", region(s0, lst) == region(s1, lst))
         r.click(w - 8, h - 60)          # the track under the slider
