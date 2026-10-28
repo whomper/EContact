@@ -170,7 +170,8 @@ under a search field, the chosen person's card on the right.
 
 - **The list**, sorted by last name under letter headings, the first name plain and the last name
   bold, the chosen one in a blue bar, as on the Mac. **Settings** sorts by first name or shows
-  "Last, First".
+  "Last, First". **Several at once**: Shift+click, Control+click and ^A choose several, to delete
+  them, put them in a group or take them out, write to them all, copy or export them in one go.
 - **The card**: the contact's photo in a circle (or the initials in grey when there is none), the
   name, the job and company, then every phone, email, web page and address with its label in grey
   ("mobile", "iPhone", "home", "work", "home fax", or your own), the birthday and the note. Click a
@@ -449,6 +450,8 @@ tests/hatari/acc_files.py WORK [MACHINE] [cards]  # the accessory's refresh and 
                                                   # Hatari's GEMDOS and AES trace; what it wrote
                                                   # reads back whole
 tests/hatari/esc_test.py WORK [MACHINE]           # Esc empties a field, Undo cancels (3.5)
+tests/hatari/multi_select.py WORK [MACHINE]       # several chosen: Shift+click, Control+click, ^A,
+                                                  # their menu, ^C, two deleted at once
 tests/hatari/search_click.py WORK [MACHINE]       # a click gives the search field the focus
 tests/hatari/long_field.py WORK [MACHINE]         # a field holds more than it shows: 52 letters
                                                   # in a field 30 wide, Shift+Left/Right to its ends

@@ -105,6 +105,8 @@ static void pick_start(void)
 	}
 	pick_opened = !was_open;
 	picking = 1;
+	if (list_chosen() > 1)
+		select_contact(sel_contact());	/* one chosen: the ticks are the pick's */
 	for (i = 0; i < npeople; i++)
 		people[i]->mark = 0;
 	str_copy(search_text, pick_search, sizeof(search_text));
@@ -126,7 +128,7 @@ static void pick_finish(int choose, int may_close)
 	picking = 0;
 	if (choose && (l = malloc((npeople + 1) * sizeof(CONTACT *))) != 0) {
 		for (i = 0; i < npeople; i++)
-			if (people[i]->mark && !people[i]->group)
+			if ((people[i]->mark & MK_TICK) && !people[i]->group)
 				l[n++] = people[i];
 		if (!n && !(src_kind == SRC_GROUP && src_idx < ngroups) && sel_contact() && !sel_contact()->group)
 			l[n++] = sel_contact();
@@ -498,6 +500,74 @@ void cmd_new_contact(void)
 	editor_new();
 }
 
+/* several chosen: each by its UID (every delete reads the list again),
+   those that can't be changed left; the one after the last of them
+   chosen next, as for one */
+static void delete_chosen(void)
+{
+	CONTACT **l;
+	char **u, next_uid[80];
+	short *bk, next_book = -1;
+	int n, m, i, k, ro = 0, skipped, done = 0, last = -1, first = -1;
+	l = list_chosen_contacts(&m);
+	if (!l)
+		return;
+	for (i = 0; i < m; i++)
+		ro += !book_writable(&books[l[i]->book]);
+	for (i = 0; i < nlisted; i++)
+		if (listed[i]->mark & MK_SEL) {
+			if (first < 0)
+				first = i;
+			last = i;
+		}
+	next_uid[0] = 0;
+	for (i = last + 1; i < nlisted && next_uid[0] == 0; i++)
+		if (!(listed[i]->mark & MK_SEL) && listed[i]->uid) {
+			str_copy(next_uid, listed[i]->uid, sizeof(next_uid));
+			next_book = listed[i]->book;
+		}
+	for (i = first - 1; i >= 0 && next_uid[0] == 0; i--)
+		if (!(listed[i]->mark & MK_SEL) && listed[i]->uid) {
+			str_copy(next_uid, listed[i]->uid, sizeof(next_uid));
+			next_book = listed[i]->book;
+		}
+	free(l);
+	if (ro == m) {
+		alert(1, "[1][These contacts are in an address book|you can't change.][ OK ]");
+		return;
+	}
+	if (ro ? alert(2, "[2][Delete the %d chosen cards?|(%d in an address book you can't|change stay.)][Delete|Cancel]",
+		       m - ro, ro) != 1
+	       : alert(2, "[2][Delete the %d chosen cards?][Delete|Cancel]", m) != 1)
+		return;
+	u = list_chosen_uids(&n, &bk, &skipped);
+	if (!u) {
+		alert(1, "[1][Not enough memory for that.][ OK ]");
+		return;
+	}
+	busy(1);
+	for (k = 0; k < n && !conn_stop; k++) {
+		CONTACT *c = contact_by_uid(u[k], bk[k]);
+		if (!c || !book_writable(&books[c->book]))
+			continue;
+		{
+			char t[40];
+			snprintf(t, sizeof(t), "Deleting %d of %d...", done + 1, m - ro);
+			status(t);
+		}
+		if (!contact_delete(c))
+			break;
+		done++;
+	}
+	busy(0);
+	status_updated();
+	if (k < n && !conn_stop)
+		alert(1, "[1][%d of %d deleted; then:|%s][ OK ]", done, m - ro, ab_err);
+	free(u);
+	after_change();
+	select_contact(next_uid[0] ? contact_by_uid(next_uid, next_book) : 0);
+}
+
 void cmd_delete_selected(void)
 {
 	CONTACT *c = sel_contact();
@@ -505,6 +575,10 @@ void cmd_delete_selected(void)
 	int ok, i, next = -1;
 	if (!c)
 		return;
+	if (list_chosen() > 1) {
+		delete_chosen();
+		return;
+	}
 	if (!book_writable(&books[c->book])) {
 		alert(1, "[1][This contact is in an address book you can't change.][ OK ]");
 		return;
@@ -608,23 +682,27 @@ void cmd_export(void)
 	char path[200], name[20], dir[200];
 	short button = 0;
 	CONTACT *c = sel_contact(), **list;
-	int n = 0, i;
+	int n = 0, i, several = list_chosen() > 1;
 	short all;
-	all = alert(1, "[2][Export as a vCard file:][Chosen card|All shown|Cancel]");
+	all = several ? alert(1, "[2][Export as a vCard file:][Chosen cards|All shown|Cancel]")
+		      : alert(1, "[2][Export as a vCard file:][Chosen card|All shown|Cancel]");
 	if (all == 3)
 		return;
 	if (all == 1 && !c) {
 		alert(1, "[1][No card is chosen.][ OK ]");
 		return;
 	}
-	list = malloc((nlisted + 1) * sizeof(CONTACT *));
+	if (all == 1) {
+		list = list_chosen_contacts(&n);	/* (one, or the several) */
+	} else {
+		list = malloc((nlisted + 1) * sizeof(CONTACT *));
+		for (i = 0; list && i < nlisted; i++)
+			list[n++] = listed[i];
+	}
 	if (!list)
 		return;
-	if (all == 1)
-		list[n++] = c;
-	else
-		for (i = 0; i < nlisted; i++)
-			list[n++] = listed[i];
+	if (several && all == 1)
+		all = 2;	/* (named as a list, CONTACTS.VCF) */
 	snprintf(dir, sizeof(dir), "%s\\*.VCF", workdir);
 	str_copy(name, "CONTACTS.VCF", sizeof(name));
 	if (all == 1) {
@@ -680,6 +758,57 @@ void cmd_copy_contact(const CONTACT *c)
 }
 
 /* "Maya Carter <maya@example.com>" for EMail's To: line */
+/* the chosen ones as EMail's To: line takes them, "A <a>, B <b>" (the
+   guidelines 4.4); one without an address by name */
+static void chosen_line(SBUF *b, int mail)
+{
+	CONTACT **l;
+	int n, i;
+	l = list_chosen_contacts(&n);
+	for (i = 0; l && i < n; i++) {
+		char name[120];
+		if (mail && !l[i]->nemail)
+			continue;
+		vcard_display_name(l[i], 0, name, sizeof(name));
+		if (!l[i]->nemail)
+			sb_printf(b, "%s%s", b->len ? ", " : "", name);
+		else if (!name[0] || !strcmp(name, l[i]->email[0].value))
+			sb_printf(b, "%s%s", b->len ? ", " : "", l[i]->email[0].value);
+		else if (strchr(name, ',') || strchr(name, '"'))
+			sb_printf(b, "%s\"%s\" <%s>", b->len ? ", " : "", name, l[i]->email[0].value);
+		else
+			sb_printf(b, "%s%s <%s>", b->len ? ", " : "", name, l[i]->email[0].value);
+	}
+	free(l);
+}
+
+void cmd_copy_chosen(void)
+{
+	SBUF b;
+	if (list_chosen() < 2) {
+		if (sel_contact())
+			cmd_copy_contact(sel_contact());
+		return;
+	}
+	sb_init(&b);
+	chosen_line(&b, 0);
+	if (b.len)
+		cmd_copy(b.s);
+	sb_free(&b);
+}
+
+void cmd_mail_chosen(void)
+{
+	SBUF b;
+	sb_init(&b);
+	chosen_line(&b, 1);
+	if (!b.len)
+		alert(1, "[1][None of them has an email address.][ OK ]");
+	else
+		cmd_mail(b.s);
+	sb_free(&b);
+}
+
 void cmd_mail_to(const CONTACT *c, const char *email)
 {
 	char name[120], line[300];
@@ -851,7 +980,7 @@ void cmd_sync_photos(void)
 /* the commands of the menu bar (the program) and the toolbar's menu */
 enum { C_NONE, C_ABOUT, C_NEW, C_GROUP, C_ADD, C_IMP, C_EXP, C_PHOTOS, C_REFRESH, C_REFRESH_ALL,
        C_QUIT, C_COPY, C_EDIT, C_DELETE, C_FIND, C_SIDE, C_SET, C_FONT, C_OFFL, C_FALC, C_LOG,
-       C_KBD, C_HELP, C_KEYS };
+       C_KBD, C_HELP, C_KEYS, C_SELALL };
 
 static const MBAR_ITEM m_desk[] = {
 	{ "About EContact...", 0, C_ABOUT },
@@ -879,6 +1008,8 @@ static const MBAR_ITEM m_contact[] = {
 	{ "Edit contact...", "^E", C_EDIT },
 	{ "Copy contact", "^C", C_COPY },
 	{ "Delete...", "Del", C_DELETE },
+	{ "-", 0, 0 },
+	{ "Select all", "^A", C_SELALL },
 	{ 0, 0, 0 }
 };
 static const MBAR_ITEM m_view[] = {
@@ -943,8 +1074,9 @@ static void menu_update(void)
 	if (!has_menu)
 		return;
 	enable(C_COPY, sel_contact() != 0 || search_text[0]);
-	enable(C_EDIT, sel_contact() != 0);
+	enable(C_EDIT, sel_contact() != 0 && list_chosen() < 2);
 	enable(C_DELETE, sel_contact() != 0);
+	enable(C_SELALL, nlisted > 1 && !picking);
 	check(C_SIDE, opt.sidebar);
 	check(C_OFFL, opt.offline);
 	check(C_FALC, opt.falcon);
@@ -968,14 +1100,15 @@ static void command(int c)
 	case C_REFRESH_ALL: cmd_refresh(1); break;
 	case C_COPY:
 		if (sel_contact())
-			cmd_copy_contact(sel_contact());
+			cmd_copy_chosen();
 		else if (search_text[0])
 			cmd_copy(search_text);
 		break;
 	case C_EDIT:
-		if (sel_contact())
+		if (sel_contact() && list_chosen() < 2)
 			editor_open(sel_contact());
 		break;
+	case C_SELALL: list_select_all(); break;
 	case C_DELETE: cmd_delete_selected(); break;
 	case C_FIND: win_find(); break;
 	case C_SIDE:

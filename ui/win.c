@@ -1410,8 +1410,12 @@ int win_key(short kstate, short key)
 		case 0x21: win_find(); return 1;			/* ^F: a new search */
 		case 0x33: dlg_settings(); return 1;			/* ^, */
 		case 0x12:						/* ^E: edit */
-			if (sel_contact())
+			if (sel_contact() && list_chosen() < 2)
 				editor_open(sel_contact());
+			return 1;
+		case 0x1e:						/* ^A: everyone shown */
+			if (!picking)
+				list_select_all();
 			return 1;
 		case 0x22:						/* ^G: a new group */
 			cmd_new_group(-1);
@@ -1429,9 +1433,9 @@ int win_key(short kstate, short key)
 				return 0;
 			toggle_sidebar();
 			return 1;
-		case 0x2e:						/* ^C: the contact chosen */
+		case 0x2e:						/* ^C: the contacts chosen */
 			if (sel_contact())
-				cmd_copy_contact(sel_contact());
+				cmd_copy_chosen();
 			else if (search_text[0])
 				cmd_copy(search_text);
 			return 1;

@@ -339,6 +339,7 @@ void card_draw(GRECT *clip)
 {
 	GRECT r = r_card, vis;
 	CONTACT *c;
+	int multi;
 	short x0, y, lw, vx, cols, rh = ch + 4, ry, i, bottom;
 	char s[200];
 	if (!rect_and(&r, clip))
@@ -349,6 +350,9 @@ void card_draw(GRECT *clip)
 	layout_bar();
 	nhits = 0;
 	c = sel_contact();
+	multi = list_chosen() > 1;
+	if (multi)
+		c = 0;		/* several chosen: how many, as the Mac says it */
 	bottom = r_bar.y - 2;
 	card_view(&hit_view);
 	vis = hit_view;
@@ -362,8 +366,15 @@ void card_draw(GRECT *clip)
 	if (card_top > card_max())
 		card_top = card_max();
 	if (!c) {
-		const char *t = nlisted ? "No Card Selected" : "";
-		short n = (short)strlen(t);
+		char t[40];
+		short n;
+		if (multi)
+			snprintf(t, sizeof(t), "%d Cards Selected", list_chosen());
+		else
+			str_copy(t, nlisted ? "No Card Selected" : "", sizeof(t));
+		n = (short)strlen(t);
+		r_avatar.w = r_avatar.h = 0;
+		card_total = 0;
 		text_at(r_card.x + (r_card.w - n * cw) / 2, r_card.y + (r_card.h - ch) / 2, t, n, n, TX_LTR | TX_GREY);
 	} else {
 		clip_on(&vis);		/* the values under the bar don't show */
@@ -640,7 +651,7 @@ static void value_menu(short mx, short my, CONTACT *c, HIT *h)
 
 int card_click(short mx, short my, short clicks, short button)
 {
-	CONTACT *c = sel_contact();
+	CONTACT *c = list_chosen() > 1 ? 0 : sel_contact();	/* (several: none shown) */
 	short i;
 	layout_bar();
 	if (rect_hit(&b_new, mx, my)) {

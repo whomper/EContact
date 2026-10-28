@@ -415,6 +415,30 @@ int main(int argc, char **argv)
 		ok = g && c && (cmd[6] == 'a' ? group_add(g, c) : group_remove(g, c));
 		if (g && c && !ok)
 			fprintf(stderr, "%s: %s\n", cmd, ab_err);
+	} else if ((!strcmp(cmd, "group-add-many") || !strcmp(cmd, "group-remove-many")) && argc >= 5) {
+		/* the list's several chosen: by UID, the group by name */
+		GROUP *g = find_group(argv[3]);
+		const char *uid[32];
+		static char ub[32][80];	/* copied: each write reads the list again */
+		int n = 0, i, done;
+		char name[64];
+		for (i = 4; i < argc && n < 32; i++) {
+			CONTACT *c = find(argv[i]);
+			if (c && c->uid) {
+				str_copy(ub[n], c->uid, sizeof(ub[n]));
+				uid[n] = ub[n];
+				n++;
+			}
+		}
+		ok = g != 0;
+		if (g) {
+			str_copy(name, g->name, sizeof(name));
+			done = cmd[6] == 'a' ? group_add_uids(name, g->book, uid, n)
+					     : group_remove_uids(name, g->book, uid, n);
+			ok = done == n;
+			if (!ok)
+				fprintf(stderr, "%s: %d of %d: %s\n", cmd, done, n, ab_err);
+		}
 	} else if (!strcmp(cmd, "group-rename") && argc >= 5) {
 		GROUP *g = find_group(argv[3]);
 		char *n = to_atari(argv[4]);

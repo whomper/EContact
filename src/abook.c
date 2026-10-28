@@ -3672,6 +3672,87 @@ int group_add(GROUP *g, CONTACT *c)
 	}
 }
 
+static void cats_without(const char *cats, const char *name, char *out, int size);
+
+static int in_uids(const char *u, const char **uid, int n)
+{
+	int i;
+	for (i = 0; i < n; i++)
+		if (!strcasecmp(u, uid[i]))
+			return 1;
+	return 0;
+}
+
+/* Several at once (the list's several chosen): a group card written once
+   with them all, not once a contact (each a PUT to the server); a group
+   of categories card by card. The group by its name and each contact by
+   its UID, found again after each write, which reads the list again.
+   How many are in it (out of it) afterwards; ab_err says why not all */
+static int group_uids(const char *name, int book, const char **uid, int n, int add)
+{
+	GROUP *g = group_again(name, book);
+	int i, done = 0;
+	if (!g) {
+		str_copy(ab_err, "the group isn't there any more", sizeof(ab_err));
+		return 0;
+	}
+	if (g->card) {
+		const char **mem;
+		int m = g->card->nmember, k = 0;
+		char gname[64];
+		mem = malloc((m + n + 1) * sizeof(char *));
+		if (!mem) {
+			str_copy(ab_err, "not enough memory for the group: nothing was changed", sizeof(ab_err));
+			return 0;
+		}
+		for (i = 0; i < m; i++)
+			if (add || !in_uids(g->card->member[i], uid, n))
+				mem[k++] = g->card->member[i];
+		if (add)
+			for (i = 0; i < n; i++) {
+				int j, there = 0;
+				for (j = 0; j < m && !there; j++)
+					there = !strcasecmp(g->card->member[j], uid[i]);
+				if (!there)
+					mem[k++] = uid[i];
+			}
+		str_copy(gname, g->name, sizeof(gname));
+		done = k == m || write_group(g, gname, mem, k) ? n : 0;
+		free(mem);
+		return done;
+	}
+	for (i = 0; i < n; i++) {
+		CONTACT *c = contact_by_uid(uid[i], book);
+		char cats[400];
+		int ok = 1;
+		if (!c) {
+			str_copy(ab_err, "a contact isn't there any more", sizeof(ab_err));
+			continue;
+		}
+		if (add && !has_cat(c->cats, name)) {
+			snprintf(cats, sizeof(cats), "%s%s%s", c->cats ? c->cats : "", c->cats && *c->cats ? "," : "", name);
+			ok = write_cats(c, cats);
+		} else if (!add && has_cat(c->cats, name)) {
+			cats_without(c->cats, name, cats, sizeof(cats));
+			ok = write_cats(c, cats);
+		}
+		if (!ok)
+			break;
+		done++;
+	}
+	return done;
+}
+
+int group_add_uids(const char *name, int book, const char **uid, int n)
+{
+	return group_uids(name, book, uid, n, 1);
+}
+
+int group_remove_uids(const char *name, int book, const char **uid, int n)
+{
+	return group_uids(name, book, uid, n, 0);
+}
+
 /* the categories without one */
 static void cats_without(const char *cats, const char *name, char *out, int size)
 {

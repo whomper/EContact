@@ -359,6 +359,24 @@ shows (a long address, a server's address): it scrolls with the cursor.
 ← and → move the cursor, Shift+← and Shift+→ (or Clr/Home and
 Shift+Clr/Home) go to the start and the end.
 
+## Several at once
+
+As in EFTP's and EMail's lists, a click chooses one contact,
+**Shift+click** adds another (or takes one out again), **Control+click**
+chooses everyone from the one chosen to the one clicked, and **^A**
+(the menu > Select all) everyone the list shows. The card says how many
+are chosen. Then:
+
+- **Delete** (the key, or the menu): all of them, after one question;
+  cards in an address book you can't change stay.
+- Right-click one of them for **Add to Group...**, **Remove from (group)**
+  while a group is shown, **Send Email** (one message to them all, in
+  EMail's To: line), **Copy Names and Emails** (^C does the same) and
+  **Export vCards...**. A group holds the cards of its own address book:
+  the others are left out, and EContact says so.
+
+A click (or ↑, ↓) chooses one again.
+
 ## Groups
 
 ![The contact menu](context-menu.png)
@@ -508,12 +526,14 @@ next time EContact saves its settings.
 | ↑ ↓ | the contact above, below |
 | Clr/Home, Shift+Clr/Home | the first, the last |
 | Return, ^E | edit the card |
-| Delete | delete the card (not while the search field has the focus: a click in the list, or an arrow key, gives it back to the list) |
+| Delete | delete the card, or the cards chosen (not while the search field has the focus: a click in the list, or an arrow key, gives it back to the list) |
+| Shift+click, Control+click | one more chosen, a range chosen |
+| ^A | choose everyone the list shows |
 | ^N | a new contact |
 | ^G | a new group |
 | typing | search |
 | ^F | a new search |
-| ^C | copy the contact chosen: "Name <email>" |
+| ^C | copy the contacts chosen: "Name <email>, ..." |
 | ^V, ^X | paste into the search, cut it |
 | ^C ^X ^V | in a dialog: copy, cut, paste a field |
 | Shift+← → | in a text field: its start, its end |

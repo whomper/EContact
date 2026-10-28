@@ -138,6 +138,18 @@ int list_search_pending(void);	/* its matching under way, a slice a turn */
 int list_search_step(int (*more)(void));	/* 1: done */
 void list_source(short kind, short idx);	/* the sidebar's choice */
 void list_fix_selection(void);	/* the first one, if the chosen one isn't shown */
+/* several chosen (Shift+click one more, Control+click a range, ^A all: as
+   EFTP's and EMail's lists): a bit of each CONTACT's mark (the pick's
+   ticks are another) */
+#define MK_TICK 1		/* ticked while choosing for EMail or ECal */
+#define MK_SEL 2		/* one of several chosen */
+int list_chosen(void);		/* how many are chosen: 0, 1 or more */
+void list_select_all(void);	/* ^A */
+CONTACT **list_chosen_contacts(int *n);	/* in the list's order; free() it */
+/* their UIDs and books, to find each again as every change reads the
+   list again (the CONTACTs go): one block, free() it; *skipped: those
+   without a UID */
+char **list_chosen_uids(int *n, short **book, int *skipped);
 void list_draw(GRECT *clip);
 int  list_click(short mx, short my, short clicks, short button, short kstate);
 int  list_key(short kstate, short key);
@@ -266,6 +278,8 @@ void cmd_mail(const char *addr);	/* a message to addr in EMail */
 void cmd_mail_to(const CONTACT *c, const char *email);	/* to "Name <email>" */
 void cmd_copy(const char *text);	/* to the GEM clipboard */
 void cmd_copy_contact(const CONTACT *c);	/* "Name <email>" to it */
+void cmd_copy_chosen(void);	/* the one chosen, or several: "A <a>, B <b>" */
+void cmd_mail_chosen(void);	/* a new message to the chosen ones */
 void after_change(void);		/* contacts changed: the list and the window again */
 extern short hebrew_kbd;
 void set_hebrew_kbd(short on);

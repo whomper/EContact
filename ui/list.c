@@ -33,6 +33,14 @@ static LROW *rows;
 static int nrows, maxrows, top;
 static short rh;		/* pixels per row */
 
+/* several chosen (Erez, 28 Oct 2026): MK_SEL in their marks, counted;
+   0 while one alone is (sel_uid). The marks go with the CONTACTs when
+   the list is read again (people_serial), and the list made again (the
+   group or the search changed) forgets them */
+static int nchosen;
+static unsigned long chosen_serial;
+static void chosen_clear(void);
+
 /* the search the list was last made for: typing on narrows those it
    found, rather than looking through everyone again (the guidelines'
    Speed). Anything else that makes the list again forgets it */
@@ -174,6 +182,7 @@ static void rebuild(void)
 		return;
 	}
 	dirty = 0;
+	chosen_clear();
 	resolve_source();
 	if (narrows()) {
 		for (i = k = 0; i < nlisted; i++)
@@ -240,6 +249,7 @@ int list_search_step(int (*more)(void))
 	}
 	if (sj_i < sj_of)
 		return 0;
+	chosen_clear();
 	free(listed);
 	listed = sj;
 	nlisted = sj_n;
@@ -462,6 +472,223 @@ static int row_area(int r, GRECT *a)
 	return 1;
 }
 
+/* ---- several chosen ---- */
+
+int list_chosen(void)
+{
+	if (nchosen && chosen_serial != people_serial)
+		nchosen = 0;		/* (read again: the marks went with them) */
+	return nchosen ? nchosen : sel_contact() ? 1 : 0;
+}
+
+static int lit(const CONTACT *c, const CONTACT *sel, int multi)
+{
+	return multi ? (c->mark & MK_SEL) != 0 : c == sel;
+}
+
+static void chosen_clear(void)
+{
+	int i;
+	if (!nchosen)
+		return;
+	for (i = 0; i < npeople; i++)
+		people[i]->mark &= ~MK_SEL;
+	nchosen = 0;
+}
+
+/* several from now on: no mark left from before (an index's) */
+static void chosen_begin(void)
+{
+	int i;
+	for (i = 0; i < npeople; i++)
+		people[i]->mark &= ~MK_SEL;
+	nchosen = 0;
+	chosen_serial = people_serial;
+}
+
+static void set_sel(const CONTACT *c)
+{
+	str_copy(sel_uid, c && c->uid ? c->uid : "", sizeof(sel_uid));
+	sel_book = c ? c->book : -1;
+}
+
+/* the rows shown lit before a change, then only those that changed
+   drawn again (each row's text is 24 ms in bold on an 8 MHz ST) */
+#define SNAP 80
+static unsigned char snap[SNAP];
+static int snap_top;
+
+static void lit_take(void)
+{
+	int i, multi = list_chosen() > 1;
+	CONTACT *sel = sel_contact();
+	snap_top = top;
+	for (i = 0; i < SNAP; i++) {
+		int r = top + i;
+		snap[i] = r < nrows && rows[r].contact >= 0 && lit(listed[rows[r].contact], sel, multi);
+	}
+}
+
+static void lit_redraw(void)
+{
+	int i, multi = list_chosen() > 1, vis = visible_rows();
+	CONTACT *sel = sel_contact();
+	GRECT a;
+	if (top != snap_top) {
+		win_redraw(&r_list);
+		return;
+	}
+	for (i = 0; i < SNAP && i <= vis; i++) {
+		int r = top + i;
+		int now = r < nrows && rows[r].contact >= 0 && lit(listed[rows[r].contact], sel, multi);
+		if (now != snap[i] && row_area(r, &a))
+			win_redraw(&a);
+	}
+}
+
+/* one left of several: it alone is chosen, as by a click */
+static void chosen_settle(void)
+{
+	int i;
+	if (nchosen != 1)
+		return;
+	for (i = 0; i < nlisted; i++)
+		if (listed[i]->mark & MK_SEL)
+			set_sel(listed[i]);
+	chosen_clear();
+}
+
+/* Shift+click: one more, or one fewer */
+static void chosen_toggle(CONTACT *c)
+{
+	CONTACT *s = sel_contact();
+	lit_take();
+	if (list_chosen() < 2) {
+		if (c == s)
+			return;
+		chosen_begin();
+		if (s && sel_row() >= 0) {
+			s->mark |= MK_SEL;
+			nchosen++;
+		}
+		c->mark |= MK_SEL;
+		nchosen++;
+		set_sel(c);
+	} else if (c->mark & MK_SEL) {
+		int i;
+		c->mark &= ~MK_SEL;
+		nchosen--;
+		if (c == s)	/* another of them where a range starts */
+			for (i = 0; i < nlisted; i++)
+				if (listed[i]->mark & MK_SEL) {
+					set_sel(listed[i]);
+					break;
+				}
+	} else {
+		c->mark |= MK_SEL;
+		nchosen++;
+		set_sel(c);
+	}
+	chosen_settle();
+	lit_redraw();
+	win_redraw_later(&r_card);
+}
+
+/* Control+click: from the one chosen (where a range starts) to row r */
+static void chosen_range(int r)
+{
+	int a = sel_row(), i, lo, hi;
+	if (a < 0) {
+		select_contact(listed[rows[r].contact]);
+		return;
+	}
+	lit_take();
+	chosen_begin();
+	lo = a < r ? a : r;
+	hi = a < r ? r : a;
+	for (i = lo; i <= hi; i++)
+		if (rows[i].contact >= 0) {
+			listed[rows[i].contact]->mark |= MK_SEL;
+			nchosen++;
+		}
+	chosen_settle();
+	lit_redraw();
+	win_redraw_later(&r_card);
+}
+
+void list_select_all(void)
+{
+	int i;
+	ensure();
+	if (nlisted < 2 || picking)
+		return;
+	lit_take();
+	chosen_begin();
+	for (i = 0; i < nlisted; i++)
+		listed[i]->mark |= MK_SEL;
+	nchosen = nlisted;
+	if (!sel_contact() || sel_row() < 0)
+		set_sel(listed[0]);
+	lit_redraw();
+	win_redraw_later(&r_card);
+}
+
+CONTACT **list_chosen_contacts(int *n)
+{
+	CONTACT **l, *s = sel_contact();
+	int i, multi = list_chosen() > 1;
+	*n = 0;
+	l = malloc((nlisted + 1) * sizeof(CONTACT *));
+	if (!l)
+		return 0;
+	if (!multi) {
+		if (s)
+			l[(*n)++] = s;
+		return l;
+	}
+	for (i = 0; i < nlisted; i++)
+		if (listed[i]->mark & MK_SEL)
+			l[(*n)++] = listed[i];
+	return l;
+}
+
+char **list_chosen_uids(int *n, short **book, int *skipped)
+{
+	CONTACT **l;
+	char **u, *p;
+	long size;
+	int m, i, k = 0;
+	*n = 0;
+	*skipped = 0;
+	l = list_chosen_contacts(&m);
+	if (!l)
+		return 0;
+	size = (long)m * (sizeof(char *) + sizeof(short));
+	for (i = 0; i < m; i++)
+		if (l[i]->uid && l[i]->uid[0])
+			size += (long)strlen(l[i]->uid) + 1;
+	u = malloc(size + 1);
+	if (!u) {
+		free(l);
+		return 0;
+	}
+	*book = (short *)(u + m);
+	p = (char *)(*book + m);
+	for (i = 0; i < m; i++) {
+		if (!l[i]->uid || !l[i]->uid[0]) {
+			(*skipped)++;
+			continue;
+		}
+		strcpy(p, l[i]->uid);
+		u[k] = p;
+		(*book)[k++] = l[i]->book;
+		p += strlen(p) + 1;
+	}
+	*n = k;
+	free(l);
+	return u;
+}
+
 /* "Erez" plain and "Yaary" bold: the part the list is sorted by in bold */
 static void draw_name(const CONTACT *c, short x, short y, short cols, short flags)
 {
@@ -497,7 +724,7 @@ static void draw_name(const CONTACT *c, short x, short y, short cols, short flag
 void list_draw(GRECT *clip)
 {
 	GRECT r = r_list;
-	int i, vis;
+	int i, vis, multi;
 	short rw = rows_w(), y, cols = rw / cw - 2, srow;
 	CONTACT *sel;
 	if (!rect_and(&r, clip))
@@ -519,6 +746,7 @@ void list_draw(GRECT *clip)
 	}
 	vis = visible_rows();
 	sel = sel_contact();
+	multi = list_chosen() > 1;
 	r.w = rw - (r.x - r_list.x);	/* the rows left of the bar */
 	if (r.w <= 0) {
 		clip_on(clip);
@@ -544,7 +772,7 @@ void list_draw(GRECT *clip)
 		{
 			CONTACT *c = listed[lr->contact];
 			short flags = TX_WHITE;
-			if (c == sel) {
+			if (lit(c, sel, multi)) {
 				GRECT b;
 				b.x = r_list.x + 2;
 				b.y = y;
@@ -555,7 +783,7 @@ void list_draw(GRECT *clip)
 				srow = (short)i;
 			}
 			draw_name(c, r_list.x + cw, y + 1, cols - (picking ? 2 : 0), flags);
-			if (picking && c->mark)
+			if (picking && (c->mark & MK_TICK))
 				text_at(r_list.x + rw - 2 * cw, y + 1, "\x08", 1, 1, TX_LTR | flags);	/* a tick */
 			if (opt.me[0] && c->uid && !strcmp(c->uid, opt.me))
 				text_at(r_list.x + rw - 4 * cw, y + 1, "me", 2, 2, TX_LTR | (flags ? flags : TX_GREY));
@@ -568,8 +796,13 @@ void list_draw(GRECT *clip)
 /* the chosen one changed: its row and the old one, and the card */
 void select_contact(CONTACT *c)
 {
-	int was = sel_row(), now, t;
+	int was = sel_row(), now, t, multi = list_chosen() > 1;
 	GRECT a;
+	if (multi) {
+		/* several chosen: one now, the others' rows drawn again */
+		lit_take();
+		chosen_clear();
+	}
 	if (c) {
 		str_copy(sel_uid, c->uid ? c->uid : "", sizeof(sel_uid));
 		sel_book = c->book;
@@ -584,10 +817,14 @@ void select_contact(CONTACT *c)
 	if (t >= 0 && t != top)
 		list_scroll_to(t);
 	now = sel_row();
-	if (was != now && row_area(was, &a))
-		win_redraw(&a);
-	if (row_area(now, &a))
-		win_redraw(&a);
+	if (multi) {
+		lit_redraw();
+	} else {
+		if (was != now && row_area(was, &a))
+			win_redraw(&a);
+		if (row_area(now, &a))
+			win_redraw(&a);
+	}
 	win_redraw_later(&r_card);	/* a band a turn: keys meanwhile (a held Down) */
 }
 
@@ -682,6 +919,152 @@ static void add_to_group(CONTACT *c)
 	after_change();
 }
 
+/* the chosen ones in the book of the one where a range starts: each
+   change reads the list again, so by UID. Others are left out (a group
+   holds its own book's cards); *other says how many */
+static char **chosen_in_book(int *n, short *book, int *other)
+{
+	char **u;
+	short *bk;
+	int m, i, k = 0, skipped;
+	CONTACT *s = sel_contact();
+	u = list_chosen_uids(&m, &bk, &skipped);
+	*n = 0;
+	*other = skipped;
+	if (!u)
+		return 0;
+	*book = s ? s->book : m ? bk[0] : -1;
+	for (i = 0; i < m; i++)
+		if (bk[i] == *book)
+			u[k++] = u[i];
+		else
+			(*other)++;
+	*n = k;
+	return u;
+}
+
+static void add_chosen_to_group(void)
+{
+	static char lab[64][70];
+	static const char *items[64];
+	short idx[64], book;
+	int i, j, n = 0, k, m, other, all, done, lm;
+	char **u = chosen_in_book(&m, &book, &other), gname[64];
+	CONTACT **l = list_chosen_contacts(&lm);	/* (nothing written yet) */
+	if (!u || !l) {
+		free(u);
+		free(l);
+		alert(1, "[1][Not enough memory for that.][ OK ]");
+		return;
+	}
+	for (i = 0; i < ngroups && n < 63; i++) {
+		if (groups[i].book != book)
+			continue;
+		/* ticked when all of them are in it: then it takes them out */
+		for (all = m > 0, j = 0; j < lm && all; j++)
+			if (l[j]->book == book && !group_has(&groups[i], l[j]))
+				all = 0;
+		snprintf(lab[n], sizeof(lab[n]), "%s%s", all ? "\x08 " : "  ", groups[i].name);
+		items[n] = lab[n];
+		idx[n++] = (short)i;
+	}
+	snprintf(lab[n], sizeof(lab[n]), "  New Group...");
+	items[n] = lab[n];
+	idx[n++] = -1;
+	free(l);
+	k = dlg_pick("Add to group", items, (short)n, 0);
+	if (k < 0) {
+		free(u);
+		return;
+	}
+	if (idx[k] < 0) {
+		gname[0] = 0;
+		if (!dlg_ask("New Group", "Name:", gname, sizeof(gname) - 1) || !gname[0]) {
+			free(u);
+			return;
+		}
+		busy(1);
+		if (group_new(book, gname) < 0) {
+			busy(0);
+			alert(1, "[1][Couldn't make the group:|%s][ OK ]", ab_err);
+			free(u);
+			after_change();
+			return;
+		}
+		busy(0);
+	} else {
+		str_copy(gname, groups[idx[k]].name, sizeof(gname));
+	}
+	busy(1);
+	if (lab[k][0] == '\x08')
+		done = group_remove_uids(gname, book, (const char **)u, m);
+	else
+		done = group_add_uids(gname, book, (const char **)u, m);
+	busy(0);
+	if (done < m)
+		alert(1, "[1][%d of %d were changed:|%s][ OK ]", done, m, ab_err);
+	else if (other)
+		alert(1, "[1][%d %s in another address book|or without a UID: a group holds|its own book's cards.][ OK ]",
+		      other, other == 1 ? "is" : "are");
+	free(u);
+	after_change();
+}
+
+/* the menu for several chosen, as for one, less what is one's alone */
+static void chosen_menu(short mx, short my)
+{
+	enum { A_DEL, A_GROUP, A_OUT, A_MAIL, A_COPY, A_EXPORT, A_NONE };
+	const char *items[10];
+	short act[10], n = 0, k;
+	char del[40], out[80];
+	snprintf(del, sizeof(del), "  Delete %d Cards...   Del", list_chosen());
+	items[n] = del;
+	act[n++] = A_DEL;
+	items[n] = "-";
+	act[n++] = A_NONE;
+	items[n] = "  Add to Group...";
+	act[n++] = A_GROUP;
+	if (src_kind == SRC_GROUP && src_idx < ngroups) {
+		snprintf(out, sizeof(out), "  Remove from %.20s", groups[src_idx].name);
+		items[n] = out;
+		act[n++] = A_OUT;
+	}
+	items[n] = "  Send Email";
+	act[n++] = A_MAIL;
+	items[n] = "  Copy Names and Emails";
+	act[n++] = A_COPY;
+	items[n] = "-";
+	act[n++] = A_NONE;
+	items[n] = "  Export vCards...";
+	act[n++] = A_EXPORT;
+	k = win_popup(mx, my, items, n);
+	if (k < 0 || act[k] == A_NONE)
+		return;
+	switch (act[k]) {
+	case A_DEL: cmd_delete_selected(); break;
+	case A_GROUP: add_chosen_to_group(); break;
+	case A_OUT: {
+		int m, other, done;
+		short book;
+		char **u = chosen_in_book(&m, &book, &other), gname[64];
+		if (!u)
+			break;
+		str_copy(gname, groups[src_idx].name, sizeof(gname));
+		busy(1);
+		done = group_remove_uids(gname, groups[src_idx].book, (const char **)u, m);
+		busy(0);
+		if (done < m)
+			alert(1, "[1][%d of %d were taken out:|%s][ OK ]", done, m, ab_err);
+		free(u);
+		after_change();
+		break;
+	}
+	case A_MAIL: cmd_mail_chosen(); break;
+	case A_COPY: cmd_copy_chosen(); break;
+	case A_EXPORT: cmd_export(); break;
+	}
+}
+
 void contact_menu(short mx, short my, CONTACT *c)
 {
 	enum { A_EDIT, A_DEL, A_GROUP, A_OUT, A_MAIL, A_COPY, A_ME, A_EXPORT, A_NONE };
@@ -767,26 +1150,44 @@ int list_click(short mx, short my, short clicks, short button, short kstate)
 		return 1;
 	{
 		CONTACT *c = listed[rows[i].contact];
-		if (c != sel_contact())
-			select_contact(c);
-		if (picking && !(button & 2)) {
-			/* choosing for EMail or ECal: a click ticks or unticks,
-			   a double click chooses */
-			if (clicks == 2) {
-				c->mark = 1;
-				pick_end(1);
-			} else {
-				c->mark = !c->mark;
-				win_redraw(&r_list);
+		int multi = list_chosen() > 1;
+		if (picking) {
+			if (c != sel_contact())
+				select_contact(c);
+			if (!(button & 2)) {
+				/* choosing for EMail or ECal: a click ticks or
+				   unticks, a double click chooses */
+				if (clicks == 2) {
+					c->mark |= MK_TICK;
+					pick_end(1);
+				} else {
+					c->mark ^= MK_TICK;
+					win_redraw(&r_list);
+				}
+				return 1;
 			}
+		} else if (button & 2) {
+			/* on one of several chosen: the menu for them all */
+			if (multi && (c->mark & MK_SEL)) {
+				chosen_menu(mx, my);
+				return 1;
+			}
+			if (multi || c != sel_contact())
+				select_contact(c);
+		} else if (kstate & (K_LSHIFT | K_RSHIFT)) {
+			chosen_toggle(c);	/* one more (EFTP's, EMail's) */
 			return 1;
+		} else if (kstate & K_CTRL) {
+			chosen_range(i);	/* a range */
+			return 1;
+		} else if (multi || c != sel_contact()) {
+			select_contact(c);
 		}
 		if (button & 2)
 			contact_menu(mx, my, sel_contact());
 		else if (clicks == 2)
 			editor_open(sel_contact());
 	}
-	(void)kstate;
 	return 1;
 }
 
@@ -804,7 +1205,7 @@ int list_key(short kstate, short key)
 		list_step((kstate & (K_LSHIFT | K_RSHIFT)) ? -1 : 1);
 		return 1;
 	case 0x1c: case 0x72:					/* Return: edit */
-		if (sel_contact())
+		if (sel_contact() && list_chosen() < 2)
 			editor_open(sel_contact());
 		return 1;
 	case 0x53:						/* Delete */

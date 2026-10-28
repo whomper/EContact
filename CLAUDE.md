@@ -269,6 +269,22 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (menu_drop). On TOS and EmuTOS box_open does what it always did:
   form_dial and the screen held. `tests/hatari/xaaes_dialogs.py WORK`
   checks it under FreeMiNT and XaAES.
+- Several contacts are chosen at once as in EFTP's and EMail's lists
+  (Erez, 28 Oct 2026): Shift+click one more or fewer, Control+click a
+  range from the one chosen (sel_uid, where a range starts), ^A (Select
+  all) everyone shown. They carry MK_SEL in their mark (the pick's ticks
+  are MK_TICK: CONTACT's layout and VC_PACK_ID stay), counted in
+  list.c's nchosen, 0 while one alone is chosen; the marks go with the
+  CONTACTs when the list is read again (people_serial) and the list
+  made again forgets them. Only the rows whose bar changed are drawn
+  (lit_take, lit_redraw), the card says "N Cards Selected". Delete,
+  Add to Group, Remove from (group), Send Email, ^C and Export take them
+  all (list.c chosen_menu, main.c delete_chosen, cmd_copy_chosen,
+  cmd_mail_chosen); every change reads the list again, so a command
+  takes their UIDs first (list_chosen_uids) and finds each again; a
+  group card is written once with them all (abook.c group_add_uids,
+  group_remove_uids: one PUT, not one a contact). `make itest` and
+  `tests/hatari/multi_select.py WORK [MACHINE]` check it.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000

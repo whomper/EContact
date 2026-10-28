@@ -105,6 +105,22 @@ expect "joined the category" "Atari Club (category, 2): Sam Cohen, Erez Yaary" "
 $CLI "$D" group-remove Family "Dana Levi"
 R=$($CLI "$D" groups)
 expect "left the group" "Family (card, 1): Erez Yaary" "$R"
+echo "several at once (the list's several chosen)"
+$CLI "$D" group-add-many Family "Dana Levi" "Sam Cohen" "Erez Yaary"
+R=$($CLI "$D" groups)
+expect "three in the group card, written once" "Family (card, 3): " "$R"
+expect "with Sam" "Sam Cohen" "$(grep '^Family' <<<"$R")"
+$CLI "$D" group-add-many "Atari Club" "Dana Levi" "Sam Cohen"
+R=$($CLI "$D" groups)
+expect "three in the category" "Atari Club (category, 3): " "$R"
+$CLI "$D" group-remove-many "Atari Club" "Dana Levi" "Erez Yaary"
+$CLI "$D" group-remove-many Family "Dana Levi" "Sam Cohen"
+R=$($CLI "$D" groups)
+expect "two out of the category" "Atari Club (category, 1): Sam Cohen" "$R"
+expect "two out of the group card" "Family (card, 1): Erez Yaary" "$R"
+$CLI "$D" group-add-many "Atari Club" "Erez Yaary"
+R=$($CLI "$D" groups)
+expect "and one back" "Atari Club (category, 2): Sam Cohen, Erez Yaary" "$R"
 echo "PEOPLE: EMail and ECal asking (ui/answer.c)"
 R=$($CLI "$D" ask "names:EMAIL dana@example.org NOBODY@x.org DANA@HOME.EXAMPLE")
 expect "names: to the asker" "to 7: names:" "$R"

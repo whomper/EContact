@@ -215,6 +215,10 @@ int  group_has(const GROUP *g, const CONTACT *c);
 int  group_count(const GROUP *g);
 int  group_add(GROUP *g, CONTACT *c);		/* 1 ok (or already in it) */
 int  group_remove(GROUP *g, CONTACT *c);
+/* several by UID, the group by name (the list's several chosen): a group
+   card written once; how many are in it (out of it) afterwards */
+int  group_add_uids(const char *name, int book, const char **uid, int n);
+int  group_remove_uids(const char *name, int book, const char **uid, int n);
 int  group_new(int book, const char *name);	/* -1 on failure, else its index */
 int  group_rename(GROUP *g, const char *name);
 int  group_delete(GROUP *g);			/* the group, not its members */
