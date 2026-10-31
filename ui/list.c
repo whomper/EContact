@@ -871,10 +871,13 @@ void list_step(int dir)
 		}
 }
 
+/* Add to Group's pop-up: one table for the one contact's and the chosen
+   ones' (never both open at once; 4.5 KB of the accessory's BSS each) */
+static char grp_lab[64][70];
+static const char *grp_items[64];
+
 static void add_to_group(CONTACT *c)
 {
-	static char lab[64][70];
-	static const char *items[64];
 	short idx[64];
 	int i, n = 0, k;
 	char uid[80];
@@ -882,14 +885,14 @@ static void add_to_group(CONTACT *c)
 	for (i = 0; i < ngroups && n < 63; i++) {
 		if (groups[i].book != c->book)
 			continue;
-		snprintf(lab[n], sizeof(lab[n]), "%s%s", group_has(&groups[i], c) ? "\x08 " : "  ", groups[i].name);
-		items[n] = lab[n];
+		snprintf(grp_lab[n], sizeof(grp_lab[n]), "%s%s", group_has(&groups[i], c) ? "\x08 " : "  ", groups[i].name);
+		grp_items[n] = grp_lab[n];
 		idx[n++] = (short)i;
 	}
-	snprintf(lab[n], sizeof(lab[n]), "  New Group...");
-	items[n] = lab[n];
+	snprintf(grp_lab[n], sizeof(grp_lab[n]), "  New Group...");
+	grp_items[n] = grp_lab[n];
 	idx[n++] = -1;
-	k = dlg_pick("Add to group", items, (short)n, 0);
+	k = dlg_pick("Add to group", grp_items, (short)n, 0);
 	if (k < 0)
 		return;
 	str_copy(uid, c->uid ? c->uid : "", sizeof(uid));
@@ -946,8 +949,6 @@ static char **chosen_in_book(int *n, short *book, int *other)
 
 static void add_chosen_to_group(void)
 {
-	static char lab[64][70];
-	static const char *items[64];
 	short idx[64], book;
 	int i, j, n = 0, k, m, other, all, done, lm;
 	char **u = chosen_in_book(&m, &book, &other), gname[64];
@@ -965,15 +966,15 @@ static void add_chosen_to_group(void)
 		for (all = m > 0, j = 0; j < lm && all; j++)
 			if (l[j]->book == book && !group_has(&groups[i], l[j]))
 				all = 0;
-		snprintf(lab[n], sizeof(lab[n]), "%s%s", all ? "\x08 " : "  ", groups[i].name);
-		items[n] = lab[n];
+		snprintf(grp_lab[n], sizeof(grp_lab[n]), "%s%s", all ? "\x08 " : "  ", groups[i].name);
+		grp_items[n] = grp_lab[n];
 		idx[n++] = (short)i;
 	}
-	snprintf(lab[n], sizeof(lab[n]), "  New Group...");
-	items[n] = lab[n];
+	snprintf(grp_lab[n], sizeof(grp_lab[n]), "  New Group...");
+	grp_items[n] = grp_lab[n];
 	idx[n++] = -1;
 	free(l);
-	k = dlg_pick("Add to group", items, (short)n, 0);
+	k = dlg_pick("Add to group", grp_items, (short)n, 0);
 	if (k < 0) {
 		free(u);
 		return;
@@ -997,7 +998,7 @@ static void add_chosen_to_group(void)
 		str_copy(gname, groups[idx[k]].name, sizeof(gname));
 	}
 	busy(1);
-	if (lab[k][0] == '\x08')
+	if (grp_lab[k][0] == '\x08')
 		done = group_remove_uids(gname, book, (const char **)u, m);
 	else
 		done = group_add_uids(gname, book, (const char **)u, m);
