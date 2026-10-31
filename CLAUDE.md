@@ -236,9 +236,10 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   clip_off set the clip through common's text_clip and text_noclip,
   which it reads, so ui/ never calls vs_clip itself. A name's right part
   is drawn before its left, whose bold is ORed a pixel onto it. The
-  list's scroll stays the VDI's copy: common's scr_rows made the
-  arrow's line 215 ms on an ST against 145 (a narrow pane, a 16-pixel
-  group cut at each side of every row).
+  list's scroll stays the VDI's copy: common's scr_rows takes the CPU
+  only for a box 384 pixels wide or more on a 68000 (the list is 240 at
+  most), and by the CPU it made the arrow's line 215 ms on an ST against
+  145.
   Bold with TX_WHITE (the ground under it is pen 0: the list's rows and
   headings, the card's name, flat dialogs) is drawn plain and ORed onto
   itself a pixel to the right under TOS's own VDI (draw.c smear: what

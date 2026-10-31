@@ -995,10 +995,10 @@ void win_scroll(const GRECT *a, short dy)
 		pxy[7] = pxy[5] + a->h - ady - 1;
 		graf_mouse(M_OFF, 0);
 		clip_on((GRECT *)a);	/* NVDI clips raster copies */
-		/* (the VDI's copy, not common's scr_rows: on the list, 24
-		   bytes a row with a 16-pixel group cut at each side, scr_rows
-		   made the arrow's line 215 ms on an ST against 145, 80 on a
-		   Falcon against 60: the speed rig, 31 Oct 2026) */
+		/* (the VDI's copy: common's scr_rows takes the CPU only for a
+		   box 384 pixels wide or more on a 68000, and the list is 240 at
+		   most; by the CPU its 192 made the arrow's line 215 ms on an ST
+		   against 145: the speed rig, 31 Oct 2026) */
 		vro_cpyfm(vdi_h, 3, pxy, &scr, &scr);	/* S_ONLY */
 		if (obuf_whole)
 			vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &obuf_mfdb);	/* the buffer as the screen */

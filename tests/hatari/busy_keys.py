@@ -63,6 +63,7 @@ def main():
         r.shot("1-busy")
         r.key(SCAN["n"], ctrl=True)         # ^N, the Control key let go at once
         typed = time.time()
+        sorted_then = "the list sorted" in open(log, encoding="latin-1").read()
         while time.time() - t0 < 600:
             time.sleep(2)
             if "the list sorted" in open(log, encoding="latin-1").read():
@@ -79,7 +80,10 @@ def main():
         r.stop()
     shots = os.path.join(work, "shots")
     shot = lambda n: os.path.join(shots, n + ".png")  # noqa: E731
-    check("^N typed while busy (it went on for %.0f s after it)" % busy, busy > 5)
+    # typed while busy: the list not yet sorted then, and the line written
+    # a poll later (an 8 MHz ST goes on for some 40 s after it, a Falcon
+    # for 2: the time isn't the test, 31 Oct 2026)
+    check("^N typed while busy (it went on for %.0f s after it)" % busy, not sorted_then and busy >= 2)
     check("the New Contact dialog came once the contacts were read",
           same(shot("2-read"), shot("3-esc")) < 0.97)
     print("screenshots in", shots)
