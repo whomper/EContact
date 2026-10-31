@@ -130,6 +130,11 @@ void win_layout(void)
 	lw = 30 * cw;
 	if (lw > (work.w - sw) * 2 / 5)
 		lw = (work.w - sw) * 2 / 5;
+	/* on 8-pixel steps, as the work area is (snap_x): every pane's text
+	   on a byte, where TOS draws it some six times as fast (the
+	   guidelines' Speed: text on a byte) */
+	sw &= ~7;
+	lw &= ~7;
 	r_side.x = work.x;
 	r_side.y = work.y + th;
 	r_side.w = sw;
@@ -143,12 +148,12 @@ void win_layout(void)
 	r_card.w = work.w - sw - lw;
 	r_card.h = work.h - th;
 	/* the sidebar button on the left; Refresh and the menu on the right */
-	x = work.x + 4;
+	x = work.x + 8;
 	but[B_SIDE].x = x;
 	but[B_SIDE].y = work.y + 3;
 	but[B_SIDE].w = 3 * cw;
 	but[B_SIDE].h = ch + 2;
-	x = work.x + work.w - 4;
+	x = (work.x + work.w - 4) & ~7;	/* (the labels on a byte) */
 	for (i = B_MENU; i >= B_REFRESH; i--) {
 		bw = ((short)strlen(label(i)) + 2) * cw;
 		x -= bw;
@@ -242,8 +247,8 @@ void win_search_draw(void)
 		line_col(gx + rr, gy + rr, gx + rr + 2, gy + rr + 2, col);
 	}
 	in = r;
-	in.x += 2 * cw;
-	in.w -= 3 * cw;
+	in.x = (r.x + 2 * cw + 7) & ~7;	/* on a byte */
+	in.w = r.x + r.w - cw - in.x;
 	cols = in.w / cw;
 	if (!n) {
 		text_at(in.x + (search_focus ? cw / 2 : 0), r.y + 1, "Search", 6, cols, TX_LTR | TX_GREY);
@@ -990,6 +995,10 @@ void win_scroll(const GRECT *a, short dy)
 		pxy[7] = pxy[5] + a->h - ady - 1;
 		graf_mouse(M_OFF, 0);
 		clip_on((GRECT *)a);	/* NVDI clips raster copies */
+		/* (the VDI's copy, not common's scr_rows: on the list, 24
+		   bytes a row with a 16-pixel group cut at each side, scr_rows
+		   made the arrow's line 215 ms on an ST against 145, 80 on a
+		   Falcon against 60: the speed rig, 31 Oct 2026) */
 		vro_cpyfm(vdi_h, 3, pxy, &scr, &scr);	/* S_ONLY */
 		if (obuf_whole)
 			vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &obuf_mfdb);	/* the buffer as the screen */
@@ -1168,6 +1177,13 @@ void win_message(short *msg)
 			break;
 		wind_get(win_h, WF_CURRXYWH, &x, &y, &w, &h);
 		wind_get(win_h, WF_FULLXYWH, &fx, &fy, &fw, &fh);
+		{
+			/* full with the work area on a byte, as snap_x puts it
+			   everywhere */
+			short sx = snap_x(fx);
+			fw -= sx - fx;
+			fx = sx;
+		}
 		if (x == fx && y == fy && w == fw && h == fh)
 			wind_get(win_h, WF_PREVXYWH, &fx, &fy, &fw, &fh);
 		wind_set(win_h, WF_CURRXYWH, fx, fy, fw, fh);

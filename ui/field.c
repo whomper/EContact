@@ -30,6 +30,14 @@ static short depth;		/* dialogs open (one can open another: Custom repeat) */
 void (*dlg_after)(void);	/* called when the last dialog closes (window frame) */
 
 #define FX(f) (box.x + pad + (f)->x * cw)
+
+/* a box's x near x with its text (pad in) on a byte: TOS draws it some
+   six times as fast there (the guidelines' Speed: text on a byte) */
+static short on_byte(short x, short pad)
+{
+	short t = (short)((x + pad + 4) & ~7) - pad;
+	return t < desk_x ? t + 8 : t;
+}
 #define FY(f) (box.y + pad + (f)->y * rh)
 
 /* the dialog being run, for what depends on its section */
@@ -486,7 +494,7 @@ static void draw_text_field(FIELD *f, int focus)
 			if (k > f->w)
 				k = f->w;
 			rtl = field_rtl(f, f->buf + a, (short)k);
-			text_at(FX(f), FY(f) + (short)(i - f->first) * ch, f->buf + a, k, f->w, rtl ? TX_RIGHT : TX_LTR);
+			text_at(FX(f), FY(f) + (short)(i - f->first) * ch, f->buf + a, k, f->w, (rtl ? TX_RIGHT : TX_LTR) | TX_WHITE);
 			if (focus && i == curl) {
 				short cx = cursor_x(f->buf + a, (short)k, (short)(f->cur - a > k ? k : f->cur - a), f->w, rtl);
 				short y = FY(f) + (short)(i - f->first) * ch;
@@ -515,7 +523,7 @@ static void draw_text_field(FIELD *f, int focus)
 		rtl = field_rtl(f, s + f->first, vis);
 		if (vis > 0)
 			text_at(FX(f), FY(f), s + f->first, vis, f->w,
-				(rtl ? TX_RIGHT : TX_LTR) | ((f->flags & FF_DISABLED) ? TX_DIM : 0));
+				(rtl ? TX_RIGHT : TX_LTR) | ((f->flags & FF_DISABLED) ? TX_DIM : 0) | TX_WHITE);	/* (fields are white) */
 		if (focus) {
 			short cx = cursor_x(s + f->first, vis, f->cur - f->first, f->w, rtl);
 			line_col(FX(f) + cx, FY(f), FX(f) + cx, FY(f) + ch - 1, 1);
@@ -1161,7 +1169,7 @@ short dlg_run(DLG *d)
 		box.w = desk_w;
 	if (box.h > desk_h)
 		box.h = desk_h;
-	box.x = desk_x + (desk_w - box.w) / 2;
+	box.x = on_byte(desk_x + (desk_w - box.w) / 2, pad);
 	box.y = desk_y + (desk_h - box.h) / 2;
 	pad += 0;
 	/* the title bar takes the first row */
@@ -1633,7 +1641,7 @@ void prog_open(const char *title)
 	rh = ch + 6;
 	box.w = w * cw + 2 * pad;
 	box.h = pg_d.h * rh + 2 * pad;
-	box.x = desk_x + (desk_w - box.w) / 2;
+	box.x = on_byte(desk_x + (desk_w - box.w) / 2, pad);
 	box.y = desk_y + (desk_h - box.h) / 2;
 	depth++;
 	pg_open = 1;

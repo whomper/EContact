@@ -71,7 +71,7 @@ void clip_on(GRECT *r)
 	pxy[1] = r->y;
 	pxy[2] = r->x + r->w - 1;
 	pxy[3] = r->y + r->h - 1;
-	vs_clip(vdi_h, 1, pxy);
+	text_clip(vdi_h, pxy);	/* (common's text.c: text_plain's clip) */
 }
 
 /* the clip as set; 0: none */
@@ -83,11 +83,8 @@ int clip_rect(GRECT *r)
 
 void clip_off(void)
 {
-	short pxy[4] = { 0, 0, 0, 0 };
 	clip_now.w = 0;
-	pxy[2] = scr_w - 1;
-	pxy[3] = scr_h - 1;
-	vs_clip(vdi_h, 0, pxy);
+	text_noclip(vdi_h);
 }
 
 int rect_hit(const GRECT *r, short x, short y)
@@ -651,11 +648,23 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 	if (effects == 1 && (flags & TX_WHITE) && !(flags & TX_INVERSE) && (!clip_now.w || clip_now.x <= x) &&
 	    smear_ok()) {
 		set_text(color, 0);
-		for (i = 0; i < n; i += 120) {
-			short k = n - i > 120 ? 120 : (short)(n - i);
-			v_gtext_n(vdi_h, x + i * cw, y, out + i, k);
-		}
+		if (color == 1)
+			text_plain(vdi_h, x, y, out, n);
+		else
+			for (i = 0; i < n; i += 120) {
+				short k = n - i > 120 ? 120 : (short)(n - i);
+				v_gtext_n(vdi_h, x + i * cw, y, out + i, k);
+			}
 		smear(x, y, (short)n);
+		return;
+	}
+	/* plain black on a white ground (pen 0, where MD_REPLACE and our
+	   MD_TRANS make the same pixels): on TOS's own screen straight into
+	   it (common's text_plain, some three times the VDI's speed on an
+	   ST), else the VDI */
+	if (!effects && color == 1 && (flags & TX_WHITE) && !(flags & TX_INVERSE)) {
+		set_text(1, 0);
+		text_plain(vdi_h, x, y, out, n);
 		return;
 	}
 	/* bold off that path: plain, struck again a pixel to the right

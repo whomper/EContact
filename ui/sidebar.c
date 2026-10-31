@@ -102,14 +102,14 @@ void side_draw(GRECT *clip)
 	fill(&r, 0);
 	for (i = 0; i < nrows; i++) {
 		SROW *s = &srow[i];
-		short x = r_side.x + cw / 2, flags = TX_RIGHT;
+		short x = r_side.x + 8, flags = TX_RIGHT | TX_WHITE;	/* (text on a byte) */
 		/* only the rows in the area: a band of the window, a part
 		   uncovered (each row's marks and text were drawn for any) */
 		if (s->y + row_h <= r.y || s->y - 1 >= r.y + r.h)
 			continue;
 		row_text(s, t, sizeof(t));
 		if (s->kind == -1) {
-			text_at(x, s->y, t, (long)strlen(t), cols - 1, TX_BOLD | TX_RIGHT | TX_GREY);
+			text_at(x, s->y, t, (long)strlen(t), cols - 1, TX_BOLD | TX_RIGHT | TX_GREY | TX_WHITE);
 			if (accts[s->idx].err[0])
 				text_at(r_side.x + r_side.w - 2 * cw, s->y, "!", 1, 1, TX_BOLD | TX_LTR);
 			continue;
@@ -117,13 +117,14 @@ void side_draw(GRECT *clip)
 		if (s->kind == SRC_BOOK)
 			x += cw;
 		else if (s->kind == SRC_GROUP)
-			x += 2 * cw;
+			x += cw;
 		if (is_chosen(s)) {
 			GRECT b;
 			b.x = r_side.x + 3;
 			b.y = s->y - 1;
 			b.w = r_side.w - 7;
 			b.h = row_h;
+			flags &= ~TX_WHITE;
 			if (ncolors >= 16) {
 				fill(&b, text_grey(1));
 			} else {
@@ -135,11 +136,11 @@ void side_draw(GRECT *clip)
 			flags |= TX_BOLD;
 		/* a group: a small mark of two heads before it */
 		if (s->kind == SRC_GROUP) {
-			short gx = x, gy = s->y + ch / 2, rr = ch >= 16 ? 2 : 1, col = (flags & TX_INVERSE) ? 0 : text_grey(0);
+			short gx = x + 4, gy = s->y + ch / 2, rr = ch >= 16 ? 2 : 1, col = (flags & TX_INVERSE) ? 0 : text_grey(0);
 			disc(gx + 2, gy - rr, rr, rr, col);
 			disc(gx + 6, gy - rr, rr, rr, col);
 			line_col(gx, gy + rr + 1, gx + 8, gy + rr + 1, col);
-			x += cw + cw / 2;
+			x += 2 * cw;
 		}
 		text_at(x, s->y, t, (long)strlen(t), (r_side.x + r_side.w - x) / cw - 1, flags);
 		if (s->kind == SRC_BOOK && books[s->idx].readonly)

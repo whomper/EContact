@@ -265,7 +265,7 @@ static void button(GRECT *b, const char *label, short dim)
 static void value_at(short x, short y, const char *s, short cols, short flags)
 {
 	long n = (long)strlen(s);
-	text_at(x, y, s, n, cols, flags | (line_rtl(s, n) ? TX_RIGHT : TX_LTR));
+	text_at(x, y, s, n, cols, flags | TX_WHITE | (line_rtl(s, n) ? TX_RIGHT : TX_LTR));	/* the card's ground */
 }
 
 /* the round picture: the photo, or grey with white initials, as the Mac's */
@@ -315,7 +315,7 @@ static void label_at(short x, short y, short lw, const char *label)
 	n = (short)strlen(l);
 	if (n > lw)
 		n = lw;
-	text_at(x + (lw - n) * cw, y, l, n, n, TX_GREY | TX_LTR);
+	text_at(x + (lw - n) * cw, y, l, n, n, TX_GREY | TX_LTR | TX_WHITE);
 }
 
 /* the part of the card that scrolls: all of it but the bar */
@@ -386,7 +386,7 @@ void card_draw(GRECT *clip)
 			ry = r_card.h / 6;
 		avatar(c, x0 + (short)((long)ry * 2 * cw / ch), y + ry, ry, &vis);
 		{
-			short nx = x0 + (short)((long)ry * 4 * cw / ch) + 2 * cw, ncols = (r_card.x + r_card.w - nx) / cw - 1;
+			short nx = (x0 + (short)((long)ry * 4 * cw / ch) + 2 * cw + 7) & ~7, ncols = (r_card.x + r_card.w - nx) / cw - 1;
 			short ny = y + ry - ch - ch / 2;
 			char job[200];
 			vcard_display_name(c, 0, s, sizeof(s));

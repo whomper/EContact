@@ -709,15 +709,16 @@ static void draw_name(const CONTACT *c, short x, short y, short cols, short flag
 	if (opt.last_first) {
 		snprintf(bold, sizeof(bold), "%s", f);
 		snprintf(plain, sizeof(plain), ", %s%s%s", g, m && *m ? " " : "", m && *m ? m : "");
-		text_at(x, y, bold, (long)strlen(bold), cols, flags | TX_LTR | (opt.sort_first ? 0 : TX_BOLD));
 		n = (short)strlen(bold);
 		text_at(x + n * cw, y, plain, (long)strlen(plain), cols - n, flags | TX_LTR | (opt.sort_first ? TX_BOLD : 0));
+		text_at(x, y, bold, (long)strlen(bold), cols, flags | TX_LTR | (opt.sort_first ? 0 : TX_BOLD));
 	} else {
 		snprintf(plain, sizeof(plain), "%s%s%s ", g, m && *m ? " " : "", m && *m ? m : "");
 		snprintf(bold, sizeof(bold), "%s", f);
 		n = (short)strlen(plain);
-		text_at(x, y, plain, n, cols, flags | TX_LTR | (opt.sort_first ? TX_BOLD : 0));
+		/* (the right part first: the left's bold is ORed a pixel onto it) */
 		text_at(x + n * cw, y, bold, (long)strlen(bold), cols - n, flags | TX_LTR | (opt.sort_first ? 0 : TX_BOLD));
+		text_at(x, y, plain, n, cols, flags | TX_LTR | (opt.sort_first ? TX_BOLD : 0));
 	}
 }
 

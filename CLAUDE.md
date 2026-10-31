@@ -225,6 +225,20 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   1.04 (an 8 MHz ST, ST:mono) a v_gtext of 18 letters takes 2.9 ms at an
   x on a byte, 17 ms off it and 24 ms in bold (6 to 8 times as long;
   under NVDI each under 1 ms): measure before adding text to a row.
+  So text starts on a byte (the guidelines' Speed: text on a byte): the
+  work area on 16 pixels (snap_x, when opened, moved, sized and fulled),
+  the panes' widths, the margins, the toolbar's buttons, the search
+  field's text, the card's name column and the dialogs' boxes (field.c
+  on_byte) on 8-pixel steps. Plain black text on a white ground
+  (TX_WHITE: the list, the card, the sidebar, the dialogs' fields) goes
+  through common's text_plain, straight into TOS's screen or the buffer
+  (it reads Logbase), the VDI's pixels byte for byte; clip_on and
+  clip_off set the clip through common's text_clip and text_noclip,
+  which it reads, so ui/ never calls vs_clip itself. A name's right part
+  is drawn before its left, whose bold is ORed a pixel onto it. The
+  list's scroll stays the VDI's copy: common's scr_rows made the
+  arrow's line 215 ms on an ST against 145 (a narrow pane, a 16-pixel
+  group cut at each side of every row).
   Bold with TX_WHITE (the ground under it is pen 0: the list's rows and
   headings, the card's name, flat dialogs) is drawn plain and ORed onto
   itself a pixel to the right under TOS's own VDI (draw.c smear: what
