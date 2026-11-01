@@ -2333,6 +2333,18 @@ int main(void)
 				win_key(ev.kstate, ev.kreturn);
 			}
 		}
+#ifdef AES_PROFILE
+		if (which & MU_BUTTON) {
+			/* each press as the loop gets it (ECal's AESBUTTON line, to
+			   set the accessories' double clicks side by side) */
+			short bx, by, bb, bk;
+			char m[96];
+			graf_mkstate(&bx, &by, &bb, &bk);
+			snprintf(m, sizeof(m), "AESBUTTON %lu ms breturn %d mbutton %d mkstate %d at %d,%d\n",
+				 (unsigned long)pf_ms(), ev.breturn, ev.mbutton, bb, ev.mx, ev.my);
+			nf_debug(m);
+		}
+#endif
 		if ((which & MU_BUTTON) && win_h > 0) {
 			short h = wind_find(ev.mx, ev.my), t, dd;
 			wind_get(0, WF_TOP, &t, &dd, &dd, &dd);
