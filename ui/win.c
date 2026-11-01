@@ -16,6 +16,7 @@
 #include "clip.h"
 #include "dialog.h"
 #include "text.h"
+#include "click.h"
 #include <tos.h>
 
 short win_h = -1;
@@ -1336,6 +1337,53 @@ void win_search_step(int (*more)(void))
 		search_done();
 }
 
+/* a button the window draws itself (the guidelines 5.8): drawn pressed
+   (turned over on the screen, where it shows) on the press, its action
+   when let go over it: 1 then. Moved while held it stays a button, as
+   GEM's own do: let go over it or not. Drawn as it is afterwards (from a
+   fresh drawing: the buffer never had it pressed) */
+int win_button(const GRECT *b, short mx, short my)
+{
+	GRECT box, d;
+	short p[4], k, x, y, mb, ks;
+	if (win_h <= 0)
+		return 1;
+	wind_update(BEG_UPDATE);
+	graf_mouse(M_OFF, 0);
+	wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
+	while (box.w && box.h) {
+		d = *b;
+		if (rect_and(&d, &box)) {
+			clip_on(&d);
+			p[0] = d.x;
+			p[1] = d.y;
+			p[2] = d.x + d.w - 1;
+			p[3] = d.y + d.h - 1;
+			if (text_plain_state() > 0) {
+				scr_xor(vdi_h, p);	/* (common's, by the CPU on TOS's screen) */
+			} else {
+				vswr_mode(vdi_h, 3);	/* MD_XOR */
+				vsf_interior(vdi_h, 1);
+				vsf_color(vdi_h, 1);
+				vr_recfl(vdi_h, p);
+				draw_forget();
+			}
+		}
+		wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
+	}
+	clip_off();
+	graf_mouse(M_ON, 0);
+	wind_update(END_UPDATE);
+	k = (short)press_track(b, mx, my, 0, msg_hold, 0, 0);
+	if (k == PRESS_DRAG) {
+		wait_release();
+		graf_mkstate(&x, &y, &mb, &ks);
+		k = rect_hit(b, x, y) ? PRESS_IN : PRESS_OUT;
+	}
+	win_redraw((GRECT *)b);
+	return k == PRESS_IN;
+}
+
 int win_mouse(short mx, short my, short button, short clicks, short kstate)
 {
 	int i;
@@ -1346,18 +1394,26 @@ int win_mouse(short mx, short my, short button, short clicks, short kstate)
 			if (rect_hit(&but[i], mx, my))
 				break;
 		switch (i) {
-		case B_SIDE: toggle_sidebar(); break;
+		case B_SIDE:
+			if (win_button(&but[i], mx, my))
+				toggle_sidebar();
+			break;
 		case B_REFRESH:
+			if (!win_button(&but[i], mx, my))
+				break;
 			if (picking)
 				pick_end(0);
 			else
 				cmd_refresh(kstate & (K_LSHIFT | K_RSHIFT));
 			break;
 		case B_MENU:
-			if (picking)
-				pick_end(1);
-			else
+			if (picking) {
+				if (win_button(&but[i], mx, my))
+					pick_end(1);
+			} else {
+				/* a menu: open on the press, as GEM's menus are */
 				cmd_menu(but[B_MENU].x, but[B_MENU].y + but[B_MENU].h);
+			}
 			break;
 		default:
 			/* a click in the search field gives it the focus; the
@@ -1365,8 +1421,14 @@ int win_mouse(short mx, short my, short button, short clicks, short kstate)
 			if (rect_hit(&r_search, mx, my)) {
 				search_focus_set(1);
 				if (search_text[0] && mx >= r_search.x + r_search.w - 2 * cw) {
-					search_text[0] = 0;
-					search_changed();
+					/* the clear button: on the release over it */
+					GRECT cb = r_search;
+					cb.x = r_search.x + r_search.w - 2 * cw;
+					cb.w = 2 * cw;
+					if (win_button(&cb, mx, my)) {
+						search_text[0] = 0;
+						search_changed();
+					}
 				}
 			} else {
 				search_focus_set(0);

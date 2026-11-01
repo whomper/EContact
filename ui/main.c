@@ -1530,6 +1530,12 @@ static void busy_hold(const short *msg)
 		memcpy(held[nheld++], msg, 16);
 }
 
+/* a message come while a button is held (win.c win_button): for the loop */
+void msg_hold(short *msg)
+{
+	busy_hold(msg);
+}
+
 /* PEOPLE (answer.c): the accessory, while ECONTACT.PRG runs, hands it
    on, as twin_pass does VA_START; the answer goes from the program to
    the asker (msg[1] stays the asker's) */

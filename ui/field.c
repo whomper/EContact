@@ -814,10 +814,9 @@ static short section_at(DLG *d, short mx, short my)
 
 /* the list of sections, the line beside it, and the chosen one's name
    over a rule */
-static void draw_sections(DLG *d)
+static void section_rows(DLG *d)
 {
-	short k, lx = box.x + pad + d->side * cw + cw / 2;
-	short hx = box.x + pad + (d->side + 2) * cw, hy = box.y + pad + rh;
+	short k;
 	for (k = 0; k < d->npages; k++) {
 		GRECT r;
 		const char *s = d->pages[k];
@@ -827,6 +826,13 @@ static void draw_sections(DLG *d)
 		text_at(box.x + pad, r.y + 3, s, (long)strlen(s), d->side,
 			TX_LTR | (k + 1 == d->page ? TX_INVERSE : bg ? 0 : TX_WHITE));
 	}
+}
+
+static void draw_sections(DLG *d)
+{
+	short lx = box.x + pad + d->side * cw + cw / 2;
+	short hx = box.x + pad + (d->side + 2) * cw, hy = box.y + pad + rh;
+	section_rows(d);
 	line_col(lx, box.y + ch + 6, lx, box.y + box.h - 4, 1);
 	if (d->page >= 1 && d->page <= d->npages) {
 		const char *s = d->pages[d->page - 1];
@@ -1259,12 +1265,34 @@ short dlg_run(DLG *d)
 		if ((e.which & MU_BUTTON) && d->npages) {
 			short k = section_at(d, e.mx, e.my);
 			if (k) {
-				if (k != d->page)
-					set_page(d, k);
+				/* a tab (the guidelines 5.8): shown chosen on the press,
+				   its page on the release over it; let go elsewhere, the
+				   old one chosen again */
+				short was = d->page;
+				GRECT tr;
 				e.which &= ~MU_BUTTON;
+				if (k != was && clip_dlg(0)) {
+					d->page = k;
+					graf_mouse(M_OFF, 0);
+					section_rows(d);
+					graf_mouse(M_ON, 0);
+					d->page = was;
+				}
 				do {
 					graf_mkstate(&mx, &my, &mb, &ks);
 				} while (mb & 3);
+				section_rect(d, k - 1, &tr);
+				tr.y -= rh / 2;
+				tr.h += rh;
+				if (k != was) {
+					if (rect_hit(&tr, mx, my))
+						set_page(d, k);
+					else if (clip_dlg(0)) {
+						graf_mouse(M_OFF, 0);
+						section_rows(d);
+						graf_mouse(M_ON, 0);
+					}
+				}
 			}
 		}
 		if (e.which & MU_BUTTON) {

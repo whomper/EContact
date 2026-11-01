@@ -116,6 +116,8 @@ void win_frame_refresh(void);
 int  win_instant(short mx, short my);
 int  win_rows_at(short mx, short my);	/* a row of the list or the sidebar */
 void wait_release(void);			/* (main.c) */
+void msg_hold(short *msg);		/* (main.c) a message for the loop */
+int  win_button(const GRECT *b, short mx, short my);	/* a button of ours, 5.8 */
 int  win_mouse(short mx, short my, short button, short clicks, short kstate);
 int  win_key(short kstate, short key);
 void win_layout(void);		/* after a size or font change */

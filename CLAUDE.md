@@ -332,6 +332,24 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   group card is written once with them all (abook.c group_add_uids,
   group_remove_uids: one PUT, not one a contact). `make itest` and
   `tests/hatari/multi_select.py WORK [MACHINE]` check it.
+- A click (the guidelines 5.8, Erez, 1 Nov 2026): selected on the press,
+  done on the release. The program's loop asks the AES for one click
+  (main.c; the accessory too: its double click on a contact checked on
+  TOS 1.04, presses held 80 and 120 ms) and times the double click
+  itself; a press on a row of the list or the sidebar (win_rows_at)
+  draws it chosen at once, a double click acts on its second release.
+  The list's card comes after the release (the loop waits for it); the
+  sidebar's pressed row is drawn chosen, its list and card change on the
+  release over it, and let go elsewhere the old row is chosen again
+  (sidebar.c press_row: the row chosen is what the window shows). The
+  window's own buttons (the toolbar's, the search's clear button, the
+  card's +, Edit and mail) are drawn pressed and act on the release over
+  them (win.c win_button, common's click.c press_track; the ≡ menu opens
+  on the press, as GEM's menus do); a dialog's tabs too (field.c), and
+  the dialogs and the pick list ask for one click. The one exception:
+  the card's values keep click_count's wait, as a click opens a value's
+  menu and a double click on an address mails it, which the press can't
+  tell apart. speed.py times a row pressed apart from its release.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000

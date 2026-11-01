@@ -606,7 +606,11 @@ void card_slid(short pos)
 
 int card_instant(short mx, short my)
 {
+	short i;
 	layout_bar();
+	for (i = 0; i < nhits; i++)
+		if (hits[i].kind == HV_MAILBTN && rect_hit(&hits[i].r, mx, my))
+			return 1;	/* (a button: no wait for a second click) */
 	return rect_hit(&b_new, mx, my) || rect_hit(&b_edit, mx, my);
 }
 
@@ -661,12 +665,15 @@ int card_click(short mx, short my, short clicks, short button)
 	CONTACT *c = list_chosen() > 1 ? 0 : sel_contact();	/* (several: none shown) */
 	short i;
 	layout_bar();
+	/* the card's own buttons: their action on the release over them
+	   (the guidelines 5.8, win_button) */
 	if (rect_hit(&b_new, mx, my)) {
-		cmd_new_contact();
+		if (win_button(&b_new, mx, my))
+			cmd_new_contact();
 		return 1;
 	}
 	if (rect_hit(&b_edit, mx, my)) {
-		if (c)
+		if (win_button(&b_edit, mx, my) && c)
 			editor_open(c);
 		return 1;
 	}
@@ -674,7 +681,10 @@ int card_click(short mx, short my, short clicks, short button)
 		return 1;
 	for (i = 0; i < nhits; i++)
 		if (rect_hit(&hits[i].r, mx, my)) {
-			if (hits[i].kind == HV_EMAIL && clicks == 2 && !(button & 2))
+			if (hits[i].kind == HV_MAILBTN && !(button & 2)) {
+				if (win_button(&hits[i].r, mx, my))
+					value_menu(mx, my, c, &hits[i]);
+			} else if (hits[i].kind == HV_EMAIL && clicks == 2 && !(button & 2))
 				cmd_mail_to(c, c->email[hits[i].idx].value);
 			else
 				value_menu(mx, my, c, &hits[i]);
