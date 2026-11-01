@@ -180,6 +180,13 @@ void fill_pat(GRECT *r, short color, short interior, short style)
 	pxy[1] = r->y;
 	pxy[2] = r->x + r->w - 1;
 	pxy[3] = r->y + r->h - 1;
+	if (interior == 1 && (color == 0 || color == 1) && scr_cpu_wins()) {
+		/* white and black by the CPU on TOS's screen on a 68000 (common's
+		   scr_fill, cut to the clip text_clip set; the VDI's state left
+		   as it was); elsewhere the VDI's fill, its attributes kept */
+		scr_fill(vdi_h, pxy, color);
+		return;
+	}
 	set_fill(interior, style, color);
 	set_wrmode(interior >= 2 ? 2 : 1);	/* patterns over what is there */
 	vr_recfl(vdi_h, pxy);
@@ -667,7 +674,7 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 	if (effects == 1 && (flags & TX_WHITE) && !(flags & TX_INVERSE) && (!clip_now.w || clip_now.x <= x) &&
 	    smear_ok()) {
 		set_text(color, 0);
-		if (color == 1)
+		if (color == 1 && text_plain_state() >= 0)
 			text_plain(vdi_h, x, y, out, n);
 		else
 			for (i = 0; i < n; i += 120) {
@@ -681,7 +688,10 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 	   MD_TRANS make the same pixels): on TOS's own screen straight into
 	   it (common's text_plain, some three times the VDI's speed on an
 	   ST), else the VDI */
-	if (!effects && color == 1 && (flags & TX_WHITE) && !(flags & TX_INVERSE)) {
+	if (!effects && color == 1 && (flags & TX_WHITE) && !(flags & TX_INVERSE) && text_plain_state() >= 0) {
+		/* (below 0 — NVDI, a GDOS font, a multitasking AES — the VDI as
+		   before: text_plain's own fallback, text_n, may be slower there;
+		   the guidelines, Speed: common's fast paths, EMail 1.69) */
 		set_text(1, 0);
 		text_plain(vdi_h, x, y, out, n);
 		return;

@@ -7,7 +7,7 @@ event calls:
 
     make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE=20 \\
         WORK/bin/ECONTACT.PRG WORK/bin/ECONTACT.ACC
-    tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--bin DIR] [--only prg|acc]
+    [FONT=ID,PT] tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--bin DIR] [--only prg|acc]
 
 On each machine (ST:mono, ST:med and Falcon-4:16 by default; --nvdi runs
 the Falcons under NVDI) with the sample people and their photos and 600
@@ -88,6 +88,13 @@ def seed(folder, work):
     t = open(inf, "rb").read().replace(b"\nLOG=0", b"\nLOG=1").replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     t = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", t)
     t = re.sub(rb"\nSTART=[^\r\n]*", rb"\nSTART=5", t)
+    # FONT=ID,PT: the window's text in that font (a GDOS font under NVDI,
+    # Courier 14 as Erez runs it: ECONTACT.FNT says its id; EMail's idea)
+    font = os.environ.get("FONT")
+    if font:
+        fid, fpt = font.split(",")
+        t = re.sub(rb"\nFONT_ID=[^\r\n]*", b"\nFONT_ID=" + fid.encode(), t)
+        t = re.sub(rb"\nFONT_PT=[^\r\n]*", b"\nFONT_PT=" + fpt.encode(), t)
     os.remove(inf)
     return t
 
@@ -357,7 +364,8 @@ def boot_wait(con, what, limit=600):
 
 
 def machine_run(work, machine, bin_dir, only):
-    d = os.path.join(work, machine.replace(":", "-") + ("-nvdi" if os.environ.get("AERA_WITH_NVDI") else ""))
+    d = os.path.join(work, machine.replace(":", "-") + ("-nvdi" if os.environ.get("AERA_WITH_NVDI") else "") +
+                     ("-font" if os.environ.get("FONT") else ""))
     shutil.rmtree(d, ignore_errors=True)
     hd = os.path.join(d, "hd")
     folder = os.path.join(hd, "ECONTACT")

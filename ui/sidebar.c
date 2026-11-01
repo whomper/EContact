@@ -105,27 +105,37 @@ static void row_area(const SROW *s, GRECT *r)
 }
 
 /* the pressed row drawn chosen and the chosen one drawn as it was, at
-   once; the list and the card when the button is let go */
-static void press_row(const SROW *s)
+   once; the list and the card when the button is let go over it (1).
+   Let go elsewhere, the old row is drawn chosen again and nothing else
+   happens (0): the row shown chosen is what the window shows (the
+   guidelines 5.8) */
+static int press_row(const SROW *s)
 {
-	short i;
+	short i, old = -1, mx, my, mb, ks;
 	GRECT r;
 	for (i = 0; i < nrows; i++)
-		if (srow[i].kind != -1 && is_chosen(&srow[i])) {
-			pend_on = 1;
-			pend_kind = s->kind;
-			pend_idx = s->idx;
-			row_area(&srow[i], &r);
-			win_redraw(&r);
-			break;
-		}
+		if (srow[i].kind != -1 && is_chosen(&srow[i]))
+			old = i;
 	pend_on = 1;
 	pend_kind = s->kind;
 	pend_idx = s->idx;
+	if (old >= 0) {
+		row_area(&srow[old], &r);
+		win_redraw(&r);
+	}
 	row_area(s, &r);
 	win_redraw(&r);
 	wait_release();
 	pend_on = 0;
+	graf_mkstate(&mx, &my, &mb, &ks);
+	if (rect_hit(&r, mx, my))
+		return 1;
+	win_redraw(&r);
+	if (old >= 0) {
+		row_area(&srow[old], &r);
+		win_redraw(&r);
+	}
+	return 0;
 }
 
 void side_draw(GRECT *clip)
@@ -415,8 +425,9 @@ int side_click(short mx, short my, short clicks, short button)
 		}
 		if (!is_chosen(s)) {
 			if (!(button & 2)) {
-				press_row(s);
-				choose_pressed(s->kind, s->idx);
+				if (press_row(s))
+					choose_pressed(s->kind, s->idx);
+				return 1;
 			} else {
 				choose(s->kind, s->idx);
 			}

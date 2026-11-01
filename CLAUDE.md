@@ -247,7 +247,16 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   scr_xor), not a black bar with the VDI's white text; a Down's old and
   new rows are one redraw; and the card drawn later is copied to the
   screen, and its slider set, each in a turn of its own (win.c
-  slider_due).
+  slider_due). Common's fast paths (the guidelines' Speed: in every app,
+  none slower where it can't run fast; speed.py on ST:mono, Falcon-4:16,
+  --nvdi and FONT=5419,14 --nvdi, Courier 14 as Erez runs it): text_plain
+  only where text_plain_state() >= 0 (else the VDI's loop as before),
+  scr_xor where it is 1, scr_fill for pens 0 and 1 where scr_cpu_wins()
+  (draw.c fill_pat, else its own vr_recfl), scr_rows for the list's
+  scroll on the screen, pb_vdi, offdraw for the progress box's lines
+  (not a field typed in: 15 ms a key more on an ST); bold is draw.c's
+  smear and text_bold_strike (text_fx's source); DLG_CPU off (one build
+  for ECONTACT.ACC and .PRG, and only the font dialog is dialog.c's).
   Bold with TX_WHITE (the ground under it is pen 0: the list's rows and
   headings, the card's name, flat dialogs) is drawn plain and ORed onto
   itself a pixel to the right under TOS's own VDI (draw.c smear: what

@@ -22,6 +22,7 @@
 #include "plat.h"
 #include "conn.h"
 #include "dialog.h"
+#include "offdraw.h"
 
 static GRECT box;		/* the dialog on screen */
 static unsigned long pk_last;	/* the pick list's last press (a double click) */
@@ -894,6 +895,8 @@ static void draw_all(DLG *d)
 	graf_mouse(M_ON, 0);
 }
 
+static int redraw_off;		/* the progress box's lines: offdraw (dlg_redraw_field) */
+
 void dlg_redraw_field(DLG *d, short i)
 {
 	GRECT r;
@@ -914,9 +917,21 @@ void dlg_redraw_field(DLG *d, short i)
 		r.y -= 2;
 		r.w += 5;
 		r.h += 5;
-		fill(&r, bg);
 	}
-	draw_field(d, i);
+	{
+		/* a progress line drawn again in place each second: its ground
+		   and then its text off the screen and shown in one step where
+		   it can be (common's offdraw), no flicker. Not a field typed
+		   in: the copies there cost an ST 15 ms a key (20 -> 35) */
+		GRECT c = r;
+		int off = redraw_off && !dlg_win && rect_and(&c, &box) && off_begin(vdi_h, c.x, c.y, c.w, c.h);
+		fill(&r, bg);
+		draw_field(d, i);
+		if (off) {
+			off_end();
+			clip_dlg(0);	/* (off_begin set the VDI's clip to the piece) */
+		}
+	}
 	graf_mouse(M_ON, 0);
 }
 
@@ -1681,11 +1696,15 @@ int prog_update(long done, long total, const char *line1, const char *line2)
 		return 0;
 	if (line1 && strcmp(line1, pg_l1)) {
 		str_copy(pg_l1, line1, sizeof(pg_l1));
+		redraw_off = 1;
 		dlg_redraw_field(&pg_d, PG_LINE1);
+		redraw_off = 0;
 	}
 	if (line2 && strcmp(line2, pg_l2)) {
 		str_copy(pg_l2, line2, sizeof(pg_l2));
+		redraw_off = 1;
 		dlg_redraw_field(&pg_d, PG_LINE2);
+		redraw_off = 0;
 	}
 	if (total > 0 && done * 1000 / total != pg_shown) {
 		pg_shown = done * 1000 / total;
