@@ -46,6 +46,7 @@
 #include "people_ask.h"
 #include "answer.h"
 #include "dialog.h"
+#include "panebar.h"
 #include "notify.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
@@ -2078,6 +2079,7 @@ static int vwk_open(void)
 	if (ncolors <= 0 || planes > 8)
 		ncolors = 256;
 	vst_alignment(vdi_h, 0, 5);
+	pb_vdi(vdi_h);		/* the list's pane bar the fast way where it can (common's panebar.c) */
 	return 1;
 }
 

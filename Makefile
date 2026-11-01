@@ -31,11 +31,15 @@ CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -DCAL_TOS -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
            -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc \
            -Ithird_party/tjpgd
+# each function and datum in a section of its own, and the link drops what
+# nothing uses (--gc-sections): common's code this program doesn't call
+# stays out of the accessory's memory (the hub, 1 Nov 2026)
+CFLAGS  += -ffunction-sections -fdata-sections
 # `make EXTRA_CFLAGS=-DAES_PROFILE`: stretches between event calls over 50 ms
 # to the emulator's console (common/atari/gem.c)
 CFLAGS  += $(EXTRA_CFLAGS)
 LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
-           -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments
+           -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments -Wl,--gc-sections
 
 # the AES calls that may let another program run: the accessory lets go
 # of its files first (ui/evwrap.c, the guidelines 2.2)
