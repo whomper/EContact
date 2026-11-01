@@ -239,7 +239,15 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   list's scroll stays the VDI's copy: common's scr_rows takes the CPU
   only for a box 384 pixels wide or more on a 68000 (the list is 240 at
   most), and by the CPU it made the arrow's line 215 ms on an ST against
-  145.
+  145. On TOS's own screen the card's round picture (draw.c disc) has
+  its middle row filled by the VDI and the others by the CPU with the
+  plane bits read back, its rows' half widths worked out once a size
+  (the 68000's 32-bit routines were 55 of its 60 ms); in black and white
+  the chosen row is drawn as the others and turned over (common's
+  scr_xor), not a black bar with the VDI's white text; a Down's old and
+  new rows are one redraw; and the card drawn later is copied to the
+  screen, and its slider set, each in a turn of its own (win.c
+  slider_due).
   Bold with TX_WHITE (the ground under it is pen 0: the list's rows and
   headings, the card's name, flat dialogs) is drawn plain and ORed onto
   itself a pixel to the right under TOS's own VDI (draw.c smear: what

@@ -776,9 +776,14 @@ void win_open_bands(void)
 	win_redraw_bands();
 }
 
+/* the card's slider set after its copy, in a turn of its own: the AES
+   draws the window's slider then (the copy and it were 105 ms of an
+   8 MHz ST's turn) */
+static int slider_due;
+
 int win_later_pending(void)
 {
-	return later_on;
+	return later_on || slider_due;
 }
 
 /* the whole window drawn a pane at a time (the accessory's opening, the
@@ -841,6 +846,11 @@ static void copy_band(const GRECT *b)
 void win_later_slice(int (*more)(void))
 {
 	short band = 2 * ch;
+	if (slider_due && !later_on) {
+		slider_due = 0;
+		win_slider();
+		return;
+	}
 	if (!later_on)
 		return;
 	if (win_h <= 0 || win_iconified || !buffered()) {
@@ -898,7 +908,7 @@ void win_later_slice(int (*more)(void))
 	}
 	wind_update(BEG_UPDATE);
 	graf_mouse(M_OFF, 0);
-	do {
+	if (later_y < later.y + later.h) do {
 		GRECT b = later, av;
 		b.y = later_y;
 		b.h = later.y + later.h - later_y < band ? later.y + later.h - later_y : band;
@@ -909,6 +919,14 @@ void win_later_slice(int (*more)(void))
 			b.h = (av.y + av.h < later.y + later.h ? av.y + av.h : later.y + later.h) - b.y;
 		draw_off(&b);
 		later_y += b.h;
+		if (later_y >= later.y + later.h && more) {
+			/* all drawn: the copy to the screen (40 ms of an 8 MHz
+			   ST's for the card, 110 with the list) in a turn of its
+			   own, not after this turn's bands */
+			graf_mouse(M_ON, 0);
+			wind_update(END_UPDATE);
+			return;
+		}
 	} while (later_y < later.y + later.h && (!more || more()));
 	if (later_y >= later.y + later.h) {
 #ifdef AES_PROFILE
@@ -925,8 +943,12 @@ void win_later_slice(int (*more)(void))
 	}
 	graf_mouse(M_ON, 0);
 	wind_update(END_UPDATE);
-	if (!later_on)
-		win_slider();
+	if (!later_on) {
+		if (more)
+			slider_due = 1;
+		else
+			win_slider();
+	}
 }
 
 void win_later_finish(void)

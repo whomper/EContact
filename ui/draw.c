@@ -739,15 +739,55 @@ short sel_color(void)
 }
 
 /* a filled ellipse, row by row (the round picture of a contact) */
-void disc(short cx, short cy, short rx, short ry, short color)
+/* TOS's screen in interleaved planes (where text_plain goes in): the
+   pixel (x, y) of the row at line as plane bits (bit p for plane p) */
+static short scr_pixel(const unsigned char *line, short x)
+{
+	const unsigned short *g = (const unsigned short *)(line + (x >> 4) * 2 * planes);
+	unsigned short bit = (unsigned short)(0x8000 >> (x & 15));
+	short p, v = 0;
+	for (p = 0; p < planes; p++)
+		if (g[p] & bit)
+			v |= (short)(1 << p);
+	return v;
+}
+
+/* x1..x2 of the row at line set to the plane bits v, by the CPU: a
+   word's planes set or cleared by a mask each */
+static void scr_span(unsigned char *line, short x1, short x2, short v)
+{
+	unsigned short *g = (unsigned short *)(line + (x1 >> 4) * 2 * planes);
+	short gx, p;
+	for (gx = (short)(x1 & ~15); gx <= x2; gx += 16, g += planes) {
+		unsigned short m = 0xFFFF;
+		if (gx < x1)
+			m = (unsigned short)(m >> (x1 - gx));
+		if (gx + 15 > x2)
+			m &= (unsigned short)(0xFFFF << (gx + 15 - x2));
+		if (planes == 1) {
+			*g = (unsigned short)(v ? *g | m : *g & ~m);
+			continue;
+		}
+		for (p = 0; p < planes; p++)
+			g[p] = (unsigned short)((v >> p) & 1 ? g[p] | m : g[p] & ~m);
+	}
+}
+
+/* half a disc's width on each row: rx * sqrt(1 - (y/ry)^2), worked out
+   once a size (the 32-bit products, quotient and root, the 68000's
+   software routines, were 55 ms of an 8 MHz ST's a card's picture) */
+#define DISC_MAX 160
+static short disc_rx = -1, disc_ry = -1, disc_half[DISC_MAX + 1];
+
+static const short *disc_halves(short rx, short ry)
 {
 	short y;
-	if (ry < 1 || rx < 1)
-		return;
-	for (y = -ry; y <= ry; y++) {
-		/* half its width on this row: rx * sqrt(1 - (y/ry)^2) */
+	if (ry > DISC_MAX || ry <= 8)
+		return 0;	/* (the small marks: a few rows, worked out each time) */
+	if (rx == disc_rx && ry == disc_ry)
+		return disc_half;
+	for (y = 0; y <= ry; y++) {
 		long t = (long)ry * ry - (long)y * y, s = 0, b = 1L << 20;
-		GRECT r;
 		t *= (long)rx * rx;
 		t /= (long)ry * ry;
 		while (b > t)
@@ -761,11 +801,85 @@ void disc(short cx, short cy, short rx, short ry, short color)
 			}
 			b >>= 2;
 		}
+		disc_half[y] = (short)s;
+	}
+	disc_rx = rx;
+	disc_ry = ry;
+	return disc_half;
+}
+
+void disc(short cx, short cy, short rx, short ry, short color)
+{
+	short y, v = -1, bpl = 0, cx1 = 0, cy1 = 0, cx2 = 0, cy2 = 0;
+	const short *half;
+	unsigned char *base = 0;
+	if (ry < 1 || rx < 1)
+		return;
+	half = disc_halves(rx, ry);
+	if (text_plain_state() == 1 && planes >= 1 && planes <= 8 && rx < scr_w) {
+		GRECT r;
+		r.x = cx - rx;
+		r.y = cy;
+		r.w = 2 * rx + 1;
+		r.h = 1;
+		fill(&r, color);
+		/* where the CPU may write: the clip within the screen */
+		cx1 = 0;
+		cy1 = 0;
+		cx2 = scr_w - 1;
+		cy2 = scr_h - 1;
+		if (clip_now.w) {
+			if (clip_now.x > cx1)
+				cx1 = clip_now.x;
+			if (clip_now.y > cy1)
+				cy1 = clip_now.y;
+			if (clip_now.x + clip_now.w - 1 < cx2)
+				cx2 = clip_now.x + clip_now.w - 1;
+			if (clip_now.y + clip_now.h - 1 < cy2)
+				cy2 = clip_now.y + clip_now.h - 1;
+		}
+		if (cx >= cx1 && cx <= cx2 && cy >= cy1 && cy <= cy2) {
+			bpl = (short)(scr_w / 8 * planes);
+			base = (unsigned char *)trap14_w(3);	/* Logbase: where the VDI draws now */
+			v = scr_pixel(base + (long)cy * bpl, cx);
+			base += (long)(cy - ry) * bpl;	/* the top row's line, then a line a row */
+		}
+	}
+	for (y = -ry; y <= ry; y++) {
+		/* half its width on this row: rx * sqrt(1 - (y/ry)^2) */
+		long s;
+		GRECT r;
+		if (half) {
+			s = half[y < 0 ? -y : y];
+		} else {
+			long t = (long)ry * ry - (long)y * y, b = 1L << 20;
+			s = 0;
+			t *= (long)rx * rx;
+			t /= (long)ry * ry;
+			while (b > t)
+				b >>= 2;
+			while (b) {
+				if (t >= s + b) {
+					t -= s + b;
+					s = (s >> 1) + b;
+				} else {
+					s >>= 1;
+				}
+				b >>= 2;
+			}
+		}
 		r.x = cx - (short)s;
 		r.y = cy + y;
 		r.w = (short)(2 * s + 1);
 		r.h = 1;
-		fill(&r, color);
+		if (v < 0) {
+			fill(&r, color);
+		} else if (y && r.y >= cy1 && r.y <= cy2) {
+			short x1 = r.x > cx1 ? r.x : cx1, x2 = r.x + r.w - 1 < cx2 ? r.x + r.w - 1 : cx2;
+			if (x1 <= x2)
+				scr_span(base, x1, x2, v);
+		}
+		base += bpl;
 	}
 }
 

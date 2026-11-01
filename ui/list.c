@@ -13,6 +13,7 @@
 #include "ui.h"
 #include "../src/plat.h"
 #include "panebar.h"
+#include "text.h"
 
 short src_kind = SRC_ALL, src_idx;
 char search_text[64];
@@ -772,22 +773,38 @@ void list_draw(GRECT *clip)
 		}
 		{
 			CONTACT *c = listed[lr->contact];
-			short flags = TX_WHITE;
+			short flags = TX_WHITE, bar[4];
+			int xor_bar = 0;
 			if (lit(c, sel, multi)) {
 				GRECT b;
 				b.x = r_list.x + 2;
 				b.y = y;
 				b.w = rw - 4;
 				b.h = rh;
-				fill(&b, sel_color());
-				flags = TX_INVERSE;
 				srow = (short)i;
+				/* in black and white on TOS's screen the row is drawn as
+				   the others (text_plain) and turned over by the CPU
+				   (common's scr_xor): what the black bar and the VDI's
+				   white text on it make, its slowest text (the chosen
+				   row was 60 ms of an 8 MHz ST's Down, another 35) */
+				if (ncolors == 2 && text_plain_state() == 1) {
+					xor_bar = 1;
+					bar[0] = b.x;
+					bar[1] = b.y;
+					bar[2] = b.x + b.w - 1;
+					bar[3] = b.y + b.h - 1;
+				} else {
+					fill(&b, sel_color());
+					flags = TX_INVERSE;
+				}
 			}
 			draw_name(c, r_list.x + cw, y + 1, cols - (picking ? 2 : 0), flags);
 			if (picking && (c->mark & MK_TICK))
 				text_at(r_list.x + rw - 2 * cw, y + 1, "\x08", 1, 1, TX_LTR | flags);	/* a tick */
 			if (opt.me[0] && c->uid && !strcmp(c->uid, opt.me))
 				text_at(r_list.x + rw - 4 * cw, y + 1, "me", 2, 2, TX_LTR | (flags ? flags : TX_GREY));
+			if (xor_bar)
+				scr_xor(vdi_h, bar);
 		}
 	}
 	(void)srow;
@@ -821,10 +838,22 @@ void select_contact(CONTACT *c)
 	if (multi) {
 		lit_redraw();
 	} else {
-		if (was != now && row_area(was, &a))
+		GRECT o;
+		int old_shows = was != now && row_area(was, &o);
+		if (row_area(now, &a)) {
+			/* the old row near the new one (Down, Up): both in one
+			   redraw, the window's own cost once (each was 35 ms of an
+			   8 MHz ST's) */
+			if (old_shows && (o.y + o.h >= a.y - 2 * rh && o.y <= a.y + a.h + 2 * rh)) {
+				short y2 = (short)(o.y + o.h > a.y + a.h ? o.y + o.h : a.y + a.h);
+				a.y = o.y < a.y ? o.y : a.y;
+				a.h = (short)(y2 - a.y);
+				old_shows = 0;
+			}
 			win_redraw(&a);
-		if (row_area(now, &a))
-			win_redraw(&a);
+		}
+		if (old_shows)
+			win_redraw(&o);
 	}
 	win_redraw_later(&r_card);	/* a band a turn: keys meanwhile (a held Down) */
 }
