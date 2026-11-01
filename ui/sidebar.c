@@ -75,7 +75,7 @@ static void row_text(const SROW *s, char *out, int size)
 	case SRC_ALL: str_copy(out, "All Contacts", size); break;
 	case SRC_BOOK:
 		if (books_of(books[s->idx].acct) == 1)
-			snprintf(out, size, "All %s", accts[books[s->idx].acct].name);
+			str_join(out, size, "All ", accts[books[s->idx].acct].name, 0, 0);
 		else
 			str_copy(out, books[s->idx].name, size);
 		break;

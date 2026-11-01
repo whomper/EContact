@@ -389,33 +389,38 @@ void card_draw(GRECT *clip)
 			short nx = (x0 + (short)((long)ry * 4 * cw / ch) + 2 * cw + 7) & ~7, ncols = (r_card.x + r_card.w - nx) / cw - 1;
 			short ny = y + ry - ch - ch / 2;
 			char job[200];
-			vcard_display_name(c, 0, s, sizeof(s));
-			if (c->prefix && *c->prefix && !c->company) {
-				char t[200];
-				snprintf(t, sizeof(t), "%s %s", c->prefix, s);
-				str_copy(s, t, sizeof(s));
-			}
-			value_at(nx, ny, s, ncols, TX_BOLD | TX_WHITE);
-			/* "Chief Tinkerer, Hardware, Atari Club", or the person at a company */
-			job[0] = 0;
-			if (c->company) {
-				if (c->given || c->family) {
-					snprintf(job, sizeof(job), "%s%s%s", c->given ? c->given : "", c->given && c->family ? " " : "",
-						 c->family ? c->family : "");
+			/* the name, the job and the mail button only in a part
+			   drawn that has their rows (the card is drawn a band at a
+			   time, each band the whole of card_draw) */
+			int shows = vis.y < y + 2 * ry + ch / 2 + ch + 2 && vis.y + vis.h > ny;
+			if (shows) {
+				vcard_display_name(c, 0, s, sizeof(s));
+				if (c->prefix && *c->prefix && !c->company) {
+					char t[200];
+					str_join(t, sizeof(t), c->prefix, " ", s, 0);
+					str_copy(s, t, sizeof(s));
 				}
-			} else {
-				if (c->title)
-					str_copy(job, c->title, sizeof(job));
-				if (c->dept)
-					snprintf(job + strlen(job), sizeof(job) - strlen(job), "%s%s", job[0] ? ", " : "", c->dept);
-				if (c->org)
-					snprintf(job + strlen(job), sizeof(job) - strlen(job), "%s%s", job[0] ? ", " : "", c->org);
-			}
-			if (job[0])
-				value_at(nx, ny + ch + 2, job, ncols, TX_GREY);
-			if (c->nick && *c->nick) {
-				snprintf(s, sizeof(s), "\"%s\"", c->nick);
-				value_at(nx, ny + 2 * ch + 4, s, ncols, TX_GREY);
+				value_at(nx, ny, s, ncols, TX_BOLD | TX_WHITE);
+				/* "Chief Tinkerer, Hardware, Atari Club", or the person at a company */
+				job[0] = 0;
+				if (c->company) {
+					if (c->given || c->family)
+						str_join(job, sizeof(job), c->given ? c->given : "", c->given && c->family ? " " : "",
+							 c->family ? c->family : "", 0);
+				} else {
+					if (c->title)
+						str_copy(job, c->title, sizeof(job));
+					if (c->dept)
+						str_join(job + strlen(job), (int)(sizeof(job) - strlen(job)), job[0] ? ", " : "", c->dept, 0, 0);
+					if (c->org)
+						str_join(job + strlen(job), (int)(sizeof(job) - strlen(job)), job[0] ? ", " : "", c->org, 0, 0);
+				}
+				if (job[0])
+					value_at(nx, ny + ch + 2, job, ncols, TX_GREY);
+				if (c->nick && *c->nick) {
+					str_join(s, sizeof(s), "\"", c->nick, "\"", 0);
+					value_at(nx, ny + 2 * ch + 4, s, ncols, TX_GREY);
+				}
 			}
 			/* the Mac's mail button */
 			if (c->nemail) {
@@ -424,9 +429,11 @@ void card_draw(GRECT *clip)
 				b.y = y + 2 * ry + ch / 2;
 				b.w = 6 * cw;
 				b.h = ch + 2;
-				fill(&b, 0);
-				frame(&b, 1);
-				text_at(b.x + cw, b.y + 1, "mail", 4, 4, TX_LTR);
+				if (shows) {
+					fill(&b, 0);
+					frame(&b, 1);
+					text_at(b.x + cw, b.y + 1, "mail", 4, 4, TX_LTR);
+				}
 				add_hit(b.x, b.y, b.w, b.h, HV_MAILBTN, 0);
 			}
 		}

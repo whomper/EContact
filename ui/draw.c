@@ -526,6 +526,25 @@ void text_big(short cx, short cy, const char *s, short n, short h, short flags)
 	ch = keep_ch;
 }
 
+/* d made of the strings given (0 ends them), cut to size: by hand, not
+   snprintf, which takes an 8 MHz ST some 3 ms (two a row of the list,
+   three a band of the card) */
+void str_join(char *d, int size, const char *a, const char *b, const char *c, const char *e)
+{
+	const char *part[4];
+	int i, n = 0;
+	part[0] = a;
+	part[1] = b;
+	part[2] = c;
+	part[3] = e;
+	for (i = 0; i < 4 && part[i]; i++) {
+		const char *q = part[i];
+		while (*q && n < size - 1)
+			d[n++] = *q++;
+	}
+	d[n] = 0;
+}
+
 void text_color(short color)
 {
 	next_text_color = color;

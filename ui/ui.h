@@ -45,6 +45,8 @@ int clip_rect(GRECT *r);
 void text_at(short x, short y, const char *s, long n, short cols, short flags);
 void text_big(short cx, short cy, const char *s, short n, short h, short flags);
 void text_color(short color);	/* for the next text_at; 1 = black, reset after */
+/* d made of the strings (0 ends them), cut to size: not snprintf (draw.c) */
+void str_join(char *d, int size, const char *a, const char *b, const char *c, const char *e);
 void hline(short x1, short x2, short y);
 void vline(short x, short y1, short y2);
 void line_col(short x1, short y1, short x2, short y2, short color);

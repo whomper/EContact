@@ -741,8 +741,9 @@ static void draw_field(DLG *d, short i)
 		}
 		while (*l == ' ')
 			l++;
-		text_at(FX(f) + cw / 2, FY(f), l, (long)strlen(l), f->w - 2,
-			(line_rtl(l, (long)strlen(l)) ? 0 : TX_LTR) | dis);
+		/* (a cell in: its text on a byte) */
+		text_at(FX(f) + cw, FY(f), l, (long)strlen(l), f->w - 2,
+			(line_rtl(l, (long)strlen(l)) ? 0 : TX_LTR) | dis | (bg ? 0 : TX_WHITE));
 		text_at(FX(f) + (f->w - 1) * cw, FY(f), "\x02", 1, 1, TX_LTR | dis);
 		break;
 	}
@@ -820,7 +821,9 @@ static void draw_sections(DLG *d)
 		const char *s = d->pages[k];
 		section_rect(d, k, &r);
 		fill(&r, k + 1 == d->page ? 1 : bg);
-		text_at(r.x + cw, r.y + 3, s, (long)strlen(s), d->side, TX_LTR | (k + 1 == d->page ? TX_INVERSE : 0));
+		/* (its text on a byte: the box's text column) */
+		text_at(box.x + pad, r.y + 3, s, (long)strlen(s), d->side,
+			TX_LTR | (k + 1 == d->page ? TX_INVERSE : bg ? 0 : TX_WHITE));
 	}
 	line_col(lx, box.y + ch + 6, lx, box.y + box.h - 4, 1);
 	if (d->page >= 1 && d->page <= d->npages) {
@@ -867,9 +870,17 @@ static void draw_all(DLG *d)
 		t.w = box.w - 6;
 		t.h = ch + 2;
 		fill(&t, 1);
-		snprintf(title, sizeof(title), "%s", d->title ? d->title : "");
-		text_at(t.x, t.y + 1, title, (long)strlen(title), t.w / cw, TX_INVERSE | TX_BOLD | TX_CENTER |
-			(line_rtl(title, (long)strlen(title)) ? 0 : TX_LTR));
+		str_copy(title, d->title ? d->title : "", sizeof(title));
+		{
+			/* centred to the nearest byte: TOS draws text there some
+			   six times as fast (the guidelines' Speed: text on a byte) */
+			short n = (short)strlen(title), cols = t.w / cw, tx = t.x + (cols - n) * cw / 2;
+			if (n <= cols && !line_rtl(title, n) && ((tx + 4) & ~7) >= t.x)
+				text_at((tx + 4) & ~7, t.y + 1, title, n, n, TX_INVERSE | TX_BOLD | TX_LTR);
+			else
+				text_at(t.x, t.y + 1, title, n, cols, TX_INVERSE | TX_BOLD | TX_CENTER |
+					(line_rtl(title, n) ? 0 : TX_LTR));
+		}
 		if (hebrew_kbd)
 			text_at(t.x + t.w - 4 * cw, t.y + 1, "\xD3\xC3", 2, 2, TX_INVERSE);	/* "עב": Hebrew keyboard */
 	}
