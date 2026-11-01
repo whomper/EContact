@@ -349,7 +349,13 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   the dialogs and the pick list ask for one click. The one exception:
   the card's values keep click_count's wait, as a click opens a value's
   menu and a double click on an address mails it, which the press can't
-  tell apart. speed.py times a row pressed apart from its release.
+  tell apart. speed.py times a row pressed apart from its release. A
+  press is drawn between common's press_update_begin and
+  press_update_end (win.c win_redraw and win_button): TOS's AES holds
+  BEG_UPDATE back while the button is held still, and a press drawn
+  under it showed only at the release (EHypView, not seen by AESGAP);
+  `tests/hatari/press_hold.py WORK [MACHINE]` checks a row, a sidebar
+  row and Edit by their pixels while held still.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000
