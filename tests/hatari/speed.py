@@ -16,6 +16,8 @@ second is timed), then in its window
 - Clr/Home: the first contact, with a photo, its card drawn;
 - Down: the next row;
 - the list's down arrow: a line; the track under the slider: a page;
+- a row pressed: drawn chosen at once; let go: its card (the guidelines
+  5.8, the two timed apart);
 - a letter typed in the search field, a second, and both taken out;
 - ^G: New Group's dialog opened, a letter typed in its field, Undo;
 - ^,: Settings opened, Esc: the window uncovered;
@@ -216,9 +218,10 @@ def prg_actions(r, con, run, d):
     w, h = screen_rows(r)
     ch = 8 if h <= 200 else 16
 
-    def act(name, limit, fn, secs=1.5, drawn=None):
-        r.move(w - 20, h - 4)
-        time.sleep(0.5)
+    def act(name, limit, fn, secs=1.5, drawn=None, park=True):
+        if park:		# (not with the button held: a drag)
+            r.move(w - 20, h - 4)
+            time.sleep(0.5)
         if PROFILE:
             profiled(r, con, d, name, fn)
         else:
@@ -293,6 +296,36 @@ def prg_actions(r, con, run, d):
             r.shot(name.split(":")[0].replace(" ", "-"))
     else:
         print("  (no list bar found: the scroll actions not done)")
+    if t0:
+        # a row clicked (the guidelines 5.8): pressed, the row drawn chosen
+        # at once; let go, its card. The row under the chosen one (or the
+        # next, after a heading), found by the chosen row's dark bar
+        from PIL import Image
+        rh = ch + 2
+
+        def chosen_y():
+            im = Image.open(r.shot("_sel")).convert("L").load()
+            run = 0
+            for yy in range(h):
+                if im[x0 - 8, yy] < 100 and im[x0 - 16, yy] < 100:	# (past the name)
+                    run += 1
+                    if run >= ch:
+                        return yy - run + 1
+                else:
+                    run = 0
+            return None
+        y0 = chosen_y()
+        if y0 is not None:
+            for k in (1, 2):
+                ty = y0 + k * rh + rh // 2
+                act("a row pressed: drawn chosen", T_KEY,
+                    lambda: (r.move(x0 - 60, ty), time.sleep(0.5), con.mark(), r.xdo("mousedown", "1")), secs=1.5)
+                act("let go: its card", T_KEY, lambda: r.xdo("mouseup", "1"), secs=4, park=False)
+                if chosen_y() != y0:
+                    break
+                print("  (a heading there: the row after it)")
+        else:
+            print("  (no chosen row found: the press not timed)")
     act("a letter typed in the search field", T_KEY, lambda: r.type("c"), secs=2)
     act("a second letter", T_KEY, lambda: r.type("o"), secs=2)
     whole("searched")

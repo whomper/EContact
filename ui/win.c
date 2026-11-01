@@ -1129,6 +1129,12 @@ static void remember_place(void)
 
 /* the toolbar, the card's buttons and the list's scroll bar act on the
    first click */
+/* a press on a row of the list or the sidebar (not the list's bar) */
+int win_rows_at(short mx, short my)
+{
+	return rect_hit(&r_side, mx, my) || (rect_hit(&r_list, mx, my) && !list_bar_hit(mx, my));
+}
+
 int win_instant(short mx, short my)
 {
 	return rect_hit(&r_tool, mx, my) || card_instant(mx, my) || list_bar_hit(mx, my);

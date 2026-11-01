@@ -114,6 +114,8 @@ void win_message(short *msg);
 void win_status(const char *s);	/* the info line */
 void win_frame_refresh(void);
 int  win_instant(short mx, short my);
+int  win_rows_at(short mx, short my);	/* a row of the list or the sidebar */
+void wait_release(void);			/* (main.c) */
 int  win_mouse(short mx, short my, short button, short clicks, short kstate);
 int  win_key(short kstate, short key);
 void win_layout(void);		/* after a size or font change */

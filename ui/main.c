@@ -2003,7 +2003,7 @@ static void av_start(const char *s)
 	}
 }
 
-static void wait_release(void)
+void wait_release(void)
 {
 	short mx, my, mb, ks;
 	for (;;) {
@@ -2222,7 +2222,10 @@ int main(void)
 			memmove(held[0], held[1], sizeof(held[0]) * --nheld);
 			which = MU_MESAG;
 		} else
-			which = evnt_multi_(flags, is_acc ? 0x102 : 0x101, 3, 0, wait, msg, &ev);
+			/* one click: the AES hands a press over at once (asking
+			   for two holds every press back for the double-click
+			   time; the guidelines 5.8) */
+			which = evnt_multi_(flags, 0x101, 3, 0, wait, msg, &ev);
 		turn_at = pf_ms();
 		if ((which & MU_MESAG) && notify_message(msg))
 			which &= ~MU_MESAG;	/* BGEM.NG's */
@@ -2331,9 +2334,23 @@ int main(void)
 				if (h != t)
 					wind_set(h, WF_TOP, 0, 0, 0, 0);
 				else {
-					short n = click_count(ev.mx, ev.my, ev.mbutton);
-					if (is_acc && ev.breturn >= 2 && !(ev.mbutton & 2) && !win_instant(ev.mx, ev.my))
-						n = 2;
+					short n;
+					if (!(ev.mbutton & 2) && win_rows_at(ev.mx, ev.my)) {
+						/* a row of the list or the sidebar (the guidelines
+						   5.8): selected on the press, at once; a second
+						   press there within the double-click time is a
+						   double click, its action on its release */
+						static unsigned long last_t;
+						static short last_x, last_y;
+						n = last_t && pf_ms() - last_t < 300UL && ev.mx - last_x < 6 && last_x - ev.mx < 6 &&
+						    ev.my - last_y < 6 && last_y - ev.my < 6 ? 2 : 1;
+						last_t = n == 2 ? 0 : pf_ms();
+						last_x = ev.mx;
+						last_y = ev.my;
+						if (n == 2)
+							wait_release();
+					} else
+						n = click_count(ev.mx, ev.my, ev.mbutton);
 					aes_profile_tag("click");
 					win_mouse(ev.mx, ev.my, ev.mbutton, n, ev.kstate);
 				}

@@ -83,11 +83,49 @@ static void row_text(const SROW *s, char *out, int size)
 	}
 }
 
+/* a row pressed: shown chosen till the button is let go (the guidelines
+   5.8), then chosen */
+static int pend_on;
+static short pend_kind, pend_idx;
+
 static int is_chosen(const SROW *s)
 {
+	short kind = pend_on ? pend_kind : src_kind, idx = pend_on ? pend_idx : src_idx;
 	if (s->kind == SRC_ALL)
-		return src_kind == SRC_ALL;
-	return s->kind == src_kind && s->idx == src_idx;
+		return kind == SRC_ALL;
+	return s->kind == kind && s->idx == idx;
+}
+
+static void row_area(const SROW *s, GRECT *r)
+{
+	r->x = r_side.x;
+	r->y = s->y - 1;
+	r->w = r_side.w;
+	r->h = row_h;
+}
+
+/* the pressed row drawn chosen and the chosen one drawn as it was, at
+   once; the list and the card when the button is let go */
+static void press_row(const SROW *s)
+{
+	short i;
+	GRECT r;
+	for (i = 0; i < nrows; i++)
+		if (srow[i].kind != -1 && is_chosen(&srow[i])) {
+			pend_on = 1;
+			pend_kind = s->kind;
+			pend_idx = s->idx;
+			row_area(&srow[i], &r);
+			win_redraw(&r);
+			break;
+		}
+	pend_on = 1;
+	pend_kind = s->kind;
+	pend_idx = s->idx;
+	row_area(s, &r);
+	win_redraw(&r);
+	wait_release();
+	pend_on = 0;
 }
 
 void side_draw(GRECT *clip)
@@ -171,6 +209,19 @@ static void choose(short kind, short idx)
 	win_redraw(&r_side);
 	win_redraw(&r_list);
 	win_redraw(&r_card);
+}
+
+/* chosen with its row drawn already (press_row): the list and the card a
+   band a turn (they were 4 redraws in one piece) */
+static void choose_pressed(short kind, short idx)
+{
+	GRECT a = r_list;
+	list_source(kind, idx);
+	list_fix_selection();
+	status_updated();
+	win_redraw(&r_tool);
+	a.w = r_card.x + r_card.w - a.x;
+	win_redraw_later(&a);
 }
 
 /* every email of the group, for EMail's To: line */
@@ -362,8 +413,14 @@ int side_click(short mx, short my, short clicks, short button)
 			}
 			return 1;
 		}
-		if (!is_chosen(s))
-			choose(s->kind, s->idx);
+		if (!is_chosen(s)) {
+			if (!(button & 2)) {
+				press_row(s);
+				choose_pressed(s->kind, s->idx);
+			} else {
+				choose(s->kind, s->idx);
+			}
+		}
 		if (button & 2) {
 			if (s->kind == SRC_GROUP)
 				group_menu(mx, my, s->idx);

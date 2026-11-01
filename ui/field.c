@@ -24,6 +24,7 @@
 #include "dialog.h"
 
 static GRECT box;		/* the dialog on screen */
+static unsigned long pk_last;	/* the pick list's last press (a double click) */
 static short rh;		/* pixels per row */
 static short pad;
 static short depth;		/* dialogs open (one can open another: Custom repeat) */
@@ -1201,7 +1202,7 @@ short dlg_run(DLG *d)
 	box_open(d->title, paint_run, 3, ch + 5);
 	draw_all(d);
 	while (result == -2) {
-		evnt_dlg(MU_KEYBD | MU_BUTTON, 0x102, 3, 0, 0, m, &e);
+		evnt_dlg(MU_KEYBD | MU_BUTTON, 0x101, 3, 0, 0, m, &e);	/* one click: at once (5.8) */
 		if (e.which & MU_KEYBD) {
 			short scan = KEY_SCAN(e.kreturn);
 			FIELD *f = d->focus >= 0 ? &d->f[d->focus] : 0;
@@ -1388,6 +1389,7 @@ short dlg_pick(const char *title, const char *const *items, short n, short sel)
 	box.x = desk_x + (desk_w - box.w) / 2;
 	box.y = desk_y + (desk_h - box.h) / 2;
 	pk_title = title;
+	pk_last = 0;
 	pk_items = items;
 	pk_n = n;
 	pk_rows = rows;
@@ -1406,7 +1408,7 @@ short dlg_pick(const char *title, const char *const *items, short n, short sel)
 			box_open(title, pick_paint, 1, 2 * (ch + 2) - cw);
 		drawn = 1;
 		pick_paint();
-		evnt_dlg(MU_KEYBD | MU_BUTTON, 0x102, 3, 0, 0, m, &e);
+		evnt_dlg(MU_KEYBD | MU_BUTTON, 0x101, 3, 0, 0, m, &e);	/* one click: at once (5.8) */
 		pick_list(&list);
 		if (e.which & MU_KEYBD) {
 			short sc = KEY_SCAN(e.kreturn);
@@ -1442,11 +1444,13 @@ short dlg_pick(const char *title, const char *const *items, short n, short sel)
 			if (rect_hit(&list, e.mx, e.my)) {
 				short k = first + (e.my - list.y) / (ch + 2);
 				if (k < n) {
-					if (k == sel && e.breturn >= 2)
+					/* chosen on the press; a second press on it within
+					   the double-click time picks it, when let go (the
+					   guidelines 5.8: the AES is asked for one click) */
+					if (k == sel && pk_last && pf_ms() - pk_last < 300UL)
 						res = sel;
 					sel = k;
-					if (e.breturn >= 2)
-						res = sel;
+					pk_last = res == sel ? 0 : pf_ms();
 				}
 			} else if (!rect_hit(&box, e.mx, e.my)) {
 				res = -1;
