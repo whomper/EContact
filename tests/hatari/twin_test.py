@@ -26,7 +26,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
-from rig import Rig, machine_arg  # noqa: E402
+from rig import Rig, machine_arg, ci_path  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CLI = os.path.join(ROOT, "build", "card-cli")
@@ -59,32 +59,32 @@ def main():
     subprocess.run([CLI, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([CLI, folder, "import", "Contacts", os.path.join(ROOT, "tests", "hatari", "sample.vcf")],
                    check=True, stdout=subprocess.DEVNULL)
-    with open(os.path.join(folder, "ECONTACT.INF"), "rb") as f:
+    with open(os.path.join(folder, "econtact.inf"), "rb") as f:
         inf = f.read()
-    os.remove(os.path.join(folder, "ECONTACT.INF"))
+    os.remove(os.path.join(folder, "econtact.inf"))
     # in the root, FOLDER= naming the program's folder; a log, the sidebar
     # shown, and no refresh at opening
     inf = inf.replace(b"\nLOG=0", b"\nLOG=1").replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = inf.replace(b"\nSIDEBAR=0", b"\nSIDEBAR=1")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
     inf = re.sub(rb"\nSTART=[^\r\n]*", rb"\nSTART=2", inf)
-    with open(os.path.join(hd, "ECONTACT.INF"), "wb") as f:
+    with open(os.path.join(hd, "econtact.inf"), "wb") as f:
         f.write(inf)
-    acc = "ECONTACT.ACC"
-    shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "ECONTACT.ACC"))
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRG"))
-    log = os.path.join(folder, "ECONTACT.LOG")
+    acc = "econtact.acc"
+    shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "econtact.acc"))
+    shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), os.path.join(folder, "econtact.prg"))
+    log = os.path.join(folder, "econtact.log")
     shots = os.path.join(work, "shots")
     # the Desk menu's first accessory, on the desktop (acc_files.py's place)
     acc_y = 59 if machine.endswith("mono") else 61
-    r = Rig(work, machine, auto="C:\\ECONTACT\\ECONTACT.PRG")
+    r = Rig(work, machine, auto="C:\\ECONTACT\\econtact.prg")
     try:
         time.sleep(45)                  # the accessory's books read meanwhile, and
                                         # the first photo made (3 s on an ST)
         r.shot("3-program")
         # Hatari's --auto starts it again whenever the desktop comes back:
         # moved aside now, so that after Quit the desktop stays
-        os.rename(os.path.join(folder, "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRX"))
+        os.rename(os.path.join(folder, "econtact.prg"), os.path.join(folder, "ECONTACT.PRX"))
         r.click(168, 8)                 # View
         time.sleep(1)
         r.shot("4-view-menu")
@@ -123,10 +123,10 @@ def main():
     acc = text.find("(accessory)")
     check(acc > text.rfind("(program)") and "cards in" in text[acc:] and "reading them again" not in text,
           "the accessory left the files to the program, and read them after it quit")
-    with open(os.path.join(hd, "ECONTACT.INF"), newline="") as f:
+    with open(os.path.join(hd, "econtact.inf"), newline="") as f:
         got = f.read()
     check("SIDEBAR=0" in got, "the program wrote SIDEBAR=0")
-    check(not os.path.exists(os.path.join(hd, "ECONTACT.IN$")), "no ECONTACT.IN$ left behind")
+    check(not os.path.exists(ci_path(hd, "econtact.in$")), "no ECONTACT.IN$ left behind")
     print("%d failed" % failed)
     sys.exit(1 if failed else 0)
 

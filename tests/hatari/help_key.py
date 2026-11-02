@@ -45,14 +45,14 @@ def disk(w):
     subprocess.run([CLI, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([CLI, folder, "import", "Contacts", os.path.join(ROOT, "tests", "hatari", "sample.vcf")],
                    check=True, stdout=subprocess.DEVNULL)
-    with open(os.path.join(folder, "ECONTACT.INF"), "rb") as f:
+    with open(os.path.join(folder, "econtact.inf"), "rb") as f:
         inf = f.read()
     inf = inf.replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
-    with open(os.path.join(hd, "ECONTACT.INF"), "wb") as f:
+    with open(os.path.join(hd, "econtact.inf"), "wb") as f:
         f.write(inf)
-    os.remove(os.path.join(folder, "ECONTACT.INF"))
-    shutil.copy(os.path.join(BIN, "ECONTACT.HYP"), folder)
+    os.remove(os.path.join(folder, "econtact.inf"))
+    shutil.copy(os.path.join(BIN, "econtact.hyp"), folder)
     shutil.copy(GUIDE, os.path.join(hd, "ST-GUIDE.ACC"))
     return hd, folder
 
@@ -68,7 +68,7 @@ def main():
     print("1. the accessory, with ECONTACT.HYP")
     w = os.path.join(work, "acc")
     hd, folder = disk(w)
-    shutil.copy(os.path.join(BIN, "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
+    shutil.copy(os.path.join(BIN, "econtact.acc"), os.path.join(hd, "econtact.acc"))
     r = Rig(w, machine, auto="")
     try:
         time.sleep(15)
@@ -80,29 +80,29 @@ def main():
         r.key(K["HELP"])
         time.sleep(3)
         r.shot("1-help")
-        check("ST-Guide sent the help file's path", sent(hd) == "C:\\ECONTACT\\ECONTACT.HYP")
+        check("ST-Guide sent the help file's path", sent(hd) == "C:\\ECONTACT\\econtact.hyp")
 
         print("2. without it")
         os.remove(os.path.join(hd, "VASTART.TXT"))
-        os.remove(os.path.join(folder, "ECONTACT.HYP"))
+        os.remove(os.path.join(folder, "econtact.hyp"))
         r.key(K["HELP"])
         time.sleep(3)
         r.shot("2-search")
-        check("ST-Guide asked to look in its own paths", sent(hd) == "*:\\ECONTACT.HYP")
+        check("ST-Guide asked to look in its own paths", sent(hd) == "*:\\econtact.hyp")
     finally:
         r.stop()
 
     print("3. the program")
     w = os.path.join(work, "prg")
     hd, folder = disk(w)
-    shutil.copy(os.path.join(BIN, "ECONTACT.PRG"), folder)
-    r = Rig(w, machine, auto="C:\\ECONTACT\\ECONTACT.PRG")
+    shutil.copy(os.path.join(BIN, "econtact.prg"), folder)
+    r = Rig(w, machine, auto="C:\\ECONTACT\\econtact.prg")
     try:
         time.sleep(22)
         r.key(K["HELP"])
         time.sleep(3)
         r.shot("3-help")
-        check("ST-Guide sent the help file's path", sent(hd) == "C:\\ECONTACT\\ECONTACT.HYP")
+        check("ST-Guide sent the help file's path", sent(hd) == "C:\\ECONTACT\\econtact.hyp")
     finally:
         r.stop()
     print("all passed" if not fails else "%d failed" % fails)

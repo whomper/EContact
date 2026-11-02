@@ -96,10 +96,10 @@ def main():
                 "UID:SHORT-1\r\nEND:VCARD\r\n")
     subprocess.run([CLI, hd, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([CLI, hd, "import", "Contacts", vcf], check=True, stdout=subprocess.DEVNULL)
-    inf = os.path.join(hd, "ECONTACT.INF")
+    inf = os.path.join(hd, "econtact.inf")
     t = open(inf, "rb").read().replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     open(inf, "wb").write(t)
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), hd)
+    shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), hd)
     r = Rig(work, machine)
     try:
         time.sleep(20)

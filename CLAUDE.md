@@ -105,6 +105,13 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 
 - **A release** carries `ECONTACT.ACC`, `ECONTACT.PRG`, `TLS.OVL`, `ECONTACT.HYP` and `.REF`,
   `CACERT.PEM`, `ROOTS.DAT` and the icon. The icons are committed in `icons/` (`make icons`).
+- **File names in lowercase** (the guidelines 6.6, Erez, 2 Nov 2026): every file and folder
+  EContact names itself is written in lowercase in the code (econtact.inf, the key, the log,
+  cache\booknnnn.dat/.idx, photos.pak, contacts.txt, econtact.fnt, tls.ovl, cacert.pem, roots.dat,
+  seed.dat, sigs.dat, econtact.hyp, C:\econtact), and `make dist` names every file of a release and
+  its zip so (the icons too); on a MiNT ext2 drive `ECONTACT.INF` is another file. AES and AV names,
+  SCRAP.*, and names in texts shown to the user stay as they are; a .vcf chosen or dropped is used as
+  it came. The rigs write lowercase and read with `ci_path` (rig.py, from common's machines.py).
 - Before pushing: `make test` (the core) and `make itest` (card-cli against
   Radicale: `pip install radicale`), and `make` with no warnings.
 - `gateway/` is a read-only copy of

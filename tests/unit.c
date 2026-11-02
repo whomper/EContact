@@ -773,7 +773,7 @@ static void test_photopack(void)
 	int i, n = 0;
 	FILE *f;
 	CHECK(mkdtemp(dir) != 0);
-	snprintf(path, sizeof(path), "%s/PHOTOS.PAK", dir);
+	snprintf(path, sizeof(path), "%s/photos.pak", dir);
 	pack_path(path);
 	pack_batch(1);
 	for (i = 0; i < 3; i++) {

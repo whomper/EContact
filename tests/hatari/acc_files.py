@@ -133,18 +133,18 @@ def main():
             http("PUT", base + "club/m%03d.vcf" % i, card(i, "Changed"))
         for i in range(n, n + 10):
             http("PUT", base + "club/m%03d.vcf" % i, card(i, "New"))
-        inf = open(os.path.join(folder, "ECONTACT.INF"), "rb").read()
+        inf = open(os.path.join(folder, "econtact.inf"), "rb").read()
         for k, v in ((b"LOG", b"1"), (b"SYNC_OPEN", b"1"), (b"SYNC_AFTER", b"0"), (b"START", b"now"),
                      (b"GATE", b"127.0.0.1"), (b"GATEPORT", b"%d" % gport), (b"FOLDER", b"C:\\\\ECONTACT")):
             inf = re.sub(rb"\n" + k + rb"=[^\r\n]*", b"\n" + k + b"=" + v, inf)
-        os.remove(os.path.join(folder, "ECONTACT.INF"))
-        open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
+        os.remove(os.path.join(folder, "econtact.inf"))
+        open(os.path.join(hd, "econtact.inf"), "wb").write(inf)
         if prg:
-            shutil.copy(os.path.join(BIN, "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRG"))
+            shutil.copy(os.path.join(BIN, "econtact.prg"), os.path.join(folder, "econtact.prg"))
         else:
-            shutil.copy(os.path.join(BIN, "ECONTACT.ACC"),
-                        os.path.join(hd, "ECONTACT.ACC"))
-        log = os.path.join(folder, "ECONTACT.LOG")
+            shutil.copy(os.path.join(BIN, "econtact.acc"),
+                        os.path.join(hd, "econtact.acc"))
+        log = os.path.join(folder, "econtact.log")
 
         def log_text():
             return open(log, encoding="latin-1").read() if os.path.exists(log) else ""
@@ -171,7 +171,7 @@ def main():
                 if m != n:
                     n, since = m, time.time()
 
-        r = Rig(d, machine, auto="C:\\ECONTACT\\ECONTACT.PRG" if prg else None, network=True,
+        r = Rig(d, machine, auto="C:\\ECONTACT\\econtact.prg" if prg else None, network=True,
                 extra=("--trace", "gemdos,aes", "--trace-file", os.path.join(d, "trace.txt")))
         try:
             time.sleep(20)
@@ -208,7 +208,7 @@ def main():
     # the guidelines, 6.5: about one open a file a job, and one a buffer
     # written (the photos, the cards and the pack through the job's
     # memory: 24 KB on a 1 MB ST to 256 KB with 8 MB free, the log 16 KB)
-    made = len(pack_pictures(os.path.join(folder, "CACHE", "PHOTOS.PAK")))
+    made = len(pack_pictures(os.path.join(folder, "cache", "photos.pak")))
     # a fixed count, and a round of writes each 16 photos or so (the
     # photos when the job's memory is full, the cards and the parsed cache
     # when theirs is, the log each 16 KB); the accessory on a 4 MB ST has
@@ -226,13 +226,13 @@ def main():
         check("Sync Contact Photos declined on a 1 MB machine", photod and len(opened) == 1)
     else:
         check("Sync Contact Photos ran", photod)
-    shutil.copy(os.path.join(hd, "ECONTACT.INF"), os.path.join(folder, "ECONTACT.INF"))	# for card-cli
+    shutil.copy(os.path.join(hd, "econtact.inf"), os.path.join(folder, "econtact.inf"))	# for card-cli
     out = subprocess.run([CLI, folder, "list"], check=True, capture_output=True, text=True).stdout
     changed = len(range(1, n, 4))
     check("every card (%d)" % (n + 10), len([l for l in out.splitlines() if "Member" in l]) == n + 10)
     check("the changed ones (%d)" % changed, out.count("Changed Member") == changed)
     check("the new ones", out.count("New Member") == 10)
-    pics_made = pack_pictures(os.path.join(folder, "CACHE", "PHOTOS.PAK"))
+    pics_made = pack_pictures(os.path.join(folder, "cache", "photos.pak"))
     with_photo = len([i for i in range(n + 10) if step and i % step == 0 and i // step < nph])
     if not small:
         check("a picture for every photo (%d of %d)" % (len(pics_made), with_photo), len(pics_made) >= with_photo)

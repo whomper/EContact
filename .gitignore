@@ -8,8 +8,12 @@ dist/
 *.o
 .venv/
 *.KEY
+*.key
 CRASH.LOG
+crash.log
 SEED.DAT
+seed.dat
 SIGS.DAT
+sigs.dat
 tests/**/work/
 *.log

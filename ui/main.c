@@ -221,7 +221,7 @@ void set_logging(void)
 	int was = conn_logfile[0] != 0;
 	conn_log_flush();
 	if (opt.log)
-		path_join(conn_logfile, sizeof(conn_logfile), workdir, "ECONTACT.LOG");
+		path_join(conn_logfile, sizeof(conn_logfile), workdir, "econtact.log");
 	else
 		conn_logfile[0] = 0;
 	if (conn_logfile[0] && !was) {
@@ -650,7 +650,7 @@ void cmd_import(int book)
 		alert(1, "[1][Add an account first: the contacts go into one of its address books.][ OK ]");
 		return;
 	}
-	snprintf(dir, sizeof(dir), "%s\\*.VCF", workdir);
+	snprintf(dir, sizeof(dir), "%s\\*.vcf", workdir);
 	if (!fsel_exinput(dir, name, &button, "Import which .vcf file?") || !button || !name[0])
 		return;
 	{
@@ -704,8 +704,8 @@ void cmd_export(void)
 		return;
 	if (several && all == 1)
 		all = 2;	/* (named as a list, CONTACTS.VCF) */
-	snprintf(dir, sizeof(dir), "%s\\*.VCF", workdir);
-	str_copy(name, "CONTACTS.VCF", sizeof(name));
+	snprintf(dir, sizeof(dir), "%s\\*.vcf", workdir);
+	str_copy(name, "contacts.vcf", sizeof(name));
 	if (all == 1) {
 		/* the person's name, in 8.3 */
 		char dn[64];
@@ -713,10 +713,10 @@ void cmd_export(void)
 		vcard_display_name(c, 0, dn, sizeof(dn));
 		for (k = 0; dn[k] && m < 8; k++)
 			if ((dn[k] >= 'A' && dn[k] <= 'Z') || (dn[k] >= 'a' && dn[k] <= 'z') || (dn[k] >= '0' && dn[k] <= '9'))
-				name[m++] = (char)(dn[k] >= 'a' ? dn[k] - 32 : dn[k]);
+				name[m++] = (char)(dn[k] >= 'A' && dn[k] <= 'Z' ? dn[k] + 32 : dn[k]);
 		if (m) {
 			name[m] = 0;
-			strcat(name, ".VCF");
+			strcat(name, ".vcf");
 		}
 	}
 	if (fsel_exinput(dir, name, &button, "Export to which file?") && button && name[0]) {
@@ -829,7 +829,7 @@ void cmd_mail_to(const CONTACT *c, const char *email)
    keys */
 static void help_key_pressed(void)
 {
-	if (help_key(opt.workdir, "ECONTACT.HYP", 0, "Keys"))
+	if (help_key(opt.workdir, "econtact.hyp", 0, "Keys"))
 		dlg_keys();
 }
 
@@ -1258,7 +1258,7 @@ static void find_workdir(void)
 {
 	char old[200];
 	short boot = boot_drive();
-	snprintf(inf_file, sizeof(inf_file), "%c:\\ECONTACT.INF", 'A' + boot);
+	snprintf(inf_file, sizeof(inf_file), "%c:\\econtact.inf", 'A' + boot);
 	if (is_acc) {
 		inf_read(inf_file);	/* once: FOLDER=, START=, FONT_ID=, HEAPKB= */
 		inf_folder(workdir, sizeof(workdir));
@@ -1267,8 +1267,8 @@ static void find_workdir(void)
 		if (inf_n < 0) {
 			/* settings in the folder instead (copied there, or written
 			   by card-cli): taken to the root at the first opening */
-			snprintf(workdir, sizeof(workdir), "%c:\\ECONTACT", 'A' + boot);
-			path_join(old, sizeof(old), workdir, "ECONTACT.INF");
+			snprintf(workdir, sizeof(workdir), "%c:\\econtact", 'A' + boot);
+			path_join(old, sizeof(old), workdir, "econtact.inf");
 			if (!pf_exists(old))
 				workdir[0] = 0;
 		}
@@ -1294,7 +1294,7 @@ static void move_inf(void)
 	long len;
 	if (pf_exists(inf_file) || !workdir[0])
 		return;
-	path_join(old, sizeof(old), workdir, "ECONTACT.INF");
+	path_join(old, sizeof(old), workdir, "econtact.inf");
 	if (!strcasecmp(old, inf_file) || !(t = pf_load(old, &len)))
 		return;
 	pf_save(inf_file, t, len);
@@ -1333,7 +1333,7 @@ static int locate_folder(void)
 			return 1;
 		}
 	}
-	snprintf(workdir, sizeof(workdir), "%c:\\ECONTACT", 'A' + boot);
+	snprintf(workdir, sizeof(workdir), "%c:\\econtact", 'A' + boot);
 	pf_mkdir(workdir);
 	return 1;
 }
@@ -1446,11 +1446,11 @@ static int load_settings(int quiet)
 	secret_warn = quiet ? warn_later : warn_plain;
 	if (strcasecmp(opt.folder, workdir))
 		store_save_settings();	/* FOLDER= as it is now */
-	path_join(conn_cacert, sizeof(conn_cacert), workdir, "CACERT.PEM");
-	path_join(tls_ovl_path, sizeof(tls_ovl_path), workdir, "TLS.OVL");	/* the TLS (7.4) */
-	path_join(tls_roots_cache, sizeof(tls_roots_cache), workdir, "ROOTS.DAT");
-	path_join(tls_seed_path, sizeof(tls_seed_path), workdir, "SEED.DAT");
-	path_join(tls_sigs_path, sizeof(tls_sigs_path), workdir, "SIGS.DAT");
+	path_join(conn_cacert, sizeof(conn_cacert), workdir, "cacert.pem");
+	path_join(tls_ovl_path, sizeof(tls_ovl_path), workdir, "tls.ovl");	/* the TLS (7.4) */
+	path_join(tls_roots_cache, sizeof(tls_roots_cache), workdir, "roots.dat");
+	path_join(tls_seed_path, sizeof(tls_seed_path), workdir, "seed.dat");
+	path_join(tls_sigs_path, sizeof(tls_sigs_path), workdir, "sigs.dat");
 	tls_file_stamp = pf_stamp;	/* ROOTS.DAT told by CACERT.PEM's size and date */
 	tls_file_info = pf_info;	/* both from one look (6.5) */
 	tls_read_at = pf_read_at;	/* CACERT.PEM never open across pf_idle (2.2) */

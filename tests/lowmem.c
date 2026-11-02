@@ -96,7 +96,7 @@ int main(void)
 		static const char was[] = "[OPTIONS]\r\nSTART=5\r\nSYNC_AFTER=1\r\n[ACCOUNT]\r\nNAME=Club\r\nKIND=1\r\n"
 					  "[BOOK]\r\nID=1\r\nNAME=Club\r\n";
 		check(mkdtemp(dir) != 0, "a folder for ECONTACT.INF");
-		snprintf(inf, sizeof(inf), "%s/ECONTACT.INF", dir);
+		snprintf(inf, sizeof(inf), "%s/econtact.inf", dir);
 		f = fopen(inf, "wb");
 		fputs(was, f);
 		fclose(f);

@@ -6,7 +6,7 @@ family's ST and Falcon (common/tools/machines.py; or the one named), with
 an edition built to time the stretches between its event calls:
 
     make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \\
-        WORK/bin/ECONTACT.ACC
+        WORK/bin/econtact.acc
     tests/hatari/quiet_start.py WORK [MACHINE] [contacts]
 
 600 contacts (by default; 350 on ST-1, whose 1 MB holds some 410: 1.49
@@ -81,17 +81,17 @@ def main():
         subprocess.run([CLI, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
         subprocess.run([CLI, folder, "import", "Contacts", os.path.join(d, "p.vcf")], check=True,
                        stdout=subprocess.DEVNULL)
-        people = os.path.join(folder, "CONTACTS.TXT")
+        people = os.path.join(folder, "contacts.txt")
         os.remove(people)		# card-cli's: the accessory writes it
-        inf = open(os.path.join(folder, "ECONTACT.INF"), "rb").read()
+        inf = open(os.path.join(folder, "econtact.inf"), "rb").read()
         inf = inf.replace(b"\nLOG=0", b"\nLOG=1").replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
         inf = re.sub(rb"\nSTART=[^\r\n]*", rb"\nSTART=5", inf)
         inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
-        os.remove(os.path.join(folder, "ECONTACT.INF"))
-        open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
-        acc = "ECONTACT.ACC"
-        shutil.copy(os.path.join(work, "bin", acc), os.path.join(hd, "ECONTACT.ACC"))
-        log = os.path.join(folder, "ECONTACT.LOG")
+        os.remove(os.path.join(folder, "econtact.inf"))
+        open(os.path.join(hd, "econtact.inf"), "wb").write(inf)
+        acc = "econtact.acc"
+        shutil.copy(os.path.join(work, "bin", acc), os.path.join(hd, "econtact.acc"))
+        log = os.path.join(folder, "econtact.log")
         for run in (1, 2):
             r = Rig(d, machine, auto="")
             try:
@@ -142,9 +142,9 @@ def main():
                       os.path.exists(people) and os.stat(people).st_mtime_ns == pstamp)
         # opened while it reads (the index gone: every card parsed): what is
         # left is read at once, and all of them are there
-        for f in os.listdir(os.path.join(folder, "CACHE")):
-            if f.endswith(".IDX"):
-                os.remove(os.path.join(folder, "CACHE", f))
+        for f in os.listdir(os.path.join(folder, "cache")):
+            if f.endswith(".idx"):
+                os.remove(os.path.join(folder, "cache", f))
         r = Rig(d, machine, auto="")
         try:
             time.sleep(14)

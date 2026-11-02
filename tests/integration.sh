@@ -140,7 +140,7 @@ if [ "$N" = 2 ]; then ok "and again when an address changed"; else bad "changed:
 R=$($CLI "$D" ask "names:EMAIL dana@new.example")
 expect "the new address known" $'dana@new.example\tDana Levi' "$R"
 echo "CONTACTS.TXT: the people for EMail and ECal when EContact isn't loaded"
-PF=$D/CONTACTS.TXT
+PF=$D/contacts.txt
 pf_check() { # every address in the list, with its name as names: answers it; the groups
   python3 - "$PF" "$1" "$CLI" "$D" <<'PY'
 import subprocess, sys
@@ -348,9 +348,9 @@ PY
   expect "pruned" "1 removed" "$R"
   R=$($CLI "$D" prune)
   expect "and gone from the pack" "0 removed" "$R"
-  if [ -d "$D/CACHE/PHOTOS" ]; then bad "a PHOTOS folder"; else ok "one file, no PHOTOS folder"; fi
-  ls "$D/CACHE" > "$W/cache.ls"
-  expect "the pictures in PHOTOS.PAK" "PHOTOS.PAK" "$(cat "$W/cache.ls")"
+  if [ -d "$D/cache/PHOTOS" ]; then bad "a PHOTOS folder"; else ok "one file, no PHOTOS folder"; fi
+  ls "$D/cache" > "$W/cache.ls"
+  expect "the pictures in photos.pak" "photos.pak" "$(cat "$W/cache.ls")"
 
   echo "photos left for later: cards synced without them (partial retrieval)"
   PPORT=$((PORT + 6))
@@ -373,9 +373,9 @@ PY
   expect "kept in part, the photo still to come" "partial photo=unknown" "$R"
   R=$($CLI "$P" list)
   expect "the card is all there to see" "Pat Many1 | many1@example.org" "$R"
-  ID=$(sed -n 's/^ID=//p' "$P/ECONTACT.INF" | tr -d '\r' | head -1)
-  DAT=$P/CACHE/BOOK$(printf %04d "$ID").DAT
-  PHO=${DAT%.DAT}.PHO
+  ID=$(sed -n 's/^ID=//p' "$P/econtact.inf" | tr -d '\r' | head -1)
+  DAT=$P/cache/book$(printf %04d "$ID").dat
+  PHO=${DAT%.dat}.pho
   SIZE=$(stat -c %s "$DAT")
   if [ "$SIZE" -lt 6000 ]; then ok "the cache is small ($SIZE bytes)"; else bad "the cache is $SIZE bytes"; fi
   if [ -e "$PHO" ]; then bad "a photo file already"; else ok "no photos kept yet"; fi
@@ -466,7 +466,7 @@ s = int(sys.argv[2]); Image.frombytes('RGB', (s, s), os.urandom(s * s * 3)).save
   python3 - "$DAT" <<'PY'
 import re, sys
 dat = sys.argv[1]
-pho = dat[:-4] + ".PHO"
+pho = dat[:-4] + ".pho"
 d = open(dat, "rb").read()
 p = open(pho, "rb").read()
 out, i = [b"CARDCACHE 1\n"], d.index(b"\n") + 1
@@ -534,8 +534,8 @@ absent "the gone one" "Club Member007" "$R"
 expect "the others kept" "Club Member299" "$R"
 
 echo "the parsed cache (BOOKnnnn.IDX)"
-MID=$(sed -n 's/^ID=//p' "$M/ECONTACT.INF" | tr -d '\r' | tail -1)
-IDX=$M/CACHE/BOOK$(printf %04d "$MID").IDX
+MID=$(sed -n 's/^ID=//p' "$M/econtact.inf" | tr -d '\r' | tail -1)
+IDX=$M/cache/book$(printf %04d "$MID").idx
 if [ -s "$IDX" ]; then ok "kept"; else bad "no $IDX"; fi
 BEFORE=$($CLI "$M" list | md5sum)
 # another parser's: its header says so (parse_id), and it isn't used
@@ -550,7 +550,7 @@ if [ "$R" = "$BEFORE" ]; then ok "cut short: the same"; else bad "cut cache chan
 if [ "$(stat -c %s "$IDX")" -gt 1000 ]; then ok "and written again"; else bad "not written again"; fi
 # made from this copy of BOOKnnnn.DAT (the number on its first line):
 # the cards found by where they are, nothing hashed
-DAT=${IDX%.IDX}.DAT
+DAT=${IDX%.idx}.dat
 R=$(CARD_LOG=$W/idx1.log $CLI "$M" list | md5sum)
 if [ "$R" = "$BEFORE" ]; then ok "from the same file: the same"; else bad "the list changed"; fi
 expect "and not hashed" "(not hashed)" "$(grep -a "Many: " "$W/idx1.log")"
@@ -636,7 +636,7 @@ for n in Bella Chris Dora; do expect "$n kept" "Person $n | $n@example.com" "$R"
 expect "the new card" "Eve Evans | eve@example.com" "$R"
 absent "the deleted card" "Aaron" "$R"
 expect "the program's book kept" "Kept" "$($CLI "$A" books)"
-if ! grep -a "EGIN:VCARD" "$A"/CACHE/BOOK*.DAT | grep -qv "^BEGIN:VCARD"; then
+if ! grep -a "EGIN:VCARD" "$A"/cache/book*.dat | grep -qv "^BEGIN:VCARD"; then
   ok "the cache's cards whole"; else bad "a card in the cache cut"; fi
 # opened again with nothing changed in between: not read again
 mkfifo "$W/accfifo2"
@@ -661,8 +661,8 @@ qcard() { printf 'BEGIN:VCARD\r\nVERSION:3.0\r\nN:%s;%s;;;\r\nFN:%s %s\r\nEMAIL:
 for n in Ann Ben Cat Dan; do qcard $n Quiet; done
 Q=$W/quiet
 $CLI "$Q" carddav Bob "$BASE/" bob builder >/dev/null
-QDAT=$(ls "$Q"/CACHE/BOOK*.DAT | head -1)
-for f in "$Q"/CACHE/BOOK*.DAT; do grep -q "Q-Ann" "$f" && QDAT=$f; done
+QDAT=$(ls "$Q"/cache/book*.dat | head -1)
+for f in "$Q"/cache/book*.dat; do grep -q "Q-Ann" "$f" && QDAT=$f; done
 GEN=$(head -1 "$QDAT")
 "${BOB[@]}" -X DELETE "$BASE/bob/quiet/Ben.vcf" >/dev/null
 qcard Cat Catherine
@@ -694,7 +694,7 @@ B=$W/big
 python3 -c "import sys; sys.path.insert(0, 'tests/hatari'); import quiet_start; quiet_start.cards('$W/big.vcf', 300)"
 $CLI "$B" local Contacts > /dev/null
 $CLI "$B" import Contacts "$W/big.vcf" > /dev/null
-R=$(python3 - "$B/CONTACTS.TXT" <<'PY'
+R=$(python3 - "$B/contacts.txt" <<'PY'
 import sys
 t = open(sys.argv[1], "rb").read()
 p = [l for l in t.split(b"\r\n") if l.startswith(b"P\t")]
@@ -705,7 +705,7 @@ PY
 read -r size np ng nu <<<"$R"
 if [ "$np" = 600 ] && [ "$nu" = 600 ] && [ "$ng" = 2 ] && [ "$size" -gt 16384 ]; then
   ok "every address once and both groups ($size bytes)"; else bad "the bigger book's file: $R"; fi
-if [ ! -e "$B/CONTACTS.TMP" ]; then ok "CONTACTS.TMP put in its place"; else bad "CONTACTS.TMP left"; fi
+if [ ! -e "$B/contacts.tmp" ]; then ok "CONTACTS.TMP put in its place"; else bad "CONTACTS.TMP left"; fi
 
 if [ "$fails" -gt 0 ]; then echo "$fails failed"; exit 1; fi
 echo "all passed"

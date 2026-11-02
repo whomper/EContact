@@ -58,13 +58,13 @@ def as_accessory(hd):
     """EContact's folder at C:\\ECONTACT, its settings in the root"""
     folder = os.path.join(hd, "ECONTACT")
     seed(folder)
-    with open(os.path.join(folder, "ECONTACT.INF"), newline="") as f:
+    with open(os.path.join(folder, "econtact.inf"), newline="") as f:
         t = f.read()
-    os.remove(os.path.join(folder, "ECONTACT.INF"))
+    os.remove(os.path.join(folder, "econtact.inf"))
     lines = [("FOLDER=C:\\ECONTACT" if ln.startswith("FOLDER=") else ln) for ln in t.split("\r\n")]
-    with open(os.path.join(hd, "ECONTACT.INF"), "w", newline="") as f:
+    with open(os.path.join(hd, "econtact.inf"), "w", newline="") as f:
         f.write("\r\n".join(lines))
-    shutil.copy(os.path.join(BIN, "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
+    shutil.copy(os.path.join(BIN, "econtact.acc"), os.path.join(hd, "econtact.acc"))
 
 
 def program(work, machine, shots):
@@ -73,7 +73,7 @@ def program(work, machine, shots):
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(hd)
     seed(hd)
-    shutil.copy(os.path.join(BIN, "ECONTACT.PRG"), os.path.join(hd, "ECONTACT.PRG"))
+    shutil.copy(os.path.join(BIN, "econtact.prg"), os.path.join(hd, "econtact.prg"))
     r = Rig(work, machine)
     try:
         time.sleep(16)
@@ -101,14 +101,14 @@ def memory_full(work, machine):
                     % (fam, g, g, fam, g.lower(), fam.lower(), i, i % 100, i))
     subprocess.run([CLI, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([CLI, folder, "import", "Contacts", vcf], check=True, stdout=subprocess.DEVNULL)
-    with open(os.path.join(folder, "ECONTACT.INF"), newline="") as f:
+    with open(os.path.join(folder, "econtact.inf"), newline="") as f:
         t = f.read()
-    os.remove(os.path.join(folder, "ECONTACT.INF"))
+    os.remove(os.path.join(folder, "econtact.inf"))
     lines = [("FOLDER=C:\\ECONTACT" if ln.startswith("FOLDER=") else "START=5" if ln.startswith("START=")
               else ln) for ln in t.split("\r\n")]
-    with open(os.path.join(hd, "ECONTACT.INF"), "w", newline="") as f:
+    with open(os.path.join(hd, "econtact.inf"), "w", newline="") as f:
         f.write("\r\n".join(lines))
-    shutil.copy(os.path.join(BIN, "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
+    shutil.copy(os.path.join(BIN, "econtact.acc"), os.path.join(hd, "econtact.acc"))
     r = Rig(work, machine, auto="")
     try:
         time.sleep(120)                 # read in the background, as far as memory goes

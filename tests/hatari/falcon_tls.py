@@ -118,13 +118,13 @@ def main():
                 "UID:FT-%03d\r\nEND:VCARD\r\n" % (name, name, i, i)).encode()
 
     def log_text():
-        p = os.path.join(folder, "ECONTACT.LOG")
+        p = os.path.join(folder, "econtact.log")
         return open(p, encoding="latin-1").read() if os.path.exists(p) else ""
 
     def run(tag, expect, until=("secure:", "error")):
         """ECONTACT.PRG on the Falcon until the log has the refresh's end"""
         start = len(log_text())
-        r = Rig(d, machine, auto="C:\\ECONTACT\\ECONTACT.PRG", network=True)
+        r = Rig(d, machine, auto="C:\\ECONTACT\\econtact.prg", network=True)
         try:
             t0 = time.time()
             while time.time() - t0 < 600:
@@ -166,24 +166,24 @@ def main():
                 break
             except Exception:
                 time.sleep(0.2)
-        pem = os.path.join(folder, "CACERT.PEM")
-        open(pem, "wb").write(open(os.path.join(ROOT, "binary", "CACERT.PEM"), "rb").read() + open(ca, "rb").read())
-        subprocess.run([MKROOTS, pem, os.path.join(folder, "ROOTS.DAT")], check=True, capture_output=True)
-        roots0 = open(os.path.join(folder, "ROOTS.DAT"), "rb").read()
-        inf = open(os.path.join(folder, "ECONTACT.INF"), "rb").read()
+        pem = os.path.join(folder, "cacert.pem")
+        open(pem, "wb").write(open(os.path.join(ROOT, "binary", "cacert.pem"), "rb").read() + open(ca, "rb").read())
+        subprocess.run([MKROOTS, pem, os.path.join(folder, "roots.dat")], check=True, capture_output=True)
+        roots0 = open(os.path.join(folder, "roots.dat"), "rb").read()
+        inf = open(os.path.join(folder, "econtact.inf"), "rb").read()
         inf = inf.replace(b"http://127.0.0.1:%d/" % hport, b"https://127.0.0.1:%d/" % sport)
         for k, v in ((b"LOG", b"1"), (b"SYNC_OPEN", b"1"), (b"FALCON", b"1"), (b"DSP", b"1" if dsp else b"0"),
                      (b"GATE", b""), (b"FOLDER", b"C:\\ECONTACT")):
             inf = re.sub(rb"\n" + k + rb"=[^\r\n]*", b"\n" + k + b"=" + v.replace(b"\\", b"\\\\"), inf)
-        os.remove(os.path.join(folder, "ECONTACT.INF"))
-        open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
-        shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), folder)
-        shutil.copy(os.path.join(ROOT, "binary", "TLS.OVL"), folder)     # beside CACERT.PEM (7.4)
+        os.remove(os.path.join(folder, "econtact.inf"))
+        open(os.path.join(hd, "econtact.inf"), "wb").write(inf)
+        shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), folder)
+        shutil.copy(os.path.join(ROOT, "binary", "tls.ovl"), folder)     # beside CACERT.PEM (7.4)
 
         first, took1 = run("1-first", "Server")
         second, took2 = run("2-second", "Server")
-        os.remove(os.path.join(folder, "TLS.OVL"))
-        third, took3 = run("3-no-tls-ovl", "TLS.OVL", ("is missing",))
+        os.remove(os.path.join(folder, "tls.ovl"))
+        third, took3 = run("3-no-tls-ovl", "tls.ovl", ("is missing",))
     finally:
         for p in procs:
             p.terminate()
@@ -194,9 +194,9 @@ def main():
             if re.search(r"secure:|certificate|on the DSP|on the 68030|self-test|seed|SEED|Server --|TLS.OVL", l):
                 print("   " + l.strip()[:160])
     cache = ""
-    for f in os.listdir(os.path.join(folder, "CACHE")):
-        if f.endswith(".DAT"):
-            cache += open(os.path.join(folder, "CACHE", f), "rb").read().decode("utf-8", "replace")
+    for f in os.listdir(os.path.join(folder, "cache")):
+        if f.endswith(".dat"):
+            cache += open(os.path.join(folder, "cache", f), "rb").read().decode("utf-8", "replace")
     check("TLS.OVL loaded", re.search(r"TLS.OVL \d+\.\d+ loaded, \d+ KB", first) is not None)
     check("TLS 1.2 on the Falcon, with ECDHE and ECDSA", re.search(r"secure: TLS 1\.2, ECDHE?-ECDSA", first) is not None)
     check("the card new on the server came over it", "OverTLS" in cache)
@@ -208,8 +208,8 @@ def main():
     else:
         check("the curves not on the DSP", "on the DSP" not in first)
     check("ROOTS.DAT given CACERT.PEM's date, in place",
-          open(os.path.join(folder, "ROOTS.DAT"), "rb").read() != roots0)
-    check("SIGS.DAT written", os.path.exists(os.path.join(folder, "SIGS.DAT")))
+          open(os.path.join(folder, "roots.dat"), "rb").read() != roots0)
+    check("SIGS.DAT written", os.path.exists(os.path.join(folder, "sigs.dat")))
     check("the second time, the signature one checked before",
           re.search(r"[1-9]\d* of \d+ ECDSA signatures checked before", second) is not None)
     check("TLS the second time too", "secure: TLS 1.2" in second)

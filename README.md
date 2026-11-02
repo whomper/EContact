@@ -345,20 +345,22 @@ name, a company, one or two emails, two phones, some with an address, birthday o
 
 ```sh
 sudo apt install gcc-m68k-linux-gnu python3 zip   # Debian/Ubuntu; no MiNTLib needed
-make                     # binary/ECONTACT.ACC, ECONTACT.PRG, ROOTS.DAT, TLS.OVL (common's,
-                         # as it is), and ECONTACT.HYP when hcp is installed
-make help HCP=/path/to/hcp   # ECONTACT.HYP alone
-make dist                # a release's files in dist/: each file, and ECONTACT-x.y.zip
+make                     # binary/econtact.acc, econtact.prg, roots.dat, tls.ovl (common's,
+                         # as it is), and econtact.hyp when hcp is installed
+make help HCP=/path/to/hcp   # econtact.hyp alone
+make dist                # a release's files in dist/: each file, and econtact-x.y.zip
 make icons               # icons/, ui/icon*.h, docs/icon*.png from common/icons/ECONTACT.txt
 ```
 
-`binary/ECONTACT.HYP` is made from `docs/GUIDE.md` by `tools/mkhelp.py` (from EMail) and HCP,
+`binary/econtact.hyp` is made from `docs/GUIDE.md` by `tools/mkhelp.py` (from EMail) and HCP,
 ST-Guide's compiler, from [hypview](https://github.com/th-otto/hypview)
 (`common/tools/build-hcp.sh DIR` builds it); `make test` checks it carries the program's version.
 
 As in ECal and EMail, the program is freestanding (no MiNTLib), `common/tools/elf2tos.py` writes the
 TOS executable, and one binary is both the accessory and the program. `binary/` and `dist/` are what
-make builds; they are never committed, and a build changes no tracked file.
+make builds; they are never committed, and a build changes no tracked file. Every file
+EContact names, and every file a release carries, is in lowercase (the guidelines 6.6: a MiNT
+ext2 drive tells `econtact.inf` from `ECONTACT.INF`).
 
 **Versions and releases.** `VERSION` holds the last release, major.minor (e.g. 1.33), and the build
 never changes it. Every build shows it as it is in the About box and the User-Agent EContact sends;
@@ -426,12 +428,12 @@ tests/hatari/help_key.py WORK [MACHINE]           # the Help key, with a stand-i
 tests/hatari/stop_test.py WORK [MACHINE]          # Esc stops a server that says nothing
                                                   # (FAKESTNG and the serial bridge from common/)
 make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \
-     WORK/bin/ECONTACT.ACC                        # an edition that times its event calls
+     WORK/bin/econtact.acc                        # an edition that times its event calls
 tests/hatari/quiet_start.py WORK [MACHINE]        # the accessory's quiet start: 600 contacts
                                                   # read in the background, at most 100 ms
                                                   # (ST) or 50 ms (TT, Falcon) between event calls
 make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE=20 \
-     WORK/bin/ECONTACT.PRG WORK/bin/ECONTACT.ACC
+     WORK/bin/econtact.prg WORK/bin/econtact.acc
 tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--profile WORK/build/contact.elf]
                                                   # how long the user waits (the guidelines'
                                                   # Speed): 621 contacts on ST:mono, ST:med and

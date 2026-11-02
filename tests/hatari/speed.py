@@ -6,7 +6,7 @@ it"), in Hatari with an edition that times the stretches between its
 event calls:
 
     make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE=20 \\
-        WORK/bin/ECONTACT.PRG WORK/bin/ECONTACT.ACC
+        WORK/bin/econtact.prg WORK/bin/econtact.acc
     [FONT=ID,PT] tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--bin DIR] [--only prg|acc]
 
 On each machine (ST:mono, ST:med and Falcon-4:16 by default; --nvdi runs
@@ -84,7 +84,7 @@ def seed(folder, work):
     cards(vcf, 600)
     for a in (("local", "Contacts"), ("import", "Contacts", SAMPLE), ("import", "Contacts", vcf)):
         subprocess.run([CLI, folder] + list(a), check=True, stdout=subprocess.DEVNULL)
-    inf = os.path.join(folder, "ECONTACT.INF")
+    inf = os.path.join(folder, "econtact.inf")
     t = open(inf, "rb").read().replace(b"\nLOG=0", b"\nLOG=1").replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     t = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", t)
     t = re.sub(rb"\nSTART=[^\r\n]*", rb"\nSTART=5", t)
@@ -185,7 +185,7 @@ def profiled(r, con, d, name, fn):
 def start_symbols(r, d, folder):
     """the start profiled from the boot: the symbols at the addresses
     the first run's log gives (set_logging's), the same at each boot"""
-    log = open(os.path.join(folder, "ECONTACT.LOG"), encoding="latin-1").read()
+    log = open(os.path.join(folder, "econtact.log"), encoding="latin-1").read()
     at = int(re.findall(r"\(program\): program at ([0-9a-f]+)", log)[-1], 16)
     rel = open(os.path.join(d, "symbols.txt")).read().splitlines()
     base = at - next(int(l.split()[0], 16) for l in rel if l.endswith(" set_logging"))
@@ -370,17 +370,17 @@ def machine_run(work, machine, bin_dir, only):
     hd = os.path.join(d, "hd")
     folder = os.path.join(hd, "ECONTACT")
     inf = seed(folder, d)
-    open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
+    open(os.path.join(hd, "econtact.inf"), "wb").write(inf)
     run = Run(machine, os.path.basename(d))
     if PROFILE:
         profile_symbols(d)
     con = Console(os.path.join(d, "hatari.log"))
     if only in (None, "prg"):
-        shutil.copy(os.path.join(bin_dir, "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRG"))
-        log = os.path.join(folder, "ECONTACT.LOG")
+        shutil.copy(os.path.join(bin_dir, "econtact.prg"), os.path.join(folder, "econtact.prg"))
+        log = os.path.join(folder, "econtact.log")
         for n in (1, 2):
             n0 = open(log, encoding="latin-1").read().count("the list sorted") if os.path.exists(log) else 0
-            r = Rig(d, machine, auto="C:\\ECONTACT\\ECONTACT.PRG",
+            r = Rig(d, machine, auto="C:\\ECONTACT\\econtact.prg",
                     stdin=subprocess.PIPE if PROFILE else None)
             try:
                 if PROFILE and n == 2:		# the start, to its first turn's end
@@ -420,10 +420,10 @@ def machine_run(work, machine, bin_dir, only):
                 r.stop()
             os.rename(os.path.join(d, "hatari.log"), os.path.join(d, "hatari-prg%d.log" % n))
             con.at = 0
-        os.remove(os.path.join(folder, "ECONTACT.PRG"))
+        os.remove(os.path.join(folder, "econtact.prg"))
     if only in (None, "acc"):
-        shutil.copy(os.path.join(bin_dir, "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
-        log = os.path.join(folder, "ECONTACT.LOG")	# (before NVDI's boot, in which it may read them)
+        shutil.copy(os.path.join(bin_dir, "econtact.acc"), os.path.join(hd, "econtact.acc"))
+        log = os.path.join(folder, "econtact.log")	# (before NVDI's boot, in which it may read them)
         n0 = open(log, encoding="latin-1").read().count("the list sorted") if os.path.exists(log) else 0
         r = Rig(d, machine, auto="")
         try:

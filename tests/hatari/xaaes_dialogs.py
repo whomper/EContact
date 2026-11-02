@@ -60,12 +60,12 @@ def main():
     files = os.path.join(work, "files")
     os.makedirs(files)
     docs_shots.seed(files)
-    inf = os.path.join(files, "ECONTACT.INF")
+    inf = os.path.join(files, "econtact.inf")
     with open(inf, newline="") as f:
         t = f.read()
     with open(inf, "w", newline="") as f:
         f.write("\r\n".join("FOLDER=C:\\" if ln.startswith("FOLDER=") else ln for ln in t.split("\r\n")))
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), os.path.join(files, "ECONTACT.PRG"))
+    shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), os.path.join(files, "econtact.prg"))
     subprocess.run([sys.executable, os.path.join(ROOT, "common", "tools", "getrelease.py"), "ECal", files,
                     "ECAL.ACC"], check=True)
     steps = [
@@ -91,9 +91,9 @@ def main():
         "click 300 150", "wait 2", "key 0x01", "wait 3",		# Settings to the front, closed
     ]
     run = os.path.join(work, "run")
-    cmd = [sys.executable, os.path.join(XA, "run.py"), run, machines.emutos(), "ECONTACT.PRG",
-           "--copy"] + [os.path.join(files, n) for n in ("ECONTACT.INF", "ECONTACT.KEY", "CACHE",
-                                                          "CONTACTS.TXT", "ECAL.ACC")] + \
+    cmd = [sys.executable, os.path.join(XA, "run.py"), run, machines.emutos(), "econtact.prg",
+           "--copy"] + [os.path.join(files, n) for n in ("econtact.inf", "econtact.key", "cache",
+                                                          "contacts.txt", "ECAL.ACC")] + \
           ["--wait", "70", "--steps", ";".join(steps)]
     old = os.getcwd()
     os.chdir(files)

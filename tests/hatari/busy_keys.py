@@ -45,16 +45,16 @@ def main():
     subprocess.run([CLI, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([CLI, folder, "import", "Contacts", os.path.join(work, "p.vcf")], check=True,
                    stdout=subprocess.DEVNULL)
-    for f in os.listdir(os.path.join(folder, "CACHE")):
-        if f.endswith(".IDX"):              # every card parsed: a long start
-            os.remove(os.path.join(folder, "CACHE", f))
-    inf_path = os.path.join(folder, "ECONTACT.INF")
+    for f in os.listdir(os.path.join(folder, "cache")):
+        if f.endswith(".idx"):              # every card parsed: a long start
+            os.remove(os.path.join(folder, "cache", f))
+    inf_path = os.path.join(folder, "econtact.inf")
     inf = open(inf_path, "rb").read().replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0").replace(b"\nLOG=0", b"\nLOG=1")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
     open(inf_path, "wb").write(inf)
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), folder)
-    log = os.path.join(folder, "ECONTACT.LOG")
-    r = Rig(work, machine, auto="C:\\ECONTACT\\ECONTACT.PRG")
+    shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), folder)
+    log = os.path.join(folder, "econtact.log")
+    r = Rig(work, machine, auto="C:\\ECONTACT\\econtact.prg")
     try:
         t0 = time.time()
         while time.time() - t0 < 60 and not os.path.exists(log):

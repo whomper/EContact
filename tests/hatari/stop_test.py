@@ -61,14 +61,14 @@ def main():
 
     stop = threading.Event()
     threading.Thread(target=silent_server, args=(stop,), daemon=True).start()
-    acc = "ECONTACT.ACC"
-    shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "ECONTACT.ACC"))
-    with open(os.path.join(hd, "ECONTACT", "ECONTACT.INF"), "w", newline="") as f:
+    acc = "econtact.acc"
+    shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "econtact.acc"))
+    with open(os.path.join(hd, "ECONTACT", "econtact.inf"), "w", newline="") as f:
         f.write("gate=127.0.0.1\r\ngateport=%d\r\n"
                 "sync_open=1\r\nlog=1\r\n[account]\r\nname=Server\r\nkind=0\r\n"
                 "url=http://127.0.0.1:15232/\r\nuser=alice\r\npass=wonderland\r\n" % GW)
     r = rig.Rig(work, machine, auto=None, network=True)
-    log = os.path.join(hd, "ECONTACT", "ECONTACT.LOG")
+    log = os.path.join(hd, "ECONTACT", "econtact.log")
     try:
         time.sleep(18)
         r.click(18, 8)                  # the Desk menu: EContact, which syncs at once

@@ -27,7 +27,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
-from rig import Rig, machine_arg  # noqa: E402
+from rig import Rig, machine_arg, ci_path  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 BIN = os.path.join(ROOT, "binary")
@@ -41,7 +41,7 @@ def check(what, ok):
 
 
 def folder_of(hd):
-    p = os.path.join(hd, "ECONTACT.INF")
+    p = ci_path(hd, "econtact.inf")
     if not os.path.exists(p):
         return None
     for ln in open(p, encoding="latin-1"):
@@ -76,7 +76,7 @@ def main():
     global DESK_Y, USE_C_Y
     work, machine = sys.argv[1], machine_arg(sys.argv, 2, "ST:mono")
     st = machine.startswith("ST")
-    acc = os.path.join(BIN, "ECONTACT.ACC")
+    acc = os.path.join(BIN, "econtact.acc")
     if not st:
         DESK_Y, USE_C_Y = 61, 289
 
@@ -84,24 +84,24 @@ def main():
     w = os.path.join(work, "a")
     shutil.rmtree(w, ignore_errors=True)
     os.makedirs(os.path.join(w, "hd"))
-    shutil.copy(acc, os.path.join(w, "hd", "ECONTACT.ACC"))
+    shutil.copy(acc, os.path.join(w, "hd", "econtact.acc"))
     boot(w, machine, "", desk_contacts() + [(318, USE_C_Y), 4])	# "Use C:"
     check("FOLDER=C:\\ECONTACT", folder_of(os.path.join(w, "hd")) == "C:\\ECONTACT")
-    check("the folder made, the key in it", os.path.exists(os.path.join(w, "hd", "ECONTACT", "ECONTACT.KEY")))
+    check("the folder made, the key in it", os.path.exists(ci_path(os.path.join(w, "hd"), "econtact/econtact.key")))
 
     print("2. the program in its own folder, then the accessory")
     w = os.path.join(work, "b")
     shutil.rmtree(w, ignore_errors=True)
     app = os.path.join(w, "hd", "APPS", "CONTACTS")
     os.makedirs(app)
-    shutil.copy(os.path.join(BIN, "ECONTACT.PRG"), app)
+    shutil.copy(os.path.join(BIN, "econtact.prg"), app)
     boot(w, machine, "C:\\APPS\\CONTACTS\\ECONTACT.PRG", [6])
     check("FOLDER= the program's", folder_of(os.path.join(w, "hd")) == "C:\\APPS\\CONTACTS")
-    check("its files next to it", os.path.exists(os.path.join(app, "ECONTACT.KEY")))
-    shutil.copy(acc, os.path.join(w, "hd", "ECONTACT.ACC"))
+    check("its files next to it", os.path.exists(ci_path(app, "econtact.key")))
+    shutil.copy(acc, os.path.join(w, "hd", "econtact.acc"))
     boot(w, machine, "", desk_contacts())
     check("the accessory kept it", folder_of(os.path.join(w, "hd")) == "C:\\APPS\\CONTACTS")
-    check("and made no folder of its own", not os.path.exists(os.path.join(w, "hd", "ECONTACT")))
+    check("and made no folder of its own", not os.path.exists(ci_path(os.path.join(w, "hd"), "econtact")))
 
     print("3. the accessory, settings in the folder only")
     w = os.path.join(work, "c")
@@ -112,10 +112,10 @@ def main():
     subprocess.run([cli, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([cli, folder, "import", "Contacts", os.path.join(ROOT, "tests", "hatari", "sample.vcf")],
                    check=True, stdout=subprocess.DEVNULL)
-    shutil.copy(acc, os.path.join(w, "hd", "ECONTACT.ACC"))
+    shutil.copy(acc, os.path.join(w, "hd", "econtact.acc"))
     boot(w, machine, "", desk_contacts() + [6])
     check("copied to the root, FOLDER=C:\\ECONTACT", folder_of(os.path.join(w, "hd")) == "C:\\ECONTACT")
-    check("the book with it", "[BOOK]" in open(os.path.join(w, "hd", "ECONTACT.INF"), encoding="latin-1").read())
+    check("the book with it", "[BOOK]" in open(ci_path(os.path.join(w, "hd"), "econtact.inf"), encoding="latin-1").read())
 
     print("4. the program started by another one, from A:\\APP")
     falcon = machine.startswith("Falcon")
@@ -132,7 +132,7 @@ def main():
         img = os.path.join(w, "a.st")
         subprocess.run(["mformat", "-i", img, "-f", "720", "-C", "::"], check=True, capture_output=True)
         subprocess.run(["mmd", "-i", img, "::/APP"], check=True, capture_output=True)
-        subprocess.run(["mcopy", "-i", img, os.path.join(BIN, "ECONTACT.PRG"), "::/APP/PROBE.PRG"], check=True,
+        subprocess.run(["mcopy", "-i", img, os.path.join(BIN, "econtact.prg"), "::/APP/PROBE.PRG"], check=True,
                        capture_output=True)
         # a Falcon as sold, on a mono monitor: with a floppy in A: Hatari's
         # desktop file has no screen mode and a VGA Falcon comes up in ST
@@ -145,8 +145,8 @@ def main():
         on_a = subprocess.run(["mdir", "-b", "-i", img, "::/APP"], capture_output=True, text=True).stdout.upper()
         # (its welcome is up: ECONTACT.INF comes later)
         check("its key and cache in A:\\APP, its own folder", "ECONTACT.KEY" in on_a and "CACHE" in on_a)
-        check("nothing in the desktop's folder", not os.path.exists(os.path.join(w, "hd", "ECONTACT.KEY"))
-              and not os.path.exists(os.path.join(w, "hd", "CACHE")))
+        check("nothing in the desktop's folder", not os.path.exists(ci_path(os.path.join(w, "hd"), "econtact.key"))
+              and not os.path.exists(ci_path(os.path.join(w, "hd"), "cache")))
 
     print("all passed" if not fails else "%d failed" % fails)
     sys.exit(1 if fails else 0)

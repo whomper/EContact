@@ -43,15 +43,15 @@ def main():
     subprocess.run([CLI, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([CLI, folder, "import", "Contacts", os.path.join(ROOT, "tests", "hatari", "sample.vcf")],
                    check=True, stdout=subprocess.DEVNULL)
-    with open(os.path.join(folder, "ECONTACT.INF"), "rb") as f:
+    with open(os.path.join(folder, "econtact.inf"), "rb") as f:
         inf = f.read()
     # in the root, as ECONTACT.PRG leaves it; a log, and no refresh at opening
     inf = inf.replace(b"\nLOG=0", b"\nLOG=1").replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
-    with open(os.path.join(hd, "ECONTACT.INF"), "wb") as f:
+    with open(os.path.join(hd, "econtact.inf"), "wb") as f:
         f.write(inf)
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
-    log = os.path.join(folder, "ECONTACT.LOG")
+    shutil.copy(os.path.join(ROOT, "binary", "econtact.acc"), os.path.join(hd, "econtact.acc"))
+    log = os.path.join(folder, "econtact.log")
 
     def reads():
         if not os.path.exists(log):

@@ -19,6 +19,7 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "common", "tools"))
 import machines  # noqa: E402
+from machines import ci_path  # noqa: E402,F401  (the guidelines 6.6: a program's files whatever their case)
 
 # ST scancodes (US layout)
 SCAN = {c: i for i, c in enumerate("1234567890-=", 2)}

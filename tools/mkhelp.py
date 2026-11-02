@@ -13,7 +13,7 @@ page width (a long line in a listing goes on under its description);
 bold becomes @{B}, links between sections become ST-Guide links, and
 pictures are left out. The text is written in the Atari character set,
 and the same guide always gives the same file (no date in it). Compile
-with HCP (the hypview project): hcp -o binary/ECONTACT.HYP build/ECONTACT.STG
+with HCP (the hypview project): hcp -o binary/econtact.hyp build/ECONTACT.STG
 """
 import re
 import sys

@@ -42,13 +42,13 @@ def main():
     subprocess.run([CLI, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([CLI, folder, "import", "Contacts", os.path.join(ROOT, "tests", "hatari", "sample.vcf")],
                    check=True, stdout=subprocess.DEVNULL)
-    inf = open(os.path.join(folder, "ECONTACT.INF"), "rb").read()
+    inf = open(os.path.join(folder, "econtact.inf"), "rb").read()
     inf = inf.replace(b"\nLOG=0", b"\nLOG=1").replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = re.sub(rb"\nSTART=[^\r\n]*", rb"\nSTART=5", inf)
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
-    os.remove(os.path.join(folder, "ECONTACT.INF"))
-    open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.ACC"), os.path.join(hd, "ECONTACT.ACC"))
+    os.remove(os.path.join(folder, "econtact.inf"))
+    open(os.path.join(hd, "econtact.inf"), "wb").write(inf)
+    shutil.copy(os.path.join(ROOT, "binary", "econtact.acc"), os.path.join(hd, "econtact.acc"))
     shutil.copy(os.path.join(ROOT, "build", "ASKER.PRG"), os.path.join(hd, "ASKER.PRG"))
     said = os.path.join(hd, "ASKER.TXT")
 

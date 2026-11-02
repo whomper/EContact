@@ -127,19 +127,19 @@ def main():
     cards(vcf, 80)
     subprocess.run([CLI, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([CLI, folder, "import", "Contacts", vcf], check=True, stdout=subprocess.DEVNULL)
-    inf_path = os.path.join(folder, "ECONTACT.INF")
+    inf_path = os.path.join(folder, "econtact.inf")
     inf = open(inf_path, "rb").read().replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = inf.replace(b"\nLOG=0", b"\nLOG=1")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
     if acc:     # in the root, FOLDER= naming the folder
         os.remove(inf_path)
-        inf_path = os.path.join(hd, "ECONTACT.INF")
-        shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.ACC"),
-                    os.path.join(hd, "ECONTACT.ACC"))
+        inf_path = os.path.join(hd, "econtact.inf")
+        shutil.copy(os.path.join(ROOT, "binary", "econtact.acc"),
+                    os.path.join(hd, "econtact.acc"))
     else:
-        shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), folder)
+        shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), folder)
     open(inf_path, "wb").write(inf)
-    r = Rig(work, machine, auto="" if acc else "C:\\ECONTACT\\ECONTACT.PRG")
+    r = Rig(work, machine, auto="" if acc else "C:\\ECONTACT\\econtact.prg")
     try:
         if acc:
             time.sleep(15)
@@ -147,7 +147,7 @@ def main():
             time.sleep(1.5)
             r.click(60, 59)             # EContact
         time.sleep(25)
-        log = os.path.join(folder, "ECONTACT.LOG")
+        log = os.path.join(folder, "econtact.log")
         drawn = [l.strip() for l in open(log, encoding="latin-1") if "the window is drawn" in l] \
             if os.path.exists(log) else []
         print("  (%s)" % (drawn[0] if drawn else "the log doesn't say how the window is drawn"))

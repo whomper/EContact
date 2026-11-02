@@ -177,11 +177,11 @@ void store_init_begin(const char *dir, const char *inf)
 	if (inf)
 		str_copy(inf_path, inf, sizeof(inf_path));
 	else
-		path_join(inf_path, sizeof(inf_path), dir, "ECONTACT.INF");
-	path_join(cache_dir, sizeof(cache_dir), dir, "CACHE");
+		path_join(inf_path, sizeof(inf_path), dir, "econtact.inf");
+	path_join(cache_dir, sizeof(cache_dir), dir, "cache");
 	pf_mkdir(cache_dir);
 	photo_dir(cache_dir);		/* the pictures: CACHE\PHOTOS.PAK */
-	path_join(key, sizeof(key), dir, "ECONTACT.KEY");
+	path_join(key, sizeof(key), dir, "econtact.key");
 	secret_init(key);
 	inf_line = inf_text = pf_load(inf_path, &len);
 	if (!inf_text)
@@ -565,7 +565,7 @@ ACCOUNT *acct_add(int kind)
 static void cache_path(const BOOK *b, const char *ext, char *out, int size)
 {
 	char n[16];
-	snprintf(n, sizeof(n), "BOOK%04d.%s", b->id, ext);
+	snprintf(n, sizeof(n), "book%04d.%s", b->id, ext);
 	path_join(out, size, cache_dir, n);
 }
 
@@ -588,11 +588,11 @@ void book_delete(int i)
 	char p[200];
 	int k;
 	BOOK *b = &books[i];
-	cache_path(b, "DAT", p, sizeof(p));
+	cache_path(b, "dat", p, sizeof(p));
 	pf_remove(p);
-	cache_path(b, "PHO", p, sizeof(p));
+	cache_path(b, "pho", p, sizeof(p));
 	pf_remove(p);
-	cache_path(b, "IDX", p, sizeof(p));
+	cache_path(b, "idx", p, sizeof(p));
 	pf_remove(p);
 	people_drop(i, -1);
 	book_free(b);
@@ -656,9 +656,9 @@ unsigned long store_stamp(void)
 		if (i == -2)
 			str_copy(p, inf_path, sizeof(p));
 		else if (i == -1)
-			path_join(p, sizeof(p), opt.workdir, "ECONTACT.KEY");
+			path_join(p, sizeof(p), opt.workdir, "econtact.key");
 		else
-			cache_path(&books[i], "DAT", p, sizeof(p));
+			cache_path(&books[i], "dat", p, sizeof(p));
 		{
 			long size;
 			h = (h * 33) ^ pf_info(p, &size);	/* one look a file */
@@ -1274,7 +1274,7 @@ static int idx_current(BOOK *b)
 	int h, ok;
 	if (b->idxcur)
 		return b->idxcur > 0;	/* known from the load or the last write */
-	cache_path(b, "IDX", path, sizeof(path));
+	cache_path(b, "idx", path, sizeof(path));
 	h = pf_open(path, PF_READ);
 	if (h < 0)
 		return 0;
@@ -1392,7 +1392,7 @@ static void ld_book(int bi)
 	book_free(b);
 	b->ver = 0;
 	b->lost = 0;
-	cache_path(b, "DAT", path, sizeof(path));
+	cache_path(b, "dat", path, sizeof(path));
 	fr_open(&lf, path);
 	if (!fr_line(&lf, line, sizeof(line)) || strncmp(line, "CARDCACHE ", 10) ||
 	    (b->ver = (short)atoi(line + 10)) < 1 || b->ver > CACHE_VER) {
@@ -1425,7 +1425,7 @@ static void ld_book(int bi)
 		}
 	}
 	/* the parsed cache made from this file: nothing is hashed */
-	cache_path(b, "IDX", path, sizeof(path));
+	cache_path(b, "idx", path, sizeof(path));
 	if (b->ver == CACHE_VER && !parse_old && (h = pf_open(path, PF_READ)) >= 0) {
 		memset(&hd, 0, sizeof(hd));
 		k = (int)pf_read(h, &hd, sizeof(hd));
@@ -1554,7 +1554,7 @@ static void ld_index(void)
 	if (!ld.begun) {
 		char path[200];
 		ld.begun = 1;
-		cache_path(b, "IDX", path, sizeof(path));
+		cache_path(b, "idx", path, sizeof(path));
 		fr_open(&lf, path);
 		ld.esize = ld.kind == 2 ? (long)sizeof(IDXENT) : IDXENT_OLD;
 		ld.next = malloc((b->nres + 1) * sizeof(short));
@@ -1633,7 +1633,7 @@ static void ld_parse(void)
 	if (!ld.begun) {
 		char path[200];
 		ld.begun = 1;
-		cache_path(b, "DAT", path, sizeof(path));
+		cache_path(b, "dat", path, sizeof(path));
 		fr_open(&lf, path);
 		ld.r = 0;
 		ld.raw = 0;
@@ -1739,7 +1739,7 @@ static void ld_write(void)
 	char path[200];
 	unsigned long t0 = pf_ms();
 	int n = 0;
-	cache_path(b, "IDX", path, sizeof(path));
+	cache_path(b, "idx", path, sizeof(path));
 	if (!ld.begun) {
 		IDXHEAD hd;
 		ld.begun = 1;
@@ -2019,8 +2019,8 @@ static int cw_open(CW *w, BOOK *b)
 	char path[200];
 	memset(w, 0, sizeof(*w));
 	w->b = b;
-	cache_path(b, "TMP", w->tmp, sizeof(w->tmp));
-	cache_path(b, "PHT", w->ptmp, sizeof(w->ptmp));
+	cache_path(b, "tmp", w->tmp, sizeof(w->tmp));
+	cache_path(b, "pht", w->ptmp, sizeof(w->ptmp));
 	w->h = pf_open(w->tmp, PF_WRITE);
 	w->ph = w->h >= 0 ? pf_open(w->ptmp, PF_WRITE) : -1;
 	if (w->ph < 0) {
@@ -2031,9 +2031,9 @@ static int cw_open(CW *w, BOOK *b)
 		snprintf(ab_err, sizeof(ab_err), "can't write the address book's cache (disk full or locked?)");
 		return 0;
 	}
-	cache_path(b, "DAT", path, sizeof(path));
+	cache_path(b, "dat", path, sizeof(path));
 	w->old = pf_open(path, PF_READ);
-	cache_path(b, "PHO", path, sizeof(path));
+	cache_path(b, "pho", path, sizeof(path));
 	w->oldp = pf_open(path, PF_READ);
 	{
 		/* a new number for this copy of the file (the parsed cache says
@@ -2121,13 +2121,13 @@ static int cw_close(CW *w)
 		snprintf(ab_err, sizeof(ab_err), "couldn't write the address book's cache (disk full?)");
 		return 0;
 	}
-	cache_path(w->b, "PHO", path, sizeof(path));
+	cache_path(w->b, "pho", path, sizeof(path));
 	pf_remove(path);
 	if (w->plen)
 		pf_rename(w->ptmp, path);
 	else
 		pf_remove(w->ptmp);
-	cache_path(w->b, "DAT", path, sizeof(path));
+	cache_path(w->b, "dat", path, sizeof(path));
 	pf_remove(path);
 	pf_rename(w->tmp, path);
 	return 1;
@@ -2170,21 +2170,21 @@ static int aw_open(AW *w, BOOK *b)
 	char path[200];
 	memset(w, 0, sizeof(*w));
 	w->b = b;
-	cache_path(b, "DAT", path, sizeof(path));
+	cache_path(b, "dat", path, sizeof(path));
 	pf_info(path, &w->size);
 	/* written anew when more than half of it is superseded copies */
 	if (w->size <= 0 || b->ver != CACHE_VER || (b->ndead >= 32 && 2 * b->ndead > b->nres))
 		return 0;
 	out_file(&w->d, path, 0);
 	w->d.base = w->size;
-	cache_path(b, "PHO", path, sizeof(path));
+	cache_path(b, "pho", path, sizeof(path));
 	pf_info(path, &w->psize);
 	if (w->psize < 0)
 		w->psize = 0;
 	out_file(&w->p, path, 0);
 	w->p.base = w->psize;
 	/* the parsed cache is added to only when it is there, and this kind */
-	cache_path(b, "IDX", path, sizeof(path));
+	cache_path(b, "idx", path, sizeof(path));
 	w->idx = w->want = idx_current(b);
 	out_file(&w->i, path, 0);
 	w->ok = 1;
@@ -2322,7 +2322,7 @@ char *contact_raw(const CONTACT *c, long *len)
 		return 0;
 	/* a card the job fetched is still in its memory */
 	if (!(fj_bi == c->book && out_has(&fj.d, r->off, raw, r->len))) {
-		cache_path(b, "DAT", path, sizeof(path));
+		cache_path(b, "dat", path, sizeof(path));
 		h = pf_open(path, PF_READ);
 		if (!read_at(h, r->off, raw, r->len)) {
 			free(raw);
@@ -2352,7 +2352,7 @@ char *contact_raw(const CONTACT *c, long *len)
 		if (r->plen > 0 && fj_bi == c->book && out_has(&fj.p, r->poff, out + n, r->plen)) {
 			n += r->plen;
 		} else if (r->plen > 0) {
-			cache_path(b, "PHO", path, sizeof(path));
+			cache_path(b, "pho", path, sizeof(path));
 			h = pf_open(path, PF_READ);
 			if (read_at(h, r->poff, out + n, r->plen))
 				n += r->plen;
@@ -4034,12 +4034,12 @@ static struct {
 
 static void pfw_path(char *p, int size)
 {
-	path_join(p, size, opt.workdir, "CONTACTS.TXT");
+	path_join(p, size, opt.workdir, "contacts.txt");
 }
 
 static void pfw_tmp(char *p, int size)
 {
-	path_join(p, size, opt.workdir, "CONTACTS.TMP");
+	path_join(p, size, opt.workdir, "contacts.tmp");
 }
 
 int people_file_due(void)

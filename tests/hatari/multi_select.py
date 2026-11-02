@@ -63,11 +63,11 @@ def main():
     subprocess.run([CLI, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([CLI, folder, "import", "Contacts", os.path.join(ROOT, "tests", "hatari", "sample.vcf")],
                    check=True, stdout=subprocess.DEVNULL)
-    inf_path = os.path.join(folder, "ECONTACT.INF")
+    inf_path = os.path.join(folder, "econtact.inf")
     inf = open(inf_path, "rb").read().replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
     open(inf_path, "wb").write(inf)
-    shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), folder)
+    shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), folder)
     scrap = os.path.join(hd, "CLIPBRD", "SCRAP.TXT")
     delete_at = DELETE_ST if machine.startswith("ST") else DELETE_FALCON
 
@@ -77,7 +77,7 @@ def main():
 
     copied = {}
     before = names()
-    r = Rig(work, machine, auto="C:\\ECONTACT\\ECONTACT.PRG")
+    r = Rig(work, machine, auto="C:\\ECONTACT\\econtact.prg")
 
     def held(key, x, y):
         r.move(x, y)

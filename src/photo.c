@@ -28,7 +28,7 @@ void photo_dir(const char *dir)
 {
 	char pack[220];
 	str_copy(pdir, dir, sizeof(pdir));
-	path_join(pack, sizeof(pack), pdir, "PHOTOS.PAK");
+	path_join(pack, sizeof(pack), pdir, "photos.pak");
 	pack_path(pack);
 }
 

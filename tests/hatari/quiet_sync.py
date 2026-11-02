@@ -7,7 +7,7 @@ named), with an edition built to time the stretches between its event
 calls (see quiet_start.py):
 
     make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \\
-        WORK/bin/ECONTACT.ACC
+        WORK/bin/econtact.acc
     tests/hatari/quiet_sync.py WORK [MACHINE] [contacts]
 
 A Radicale with 40 contacts (by default) behind the gateway
@@ -109,7 +109,7 @@ def main():
             http("PUT", base + "club/m%03d.vcf" % i, card(i))
         subprocess.run([CLI, folder, "carddav", "Club", "http://127.0.0.1:%d/" % rport, "alice", "wonderland"],
                        check=True, stdout=subprocess.DEVNULL)
-        dat = [os.path.join(folder, "CACHE", f) for f in os.listdir(os.path.join(folder, "CACHE")) if f.endswith(".DAT")]
+        dat = [os.path.join(folder, "cache", f) for f in os.listdir(os.path.join(folder, "cache")) if f.endswith(".dat")]
         gen = open(dat[0], "rb").readline()
         # meanwhile, on the server: 10 changed, 5 gone, 10 new
         for i in range(0, min(n, 50), 5):
@@ -118,18 +118,18 @@ def main():
             http("DELETE", base + "club/m%03d.vcf" % i)
         for i in range(n, n + 10):
             http("PUT", base + "club/m%03d.vcf" % i, card(i, "New"))
-        inf = open(os.path.join(folder, "ECONTACT.INF"), "rb").read()
+        inf = open(os.path.join(folder, "econtact.inf"), "rb").read()
         inf = inf.replace(b"\nLOG=0", b"\nLOG=1").replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
         inf = re.sub(rb"\nSTART=[^\r\n]*", rb"\nSTART=5", inf)
         inf = re.sub(rb"\nSYNC_AFTER=[^\r\n]*", rb"\nSYNC_AFTER=1", inf)
         inf = re.sub(rb"\nGATE=[^\r\n]*", rb"\nGATE=127.0.0.1", inf)
         inf = re.sub(rb"\nGATEPORT=[^\r\n]*", b"\nGATEPORT=%d" % gport, inf)
         inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
-        os.remove(os.path.join(folder, "ECONTACT.INF"))
-        open(os.path.join(hd, "ECONTACT.INF"), "wb").write(inf)
-        shutil.copy(os.path.join(work, "bin", "ECONTACT.ACC"),
-                    os.path.join(hd, "ECONTACT.ACC"))
-        log = os.path.join(folder, "ECONTACT.LOG")
+        os.remove(os.path.join(folder, "econtact.inf"))
+        open(os.path.join(hd, "econtact.inf"), "wb").write(inf)
+        shutil.copy(os.path.join(work, "bin", "econtact.acc"),
+                    os.path.join(hd, "econtact.acc"))
+        log = os.path.join(folder, "econtact.log")
         r = Rig(d, machine, auto=None, network=True)
         try:
             t0 = time.time()
@@ -175,7 +175,7 @@ def main():
     check("no stretch over %d ms but the opening's and the serial line's (%s)"
           % (limit, "the longest %d ms" % max(quiet) if quiet else "none reached 50 ms"), max(quiet or [0]) <= limit)
     check("added to the cache, not written anew", open(dat[0], "rb").readline() == gen)
-    shutil.copy(os.path.join(hd, "ECONTACT.INF"), os.path.join(folder, "ECONTACT.INF"))	# for card-cli
+    shutil.copy(os.path.join(hd, "econtact.inf"), os.path.join(folder, "econtact.inf"))	# for card-cli
     out = subprocess.run([CLI, folder, "list"], check=True, capture_output=True, text=True).stdout
     changed, gone = len(range(0, min(n, 50), 5)), len(range(1, min(n, 50), 10))
     check("the changed ones (%d)" % changed, out.count("Changed Member") == changed)

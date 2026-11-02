@@ -59,7 +59,7 @@ def same(a, b):
 
 def gdos_fonts(folder):
     """the fixed-width GDOS fonts ECONTACT.FNT names: [(name, id)]"""
-    path = os.path.join(folder, "ECONTACT.FNT")
+    path = os.path.join(folder, "econtact.fnt")
     if not os.path.exists(path):
         return []
     out = []
@@ -72,7 +72,7 @@ def gdos_fonts(folder):
 
 def inf_font(hd):
     """FONT_ID= in ECONTACT.INF (the root's)"""
-    t = open(os.path.join(hd, "ECONTACT.INF"), encoding="latin-1").read()
+    t = open(os.path.join(hd, "econtact.inf"), encoding="latin-1").read()
     m = re.search(r"^FONT_ID=(\d+)", t, re.M)
     return int(m.group(1)) if m else 1
 
@@ -100,18 +100,18 @@ def main():
     subprocess.run([CLI, folder, "local", "Contacts"], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([CLI, folder, "import", "Contacts", os.path.join(ROOT, "tests", "hatari", "sample.vcf")],
                    check=True, stdout=subprocess.DEVNULL)
-    with open(os.path.join(folder, "ECONTACT.INF"), "rb") as f:
+    with open(os.path.join(folder, "econtact.inf"), "rb") as f:
         inf = f.read()
-    os.remove(os.path.join(folder, "ECONTACT.INF"))
+    os.remove(os.path.join(folder, "econtact.inf"))
     # in the root, FOLDER= naming the folder; a log, no refresh at
     # opening, the system font
     inf = inf.replace(b"\nLOG=0", b"\nLOG=1").replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
     inf = re.sub(rb"\nFONT_ID=[^\r\n]*", rb"\nFONT_ID=1", inf)
-    with open(os.path.join(hd, "ECONTACT.INF"), "wb") as f:
+    with open(os.path.join(hd, "econtact.inf"), "wb") as f:
         f.write(inf)
-    acc = "ECONTACT.ACC"
-    fnt = os.path.join(folder, "ECONTACT.FNT")
+    acc = "econtact.acc"
+    fnt = os.path.join(folder, "econtact.fnt")
 
     def start(auto):
         r = Rig(work, machine, auto=auto)
@@ -138,8 +138,8 @@ def main():
 
     if boot:
         # the program chooses the font, as Erez did, and quits
-        shutil.copy(os.path.join(ROOT, "binary", "ECONTACT.PRG"), os.path.join(folder, "ECONTACT.PRG"))
-        r = start("C:\\ECONTACT\\ECONTACT.PRG")
+        shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), os.path.join(folder, "econtact.prg"))
+        r = start("C:\\ECONTACT\\econtact.prg")
         try:
             r.shot("1-program")
             r.click(*OPTIONS)
@@ -167,8 +167,8 @@ def main():
         chosen = inf_font(hd)
         names = dict((i, n) for n, i in fonts)
         check("the program wrote FONT_ID=%d (%s)" % (chosen, names.get(chosen, "not listed")), chosen in names)
-        os.remove(os.path.join(folder, "ECONTACT.PRG"))
-        shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "ECONTACT.ACC"))
+        os.remove(os.path.join(folder, "econtact.prg"))
+        shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "econtact.acc"))
         r = start("")
         try:
             desk = r.shot("4-desktop")
@@ -183,7 +183,7 @@ def main():
               same(first, again) > 0.97)
         check("FONT_ID kept", inf_font(hd) == chosen)
     else:
-        shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "ECONTACT.ACC"))
+        shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "econtact.acc"))
         r = start("")
         try:
             desk = r.shot("1-desktop")

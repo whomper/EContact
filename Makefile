@@ -3,7 +3,7 @@
 # EContact - contacts for the Atari ST/STE/TT/Falcon, in C, a desk
 # accessory like ECal and a companion to EMail.
 #
-#   make            builds binary/ECONTACT.ACC (the desk accessory) and ECONTACT.PRG
+#   make            builds binary/econtact.acc (the desk accessory) and econtact.prg
 #                   (the same program, to start from the desktop), for every Atari,
 #                   with a stock m68k ELF cross compiler (Debian/Ubuntu: apt install
 #                   gcc-m68k-linux-gnu), and copies TLS.OVL beside them.
@@ -12,9 +12,9 @@
 #   make test       builds the contacts core for this computer and runs the
 #                   unit tests; `make itest` also syncs with a local CardDAV
 #                   server (Radicale).
-#   make help       binary/ECONTACT.HYP, the guide for ST-Guide (needs hcp:
+#   make help       binary/econtact.hyp, the guide for ST-Guide (needs hcp:
 #                   common/tools/build-hcp.sh builds it)
-#   make dist       a release's files in dist/: each file, and ECONTACT-x.y.zip
+#   make dist       a release's files in dist/: each file, and econtact-x.y.zip
 #
 # binary/ is what make builds, never committed: releases carry the
 # programs (.github/workflows/release.yml).
@@ -89,29 +89,29 @@ BIN     := binary
 HCP     ?= hcp
 HAVEHCP := $(shell command -v $(HCP) 2>/dev/null)
 
-all: $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/TLS.OVL $(BIN)/ROOTS.DAT $(if $(HAVEHCP),$(BIN)/ECONTACT.HYP)
+all: $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/roots.dat $(if $(HAVEHCP),$(BIN)/econtact.hyp)
 
-help: $(BIN)/ECONTACT.HYP
+help: $(BIN)/econtact.hyp
 
 # ECONTACT.REF (the pages' names, for ST-Guide's index) is written with it
-$(BIN)/ECONTACT.HYP: docs/GUIDE.md tools/mkhelp.py VERSION docs/front.json docs/help/WINDOW.IMG \
+$(BIN)/econtact.hyp: docs/GUIDE.md tools/mkhelp.py VERSION docs/front.json docs/help/WINDOW.IMG \
                      common/help/ECONTACT.IMG common/tools/helpfront.py common/tools/gemimg.py | $(OBJDIR) $(BIN)
 	python3 tools/mkhelp.py docs/GUIDE.md VERSION $(OBJDIR)/ECONTACT.STG
 	python3 common/tools/helpfront.py page docs/front.json $(OBJDIR)/ECONTACT.STG $(OBJDIR)/ECONTACT.STG
 	$(HCP) -q -o $@ $(OBJDIR)/ECONTACT.STG >/dev/null
-	test -s $(BIN)/ECONTACT.REF
+	test -s $(BIN)/econtact.ref
 
 # one program, two names: it sees at start-up whether TOS loaded it as
 # an accessory or started it as an application
-$(BIN)/ECONTACT.ACC: $(OBJDIR)/contact.elf common/tools/elf2tos.py | $(BIN)
+$(BIN)/econtact.acc: $(OBJDIR)/contact.elf common/tools/elf2tos.py | $(BIN)
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
-$(BIN)/ECONTACT.PRG: $(BIN)/ECONTACT.ACC
+$(BIN)/econtact.prg: $(BIN)/econtact.acc
 	cp $< $@
 
 $(OBJDIR)/contact.elf: $(OBJS) common/atari/link.ld
 	$(CC) $(LDFLAGS) $(EVWRAP) -o $@ $(OBJS) -lgcc
 
-$(BIN)/TLS.OVL: $(TLSOVL) | $(BIN)
+$(BIN)/tls.ovl: $(TLSOVL) | $(BIN)
 	cp $< $@
 
 $(OBJDIR)/bssl/%.o: $(BSSL)/src/hash/%.c
@@ -222,11 +222,11 @@ $(OBJDIR)/mkroots: common/tools/mkroots.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJD
 	$(HOSTCC) $(HOSTCFLAGS) -I$(BSSL)/inc -o $@ common/tools/mkroots.c $(HOSTSRC) $(HOSTLIB)
 
 # the root certificates: Mozilla's list, kept in common/
-$(BIN)/CACERT.PEM: common/certs/CACERT.PEM | $(BIN)
+$(BIN)/cacert.pem: common/certs/CACERT.PEM | $(BIN)
 	cp $< $@
-$(BIN)/ROOTS.DAT: $(BIN)/CACERT.PEM
+$(BIN)/roots.dat: $(BIN)/cacert.pem
 	$(MAKE) $(OBJDIR)/mkroots
-	$(OBJDIR)/mkroots $(BIN)/CACERT.PEM $@
+	$(OBJDIR)/mkroots $(BIN)/cacert.pem $@
 
 # a stand-in for ST-Guide, for tests/hatari/help_key.py
 $(OBJDIR)/fakeguide.acc: tests/atari/fakeguide.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o
@@ -298,22 +298,24 @@ test: $(OBJDIR)/unit $(OBJDIR)/lowmem $(addprefix $(OBJDIR)/replay_,$(FUZZERS)) 
 	@$(HYPCHECK)
 
 # the help file says the program's version (when it was made)
-HYPCHECK = test ! -f $(BIN)/ECONTACT.HYP || grep -q "ECONTACT.HYP $$(cat VERSION)" $(BIN)/ECONTACT.HYP || \
-	  { echo "$(BIN)/ECONTACT.HYP isn't version $$(cat VERSION): make help"; exit 1; }
+HYPCHECK = test ! -f $(BIN)/econtact.hyp || grep -q "ECONTACT.HYP $$(cat VERSION)" $(BIN)/econtact.hyp || \
+	  { echo "$(BIN)/econtact.hyp isn't version $$(cat VERSION): make help"; exit 1; }
 
 # a release's files: each one in dist/, and all of them in
-# dist/ECONTACT-x.y.zip (the icons in icons/), for the release workflow
-DIST    := $(BIN)/ECONTACT.ACC $(BIN)/ECONTACT.PRG $(BIN)/TLS.OVL $(BIN)/CACERT.PEM $(BIN)/ROOTS.DAT \
-           $(BIN)/ECONTACT.HYP $(BIN)/ECONTACT.REF
+# dist/econtact-x.y.zip (the icons in icons/), for the release workflow;
+# every name in lowercase, the icons' too (the guidelines 6.6)
+DIST    := $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/cacert.pem $(BIN)/roots.dat \
+           $(BIN)/econtact.hyp $(BIN)/econtact.ref
 ICONS   := icons/ECONTACT.RSC icons/ECONTNV.RSC icons/ECONTACT.DEF icons/ECONTACT.ICN icons/ECONTMSK.ICN
 dist: all help
 	@$(HYPCHECK)
 	rm -rf dist
 	mkdir -p dist/zip/icons
-	cp $(DIST) $(ICONS) dist/
+	cp $(DIST) dist/
 	cp $(DIST) dist/zip/
-	cp $(ICONS) dist/zip/icons/
-	cd dist/zip && zip -q -9 -r ../ECONTACT-$(VERSION_STR).zip .
+	for f in $(ICONS); do n=$$(basename $$f | tr A-Z a-z); \
+	  cp $$f dist/$$n && cp $$f dist/zip/icons/$$n || exit 1; done
+	cd dist/zip && zip -q -9 -r ../econtact-$(VERSION_STR).zip .
 	rm -rf dist/zip
 
 itest: $(OBJDIR)/card-cli
