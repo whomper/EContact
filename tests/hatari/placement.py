@@ -86,7 +86,7 @@ def main():
     os.makedirs(os.path.join(w, "hd"))
     shutil.copy(acc, os.path.join(w, "hd", "econtact.acc"))
     boot(w, machine, "", desk_contacts() + [(318, USE_C_Y), 4])	# "Use C:"
-    check("FOLDER=C:\\ECONTACT", folder_of(os.path.join(w, "hd")) == "C:\\ECONTACT")
+    check("FOLDER=C:\\econtact", folder_of(os.path.join(w, "hd")) == "C:\\econtact")
     check("the folder made, the key in it", os.path.exists(ci_path(os.path.join(w, "hd"), "econtact/econtact.key")))
 
     print("2. the program in its own folder, then the accessory")
@@ -114,7 +114,7 @@ def main():
                    check=True, stdout=subprocess.DEVNULL)
     shutil.copy(acc, os.path.join(w, "hd", "econtact.acc"))
     boot(w, machine, "", desk_contacts() + [6])
-    check("copied to the root, FOLDER=C:\\ECONTACT", folder_of(os.path.join(w, "hd")) == "C:\\ECONTACT")
+    check("copied to the root, FOLDER=C:\\econtact", folder_of(os.path.join(w, "hd")) == "C:\\econtact")
     check("the book with it", "[BOOK]" in open(ci_path(os.path.join(w, "hd"), "econtact.inf"), encoding="latin-1").read())
 
     print("4. the program started by another one, from A:\\APP")
