@@ -18,9 +18,6 @@
 #include "util.h"
 #include "tjpgd.h"
 #include "jpegdc.h"
-#ifdef AES_PROFILE
-#include <tos.h>	/* nf_debug: the speed rig's console */
-#endif
 #include "conn.h"
 
 static void why(int w, const char *detail);
@@ -51,8 +48,6 @@ static unsigned long fnv(const char *s, long n, unsigned long h)
 /* base64 decoded where it lies (the result is shorter than the text);
    spaces and line ends are skipped, so folded lines need no unfolding.
    A table, not comparisons: a photo is tens of thousands of letters */
-static int decode_poll(void);
-
 static long b64_in_place(char *s, long n)
 {
 	static signed char val[256];
@@ -77,8 +72,6 @@ static long b64_in_place(char *s, long n)
 	}
 	for (i = 0; i < n; i++) {
 		int v = val[(unsigned char)s[i]];
-		if (!(i & 4095))
-			decode_poll();	/* (a photo's 40 KB of letters took an ST 300 ms) */
 		if (v < 0) {
 			if (s[i] == '=')
 				break;
@@ -332,7 +325,7 @@ static int decode_poll(void)
 		conn_tick();
 	} else if (pf_idle) {
 		unsigned long now = pf_ms();
-		if (now - last >= 80) {	/* (200 made 200 ms stretches; 50 made none shorter, 0.4 s more) */
+		if (now - last >= 200) {
 			last = now;
 			pf_idle();
 		}
@@ -487,20 +480,6 @@ static int cells_for(DEC *d, long sx0, long sy0, long side)
 	return 1;
 }
 
-/* a / b, b > 0, with the 68000's own divu.w (32 by 16 bits, a 16-bit
-   quotient: a is 16 bits here), not GCC's 32-bit division routine: 12,288
-   of them made the last 500 ms of a photo's decode on an ST */
-static unsigned short div16(unsigned short a, unsigned short b)
-{
-#ifdef __mc68000__
-	unsigned long r = a;
-	__asm__("divu.w %1,%0" : "+d"(r) : "dm"(b) : "cc");
-	return (unsigned short)r;
-#else
-	return (unsigned short)(a / b);
-#endif
-}
-
 static void cells_out(DEC *d, PHOTOIMG *out)
 {
 	unsigned short cnt[PHOTO_N];
@@ -515,12 +494,10 @@ static void cells_out(DEC *d, PHOTOIMG *out)
 	for (i = 0; i < PHOTO_N * PHOTO_N; i++) {
 		unsigned short *s = d->sum + i * 3, n = (unsigned short)(cnt[i >> 6] * cnt[i & 63]);
 		unsigned r = 0, g = 0, b = 0;
-		if (!(i & 511))
-			decode_poll();		/* (every 8 rows of the 64) */
 		if (n) {
-			r = div16(s[0], n);
-			g = div16(s[1], n);
-			b = div16(s[2], n);
+			r = s[0] / n;
+			g = s[1] / n;
+			b = s[2] / n;
 		}
 		/* 6-bit averages to 5-6-5 */
 		out->px[i] = (unsigned short)(((r >> 1) << 11) | (g << 5) | (b >> 1));
@@ -982,17 +959,11 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 	} else if (have) {
 		h.valid = 0;		/* another photo: start again */
 	}
-#ifdef AES_PROFILE
-	unsigned long pt0 = pf_ms(), pt1;
-#endif
 	raw = contact_raw(c, &len);
 	if (!raw) {
 		why(PW_MEMORY, "the card couldn't be read from the cache");
 		return PH_FAILED;
 	}
-#ifdef AES_PROFILE
-	pt1 = pf_ms();
-#endif
 	if (!photo_ref(raw, len, &ref)) {
 		free(raw);
 		if (photo_why == PW_MEMORY)
@@ -1006,26 +977,12 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 		return PH_FAILED;
 	}
 	free(raw);
-#ifdef AES_PROFILE
-	{
-		char m[80];
-		snprintf(m, sizeof(m), "PHOTOTIME card read %lu ms, its photo found %lu ms\n", pt1 - pt0, pf_ms() - pt1);
-		nf_debug(m);
-	}
-#endif
 	if (ref.kind == PR_DATA) {
 		unsigned long t = pf_ms();
 		if (photo_decode_jpeg(ref.data, ref.len, &ref, out)) {
 			took.dec = pf_ms() - t;
 			write_cache(c, 0, 0, 0, out);
 			took.keep = pf_ms() - t - took.dec;
-#ifdef AES_PROFILE
-			{
-				char m[80];
-				snprintf(m, sizeof(m), "PHOTOTIME decoded %lu ms, kept %lu ms\n", took.dec, took.keep);
-				nf_debug(m);
-			}
-#endif
 			r = PH_OK;
 		} else if (conn_stop) {
 			r = PH_NEEDS_NET;	/* stopped: tried again next time */

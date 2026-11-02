@@ -165,13 +165,6 @@ void card_photo_tick(void)
 		busy(0);
 		status_updated();
 	}
-#ifdef AES_PROFILE
-	{
-		char m[64];
-		snprintf(m, sizeof(m), "PHOTOTIME busy and status %lu ms\n", pf_ms() - t0);
-		nf_debug(m);
-	}
-#endif
 	if (people_serial != serial) {
 		/* the card was fetched whole for its photo: the list was read
 		   again (c is gone), and the card has its photo's key now */
