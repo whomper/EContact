@@ -181,7 +181,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 - The UI is checked in Hatari. The rigs take a machine of the family's
   (`ST`, `ST-1`, `TT`, `Falcon`, a screen after a colon: common/tools/machines.py,
   the guidelines, The machines) and get Hatari's arguments, the TOS and the
-  network from it (tests/hatari/rig.py), never their own options.
+  network from it (tests/hatari/rig.py), never their own options. The
+  accessory isn't run on a 4 MB machine (`ST`, `Falcon-4`: Erez, 4 Nov
+  2026, AERA-Atari 21ba998; they stay the program's): the rigs that load
+  it default to `ST-1:mono` or the Falcon, and speed.py times it on the
+  Falcon or TT only.
   `tests/hatari/docs_shots.py WORK` takes the screenshots in docs/ (on
   Falcon:256, every app picture in 256 colours: Erez, 28 Oct 2026; and
   st-mono.png on ST:mono); with `--email` and `--ecal` it fetches EMail's

@@ -34,7 +34,7 @@ def check(what, ok):
 
 
 def main():
-    work, machine = os.path.abspath(sys.argv[1]), machine_arg(sys.argv, 2, "ST:mono")
+    work, machine = os.path.abspath(sys.argv[1]), machine_arg(sys.argv, 2, "ST-1:mono")
     shutil.rmtree(work, ignore_errors=True)
     hd = os.path.join(work, "hd")
     folder = os.path.join(hd, "ECONTACT")

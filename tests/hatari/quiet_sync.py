@@ -60,7 +60,7 @@ def free_port():
 
 def main():
     work = os.path.abspath(sys.argv[1])
-    machine = machine_arg(sys.argv, 2, "ST:mono")
+    machine = machine_arg(sys.argv, 2, "ST-1:mono")
     n = int(sys.argv[3]) if len(sys.argv) > 3 else 40
     st = machine.startswith("ST")          # a 68000
     limit = 100 if st else 50

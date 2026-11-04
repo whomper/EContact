@@ -439,7 +439,8 @@ tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--profile WORK/build/contact.e
                                                   # Speed): 621 contacts on ST:mono, ST:med and
                                                   # Falcon-4:16, each action's longest stretch
                                                   # against its time; --profile: Hatari's
-                                                  # profiler says where it went
+                                                  # profiler says where it went; the accessory
+                                                  # only on Falcon or TT (--only acc)
 tests/hatari/quiet_sync.py WORK [MACHINE]         # its refresh with the window closed, through
                                                   # the gateway (FAKESTNG and the bridge too)
 tests/hatari/falcon_tls.py WORK [MACHINE] [--no-dsp]
@@ -476,9 +477,10 @@ make build/ASKER.PRG && tests/hatari/people_ask.py WORK [MACHINE]
 The Hatari rigs run under Xvfb, with xdotool for the mouse, on the family's test machines
 (AERA-Atari's guidelines, The machines; `common/tools/machines.py list`): `ST` (Erez's 1040 ST,
 4 MB), `ST-1` (1 MB), `TT` and `Falcon` (Erez's, with the DFB1: 32 MHz, 14 MB ST RAM, 128 MB TT
-RAM), with a screen after a colon (`ST:mono`, `Falcon:256`). MACHINE is the ST in high
-resolution by default, the Falcon in 16 colours for `twin_test.py`, in 256 for the screenshots,
-and `quiet_start.py` runs on both. machines.py gives each Hatari its arguments and its own
+RAM), with a screen after a colon (`ST:mono`, `Falcon:256`). The accessory isn't run on a 4 MB
+machine (`ST`, `Falcon-4`: Erez, 4 Nov 2026), which stay the program's: so MACHINE is the 1 MB ST
+(`ST-1:mono`) by default for the rigs that load it, the Falcon in 16 colours for `twin_test.py`, in
+256 for the screenshots, and `quiet_start.py` runs on `ST-1` and `Falcon`. machines.py gives each Hatari its arguments and its own
 settings, and the TOS: EmuTOS 1.4, fetched and checked once, or Erez's own TOS when
 `~/.aera/tos` has it. `quiet_sync.py`, `stop_test.py` and `falcon_tls.py` reach the network
 through its FAKESTNG and serial bridge (common/tools/fakesting). MACHINE is the Falcon in 16

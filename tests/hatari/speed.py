@@ -23,7 +23,9 @@ second is timed), then in its window
 - ^,: Settings opened, Esc: the window uncovered;
 - Delete: its alert, Return (Cancel): uncovered;
 - Return: the editor opened, Undo: uncovered;
-and the accessory opened from the Desk menu, its books read at boot.
+and the accessory opened from the Desk menu, its books read at boot: not
+on ST and Falcon-4, where the accessory isn't run (4 MB: Erez, 4 Nov
+2026; AERA-Atari 21ba998), but on Falcon, TT or ST-1.
 After some of them the screen is set against the whole window drawn
 again (Shift+^S twice: the sidebar hidden and shown): what was drawn in
 part, or copied from the buffer, must be what a whole drawing draws.
@@ -421,7 +423,11 @@ def machine_run(work, machine, bin_dir, only):
             os.rename(os.path.join(d, "hatari.log"), os.path.join(d, "hatari-prg%d.log" % n))
             con.at = 0
         os.remove(os.path.join(folder, "econtact.prg"))
-    if only in (None, "acc"):
+    # the accessory isn't run on a 4 MB machine (Erez, 4 Nov 2026; AERA-Atari
+    # 21ba998): ST and Falcon-4 time the program only
+    if only in (None, "acc") and machine.split(":")[0] in ("ST", "Falcon-4"):
+        print("  (the accessory: not on a 4 MB machine; Falcon or TT times it: --only acc)")
+    elif only in (None, "acc"):
         shutil.copy(os.path.join(bin_dir, "econtact.acc"), os.path.join(hd, "econtact.acc"))
         log = os.path.join(folder, "econtact.log")	# (before NVDI's boot, in which it may read them)
         n0 = open(log, encoding="latin-1").read().count("the list sorted") if os.path.exists(log) else 0

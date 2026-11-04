@@ -74,7 +74,7 @@ def desk_contacts():
 
 def main():
     global DESK_Y, USE_C_Y
-    work, machine = sys.argv[1], machine_arg(sys.argv, 2, "ST:mono")
+    work, machine = sys.argv[1], machine_arg(sys.argv, 2, "ST-1:mono")
     st = machine.startswith("ST")
     acc = os.path.join(BIN, "econtact.acc")
     if not st:

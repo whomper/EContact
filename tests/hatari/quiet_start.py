@@ -67,7 +67,7 @@ def cards(path, n):
 
 def main():
     work = os.path.abspath(sys.argv[1])
-    machines = [machine_arg(sys.argv, 2, "")] if len(sys.argv) > 2 else ["ST", "Falcon"]
+    machines = [machine_arg(sys.argv, 2, "")] if len(sys.argv) > 2 else ["ST-1", "Falcon"]
     for machine in machines:
         n = int(sys.argv[3]) if len(sys.argv) > 3 else 350 if machine.startswith("ST-1") else 600
         st = machine.startswith("ST")          # a 68000

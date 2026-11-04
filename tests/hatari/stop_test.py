@@ -10,7 +10,7 @@ Hatari has no network card: FAKESTNG.PRG carries the Atari's TCP
 connections over the emulated serial port to serial_bridge.py; both are
 common's, set up by machines.py's network() (common/tools).
 
-    tests/hatari/stop_test.py WORKDIR [MACHINE]       (ST:mono by default)
+    tests/hatari/stop_test.py WORKDIR [MACHINE]       (ST-1:mono by default)
 """
 import os
 import shutil
@@ -48,7 +48,7 @@ def silent_server(stop):
 
 
 def main():
-    work, machine = os.path.abspath(sys.argv[1]), rig.machine_arg(sys.argv, 2, "ST:mono")
+    work, machine = os.path.abspath(sys.argv[1]), rig.machine_arg(sys.argv, 2, "ST-1:mono")
     shutil.rmtree(work, ignore_errors=True)
     hd = os.path.join(work, "hd")
     os.makedirs(os.path.join(hd, "ECONTACT"))

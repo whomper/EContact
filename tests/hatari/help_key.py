@@ -63,7 +63,7 @@ def sent(hd):
 
 
 def main():
-    work, machine = sys.argv[1], machine_arg(sys.argv, 2, "ST:mono")
+    work, machine = sys.argv[1], machine_arg(sys.argv, 2, "ST-1:mono")
 
     print("1. the accessory, with ECONTACT.HYP")
     w = os.path.join(work, "acc")
