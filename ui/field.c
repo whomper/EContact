@@ -260,12 +260,12 @@ static short evnt_dlg(short flags, short clicks, short mask, short state, unsign
 	}
 }
 
-/* the dialog's window title: its name, and "עב" while the Hebrew keyboard
-   is on (drawn in our own title bar over the screen) */
+/* the dialog's window title: its name (the Hebrew keyboard's badge is in
+   the title band EContact draws, over the screen: the guidelines 5.3) */
 static void win_name(const char *title)
 {
 	char *n = lv_name[nlv - 1];
-	snprintf(n, sizeof(lv_name[0]), "%s%s", title ? title : "", hebrew_kbd ? "  \xD3\xC3" : "");
+	str_copy(n, title ? title : "", sizeof(lv_name[0]));
 	if (dlg_win && dlg_wh > 0)
 		wind_set_str(dlg_wh, WF_NAME, n);
 }
@@ -889,8 +889,9 @@ static void draw_all(DLG *d)
 				text_at(t.x, t.y + 1, title, n, cols, TX_INVERSE | TX_BOLD | TX_CENTER |
 					(line_rtl(title, n) ? 0 : TX_LTR));
 		}
-		if (hebrew_kbd)
-			text_at(t.x + t.w - 4 * cw, t.y + 1, "\xD3\xC3", 2, 2, TX_INVERSE);	/* "עב": Hebrew keyboard */
+		/* the Hebrew keyboard's badge, white on the black band (the
+		   guidelines 5.3: hebkey.c's, the same in every app) */
+		hebrew_badge_right(vdi_h, t.x, t.y, t.w, t.h, 0);
 	}
 	if (d->npages)
 		draw_sections(d);

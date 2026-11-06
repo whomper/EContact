@@ -46,11 +46,12 @@
 #include "people_ask.h"
 #include "answer.h"
 #include "dialog.h"
+#include "hebkey.h"
 #include "panebar.h"
 #include "notify.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
-short gl_wchar, gl_hchar, ap_id, is_acc, ncolors, hebrew_kbd, quit_now;
+short gl_wchar, gl_hchar, ap_id, is_acc, ncolors, quit_now;
 extern short _is_acc;		/* crt0.S */
 
 static short menu_id = -1;
@@ -187,14 +188,9 @@ void closing_down(int quitting)
 
 void status(const char *msg)
 {
-	char s[200];
 	crash_note(msg);		/* for CRASH.LOG, should EContact crash */
 	if (win_h <= 0)
 		return;
-	if (hebrew_kbd) {
-		snprintf(s, sizeof(s), "%s%sHebrew keyboard (F10)", msg, *msg ? "   " : "");
-		msg = s;
-	}
 	win_status(msg);
 }
 
@@ -241,33 +237,16 @@ void set_logging(void)
 	}
 }
 
-/* Israeli SI-1452 layout by key position (scancode 0x10-0x35), giving
-   Atari character codes; 0 = not remapped. From Claude ST and EMail. */
-static const u8 hebrew_keys[0x36 - 0x10] = {
-	/* 10 q..p */ '/', '\'', 0xD4, 0xD5, 0xC2, 0xCA, 0xC7, 0xD8, 0xDA, 0xD2,
-	/* 1a [ ] ret ctrl */ 0, 0, 0, 0,
-	/* 1e a..' */ 0xD6, 0xC5, 0xC4, 0xCC, 0xD1, 0xCB, 0xC9, 0xCD, 0xD9, 0xDB, ',',
-	/* 29 ` lshift \ */ 0, 0, 0,
-	/* 2c z../ */ 0xC8, 0xD0, 0xC3, 0xC6, 0xCF, 0xCE, 0xD3, 0xD7, 0xDC, '.'
-};
-
-unsigned char key_char(short kstate, short key)
-{
-	short scan = KEY_SCAN(key);
-	unsigned char ascii = KEY_ASCII(key);
-	if (hebrew_kbd && !key_ctrl(kstate, key) && !(kstate & (K_LSHIFT | K_RSHIFT | K_ALT)) &&
-	    scan >= 0x10 && scan < 0x36 && hebrew_keys[scan - 0x10])
-		ascii = hebrew_keys[scan - 0x10];
-	return ascii;
-}
-
 static void updated_status(void);
 
-void set_hebrew_kbd(short on)
+/* the Hebrew keyboard switched (common's hebkey.c: set_hebrew_kbd calls
+   it): its badge, at the right end of the toolbar row (the guidelines
+   5.3: the info line is the AES's), drawn again from the event loop, as
+   a dialog may be over the window now */
+static short kbd_due;
+static void kbd_changed(void)
 {
-	hebrew_kbd = on;
-	if (data_ready)
-		updated_status();
+	kbd_due = 1;
 }
 
 /* Contacts that didn't fit in memory are said, once for each count:
@@ -1466,6 +1445,7 @@ static int load_settings(int quiet)
 		store_save_settings();
 	secret_warn = warn_plain;
 	hebrew_kbd = opt.hebrew;
+	hebrew_kbd_hook = kbd_changed;
 	fonts_ready = 0;
 	if (!quiet) {
 		font_apply();
@@ -2213,6 +2193,15 @@ int main(void)
 		if (win_h > 0)
 			flags |= MU_KEYBD | MU_BUTTON;
 		conn_stop = 0;		/* a stop is for one operation */
+		if (kbd_due) {
+			/* F10: the badge drawn or taken away, here, where no
+			   dialog is over the window; status() was it in words */
+			kbd_due = 0;
+			if (win_h > 0) {
+				GRECT t = r_tool;
+				win_redraw(&t);
+			}
+		}
 		/* a key typed while busy comes first, as if typed now */
 		if (win_h > 0 && busy_key(&ev))
 			which = MU_KEYBD;

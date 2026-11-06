@@ -354,7 +354,9 @@ card as it was. If the card was changed on another device in the
 meantime, the server refuses the save: refresh (^R) and edit again.
 
 Text fields take Hebrew: F10 switches to the Israeli keyboard, and a
-Hebrew name or note is shown right to left. A field holds more than it
+Hebrew name or note is shown right to left. While the keyboard is on,
+its badge (the letters ayin and bet) shows at the right end of the
+window's toolbar and of a dialog's title. A field holds more than it
 shows (a long address, a server's address): it scrolls with the cursor.
 ← and → move the cursor, Shift+← and Shift+→ (or Clr/Home and
 Shift+Clr/Home) go to the start and the end.

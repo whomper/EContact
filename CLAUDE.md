@@ -385,6 +385,14 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   row and Edit by their pixels while held still.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
+- The Hebrew keyboard is common's hebkey.c (hebrew_kbd, set_hebrew_kbd,
+  key_char; the guidelines 5.3, 1.2: no copy here). While it is on its
+  badge (hebrew_badge_right) is at the right end of the toolbar row (the
+  window's info line is the AES's WF_INFO) and of a dialog's title band
+  (field.c, white on the band); set_hebrew_kbd calls main.c's
+  kbd_changed, and the event loop redraws the toolbar (a dialog may be
+  over the window when F10 is pressed in it). In a dialog window under
+  MiNT or MagiC the title is the AES's, so only the toolbar shows it.
 - `third_party/tjpgd` is ChaN's TJpgDec with two changes for the 68000
   (see its README.txt): keep them if it is ever updated. Code that runs on
   an ST must not let GCC merge byte reads into word reads at odd addresses

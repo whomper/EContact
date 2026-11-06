@@ -155,7 +155,9 @@ void win_layout(void)
 	but[B_SIDE].y = work.y + 3;
 	but[B_SIDE].w = 3 * cw;
 	but[B_SIDE].h = ch + 2;
-	x = (work.x + work.w - 4) & ~7;	/* (the labels on a byte) */
+	/* (the labels on a byte); at the right end, room for the Hebrew
+	   keyboard's badge (the guidelines 5.3: hebkey.c's, 16 wide, 3 in) */
+	x = (work.x + work.w - 4 - 16) & ~7;
 	for (i = B_MENU; i >= B_REFRESH; i--) {
 		bw = ((short)strlen(label(i)) + 2) * cw;
 		x -= bw;
@@ -299,6 +301,9 @@ static void draw_toolbar(GRECT *clip)
 			text_at(x, r_tool.y + 4, t, (long)strlen(t), w, TX_BOLD | (line_rtl(t, (long)strlen(t)) ? 0 : TX_LTR));
 	}
 	hline(work.x, work.x + work.w - 1, work.y + r_tool.h - 1);
+	/* the Hebrew keyboard's badge while it is on, at the row's right end
+	   (the window's top right: the info line is the AES's) */
+	hebrew_badge_right(vdi_h, r_tool.x, r_tool.y, r_tool.w, r_tool.h - 1, 1);
 }
 
 static void draw_all(GRECT *clip)

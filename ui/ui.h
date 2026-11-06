@@ -288,12 +288,10 @@ void cmd_copy_contact(const CONTACT *c);	/* "Name <email>" to it */
 void cmd_copy_chosen(void);	/* the one chosen, or several: "A <a>, B <b>" */
 void cmd_mail_chosen(void);	/* a new message to the chosen ones */
 void after_change(void);		/* contacts changed: the list and the window again */
-extern short hebrew_kbd;
-void set_hebrew_kbd(short on);
+#include "hebkey.h"	/* hebrew_kbd, set_hebrew_kbd, key_char: common's (5.3) */
 void settings_later(void);
 void settings_flush(void);
 void closing_down(int quitting);
-unsigned char key_char(short kstate, short key);
 void falcon_dsp_init(void);
 const char *falcon_dsp_state(void);
 /* the curves of a Direct connection's handshakes on the DSP (in TLS.OVL:
