@@ -247,9 +247,9 @@ def main():
 
 
 # where the toolbar's menu button is, and its Sync Contact Photos line
-MENU = (598, 73)
+MENU = (579, 73)  # the toolbar's menu button (16 pixels left of 1.77's: the badge's room)
 PHOTOS = (520, 201)
-PHOTOS_ST = 171			# on an ST's 400 lines
+PHOTOS_ST = 187			# on an ST's 400 lines (the menu put up against its foot)
 DECLINED = "Sync Contact Photos: not in the accessory, "
 
 

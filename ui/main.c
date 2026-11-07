@@ -960,7 +960,7 @@ void cmd_sync_photos(void)
 /* the commands of the menu bar (the program) and the toolbar's menu */
 enum { C_NONE, C_ABOUT, C_NEW, C_GROUP, C_ADD, C_IMP, C_EXP, C_PHOTOS, C_REFRESH, C_REFRESH_ALL,
        C_QUIT, C_COPY, C_EDIT, C_DELETE, C_FIND, C_SIDE, C_SET, C_FONT, C_OFFL, C_FALC, C_LOG,
-       C_KBD, C_HELP, C_KEYS, C_SELALL };
+       C_HELP, C_KEYS, C_SELALL };
 
 static const MBAR_ITEM m_desk[] = {
 	{ "About EContact...", 0, C_ABOUT },
@@ -1005,7 +1005,6 @@ static const MBAR_ITEM m_opts[] = {
 	{ "Work offline", 0, C_OFFL },
 	{ "Direct connection (TLS)", 0, C_FALC },
 	{ "Write a log", 0, C_LOG },
-	{ "Hebrew keyboard", "F10", C_KBD },
 	{ 0, 0, 0 }
 };
 static const MBAR_ITEM m_help[] = {
@@ -1061,7 +1060,6 @@ static void menu_update(void)
 	check(C_OFFL, opt.offline);
 	check(C_FALC, opt.falcon);
 	check(C_LOG, opt.log);
-	check(C_KBD, hebrew_kbd);
 }
 
 static void help_key_pressed(void);
@@ -1097,7 +1095,6 @@ static void command(int c)
 		win_layout();
 		win_redraw(0);
 		break;
-	case C_KBD: set_hebrew_kbd(!hebrew_kbd); break;
 	case C_OFFL:
 		opt.offline = !opt.offline;
 		if (opt.offline)
@@ -1145,7 +1142,6 @@ void cmd_menu(short x, short y)
 		{ "  Sync Contact Photos...", C_PHOTOS },
 		{ "-", 0 },
 		{ "  Groups              \x01^S", C_SIDE },
-		{ "  Hebrew keyboard     F10", C_KBD },
 		{ "-", 0 },
 		{ "  Work offline", C_OFFL },
 		{ "  Direct connection (TLS)", C_FALC },
@@ -1163,7 +1159,7 @@ void cmd_menu(short x, short y)
 	const char *items[N];
 	short i, k, n = is_acc ? N - 2 : N;
 	for (i = 0; i < N; i++) {
-		int on = (m[i].cmd == C_SIDE && opt.sidebar) || (m[i].cmd == C_KBD && hebrew_kbd) ||
+		int on = (m[i].cmd == C_SIDE && opt.sidebar) ||
 			 (m[i].cmd == C_OFFL && opt.offline) || (m[i].cmd == C_FALC && opt.falcon) ||
 			 (m[i].cmd == C_LOG && opt.log);
 		items[i] = m[i].text;

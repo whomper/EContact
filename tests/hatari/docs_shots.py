@@ -153,7 +153,7 @@ def falcon_shots(r):
     r.shot("context-menu")
     r.key(K["ESC"])
     time.sleep(1)
-    r.click(600, 73)                     # the menu
+    r.click(579, 73)                     # the menu
     time.sleep(1.5)
     r.click(500, 201)                    # Sync Contact Photos...
     time.sleep(3.5)
