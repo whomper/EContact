@@ -552,18 +552,22 @@ static int buffered(void)
 void win_redraw(GRECT *area)
 {
 	GRECT box, full;
+	int took;
 	if (win_h <= 0 || win_hold)
 		return;
 	if (win_iconified) {
 		icon_window(area);	/* over the small window, not the old work area */
 		return;
 	}
-	wind_update(BEG_UPDATE);
+	/* (common's: BEG_UPDATE, but not on TOS with the button held, where
+	   the AES holds it back and a row drawn on the press would show only
+	   at the release: the guidelines 5.8, EHypView) */
+	took = press_update_begin();
 	graf_mouse(M_OFF, 0);
 	full = work;
 	if (area && !rect_and(&full, area)) {
 		graf_mouse(M_ON, 0);
-		wind_update(END_UPDATE);
+		press_update_end(took);
 		return;
 	}
 	if (buffered()) {
@@ -602,7 +606,7 @@ void win_redraw(GRECT *area)
 		}
 	}
 	graf_mouse(M_ON, 0);
-	wind_update(END_UPDATE);
+	press_update_end(took);
 	win_slider();		/* the card's height is known once it is drawn */
 }
 
@@ -1351,9 +1355,10 @@ int win_button(const GRECT *b, short mx, short my)
 {
 	GRECT box, d;
 	short p[4], k, x, y, mb, ks;
+	int took;
 	if (win_h <= 0)
 		return 1;
-	wind_update(BEG_UPDATE);
+	took = press_update_begin();	/* (not BEG_UPDATE held back on TOS: 5.8) */
 	graf_mouse(M_OFF, 0);
 	wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
 	while (box.w && box.h) {
@@ -1378,7 +1383,7 @@ int win_button(const GRECT *b, short mx, short my)
 	}
 	clip_off();
 	graf_mouse(M_ON, 0);
-	wind_update(END_UPDATE);
+	press_update_end(took);
 	k = (short)press_track(b, mx, my, 0, msg_hold, 0, 0);
 	if (k == PRESS_DRAG) {
 		wait_release();
