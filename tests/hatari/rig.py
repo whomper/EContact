@@ -48,7 +48,7 @@ def machine_arg(argv, i, default):
 
 class Rig:
     def __init__(self, work, machine="ST", display=None, extra=(), auto="C:\\ECONTACT.PRG",
-                 network=False, stdin=None):
+                 network=False, stdin=None, font_wait=True):
         """Hatari as MACHINE with WORK/hd as C:; screenshots in WORK/shots"""
         # RIG_DISPLAY=:98 runs a second rig beside one on :99
         display = display or os.environ.get("RIG_DISPLAY", ":99")
@@ -77,7 +77,7 @@ class Rig:
         # NVDI (AERA_WITH_NVDI) reads every font before the desktop: some
         # 35 s more than the rigs' own waits, which are TOS's
         self.nvdi = os.path.exists(os.path.join(work, "hd", "AUTO", "NVDI.PRG"))
-        if self.nvdi:
+        if self.nvdi and font_wait:     # a rig that watches the start itself says no
             time.sleep(35)
 
     def cmd(self, *args):

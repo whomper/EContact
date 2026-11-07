@@ -54,10 +54,10 @@ def main():
     open(inf_path, "wb").write(inf)
     shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), folder)
     log = os.path.join(folder, "econtact.log")
-    r = Rig(work, machine, auto="C:\\ECONTACT\\econtact.prg")
+    r = Rig(work, machine, auto="C:\\ECONTACT\\econtact.prg", font_wait=False)
     try:
         t0 = time.time()
-        while time.time() - t0 < 60 and not os.path.exists(log):
+        while time.time() - t0 < 120 and not os.path.exists(log):  # NVDI's fonts: 35 s more
             time.sleep(0.5)
         time.sleep(2)                       # reading the cards
         r.shot("1-busy")
