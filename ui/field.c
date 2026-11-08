@@ -1679,11 +1679,12 @@ void prog_open(const char *title)
 	pg_f[PG_LINE2].type = FT_LABEL;
 	pg_f[PG_LINE2].x = 0;
 	pg_f[PG_LINE2].y = 4;
-	pg_f[PG_LINE2].w = w - 12;
+	pg_f[PG_LINE2].w = w - 14;
 	pg_f[PG_LINE2].label = pg_l2;
 	pg_f[PG_CANCEL].type = FT_BUTTON;
 	pg_f[PG_CANCEL].flags = FF_CANCEL;
-	pg_f[PG_CANCEL].x = w - 10;
+	pg_f[PG_CANCEL].x = w - 12;	/* two columns in, as the other dialogs' buttons: at w - 10
+					   its frame stood on the box's (Erez, 8 Nov 2026) */
 	pg_f[PG_CANCEL].y = 4;
 	pg_f[PG_CANCEL].w = 10;
 	pg_f[PG_CANCEL].label = "Cancel";
