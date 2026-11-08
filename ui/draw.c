@@ -15,6 +15,7 @@
 #include "bidi.h"
 #include "conn.h"
 #include "text.h"
+#include "pic.h"
 
 static short next_text_color = 1;
 
@@ -914,8 +915,9 @@ void disc(short cx, short cy, short rx, short ry, short color)
 
 /* ---------------- photos ----------------
  * A contact's picture (PHOTO_N x PHOTO_N, RGB 5-6-5) in an ellipse:
- * dithered (Floyd-Steinberg) to the colours the screen has, black and
- * white with fewer than 16, then one transparent copy of a one-plane
+ * dithered to the colours the screen has by the family's code (common's
+ * pic.c: its palette and Floyd-Steinberg rows, Erez, 8 Nov 2026), black
+ * and white with fewer than 16 by its own one-channel loop (an ST's), then one transparent copy of a one-plane
  * mask per colour used: no device formats to know, and white (the card
  * behind it) is left as it is. The dithered picture is kept while the
  * same one is shown, so a redraw is only the copies. */
@@ -923,37 +925,11 @@ void disc(short cx, short cy, short rx, short ry, short color)
 #define PH_MAXW 160
 #define PH_MAXH 128
 
-#define PH_NONE 255			/* in ph_lut: not looked up yet */
-
-static unsigned char ph_lut[4096];	/* RGB 4-4-4 -> pen */
 static unsigned char ph_rgb[256][3];
 static short ph_npal = -1;
 static long ph_palsum;
 
-/* the pen nearest RGB 4-4-4 colour i, kept in ph_lut. 16-bit
-   differences: each square is one muls.w, and a pen out of the running
-   is left after its first channel */
-static short ph_pen(short i)
-{
-	short r = ((i >> 8) & 15) * 17, g = ((i >> 4) & 15) * 17, b = (i & 15) * 17, k, pick = 0;
-	long best = 0x7fffffffL;
-	for (k = 0; k < ph_npal; k++) {
-		short dr = r - ph_rgb[k][0], dg = g - ph_rgb[k][1], db = b - ph_rgb[k][2];
-		long d = (long)dr * dr * 3;
-		if (d >= best)
-			continue;
-		d += (long)dg * dg * 4;
-		if (d >= best)
-			continue;
-		d += (long)db * db * 2;
-		if (d < best) {
-			best = d;
-			pick = k;
-		}
-	}
-	ph_lut[i] = (unsigned char)pick;
-	return pick;
-}
+static PIC_PAL ph_pal;		/* pic.c's: the screen's pens, the nearest of each colour */
 
 static void photo_palette(void)
 {
@@ -977,10 +953,8 @@ static void photo_palette(void)
 	ph_palsum = sum;
 	if (n == 2)
 		return;			/* black and white: no table, a threshold */
-	/* each colour's nearest pen is looked up when a photo first has it
-	   (ph_pen): all 4096 against 255 pens took 18 s on a Falcon in 256
-	   colours, and a photo has a few hundred of them */
-	memset(ph_lut, PH_NONE, sizeof(ph_lut));
+	/* (its table of nearest pens is filled as colours come) */
+	pic_pal_init(&ph_pal, n, (const unsigned char (*)[3])ph_rgb);
 }
 
 /* one pen's pixels of rows y0 to y1 (bits, wpl words a row) copied to
@@ -1027,7 +1001,9 @@ static long pcap, acap;		/* what pens and at hold: the picture's size, not the m
 /* dithering under way: the next row, -1 none; errors carried to the
    right and the next row */
 static short dz_y = -1, dz_serial, dz_w, dz_h, dz_npal;
-static short err[2][PH_MAXW + 2][3];
+static PIC_DITHER *dt;			/* pic.c's rows under way (colours) */
+static unsigned short rowpx[PH_MAXW];	/* a row of the picture at its shown width */
+static unsigned char rowa[PH_MAXW];	/* and where it shows: 255 in the ellipse */
 static short ge[2][PH_MAXW + 2];	/* black and white's one channel */
 static short half[PH_MAXH];	/* the ellipse's half width on each row */
 static unsigned char row[PH_MAXW];	/* the source column of each x */
@@ -1035,7 +1011,7 @@ static unsigned char row[PH_MAXW];	/* the source column of each x */
 static int dither(const unsigned short *px, int serial, short rx, short ry, int (*more)(void))
 {
 	short W, H, x, y, k;
-	int grey, nq;
+	int grey;
 	if (rx > PH_MAXW / 2)
 		rx = PH_MAXW / 2;
 	if (ry > PH_MAXH / 2)
@@ -1056,12 +1032,16 @@ static int dither(const unsigned short *px, int serial, short rx, short ry, int 
 	if (serial == pserial && W == pw && H == ph && pnpal == ph_npal)
 		return 1;
 	grey = ph_npal == 2;	/* black and white: one channel */
-	nq = grey ? 1 : 3;
 	if (dz_y < 0 || serial != dz_serial || W != dz_w || H != dz_h || ph_npal != dz_npal) {
 		/* begun: shifts and adds only, a 68000 multiplies and divides
 		   32-bit numbers in software */
-		memset(err, 0, sizeof(err));
 		memset(ge, 0, sizeof(ge));
+		if (dt) {
+			pic_dither_close(dt);
+			dt = 0;
+		}
+		if (!grey && !(dt = pic_dither_open(W, &ph_pal)))
+			return 0;
 		memset(used, 0, sizeof(used));
 		for (y = 0; y < H; y++) {
 			/* rx * sqrt(1 - ((y - ry) / ry)^2), once a row */
@@ -1123,47 +1103,28 @@ static int dither(const unsigned short *px, int serial, short rx, short ry, int 
 			continue;
 		}
 		{
-			short (*e0)[3] = err[y & 1], (*e1)[3] = err[(y + 1) & 1];
+			/* the colours: pic.c's rows (serpentine Floyd-Steinberg to the
+			   nearest pens), the ellipse given as the alpha: what is
+			   outside it takes no error and isn't drawn (255) */
 			const unsigned short *src = px + ((long)y * PHOTO_N / H) * PHOTO_N;
 			unsigned char *out = pens + (long)y * W;
 			short lo = rx - half[y], hi = rx + half[y];
-			memset(e1, 0, sizeof(err[0]));
 			for (x = 0; x < W; x++) {
-				unsigned short p = src[row[x]];
-				short c[3], q, pen;
-				c[0] = (short)((p >> 8) & 0xF8);
-				c[1] = (short)((p >> 3) & 0xFC);
-				c[2] = (short)((p << 3) & 0xF8);
-				if (grey)	/* (r + 2g + b) / 4: shifts, no multiplying */
-					c[0] = c[1] = c[2] = (short)((c[0] + (c[1] << 1) + c[2]) >> 2);
-				for (q = 0; q < nq; q++) {
-					short v = c[q] + (e0[x + 1][q] >> 4);
-					c[q] = v < 0 ? 0 : v > 255 ? 255 : v;
-				}
-				if (grey) {
-					pen = c[0] < 128;
-				} else {
-					short i = ((c[0] >> 4) << 8) | ((c[1] >> 4) << 4) | (c[2] >> 4);
-					pen = ph_lut[i];
-					if (pen == PH_NONE)
-						pen = ph_pen(i);
-				}
-				/* outside the ellipse: not drawn (255) */
-				if (x < lo || x > hi) {
+				rowpx[x] = src[row[x]];
+				rowa[x] = x < lo || x > hi ? 0 : 255;
+			}
+			pic_dither_row(dt, rowpx, rowa, out);
+			for (x = 0; x < W; x++) {
+				if (x < lo || x > hi)
 					out[x] = 255;
-				} else {
-					out[x] = (unsigned char)pen;
-					used[pen] = 1;
-				}
-				for (q = 0; q < nq; q++) {
-					short e = c[q] - ph_rgb[pen][q];
-					e0[x + 2][q] += (e << 3) - e;		/* 7/16 to the right */
-					e1[x][q] += (e << 1) + e;		/* 3/16 below left */
-					e1[x + 1][q] += (e << 2) + e;		/* 5/16 below */
-					e1[x + 2][q] += e;			/* 1/16 below right */
-				}
+				else
+					used[out[x]] = 1;
 			}
 		}
+	}
+	if (dt) {
+		pic_dither_close(dt);
+		dt = 0;
 	}
 	dz_y = -1;
 	pserial = (short)serial;

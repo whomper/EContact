@@ -69,7 +69,7 @@ TLSOVL  := common/tlsovl/TLS.OVL
 
 CORE    := util charset conn ovl bidi secret futil ctime xml inflate http vcard carddav abook photo photopack jpegdc pfkeep
 ATARI   := libc tos plat_tos net_tos sting gem tls_ovl bigbuf
-UI      := main evwrap win draw popup panebar dsp_ovl sidebar list card editor dialogs field about font fontsel accmem help av av_people alert dialog aboutbox iconify clip dd mbar twin busy bgwork people_ask answer notify aboutline text offdraw click hebkey
+UI      := main evwrap win draw popup panebar dsp_ovl sidebar list card editor dialogs field about font fontsel accmem help av av_people alert dialog aboutbox iconify clip dd mbar twin busy bgwork people_ask answer notify aboutline text offdraw click hebkey pic
 
 OBJDIR  := build
 OBJS    := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash.o $(OBJDIR)/crash_s.o \
@@ -133,6 +133,10 @@ $(OBJDIR)/%.o: common/atari/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 $(OBJDIR)/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
+# common's pictures (pic.c): its palette and dither draw the photos (ui/draw.c;
+# Erez, 8 Nov 2026), no PNG or GIF decoder (the link keeps only what is called)
+$(OBJDIR)/pic.o: common/src/pic.c $(HDRS) | $(OBJDIR)
+	$(CC) $(CFLAGS) -DPIC_NO_PNG -DPIC_NO_GIF -Icommon/third_party/nsgif/include -c -o $@ $<
 # ChaN's JPEG decoder for the photos: 68000 code, for speed. Its IDCT
 # overflows on a damaged photo's coefficients: -fwrapv (here and in every
 # host build) makes that the wrap the 68000 does anyway, not undefined
