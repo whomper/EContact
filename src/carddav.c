@@ -36,7 +36,7 @@ const char *carddav_status_text(int st)
 	case 413: return "too big for the server";
 	case 415: return "the server doesn't take this kind of data";
 	case 500: return "the server had an internal error";
-	case 502: case 504: return "the gateway couldn't reach the server";
+	case 502: case 504: return "the Gateway couldn't reach the server";
 	case 503: return "the server is busy; try again later";
 	}
 	return st >= 500 ? "server error" : st >= 400 ? "request refused" : "unexpected answer";

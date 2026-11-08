@@ -20,7 +20,7 @@ other CardDAV servers.
   in, or a program; right-click menus, .vcf files dropped on the window, iconify, Undo cancels any
   dialog and Esc empties a field, as GEM has them, and the Help key opens the guide in EHypView or ST-Guide
 - **Secure:** TLS 1.2 on the Falcon and TT, with RSA and the elliptic curves on the Falcon's DSP; the ST and STE through the AERA
-  Raspberry Pi gateway, the one ECal uses
+  Gateway, the one ECal uses
 - **Hebrew** throughout: names and notes right to left, the Israeli keyboard (F10)
 - **Works offline** from its own copy; vCard import and export
 
@@ -62,9 +62,9 @@ and black and white): `make icons` makes the files from AERA-Atari's drawing,
    drive's root, say where it is in `FOLDER=`. Start `ECONTACT.PRG` from the folder once and it
    writes it there; or the first time you open the accessory it asks: **Locate...** (pick any file
    in the folder) or **Use C:** (the boot drive), which makes `C:\ECONTACT` for you.
-3. For an ST or STE (or a Falcon or TT without a Direct connection), set up the gateway on a Raspberry Pi
+3. For an ST or STE (or a Falcon or TT without a Direct connection), set up the Gateway on a Raspberry Pi
    from [AERA-Gateway](https://github.com/whomper/AERA-Gateway)'s own copy, at its latest release
-   (the copy in this repository is for EContact's tests). On the Pi:
+   (the copy in this repository is for EContact's tests). On the Raspberry Pi:
 
    ```
    sudo apt install -y git                  (Raspberry Pi OS Lite only)
@@ -82,12 +82,12 @@ and black and white): `make icons` makes the files from AERA-Atari's drawing,
      ~/AERA-Gateway/update-pi.sh --allow ATARI_IP
    ```
 
-   `ATARI_IP` is your Atari's address (`192.168.1.x`): the gateway answers it alone. ECal uses the
-   same gateway: if it already works through your Pi, there is nothing to do.
+   `ATARI_IP` is your Atari's address (`192.168.1.x`): the Gateway answers it alone. ECal uses the
+   same Gateway: if it already works through it, there is nothing to do.
 
    - To update: `cd ~/AERA-Gateway && ./update-pi.sh` (its settings are kept).
    - To check: `sudo aera-gateway status` (`gateway/aera-gateway status` in the folder).
-   - In EContact: **Settings > Connection**, **Pi gateway:** the Pi's address (`PI_IP`),
+   - In EContact: **Settings > Connection**, **Gateway:** its address (`PI_IP`),
      **Port:** 8180.
 4. Reboot, choose **EContact** in the Desk menu, and add your iCloud account with an
    app-specific password, not your Apple ID's own password (see [App passwords](#app-passwords-icloud-fastmail)).
@@ -100,7 +100,7 @@ stay as they are.
 
 **Needs:** TOS 1.04 to 4.x, EmuTOS, MagiC or MiNT; ST high, ST medium, TT or Falcon resolution; 1 MB
 of RAM or more (a 512 KB ST can't run it: see [How many contacts](#how-many-contacts)), and TT/Fast RAM
-is used where there is some; STinG or MiNTnet; on an ST or STE, the AERA Raspberry Pi gateway.
+is used where there is some; STinG or MiNTnet; on an ST or STE, the AERA Gateway.
 
 **Under TOS, put Atari's `FOLDR100.PRG` first in `AUTO`**, renamed for more room (`FOLDR400.PRG`).
 TOS keeps an entry in a small internal pool for every folder a program or accessory has looked
@@ -144,13 +144,13 @@ Help key shows it on the Atari.
 Contacts servers want HTTPS. EContact uses ECal's code and ECal's way:
 
 ```
-ST, STE:     Atari (ECONTACT.ACC) --plain HTTP, home LAN--> Raspberry Pi (ecalgate.py) --HTTPS--> the server
+ST, STE:     Atari (ECONTACT.ACC) --plain HTTP, home LAN--> Gateway (ecalgate.py) -------HTTPS--> the server
 Falcon, TT:  Atari (ECONTACT.ACC + TLS.OVL: TLS 1.2, RSA and curves on the DSP) ----------HTTPS--> the server
-             (a Direct connection; or through the Pi, as an ST)
+             (a Direct connection; or through the Gateway, as an ST)
 ```
 
-- **Through the Pi.** The AERA gateway's `dav` service (`ecalgate.py`) serves EContact as it serves
-  ECal, and `ECONTACT.ACC` can use it too, on any Atari. If ECal already works through your Pi,
+- **Through the Gateway.** The AERA Gateway's `dav` service (`ecalgate.py`) serves EContact as it serves
+  ECal, and `ECONTACT.ACC` can use it too, on any Atari. If ECal already works through your Gateway,
   type the same address and port in **Settings > Connection**.
 - **A Direct connection.** TLS 1.2 on the Falcon or TT (a 68020 or better) with BearSSL, in
   `TLS.OVL`, the AERA family's one file (the guidelines 7.4): EContact loads it into its own memory
@@ -411,7 +411,7 @@ make itest      # card-cli against a real CardDAV server (Radicale: pip install
                 # little memory, converting 1.9's cache, the index found by
                 # where the cards are, the refresh in the background, and
                 # PEOPLE's answers (card-cli ask)
-GATEWAY=gateway/ecalgate.py make itest            # the same through the Pi gateway
+GATEWAY=gateway/ecalgate.py make itest            # the same through the Gateway
 tools/parser_diff.sh [REV]                        # vcard.c reads 8,000 made-up and broken cards
                                                   # as REV's did, byte for byte (tests/host/vcgen.py)
 make build/VCBENCH.PRG && tests/hatari/vcbench.py WORK [MACHINE]

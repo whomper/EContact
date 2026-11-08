@@ -55,7 +55,7 @@ static int connection_ready(const char *url)
 	URL u;
 	if (!url_parse(url, &u) || !u.tls || opt.falcon || opt.gate[0])
 		return 1;
-	if (alert(1, "[1][Contacts servers want a secure connection. Set up the Raspberry Pi gateway (ECal's serves EContact too), or a Direct connection, in Settings, Connection.][Settings|Cancel]") == 1)
+	if (alert(1, "[1][Contacts servers want a secure connection. Set up the Gateway (ECal's serves EContact too), or a Direct connection, in Settings, Connection.][Settings|Cancel]") == 1)
 		dlg_connection();
 	return opt.falcon || opt.gate[0];
 }
@@ -347,7 +347,7 @@ static void settings(short first)
 	put(&f[N1], FT_LABEL, FF_LTR, CX + 3, row, 0, can_falcon ? "Needs TLS.OVL, CACERT.PEM and ROOTS.DAT"
 							  : "Needs a 68020 or better (TT, Falcon)");
 	row += 2;
-	put(&f[L7], FT_LABEL, 0, CX, row, 0, "Pi gateway:");
+	put(&f[L7], FT_LABEL, 0, CX, row, 0, "Gateway:");
 	text(&f[C3], FF_LTR, CX + 12, row, 20, gate, sizeof(gate));
 	put(&f[L8], FT_LABEL, 0, CX + 34, row, 0, "Port:");
 	text(&f[C4], FF_LTR | FF_DIGITS, CX + 40, row, 6, port, 6);

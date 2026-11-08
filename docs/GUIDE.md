@@ -30,8 +30,8 @@ before it is done, it reads the rest at once.
 
 | Your Atari        | Copy to the root | Connects                        |
 |-------------------|------------------|---------------------------------|
-| Falcon, TT        | `ECONTACT.ACC`   | by itself (a Direct connection, with `TLS.OVL` in the folder) or through the Pi |
-| ST, STE, Mega ST  | `ECONTACT.ACC`   | through the Raspberry Pi gateway |
+| Falcon, TT        | `ECONTACT.ACC`   | by itself (a Direct connection, with `TLS.OVL` in the folder) or through the Gateway |
+| ST, STE, Mega ST  | `ECONTACT.ACC`   | through the Gateway |
 
 The same `ECONTACT.ACC` runs on every Atari. (Until 1.63 an ST had
 `ECONTST.ACC`: delete it.)
@@ -155,15 +155,16 @@ top right):
 - **On My Atari**: an address book kept only on this computer.
 
 Servers want a secure connection: in **Settings > Connection** either
-type the address of the Raspberry Pi gateway or, on a Falcon or TT (a
+type the address of the Gateway or, on a Falcon or TT (a
 68020 or better), turn on **Direct connection**. That is TLS on the
 Atari itself, in `TLS.OVL` in EContact's folder: EContact loads it into
 its memory (about 140 KB) when you turn it on, and says at once if
 something is wrong (the file missing, an Atari without a 68020). An ST
 never loads it.
 
-The gateway is the `dav` service of the AERA gateways, set up on the Pi
-from AERA-Gateway's own copy at its latest release. On the Pi:
+The Gateway is the `dav` service of the AERA Gateway, set up on a
+Raspberry Pi from AERA-Gateway's own copy at its latest release. On
+the Raspberry Pi:
 
 ```
 sudo apt install -y git                  (Raspberry Pi OS Lite only)
@@ -181,15 +182,15 @@ sudo apt install -y git && git clone https://github.com/whomper/AERA-Gateway ~/A
   ~/AERA-Gateway/update-pi.sh --allow ATARI_IP
 ```
 
-ATARI_IP is your Atari's address (192.168.1.x): the gateway answers it
-alone. One Pi serves ECal and EContact alike: if ECal already works
-through it, there is nothing to do on the Pi.
+ATARI_IP is your Atari's address (192.168.1.x): the Gateway answers it
+alone. One Gateway serves ECal and EContact alike: if ECal already
+works through it, there is nothing to do on the Raspberry Pi.
 
 - To update: `cd ~/AERA-Gateway && ./update-pi.sh` (its settings are
   kept).
 - To check: `sudo aera-gateway status` (`gateway/aera-gateway status`
   in the folder).
-- In EContact: **Settings > Connection**, **Pi gateway:** the Pi's
+- In EContact: **Settings > Connection**, **Gateway:** its
   address (PI_IP), **Port:** 8180.
 
 AERA-Gateway's README (github.com/whomper/AERA-Gateway) tells the rest.
@@ -297,7 +298,7 @@ themselves, or a link to iCloud's photo server, which EContact fetches
 with your account.
 
 Syncing doesn't download them: they are most of an address book (500
-contacts with photos are about 12 MB), and an ST's memory and a gateway's
+contacts with photos are about 12 MB), and an ST's memory and a Gateway's
 link are small. The first time a card with a photo is shown, the photo is
 fetched and decoded (the busy bee and "Getting the photo..."; a second or
 two on a Falcon, about four seconds on an 8 MHz ST, and the time to
@@ -433,7 +434,7 @@ Right-click your own card > **Make This My Card**. The list marks it
   copy has to be written anew, and a new account's books, wait for a
   refresh with the window open. Opening the window stops a refresh in
   the background; what it had fetched is kept.
-- **Connection**: Direct connection and the DSP, the Pi gateway's address and
+- **Connection**: Direct connection and the DSP, the Gateway's address and
   port, and the log. With the DSP on, a Falcon checks the servers'
   certificates and makes the secure connection's keys there, many
   times faster than its 68030.
