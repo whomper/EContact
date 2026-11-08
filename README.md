@@ -416,8 +416,8 @@ tools/parser_diff.sh [REV]                        # vcard.c reads 8,000 made-up 
                                                   # as REV's did, byte for byte (tests/host/vcgen.py)
 make build/VCBENCH.PRG && tests/hatari/vcbench.py WORK [MACHINE]
                                                   # how long a card takes to read on an Atari
-tests/hatari/docs_shots.py WORK                   # the screenshots, in Hatari (--email,
-                                                  # --ecal: with their latest releases)
+tests/hatari/docs_shots.py WORK                   # the screenshots, in Hatari (EMail's and
+                                                  # ECal's with EContact: the hub's family run)
 tests/hatari/placement.py WORK [MACHINE]          # where the accessory and the program
                                                   # find their settings and folder
 tests/hatari/acc_reread.py WORK [MACHINE]         # the accessory after the program changed
@@ -465,7 +465,8 @@ tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi] [--flat]
 tests/hatari/card_scroll.py WORK [MACHINE] [--flat]
                                                   # a long card in the window's own slider (5.1):
                                                   # arrows and track scroll it, the list stays
-tests/hatari/xaaes_dialogs.py WORK                # the dialogs in windows under FreeMiNT and
+make build/alertacc.acc && tests/hatari/xaaes_dialogs.py WORK
+                                                  # the dialogs in windows under FreeMiNT and
                                                   # XaAES (3.5): moved, covered, closed; alerts
 tests/hatari/busy_keys.py WORK [MACHINE]          # ^N typed while busy still opens New Contact
                                                   # (3.2: key_ctrl, not kstate alone)

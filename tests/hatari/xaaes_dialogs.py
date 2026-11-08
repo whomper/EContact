@@ -8,7 +8,9 @@ window of the AES's):
     tests/hatari/xaaes_dialogs.py WORK
 
 ECONTACT.PRG (binary/) with the sample book, in common/tests/xaaes (make
-base there first), ECal's latest release's accessory beside it:
+base there first), and build/alertacc.acc beside it (`make build/alertacc.acc`:
+another program's accessory, played by a stand-in of EContact's own; the
+guidelines 1.2, Erez, 8 Nov 2026: no other AERA program in its tests):
 
 - Settings opens in a window: the screen changes where it is;
 - moved by its title bar, the window behind is drawn whole where the
@@ -20,7 +22,7 @@ base there first), ECal's latest release's accessory beside it:
 - New Group's box opens in a window and takes keys; Esc empties its
   field and leaves it open, Undo closes it; Add to Group's list opens in
   a window, takes keys and closes with Esc; the window as it was;
-- ECal's first alert put over Settings and answered: the dialog is whole
+- the stand-in's alert put over Settings and answered: the dialog is whole
   (last: XaAES splits the window's redraw at the dialog's edge, and a
   bold letter cut there loses its widened column, which no later check
   should trip on).
@@ -66,8 +68,10 @@ def main():
     with open(inf, "w", newline="") as f:
         f.write("\r\n".join("FOLDER=C:\\" if ln.startswith("FOLDER=") else ln for ln in t.split("\r\n")))
     shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), os.path.join(files, "econtact.prg"))
-    subprocess.run([sys.executable, os.path.join(ROOT, "common", "tools", "getrelease.py"), "ECal", files,
-                    "ECAL.ACC"], check=True)
+    acc = os.path.join(ROOT, "build", "alertacc.acc")
+    if not os.path.exists(acc):
+        sys.exit("no %s: make build/alertacc.acc" % acc)
+    shutil.copy(acc, os.path.join(files, "ALERTACC.ACC"))
     steps = [
         "click 200 200", "wait 2", PARK, "shot",			# 1 the window
         "ctrl 0x33", "wait 5", PARK, "shot",				# 2 Settings
@@ -85,15 +89,15 @@ def main():
         "key 0x50", "wait 1", PARK, "shot",				# 14 the next one
         "key 0x01", "wait 3", PARK, "shot",				# 15 Esc
         "ctrl 0x33", "wait 5", "drag 300 86 300 150", "wait 4", PARK, "shot",	# 16 Settings, moved
-        "move 50 8", "wait 3", "move 60 59", "wait 3", "click 50 91",	# the desk menu's Clients: ECal
-        "wait 8", PARK, "shot",						# 17 ECal's alert over it
-        "click 438 305", "wait 6", PARK, "shot",			# 18 its Cancel: ECal gone
+        "move 50 8", "wait 3", "move 60 59", "wait 3", "click 50 91",	# the desk menu's Clients: the stand-in
+        "wait 8", PARK, "shot",						# 17 its alert over it
+        "key 0x1c", "wait 6", PARK, "shot",				# 18 Return, its Cancel: the alert gone
         "click 300 150", "wait 2", "key 0x01", "wait 3",		# Settings to the front, closed
     ]
     run = os.path.join(work, "run")
     cmd = [sys.executable, os.path.join(XA, "run.py"), run, machines.emutos(), "econtact.prg",
            "--copy"] + [os.path.join(files, n) for n in ("econtact.inf", "econtact.key", "cache",
-                                                          "contacts.txt", "ECAL.ACC")] + \
+                                                          "contacts.txt", "ALERTACC.ACC")] + \
           ["--wait", "70", "--steps", ";".join(steps)]
     old = os.getcwd()
     os.chdir(files)
@@ -135,8 +139,8 @@ def main():
     check("Add to Group's list", not same(1, 13))
     check("Down moves in it", not same(13, 14))
     check("Esc closes it", same(1, 15))
-    check("ECal over Settings (its first alert: where its folder is)", not same(16, 17))
-    check("ECal gone: Settings whole again", same(16, 18, (72, 162, 566, 466)))
+    check("another program's alert over Settings", not same(16, 17))
+    check("the alert gone: Settings whole again", same(16, 18, (72, 162, 566, 466)))
 
 main()
 print("%s: %s" % (os.path.basename(__file__), "all passed" if not fails else "%d failed" % fails))

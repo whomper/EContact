@@ -4,8 +4,7 @@
 """The screenshots in docs/ and the README, taken in Hatari with the
 sample contacts (tests/hatari/sample.vcf, made-up people):
 
-    tests/hatari/docs_shots.py WORK [--email [EMail@vX.Y]] [--ecal [ECal@vX.Y]]
-                               [--ecal-src DIR] [--falcon M] [--st M] [--update]
+    tests/hatari/docs_shots.py WORK [--memory] [--falcon M] [--st M] [--update]
 
 On the family's machines (common/tools/machines.py): the Falcon at 640x480
 in 256 colours, where the photos look their best (Erez, 28 Oct 2026: every
@@ -15,13 +14,10 @@ app picture in 256 colours; --falcon names another) and the ST in mono
 --memory takes memory-full: ECONTACT.ACC on a 1 MB ST (ST-1 in mono)
 with 1,000 contacts, more than fit, and the alert that says so.
 
---email and --ecal take the shots of EContact working with EMail (1.35 or
-later: it asks with PEOPLE) and ECal (2.5 or later): their latest
-releases, what Erez runs (the guidelines, 1.2), or the one named, fetched
-by common/tools/getrelease.py; the shots' folders say which (*.VERSION).
---ecal-src names a checkout of ECal (../ecal if not given, with its
-build/cal-cli made) for its test
-data only: ui_tour.seed() writes the calendar the shots show.
+EContact working with EMail and ECal (docs/email-complete.png,
+docs/ecal-invitees.png) is not taken here: no other AERA program runs in
+EContact's tests (the guidelines 1.2, Erez, 8 Nov 2026). Those pictures
+are the hub's, taken in its family run with the real programs.
 They land in WORK/*/shots; --update copies them into docs/.
 """
 import argparse
@@ -37,8 +33,6 @@ from rig import Rig, K, SCAN  # noqa: E402
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 BIN = os.path.join(ROOT, "binary")
 CLI = os.path.join(ROOT, "build", "card-cli")
-sys.path.insert(0, os.path.join(ROOT, "common", "tools"))
-import getrelease  # noqa: E402
 
 
 def seed(folder):
@@ -167,89 +161,18 @@ def st_shots(r):
     r.shot("st-mono")
 
 
-def with_email(work, machine, spec):
-    """EContact as an accessory over EMail: ^B completes a name"""
-    hd = os.path.join(work, "hd")
-    shutil.rmtree(work, ignore_errors=True)
-    os.makedirs(hd)
-    as_accessory(hd)
-    getrelease.fetch(spec, os.path.join(work, "shots"), ["EMAIL.PRG"])
-    shutil.move(os.path.join(work, "shots", "EMAIL.PRG"), os.path.join(hd, "EMAIL.PRG"))
-    with open(os.path.join(hd, "EMAIL.INF"), "w", newline="") as f:
-        f.write("[OPTIONS]\r\nOFFLINE=1\r\n\r\n[ACCOUNT]\r\nNAME=Home\r\nFULLNAME=Erez Yaary\r\n"
-                "EMAIL=erez@example.com\r\nIN=imap\r\nHOST=192.168.1.2\r\nPORT=143\r\nUSER=erez\r\n")
-    r = Rig(work, machine, auto="C:\\EMAIL.PRG")
-    try:
-        time.sleep(18)
-        r.click(300, 300)
-        time.sleep(0.5)
-        r.ctrl("n")
-        time.sleep(1.5)
-        r.type("gr", pace=0.1)
-        r.ctrl("b")
-        time.sleep(1.5)
-        r.shot("email-complete")
-        r.key(K["ESC"])
-    finally:
-        r.stop()
-    return os.path.join(work, "shots")
-
-
-def with_ecal(work, machine, spec, ecal_src):
-    """ECal's invitations from EContact's people"""
-    hd = os.path.join(work, "hd")
-    shutil.rmtree(work, ignore_errors=True)
-    os.makedirs(hd)
-    as_accessory(hd)
-    getrelease.fetch(spec, os.path.join(work, "shots"), ["ECAL.PRG"])
-    shutil.move(os.path.join(work, "shots", "ECAL.PRG"), os.path.join(hd, "ECAL.PRG"))
-    # ECal's ui_tour: its seed() writes an On My Atari calendar. It takes
-    # ECal's own rig.py, not this one
-    ours = sys.modules.pop("rig")
-    sys.path.insert(0, os.path.join(ecal_src, "tests", "hatari"))
-    try:
-        import ui_tour
-    finally:
-        sys.path.pop(0)
-        sys.modules["rig"] = ours
-    ui_tour.seed(hd, english=True)
-    r = Rig(work, machine, auto="C:\\ECAL.PRG")
-    try:
-        time.sleep(18)
-        r.ctrl("n")
-        time.sleep(2)
-        r.type("Atari meet", pace=0.07)
-        r.click(505, 125)               # People: Add...
-        time.sleep(2)
-        r.type("ma", pace=0.1)          # Name or address
-        r.key(K["RETURN"])              # OK: ECal asks EContact (PEOPLE pick:),
-        time.sleep(8)                   # and Maya Carter is in People (ECal 2.21)
-        r.shot("ecal-invitees")
-        r.key(K["ESC"])
-    finally:
-        r.stop()
-    return os.path.join(work, "shots")
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("work")
     ap.add_argument("--falcon", default="Falcon:256")
     ap.add_argument("--st", default="ST:mono")
     ap.add_argument("--memory", action="store_true", help="memory-full, on ST-1")
-    ap.add_argument("--email", nargs="?", const="EMail")
-    ap.add_argument("--ecal", nargs="?", const="ECal")
-    ap.add_argument("--ecal-src", default=os.path.join(ROOT, "..", "ecal"))
     ap.add_argument("--update", action="store_true", help="copy them into docs/")
     a = ap.parse_args()
     dirs = [program(os.path.join(a.work, "falcon"), a.falcon, falcon_shots),
             program(os.path.join(a.work, "st"), a.st, st_shots)]
     if a.memory:
         dirs.append(memory_full(os.path.join(a.work, "memory"), "ST-1:mono"))
-    if a.email:
-        dirs.append(with_email(os.path.join(a.work, "email"), a.falcon, a.email))
-    if a.ecal:
-        dirs.append(with_ecal(os.path.join(a.work, "ecal"), a.falcon, a.ecal, a.ecal_src))
     for d in dirs:
         for f in sorted(os.listdir(d)):
             if not f.endswith(".png") or f.startswith("grab"):

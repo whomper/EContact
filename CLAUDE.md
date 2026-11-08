@@ -75,10 +75,12 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 
   How it is made is the team's, without asking: code, structure, shared code, tests, measurements,
   fixes, docs and releases inside an approved phase.
-- **Testing with another AERA program uses its latest release**, what Erez runs, never a build of its
-  `main`: `common/tools/getrelease.py APP DIR FILE...` fetches it. Only for a change both programs are
-  still making, test against the other's `main` at a named commit, say so, and test again against its
-  release when it is out.
+- **No test here runs another AERA program or accessory** (Erez, 8 Nov 2026; the guidelines 1.2):
+  `make test`, `make itest`, the rigs and the speed rig run EContact alone (its own ACC and PRG
+  together is still EContact alone). What it does with another program is tested against a stand-in
+  this repo owns that plays the other's side (ASKER.PRG for EMail, fakeguide for ST-Guide,
+  alertacc.acc for another accessory's alert); `getrelease.py` isn't used. The real programs
+  together are the hub's family checks.
 - **Every new source file starts with the SPDX line and copyright** (see any `.c` file); a generator
   writes them into the files it makes.
 - **The name** reads "AERA | Erez Yaary" wherever it is given: copyright lines
@@ -188,9 +190,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   Falcon or TT only.
   `tests/hatari/docs_shots.py WORK` takes the screenshots in docs/ (on
   Falcon:256, every app picture in 256 colours: Erez, 28 Oct 2026; and
-  st-mono.png on ST:mono); with `--email` and `--ecal` it fetches EMail's
-  and ECal's latest releases (getrelease.py). The rigs' stand-ins (fakeguide for ST-Guide, ASKER.PRG
-  for EMail) are EContact's own test programs; `quiet_sync.py` uses
+  st-mono.png on ST:mono); email-complete.png and ecal-invitees.png
+  need the real EMail and ECal and are the hub's (its family run). The
+  rigs' stand-ins (fakeguide for ST-Guide, ASKER.PRG for EMail,
+  alertacc.acc for another accessory's alert in xaaes_dialogs.py) are
+  EContact's own test programs; `quiet_sync.py` uses
   common's FAKESTNG and serial bridge (common/tools/fakesting).
 - Control shortcuts test `key_ctrl(kstate, key)` (common/atari/gem.h, the
   guidelines, 3.2), never `kstate & K_CTRL` alone: a key typed while
