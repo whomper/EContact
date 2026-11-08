@@ -106,7 +106,7 @@ static void set_opt(const char *k, const char *v)
 #define I(name) if (c == #name[0] && !strcasecmp(k, #name)) { opt.name = (short)atoi(v); return; }
 	S(gate) S(folder) S(me) S(start)
 	I(falcon) I(dsp) I(log) I(font_id) I(font_pt) I(hebfont) I(win_x) I(win_y) I(win_w) I(win_h)
-	I(sidebar) I(sort_first) I(last_first) I(refresh) I(sync_open) I(sync_after) I(photos) I(offline) I(hebrew) I(heapkb) I(memkb) I(default_book)
+	I(sidebar) I(sort_first) I(last_first) I(refresh) I(sync_open) I(sync_after) I(photos) I(offline) I(heapkb) I(memkb) I(default_book)
 	if (!strcasecmp(k, "gateport")) {
 		opt.gateport = (unsigned short)atoi(v);
 		return;
@@ -335,7 +335,6 @@ void store_save_settings(void)
 	I("DEFAULT_BOOK", default_book, "new contacts go into this address book (its ID below); -1: the first")
 	S("ME", me, "the UID of your own card (right-click a contact > Make This My Card)")
 	I("HEBFONT", hebfont, "where the font has the Hebrew letters: 0 Atari, 1 ISO-8859-8, 2 DOS 862")
-	I("HEBREW", hebrew, "start with the Hebrew keyboard (F10 switches)")
 	I("SIDEBAR", sidebar, "show the groups on the left")
 	I("WIN_X", win_x, "the window's left edge, in pixels")
 	I("WIN_Y", win_y, "the window's top edge, in pixels")

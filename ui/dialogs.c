@@ -247,7 +247,7 @@ static const char *const section_names[] = { "General", "Refresh", "Connection" 
 
 static void settings(short first)
 {
-	enum { L1, F1, L2, F2, L3, F3, L4, F4, F5, L6, F6,
+	enum { L1, F1, L2, F2, L3, F3, L4, F4, L6, F6,
 	       L11, F11, F12, L13, F13, N3,
 	       C1, C2, N1, L7, C3, L8, C4, N2, C7,
 	       BCAN, BOK, N };
@@ -300,11 +300,7 @@ static void settings(short first)
 	f[F4].items = heb_items;
 	f[F4].nitems = 3;
 	f[F4].val = opt.hebfont;
-	row++;
-	put(&f[F5], FT_CHECK, 0, VX, row, 32, "Start with Hebrew keyboard");
-	f[F5].val = opt.hebrew;
-	row++;
-	row++;
+	row += 2;
 	put(&f[L6], FT_LABEL, 0, CX, row, 0, "Photos:");
 	put(&f[F6], FT_CHECK, 0, VX, row, 32, "Show contacts' photos");
 	f[F6].val = opt.photos;
@@ -390,8 +386,6 @@ static void settings(short first)
 		opt.default_book = book_id[f[F3].val];
 	opt.hebfont = f[F4].val;
 	opt.photos = f[F6].val;
-	opt.hebrew = f[F5].val;
-	set_hebrew_kbd(opt.hebrew);
 	opt.refresh = refresh_min[f[F11].val];
 	opt.sync_open = f[F12].val;
 	opt.sync_after = after_min[f[F13].val];

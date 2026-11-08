@@ -74,7 +74,6 @@ typedef struct {
 	short sync_after;	/* the accessory: once, minutes after boot (0: no) */
 	short photos;		/* show contacts' photos */
 	short offline;		/* Work offline: no connections */
-	short hebrew;		/* start with the Hebrew keyboard */
 	short heapkb;		/* the accessory's memory, KB; 0: chosen */
 	short memkb;		/* what it needed the last time, measured (KB); 0: not known */
 	short default_book;	/* new contacts go here (a BOOK id) */

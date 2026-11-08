@@ -1440,7 +1440,6 @@ static int load_settings(int quiet)
 	if (store_plain_passwords && !store_lost_passwords)
 		store_save_settings();
 	secret_warn = warn_plain;
-	hebrew_kbd = opt.hebrew;
 	hebrew_kbd_hook = kbd_changed;
 	fonts_ready = 0;
 	if (!quiet) {
