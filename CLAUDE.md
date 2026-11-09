@@ -93,7 +93,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   - real addresses from the owner's network: use `192.168.1.x`, `PI_IP`, `ATARI_IP`
   - passwords, session keys, `.KEY` / `.INF` files from a test run
   - photos that still carry EXIF/GPS data
-- **README:** keep the section order from the template (Highlights, Getting started, How it reaches the
+- **README:** a front page of about 600 words (the guidelines 1.4, Erez, 9 Nov 2026), the rest in docs/ (SETUP.md, DETAILS.md, DEVELOPMENT.md); keep the section order from the template (Highlights, Getting started, How it reaches the
   servers, Building, Source, Tests, Licence, family footer). Use British English.
 
 ## Talking with Erez
@@ -175,7 +175,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   4.3): common/tools/helpfront.py makes it from docs/front.json, with
   docs/help/WINDOW.IMG (made once with `helpfront.py thumb` from
   docs/window.png). `tests/hatari/help_key.py` checks the Help key.
-- The speed rig is `tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--profile ELF]` (README,
+- The speed rig is `tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--profile ELF]` (docs/DEVELOPMENT.md,
   Tests): an AES_PROFILE=20 build, 621 contacts, each action's longest stretch set against the
   guidelines' time. The profile build's ui/main.c says when the start and the accessory's opening
   have drawn the window (AESDRAWN) and has prof_turn_end, where --profile stops Hatari to save its
@@ -520,7 +520,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   guidelines 5.3): ui/font.c only fills it and takes the font (take);
   change the dialog in AERA-Atari. FONT_ID= is near the INF's start, where inf_value
   reads it at boot.
-- Memory on an ST is the limit (README "How many contacts"). Reading a
+- Memory on an ST is the limit (docs/DETAILS.md "How many contacts"). Reading a
   card leaves nothing in memory but its CONTACT (vcard_parse keeps its
   scratch from card to card): small mallocs left between contacts make
   every later malloc and free on the Atari slower. `BOOKnnnn.IDX` keeps
@@ -565,7 +565,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   the program in front, which may end while we wait, so the background
   refresh keeps what came in memory and writes it with no event call
   between open and close. `tests/hatari/quiet_start.py` and
-  `quiet_sync.py` check it with an AES_PROFILE build (README, Tests).
+  `quiet_sync.py` check it with an AES_PROFILE build (docs/DEVELOPMENT.md, Tests).
 - The program reads its books the same way, after its window is drawn
   (main.c prg_loading, a slice a turn: in one stretch they were 9 s of an
   8 MHz ST's start). Meanwhile a menu entry, files dropped or given by
