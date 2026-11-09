@@ -8,10 +8,15 @@ other CardDAV servers.
 **Highlights**
 
 - **Like the Mac's Contacts:** groups on the left, people under a search field, the chosen card on the right
-- **iCloud and CardDAV** (Fastmail, Nextcloud, Radicale...), synced both ways, with photos and groups
+- **iCloud and CardDAV** (Fastmail, Nextcloud, Radicale...), synced both ways
+- **Contacts' photos**, from the card or iCloud's links, on any screen
+- **Groups**, as iCloud keeps them and as Nextcloud does
 - **The address book of [EMail](https://github.com/whomper/EMail) and [ECal](https://github.com/whomper/ECal):** pick people to write to and to invite
-- **A desk accessory or a program**, with right-click menus, drag and drop and the Help key
-- **Secure:** TLS 1.2 on a Falcon or TT; an ST or STE through the AERA Gateway
+- **A desk accessory or a program**, with right-click menus, drag and drop and iconify
+- **Several contacts at once:** Shift+click, Control+click, Select all
+- **Secure:** TLS 1.2 on a Falcon or TT, the curves on the Falcon's DSP
+- **Hebrew** names and notes right to left, the Israeli keyboard on F10
+- **Works offline** from its own copy; vCard import and export
 
 ![EContact on a Falcon: the groups on the left, the people sorted by last name, and Maya Carter's card with her colour photo, phones, emails and address](docs/window.png)
 
@@ -29,7 +34,7 @@ Download the latest **[release](https://github.com/whomper/EContact/releases/lat
 
 1. Copy `econtact.acc` to the root of your boot drive.
 2. Put the other files in a folder of your choice; the first time it opens, EContact asks where it is.
-3. On an ST or STE, set up the [AERA Gateway](https://github.com/whomper/AERA-Gateway) on a Raspberry Pi.
+3. On an ST or STE, set up the AERA Gateway (below).
 4. Reboot, choose **EContact** in the Desk menu and add your account, with an
    [app password](docs/GUIDE.md#app-passwords-icloud-fastmail) for iCloud or Fastmail.
 
@@ -42,10 +47,11 @@ memory, EMail and ECal) in [docs/DETAILS.md](docs/DETAILS.md).
 
 ## How it reaches the servers
 
-```
-ST, STE:     Atari (econtact.acc) --plain HTTP, home LAN--> Gateway (ecalgate.py) --HTTPS--> the server
-Falcon, TT:  Atari (econtact.acc + tls.ovl: TLS 1.2, curves on the DSP) -----------HTTPS--> the server
-```
+Contacts servers want HTTPS. A Falcon or TT does it itself (a Direct connection, `tls.ovl`); an ST or STE
+goes through the [AERA Gateway](https://github.com/whomper/AERA-Gateway#readme), a small service on a
+Raspberry Pi at home that EContact shares with ECal and EMail: EContact sends it plain HTTP and the
+Gateway talks HTTPS to the server. On a Falcon or TT the Gateway is optional, and an On My Atari
+address book needs no server at all.
 
 ## Building
 
@@ -60,25 +66,17 @@ Releases, the help file and the icons: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md
 ## Source
 
 ```
-src/          the contacts core: vCard, CardDAV, accounts, caches, photos (also built on Linux)
-ui/           the GEM program: window, list, card, editor, dialogs
-atari/        files and folders on GEMDOS
-common/       code shared with the other AERA programs (AERA-Atari)
-gateway/      a copy of AERA-Gateway's, for the tests
-third_party/  ChaN's TJpgDec, for the photos
-tests/        unit, fuzz and CardDAV tests, Hatari rigs
-docs/         the user guide (the source of econtact.hyp), the longer docs, pictures
+src/      the contacts core: vCard, CardDAV, accounts, caches, photos
+ui/       the GEM program: window, list, card, editor, dialogs
+common/   code shared with the other AERA programs
+docs/     the user guide and the longer docs
 ```
+
+The full list: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#source).
 
 ## Tests
 
-```
-make test     # the core: vCards, groups, the cache, photos, fuzz inputs again
-make itest    # card-cli against a real CardDAV server (Radicale)
-make fuzz     # libFuzzer over servers' answers, vCards and photos
-```
-
-The Hatari rigs (tests/hatari/) and what each checks: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#tests).
+`make test` runs the core's tests; the rest (CardDAV, fuzzing, the Hatari rigs) is in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#tests).
 
 ## Licence
 
@@ -88,4 +86,4 @@ certificates (MPL 2.0), under their own licences.
 
 ---
 
-Part of **AERA** for Atari: [ECal](https://github.com/whomper/ECal) · [EContact](https://github.com/whomper/EContact) · [EMail](https://github.com/whomper/EMail) · [EFTP](https://github.com/whomper/EFTP) · [EHypView](https://github.com/whomper/EHypView) · [ClaudeST](https://github.com/whomper/ClaudeST) · [EWeb](https://github.com/whomper/EWeb) · [EUpdate](https://github.com/whomper/EUpdate) · 8-bit: [EDOS](https://github.com/whomper/EDOS) · [EFTP_XL](https://github.com/whomper/EFTP_XL) · Pi: [AERA-Gateway](https://github.com/whomper/AERA-Gateway)
+Part of **AERA** for Atari: [ECal](https://github.com/whomper/ECal) · [EContact](https://github.com/whomper/EContact) · [EMail](https://github.com/whomper/EMail) · [EFTP](https://github.com/whomper/EFTP) · [EHypView](https://github.com/whomper/EHypView) · [ClaudeST](https://github.com/whomper/ClaudeST) · [EWeb](https://github.com/whomper/EWeb) · [EUpdate](https://github.com/whomper/EUpdate) · 8-bit: [EDOS](https://github.com/whomper/EDOS) · [EFTP_XL](https://github.com/whomper/EFTP_XL) · Gateway: [AERA-Gateway](https://github.com/whomper/AERA-Gateway)
