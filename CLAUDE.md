@@ -16,6 +16,7 @@ EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari
 
   Such a release takes only that fix (one change from AERA-Atari, not a sync), and its notes say why.
 - Work on `main` that isn't released stays unreleased.
+- The UI backlog from Erez's decisions of 9 Nov 2026 is docs/UI-BACKLOG.md: it rides releases made anyway, as it says.
 - Nothing runs in the background; the session waits for Erez or the hub.
 - Only Erez's explicit word ends this mode, for instance that every app is to take the latest shared code and release. The hub passes it on quoting him.
 
