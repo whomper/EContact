@@ -18,6 +18,7 @@ EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari
 - Work on `main` that isn't released stays unreleased.
 - The UI backlog from Erez's decisions of 9 Nov 2026 is docs/UI-BACKLOG.md: it rides releases made anyway, as it says.
 - The next release is 2.0 (Erez, 9 Nov 2026): `tools/bump.py major` in its release commit, "2.0" in its notes' first line.
+- At that release, testing takes Erez's configuration (Erez, 10 Nov 2026; AERA-Atari 148df17, standards/TEST-MATRIX.md): `Falcon-4:256` with `AERA_WITH_NVDI=1` (machines.ERZ_MACHINE, erz_env()) replaces the main Falcon run of gui, quiet_start, card_scroll and speed.py (Falcon-4:16 and Falcon:16); the other Falcon runs of the same functions go. The hub's set per candidate: a paired speed run on his configuration, ST-1:mono, one TT + MiNT + XaAES run.
 - Nothing runs in the background; the session waits for Erez or the hub.
 - Only Erez's explicit word ends this mode, for instance that every app is to take the latest shared code and release. The hub passes it on quoting him.
 
