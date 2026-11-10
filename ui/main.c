@@ -161,6 +161,16 @@ void pick_end(int choose)
 	pick_finish(choose, 1);
 }
 
+/* each step of the end in ECONTACT.LOG at once (as EFTP's): a bomb at
+   the quit then says how far it got (AERA-Atari 0bb66c7, 6ec5923) */
+static void quit_step(const char *what)
+{
+	char m[160];
+	snprintf(m, sizeof(m), "quit: %s", what);
+	conn_log("EContact", "--", m, (long)strlen(m));
+	conn_log_flush();
+}
+
 void closing_down(int quitting)
 {
 	char host[100], m[160];
@@ -2472,12 +2482,13 @@ int main(void)
 		}
 	}
 	win_close();
+	quit_step("window closed");
 	settings_flush();
 	if (data_ready && workdir[0] && !books_loading())
 		people_file_write();	/* (a change made just before Quit) */
+	quit_step("settings saved");
 	http_close_all();
-	conn_log_flush();
-	crash_remove();
+	quit_step("connections closed");
 	av_exit();
 	if (has_menu)
 		menu_bar(mb.tree, 0);
@@ -2485,6 +2496,15 @@ int main(void)
 	win_buffer_end();
 	if (vdi_h)
 		v_clsvwk(vdi_h);
+	quit_step("menu bar, buffer and VDI given back");
+	crash_remove();
+	{
+		char m[120];
+		const char *o = crash_over();
+		snprintf(m, sizeof(m), "crash catcher off; hooked over it: %s", o[0] ? o : "nothing");
+		quit_step(m);
+	}
+	quit_step("out of the AES");
 	appl_exit();
 	return 0;
 }
