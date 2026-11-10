@@ -16,6 +16,9 @@
 #include "tls.h"
 #include "dialog.h"
 
+/* the address books' pop-up labels, Settings' and the editor's (one table:
+   the two are never open at once; 1.7 KB of BSS, 10 Nov 2026) */
+char book_labels[MAXBOOK][70];
 static void put(FIELD *f, short type, short flags, short x, short y, short w, const char *label)
 {
 	memset(f, 0, sizeof(*f));
@@ -254,7 +257,7 @@ static void settings(short first)
 	FIELD f[N];
 	DLG d;
 	static char gate[64], port[8];
-	static char book_lab[MAXBOOK][70];
+	char (*book_lab)[70] = book_labels;	/* the editor's too: never both open */
 	static const char *book_items[MAXBOOK];
 	short book_id[MAXBOOK], nb = 0;
 	short r, i, row;

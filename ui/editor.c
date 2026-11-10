@@ -152,7 +152,7 @@ static int run_editor(CONTACT *c, int *book)
 {
 	enum { MAXF = 120 };
 	static FIELD f[MAXF];
-	static char book_lab[MAXBOOK][70];
+	char (*book_lab)[70] = book_labels;	/* the table Settings uses too: never both open */
 	static const char *book_items[MAXBOOK];
 	short book_idx[MAXBOOK], nb = 0, fbook = -1;
 	short n = 0, i, row, r, fcompany, bdel, bcan, bok;

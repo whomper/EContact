@@ -188,13 +188,15 @@ static int codes(ST *s, const HUFF *lc, const HUFF *dc)
 
 static HUFF lit, dst;
 
+/* a fixed block: its tables built into lit and dst, which a dynamic
+   block builds its own into (a block is one or the other; the two kept
+   apart were 3.4 KB more of an accessory's BSS on a 1 MB ST, 10 Nov 2026) */
 static int fixed(ST *s)
 {
-	static int ready;
-	static HUFF flit, fdst;
-	if (!ready) {
-		unsigned char l[320];
-		int i;
+	static unsigned char l[288];
+	static int made;
+	int i;
+	if (!made) {
 		for (i = 0; i < 144; i++)
 			l[i] = 8;
 		for (; i < 256; i++)
@@ -203,13 +205,16 @@ static int fixed(ST *s)
 			l[i] = 7;
 		for (; i < 288; i++)
 			l[i] = 8;
-		build(&flit, l, 288);
-		for (i = 0; i < 30; i++)
-			l[i] = 5;
-		build(&fdst, l, 30);
-		ready = 1;
+		made = 1;
 	}
-	return codes(s, &flit, &fdst);
+	build(&lit, l, 288);
+	{
+		unsigned char d[30];
+		for (i = 0; i < 30; i++)
+			d[i] = 5;
+		build(&dst, d, 30);
+	}
+	return codes(s, &lit, &dst);
 }
 
 static int dynamic(ST *s)

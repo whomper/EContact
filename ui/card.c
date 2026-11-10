@@ -643,10 +643,11 @@ static void value_menu(short mx, short my, CONTACT *c, HIT *h)
 	}
 	if (h->kind == HV_MAILBTN) {
 		/* several addresses: which one */
-		static char lab[16][110];
+		long size;
+		char (*lab)[110] = (char (*)[110])popup_scratch(&size);	/* 16 x 110 in its 3 KB */
 		static const char *its[16];
 		short m;
-		for (m = 0; m < c->nemail && m < 16; m++) {
+		for (m = 0; m < c->nemail && m < 16 && (m + 1) * 110L <= size; m++) {
 			snprintf(lab[m], sizeof(lab[m]), "  %-8s %s", c->email[m].label, c->email[m].value);
 			its[m] = lab[m];
 		}

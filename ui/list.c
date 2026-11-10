@@ -931,7 +931,15 @@ void list_step(int dir)
 
 /* Add to Group's pop-up: one table for the one contact's and the chosen
    ones' (never both open at once; 4.5 KB of the accessory's BSS each) */
-static char grp_lab[64][70];
+static char grp_lab[64][48];	/* a name's first 45 letters (1.4 KB less: a 1 MB ST's first boot) */
+
+/* the same 3 KB for another pop-up's labels (the card's addresses): one
+   pop-up is up at a time (1.7 KB less of BSS, 10 Nov 2026) */
+char *popup_scratch(long *size)
+{
+	*size = (long)sizeof(grp_lab);
+	return &grp_lab[0][0];
+}
 static const char *grp_items[64];
 
 static void add_to_group(CONTACT *c)
