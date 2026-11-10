@@ -1,6 +1,6 @@
 # EContact - user guide
 
-Contacts for the Atari ST, TT and Falcon, like the Mac's Contacts:
+Contacts for the ST, TT and Falcon, like the Mac's Contacts:
 iCloud and other CardDAV address books, or contacts kept on the Atari
 alone, with EMail and ECal finding the people in it.
 
@@ -139,7 +139,7 @@ About box says which version is running.
 
 ## Accounts
 
-File > **Add account...** (in the accessory, the menu: the button at the
+Options > **Add account...** (in the accessory, the menu: the button at the
 top right):
 
 - **iCloud**: your Apple ID and an **app-specific password**, not your
@@ -220,14 +220,14 @@ new one, and your normal password and other programs aren't touched.
 - On a computer or phone, sign in at account.apple.com.
 - In **Sign-In and Security**, choose **App-Specific Passwords**, then
    make a new one (give it a name such as EContact).
-- In EContact (File > **Add account...** > **iCloud**): your Apple
+- In EContact (Options > **Add account...** > **iCloud**): your Apple
    Account's email address in **Apple ID**, the app-specific password in
    **Password**.
 
 Apple's own page: https://support.apple.com/en-us/102654. You can have
 up to 25 of them. Changing your Apple Account's password revokes them
 all: make a new one then and type it in again (right-click the account
-on the left, **Account Settings...**).
+on the left, **Account settings...**).
 
 **Fastmail** (it calls them app passwords; Standard and Professional
 plans, not Basic, which has no CardDAV):
@@ -236,7 +236,7 @@ plans, not Basic, which has no CardDAV):
    API tokens**, **Manage app passwords and access**.
 - **New app password**: a name such as EContact, and access that
    includes contacts (the default, mail, contacts and calendars, does).
-- In EContact (File > **Add account...** > **Other CardDAV account**):
+- In EContact (Options > **Add account...** > **Other CardDAV account**):
    `https://carddav.fastmail.com/` in **Server**, your whole Fastmail
    address in **User name**, the app password in **Password**.
 
@@ -257,8 +257,8 @@ address book (File > **Import vCards...**).
   ("All iCloud") and their groups. Click one to see those people. The
   button at the top left (or Shift+^S) hides the list.
 - **In the middle**: the people, sorted by last name under letter
-  headings. Click one to see their card; the arrow keys move up and down,
-  Clr/Home goes to the first (Shift: the last). The scroll bar at the
+  headings. Click one to see their card; the arrow keys move up and down
+  (Shift: a page), Clr/Home goes to the first (Shift: the last). The scroll bar at the
   right of the list moves it: its arrows a row (held, on and on), a click
   above or below the slider a page (held, page after page until the
   slider reaches the pointer), and the slider dragged.
@@ -307,7 +307,7 @@ offline too.
 
 To have them all, choose **Sync Contact Photos...** in the menu (the
 button at the right of the toolbar). A box shows who is being done, how
-many are left and about how long it will take. **Cancel** (or Esc) stops
+many are left and about how long it will take. **Stop** (or Esc) stops
 at once, even in the middle of a photo; what is done is kept, and choosing
 it again goes on from there. Offline, it makes the pictures of the photos already
 downloaded. Some servers send the photos while syncing anyway: those are
@@ -372,8 +372,8 @@ are chosen. Then:
 
 - **Delete** (the key, or the menu): all of them, after one question;
   cards in an address book you can't change stay.
-- Right-click one of them for **Add to Group...**, **Remove from (group)**
-  while a group is shown, **Send Email** (one message to them all, in
+- Right-click one of them for **Add to group...**, **Remove from (group)**
+  while a group is shown, **Send email** (one message to them all, in
   EMail's To: line), **Copy Names and Emails** (^C does the same) and
   **Export vCards...**. A group holds the cards of its own address book:
   the others are left out, and EContact says so.
@@ -385,11 +385,11 @@ A click (or ↑, ↓) chooses one again.
 ![The contact menu](context-menu.png)
 
 - **New group**: the menu > New group (^G), or right-click an address book.
-- **Add to Group...**: right-click a contact; the list ticks the groups it
+- **Add to group...**: right-click a contact; the list ticks the groups it
   is in, and choosing a ticked one takes it out. A new contact made while
   a group is shown goes into that group.
 - **Remove from (group)**: right-click a contact while the group is shown.
-- Right-click a group to **Send Email to Group** (everyone in it, in
+- Right-click a group to **Send email to group** (everyone in it, in
   EMail's To: line), export it, rename it (or double-click it) or delete
   it (the people stay).
 
@@ -412,9 +412,9 @@ show and work the same way here; new groups are made as group cards.
   go into. `ECONTACT.PRG` takes them the same way when the desktop starts
   it with one (installed as the application for `.VCF`).
 
-## My Card
+## My card
 
-Right-click your own card > **Make This My Card**. The list marks it
+Right-click your own card > **Make this my card**. The list marks it
 "me", and the window opens on it.
 
 ## Settings
@@ -488,8 +488,8 @@ contacts change (handy on a 1 MB ST, with ECONTACT.PRG run now and then).
 When EMail or ECal asks you to choose, EContact's window opens with
 **Cancel** and **Choose** in place of Refresh and the menu: click people
 to tick them (a double click chooses at once), or choose a group on the
-left, then **Choose** (Return); **Cancel** (Undo, or Esc when the
-search field is empty), closing the window or quitting chooses no one. In EMail 1.35 and ECal 2.8 or later:
+left, then **Choose** (Return); **Cancel** (or Undo; Esc only empties the
+search field), closing the window or quitting chooses no one. In EMail 1.35 and ECal 2.8 or later:
 
 - **EMail**: the addresses it shows carry EContact's names; ^B on a To:
   line, and its **Address book...** (^B, in the Message menu), pick people
@@ -527,6 +527,7 @@ next time EContact saves its settings.
 | Key | Does |
 |-----|------|
 | ↑ ↓ | the contact above, below |
+| Shift+↑, Shift+↓ | a page up, down |
 | Clr/Home, Shift+Clr/Home | the first, the last |
 | Return, ^E | edit the card |
 | Delete | delete the card, or the cards chosen (not while the search field has the focus: a click in the list, or an arrow key, gives it back to the list) |
@@ -563,7 +564,7 @@ Anything else you type meanwhile is kept for afterwards.
   [App passwords (iCloud, Fastmail)](#app-passwords-icloud-fastmail)), and
   an app password stops working when it is revoked or, at Apple, when
   the account's password is changed. Right-click the account on the left,
-  **Account Settings...**, to type a new one.
+  **Account settings...**, to type a new one.
 - `ECONTACT.LOG` (Settings > Connection: the log) has the conversation
   with the servers.
 - **A crash**: if EContact itself goes wrong (what would be 2 to 8 bombs),

@@ -326,8 +326,8 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   closer, common's dlg_evnt) cancels, Esc cancels a dialog without a
   text field (dlg_cancel_key; the guidelines 3.5, GEM's way since 27 Oct
   2026); a text of several lines never empties on Esc. The window's
-  search field empties on Esc too, and in the choose mode Esc cancels
-  once it is empty (`tests/hatari/esc_test.py`). The buttons are the
+  search field empties on Esc too, and in the choose mode Esc never cancels (D28: Cancel or Undo end it)
+  (`tests/hatari/esc_test.py`). The buttons are the
   AES's own G_BUTTONs, drawn by objc_draw in the clip set (field.c
   aes_button; 5.6), a dialog's together in one call (aes_buttons: TOS
   1.04 takes some 10 ms a call), and a pop-up opens over its button with
@@ -441,7 +441,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   over 17,000 cards and texts (tests/unit.c test_matches): it must find
   the same.
 - Sync Contact Photos that ends with the window behind another
-  program's says so as a BGEM.NG notification, its Open bringing the
+  program's says so as a BGEM.NG notification, its Show bringing the
   window to the front (main.c note_behind, common/ui/notify.c; the
   guidelines 4.5); where notify_send gives 0 (TOS, MagiC, no BGEM.NG) and
   with the window in front, the alert as before. notify_init and

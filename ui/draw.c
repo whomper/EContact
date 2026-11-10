@@ -742,7 +742,7 @@ long wrap_text(const char *s, long n, short width, long *breaks, long max)
 short sel_color(void)
 {
 	static short pick = -1;
-	short i, rgb[3], n = ncolors > 256 ? 256 : ncolors;
+	short i, rgb[3], n = 16;	/* the system's pens alone (5.2, D42): never one of a picture's */
 	long best = 0x7fffffffL;
 	if (ncolors < 16)
 		return 1;

@@ -30,8 +30,8 @@ under a search field, the chosen person's card on the right.
   sections of one dialog (Name, Phone, Email, Address, More) so it fits an ST's screen; labels come
   from a pop-up or **Custom...**. What EContact doesn't edit (the photo itself, related names, social
   profiles, Apple's own fields) is kept as it was.
-- **Groups**: All Contacts, each account, its groups. **New Group...**, **Add to Group...**, Remove
-  from the group, rename, delete; **Send Email to Group** gives EMail everyone in it. iCloud's group
+- **Groups**: All Contacts, each account, its groups. **New group...**, **Add to group...**, Remove
+  from the group, rename, delete; **Send email to group** gives EMail everyone in it. iCloud's group
   cards and Nextcloud's categories both work. A contact you make while a group is shown goes into it.
 - **iCloud** and any **CardDAV** server: address books found automatically, changes made elsewhere
   fetched with ETags so only what changed comes over the line, saves checked with If-Match so a change

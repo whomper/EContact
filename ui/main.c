@@ -719,10 +719,8 @@ void cmd_export(void)
    other SCRAP.* gone, other programs told */
 void cmd_copy(const char *text)
 {
-	if (!clip_put(text, (long)strlen(text)))
-		alert(1, "[1][Couldn't write the clipboard.][ OK ]");
-	else
-		status("Copied to the clipboard.");
+	/* both on the status line, never an alert (WINDOWS 7, D50) */
+	status(clip_put(text, (long)strlen(text)) ? "Copied to the clipboard." : "Couldn't write the clipboard.");
 }
 
 /* a contact as EMail's To: line takes it: "Maya Carter <maya@example.com>" */
@@ -852,14 +850,13 @@ static int photo_progress(void *ud, int done, int total, const char *name)
 		str_copy(l2, "Working out the time left...", sizeof(l2));
 	} else {
 		unsigned long left = el / (unsigned long)done * (unsigned long)(total - done) / 1000UL;
+		/* the family's job formats (WINDOWS 8.2, D35): 3 h, 2 min, 20 s */
 		if (left >= 5400UL)
-			snprintf(l2, sizeof(l2), "About %lu hours left", (left + 1800UL) / 3600UL);
+			snprintf(l2, sizeof(l2), "%lu h left", (left + 1800UL) / 3600UL);
 		else if (left >= 90UL)
-			snprintf(l2, sizeof(l2), "About %lu minutes left", (left + 30UL) / 60UL);
-		else if (left >= 45UL)
-			str_copy(l2, "About a minute left", sizeof(l2));
+			snprintf(l2, sizeof(l2), "%lu min left", (left + 30UL) / 60UL);
 		else
-			str_copy(l2, "Less than a minute left", sizeof(l2));
+			snprintf(l2, sizeof(l2), "%lu s left", left < 5UL ? 5UL : (left + 2UL) / 5UL * 5UL);
 	}
 	if (!prog_update(done, total, l1, l2)) {
 		p->stopped = 1;
@@ -870,7 +867,7 @@ static int photo_progress(void *ud, int done, int total, const char *name)
 
 /* news that came while the window was behind another program's is a
    notification where BGEM.NG runs (the guidelines 4.5; a tester, Erez 27
-   Oct 2026), its Open bringing the window to the front; elsewhere, and
+   Oct 2026), its Show bringing the window to the front; elsewhere, and
    with the window in front, 0: the alert, as before */
 enum { NOTE_PHOTOS = 1 };
 
@@ -880,7 +877,7 @@ static int note_behind(const char *title, const char *text, short id)
 	if (win_h <= 0)
 		return 0;
 	wind_get(0, WF_TOP, &top, &d, &d, &d);
-	return top != win_h && notify_send(title, text, "Open", id);
+	return top != win_h && notify_send(title, text, "Show", id);
 }
 
 static void note_clicked(short id, short button)
@@ -967,8 +964,6 @@ static const MBAR_ITEM m_desk[] = {
 	{ 0, 0, 0 }
 };
 static const MBAR_ITEM m_file[] = {
-	{ "Add account...", 0, C_ADD },
-	{ "-", 0, 0 },
 	{ "Import vCards...", 0, C_IMP },
 	{ "Export vCards...", 0, C_EXP },
 	{ "Sync Contact Photos...", 0, C_PHOTOS },
@@ -998,12 +993,14 @@ static const MBAR_ITEM m_view[] = {
 	{ "Groups", "\x01^S", C_SIDE },
 	{ 0, 0, 0 }
 };
+/* the account item first, before Settings (MENUS 1.5, D13) */
 static const MBAR_ITEM m_opts[] = {
+	{ "Add account...", 0, C_ADD },
 	{ "Settings...", "^,", C_SET },
 	{ "Font...", 0, C_FONT },
 	{ "-", 0, 0 },
 	{ "Work offline", 0, C_OFFL },
-	{ "Direct connection (TLS)", 0, C_FALC },
+	{ "Direct connection", 0, C_FALC },
 	{ "Write a log", 0, C_LOG },
 	{ 0, 0, 0 }
 };
@@ -1033,18 +1030,35 @@ void menu_drop(const short *msg)
 		menu_tnormal(mb.tree, msg[3], 1);
 }
 
+/* what the menu bar shows, by command: the AES is asked only for a change
+   (MD23; menu_update runs after every key, click and message, and eight
+   calls took an 8 MHz ST some 8 ms each time); -1 until first set */
+static signed char m_state[C_SELALL + 1][2];
+static void menu_state_forget(void)
+{
+	memset(m_state, -1, sizeof(m_state));
+}
+
 static void check(int cmd, int on)
 {
-	short o = mbar_object(&mb, cmd);
-	if (o > 0)
-		menu_icheck(mb.tree, o, on ? 1 : 0);
+	short o;
+	on = on ? 1 : 0;
+	if (m_state[cmd][0] == on)
+		return;
+	m_state[cmd][0] = on;
+	if ((o = mbar_object(&mb, cmd)) > 0)
+		menu_icheck(mb.tree, o, on);
 }
 
 static void enable(int cmd, int on)
 {
-	short o = mbar_object(&mb, cmd);
-	if (o > 0)
-		menu_ienable(mb.tree, o, on ? 1 : 0);
+	short o;
+	on = on ? 1 : 0;
+	if (m_state[cmd][1] == on)
+		return;
+	m_state[cmd][1] = on;
+	if ((o = mbar_object(&mb, cmd)) > 0)
+		menu_ienable(mb.tree, o, on);
 }
 
 /* the menu bar's ticks and greyed items, as things are now */
@@ -1133,7 +1147,8 @@ void cmd_menu(short x, short y)
 		const char *text;
 		short cmd;
 	} m[] = {
-		{ "  Add account...", C_ADD },
+		{ "  About EContact...", C_ABOUT },
+		{ "-", 0 },
 		{ "  New contact          ^N", C_NEW },
 		{ "  New group            ^G", C_GROUP },
 		{ "-", 0 },
@@ -1143,14 +1158,16 @@ void cmd_menu(short x, short y)
 		{ "-", 0 },
 		{ "  Groups              \x01^S", C_SIDE },
 		{ "-", 0 },
-		{ "  Work offline", C_OFFL },
-		{ "  Direct connection (TLS)", C_FALC },
-		{ "  Write a log", C_LOG },
-		{ "-", 0 },
+		{ "  Add account...", C_ADD },
 		{ "  Settings...          ^,", C_SET },
 		{ "  Font...", C_FONT },
+		{ "-", 0 },
+		{ "  Work offline", C_OFFL },
+		{ "  Direct connection", C_FALC },
+		{ "  Write a log", C_LOG },
+		{ "-", 0 },
+		{ "  EContact help      Help", C_HELP },
 		{ "  Keys...", C_KEYS },
-		{ "  About EContact...", C_ABOUT },
 		{ "-", 0 },
 		{ "  Quit                  ^Q", C_QUIT },
 	};
@@ -2167,6 +2184,7 @@ int main(void)
 	if (!is_acc) {
 		job_memory(0);
 		/* the menu bar (the accessory has the toolbar's menu) */
+		menu_state_forget();
 		if (mbar_build(&mb, bar, gl_wchar, gl_hchar, scr_w, scr_h) == 0)
 			has_menu = menu_bar(mb.tree, 1) != 0;
 		if (av_command()[0])

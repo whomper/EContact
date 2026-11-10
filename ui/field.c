@@ -1099,17 +1099,28 @@ static int edit_key(DLG *d, FIELD *f, short kstate, short key)
 #define POP_MAX 64
 static short field_popup(const GRECT *r, const FIELD *f)
 {
+	/* common's popup_over (D27, 5.7): the ticked choice over the button.
+	   Its labels are the words alone (popup_m's contract): the two
+	   spaces of the items' margin left out, the tick put in front */
 	const char *items[POP_MAX];
-	char ticked[80];
+	static char lab[POP_MAX][40];	/* 2.5 KB, not on the stack */
 	short i, n = f->nitems < POP_MAX ? f->nitems : POP_MAX;
-	for (i = 0; i < n; i++)
-		items[i] = f->items[i];
-	if (f->val >= 0 && f->val < n && f->items[f->val][0] == ' ') {
-		ticked[0] = '\x08';
-		str_copy(ticked + 1, f->items[f->val] + 1, sizeof(ticked) - 1);
-		items[f->val] = ticked;
+	for (i = 0; i < n; i++) {
+		const char *t = f->items[i];
+		short k = 0;
+		if (t[0] == '-' || t[0] == '~') {
+			items[i] = t;
+			continue;
+		}
+		while (*t == ' ' && k < 2) {
+			t++;
+			k++;
+		}
+		lab[i][0] = '\x08';
+		str_copy(lab[i] + 1, t, sizeof(lab[i]) - 1);
+		items[i] = i == f->val ? lab[i] : lab[i] + 1;
 	}
-	return popup(r->x, r->y, items, n);
+	return popup_over(r->x, r->y, items, n, f->val);
 }
 
 static int click_field(DLG *d, short i, short mx, short my)
@@ -1558,12 +1569,12 @@ int dlg_ask(const char *title, const char *label, char *buf, short len)
 
 /* ---------------- progress ----------------
  * A box for long work (Sync Contact Photos): what is being done, a bar,
- * the time left, and Cancel. The work calls prog_update between steps;
+ * the time left, and Stop (D31). The work calls prog_update between steps;
  * a step (a photo can take half a minute) calls pf_idle while it waits
  * for the network and conn_tick as data comes in or a picture is
  * decoded, and the box looks at the mouse then, every 50 ms at most.
  * GEM keeps no clicks for later: a click is seen while the button is
- * down, and a click lasts about a tenth of a second. Cancel or Esc stops
+ * down, and a click lasts about a tenth of a second. Stop or Esc stops
  * the network (conn_stop) and the step, and says "Stopping...". */
 
 enum { PG_LINE1, PG_LINE2, PG_CANCEL, PG_N };
@@ -1586,7 +1597,7 @@ static void prog_stopping(void)
 	dlg_redraw_field(&pg_d, PG_LINE2);
 }
 
-/* Cancel or Esc since last looked, without waiting for them; other
+/* Stop or Esc since last looked, without waiting for them; other
    keys and clicks are the box's, and dropped */
 static void prog_poll(short ms)
 {
@@ -1687,7 +1698,7 @@ void prog_open(const char *title)
 					   its frame stood on the box's (Erez, 8 Nov 2026) */
 	pg_f[PG_CANCEL].y = 4;
 	pg_f[PG_CANCEL].w = 10;
-	pg_f[PG_CANCEL].label = "Cancel";
+	pg_f[PG_CANCEL].label = "Stop";	/* a job that can be run again: Stop (D31) */
 	pg_d.title = title;
 	pg_d.w = w;
 	pg_d.h = 5;

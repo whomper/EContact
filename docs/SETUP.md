@@ -97,7 +97,7 @@ can revoke it there at any time; your normal password and your other programs ar
 
 - **iCloud** (an app-specific password): your Apple Account needs two-factor authentication. Sign
   in at account.apple.com, choose **Sign-In and Security**, then **App-Specific Passwords**, and make
-  one. In EContact (File > **Add account...** > **iCloud**) type your Apple Account's email address in
+  one. In EContact (Options > **Add account...** > **iCloud**) type your Apple Account's email address in
   **Apple ID** and the app-specific password in **Password**. Changing your Apple Account's password
   revokes them all: then make a new one and type it in again (right-click the account, **Account
   Settings...**). Apple's page: https://support.apple.com/en-us/102654

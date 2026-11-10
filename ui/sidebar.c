@@ -255,8 +255,8 @@ static void mail_group(GROUP *g)
 
 static void group_menu(short mx, short my, int gi)
 {
-	static const char *const items[] = { "  Send Email to Group", "  Export Group vCards...", "-",
-					     "  Rename Group...", "  Delete Group...", "-", "  New Group..." };
+	static const char *const items[] = { "  Send email to group", "  Export group vCards...", "-",
+					     "  Rename group...", "  Delete group...", "-", "  New group..." };
 	short k = win_popup(mx, my, items, 7);
 	GROUP *g = &groups[gi];
 	char name[64];
@@ -301,7 +301,7 @@ static void book_menu(short mx, short my, int b)
 	short act[8], n = 0, k;
 	int a = books[b].acct;
 	if (book_writable(&books[b])) {
-		items[n] = "  New Group...";
+		items[n] = "  New group...";
 		act[n++] = 1;
 		items[n] = "  Import vCards...";
 		act[n++] = 2;
@@ -318,7 +318,7 @@ static void book_menu(short mx, short my, int b)
 	} else {
 		items[n] = "-";
 		act[n++] = 0;
-		items[n] = "  Delete Address Book...";
+		items[n] = "  Delete address book...";
 		act[n++] = 5;
 	}
 	k = win_popup(mx, my, items, n);
@@ -362,8 +362,8 @@ static void book_menu(short mx, short my, int b)
 
 static void acct_menu(short mx, short my, int a)
 {
-	static const char *const items[] = { "  Refresh", "  Account Settings...", "-", "  Delete Account..." };
-	static const char *const local_items[] = { "  New Address Book...", "-", "  Delete Account..." };
+	static const char *const items[] = { "  Refresh", "  Account settings...", "-", "  Delete account..." };
+	static const char *const local_items[] = { "  New address book...", "-", "  Delete account..." };
 	short k;
 	if (accts[a].kind == AK_LOCAL) {
 		k = win_popup(mx, my, local_items, 3);

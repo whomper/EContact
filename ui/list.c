@@ -878,6 +878,35 @@ void list_fix_selection(void)
 		}
 }
 
+/* Shift+Up/Down: a page of the rows shown less one, so one stays in
+   sight (WINDOWS 2.2, W6); the contact at or past it, on to the ends */
+static void list_page(int dir)
+{
+	int r = sel_row(), i, to;
+	ensure();
+	if (!nrows || r < 0) {
+		list_step(dir);
+		return;
+	}
+	i = visible_rows() - 1;
+	to = r + dir * (i > 1 ? i : 1);
+	if (to < 0)
+		to = 0;
+	if (to > nrows - 1)
+		to = nrows - 1;
+	for (i = to; i >= 0 && i < nrows; i += dir)	/* a letter's row: on to a contact */
+		if (rows[i].contact >= 0) {
+			select_contact(listed[rows[i].contact]);
+			return;
+		}
+	for (i = to; i >= 0 && i < nrows; i -= dir)	/* none past it: the last one before */
+		if (rows[i].contact >= 0) {
+			if (i != r)
+				select_contact(listed[rows[i].contact]);
+			return;
+		}
+}
+
 void list_step(int dir)
 {
 	int r = sel_row(), i;
@@ -918,7 +947,7 @@ static void add_to_group(CONTACT *c)
 		grp_items[n] = grp_lab[n];
 		idx[n++] = (short)i;
 	}
-	snprintf(grp_lab[n], sizeof(grp_lab[n]), "  New Group...");
+	snprintf(grp_lab[n], sizeof(grp_lab[n]), "  New group...");
 	grp_items[n] = grp_lab[n];
 	idx[n++] = -1;
 	k = dlg_pick("Add to group", grp_items, (short)n, 0);
@@ -999,7 +1028,7 @@ static void add_chosen_to_group(void)
 		grp_items[n] = grp_lab[n];
 		idx[n++] = (short)i;
 	}
-	snprintf(grp_lab[n], sizeof(grp_lab[n]), "  New Group...");
+	snprintf(grp_lab[n], sizeof(grp_lab[n]), "  New group...");
 	grp_items[n] = grp_lab[n];
 	idx[n++] = -1;
 	free(l);
@@ -1048,21 +1077,21 @@ static void chosen_menu(short mx, short my)
 	const char *items[10];
 	short act[10], n = 0, k;
 	char del[40], out[80];
-	snprintf(del, sizeof(del), "  Delete %d Cards...   Del", list_chosen());
+	snprintf(del, sizeof(del), "  Delete %d contacts... Del", list_chosen());
 	items[n] = del;
 	act[n++] = A_DEL;
 	items[n] = "-";
 	act[n++] = A_NONE;
-	items[n] = "  Add to Group...";
+	items[n] = "  Add to group...";
 	act[n++] = A_GROUP;
 	if (src_kind == SRC_GROUP && src_idx < ngroups) {
 		snprintf(out, sizeof(out), "  Remove from %.20s", groups[src_idx].name);
 		items[n] = out;
 		act[n++] = A_OUT;
 	}
-	items[n] = "  Send Email";
+	items[n] = "  Send email";
 	act[n++] = A_MAIL;
-	items[n] = "  Copy Names and Emails";
+	items[n] = "  Copy contacts        ^C";
 	act[n++] = A_COPY;
 	items[n] = "-";
 	act[n++] = A_NONE;
@@ -1104,16 +1133,16 @@ void contact_menu(short mx, short my, CONTACT *c)
 	char out[80], uid[80];
 	short book = c->book;
 	int writable = book_writable(&books[c->book]);
-	items[n] = "  Edit Card            ^E";
+	items[n] = "  Edit contact...      ^E";
 	act[n++] = A_EDIT;
 	if (writable) {
-		items[n] = "  Delete Card...      Del";
+		items[n] = "  Delete...           Del";
 		act[n++] = A_DEL;
 	}
 	items[n] = "-";
 	act[n++] = A_NONE;
 	if (writable) {
-		items[n] = "  Add to Group...";
+		items[n] = "  Add to group...";
 		act[n++] = A_GROUP;
 	}
 	if (writable && src_kind == SRC_GROUP && src_idx < ngroups) {
@@ -1122,14 +1151,14 @@ void contact_menu(short mx, short my, CONTACT *c)
 		act[n++] = A_OUT;
 	}
 	if (c->nemail) {
-		items[n] = "  Send Email";
+		items[n] = "  Send email";
 		act[n++] = A_MAIL;
 	}
-	items[n] = "  Copy Name and Email";
+	items[n] = "  Copy contact         ^C";
 	act[n++] = A_COPY;
 	items[n] = "-";
 	act[n++] = A_NONE;
-	items[n] = opt.me[0] && c->uid && !strcmp(c->uid, opt.me) ? "\x08 My Card" : "  Make This My Card";
+	items[n] = opt.me[0] && c->uid && !strcmp(c->uid, opt.me) ? "\x08 My card" : "  Make this my card";
 	act[n++] = A_ME;
 	items[n] = "  Export vCard...";
 	act[n++] = A_EXPORT;
@@ -1228,12 +1257,12 @@ int list_key(short kstate, short key)
 	if (key_ctrl(kstate, key) || (kstate & K_ALT))
 		return 0;
 	switch (scan) {
-	case 0x48: list_step(-1); return 1;			/* up */
-	case 0x50: list_step(1); return 1;			/* down */
+	case 0x48: key_shift(kstate, key) ? list_page(-1) : list_step(-1); return 1;	/* up; Shift: a page */
+	case 0x50: key_shift(kstate, key) ? list_page(1) : list_step(1); return 1;	/* down; Shift: a page */
 	case 0x47:						/* Clr/Home: the first, Shift: the last */
 		ensure();
 		sel_uid[0] = 0;
-		list_step((kstate & (K_LSHIFT | K_RSHIFT)) ? -1 : 1);
+		list_step(key_shift(kstate, key) ? -1 : 1);
 		return 1;
 	case 0x1c: case 0x72:					/* Return: edit */
 		if (sel_contact() && list_chosen() < 2)

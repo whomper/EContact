@@ -25,7 +25,7 @@ void dlg_about(void)
 	static char conn[64], held[64], mem[64];
 	char host[64];
 	int i, n = 0;
-	ABOUT a = { "EContact", app_version, "Contacts for the Atari ST, TT and Falcon", { conn, held, mem },
+	ABOUT a = { "EContact", app_version, "Contacts for the ST, TT and Falcon", { conn, held, mem },
 		    { 0, 0, 0 }, icon_bits, icon16_px, icon16_rgb, icon256_px, icon256_rgb };
 	http_kept_host(host, sizeof(host));
 	about_net_line(conn, sizeof(conn), net_stack(),

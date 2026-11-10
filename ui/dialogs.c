@@ -422,7 +422,7 @@ void dlg_keys_box(void)
 		const char *key, *does;
 	} k[] = {
 		{ 1, -1, "The list", 0 },
-		{ 2, 0, "\x01 \x02", "the one above, below" },
+		{ 2, 0, "\x01 \x02", "up, down; Shift: page" },
 		{ 2, 1, "Clr/Home", "the first; Shift: last" },
 		{ 3, 0, "Return  ^E", "edit the card" },
 		{ 3, 1, "Delete", "delete the cards chosen" },

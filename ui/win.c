@@ -26,6 +26,10 @@ GRECT work, r_tool, r_side, r_list, r_card, r_search;
    right edge (the guidelines 5.1: the AES keeps the column anyway); the
    list in the middle has its own bar beside it (list.c, panebar.c) */
 #define KIND (NAME | CLOSER | FULLER | MOVER | SIZER | INFO | VSLIDE | UPARROW | DNARROW)
+/* the smallest window, in cells: its toolbar's buttons and the search field
+   still fit, and the open check and WM_SIZED both use it (D38) */
+#define WIN_MIN_W 44
+#define WIN_MIN_H 12
 
 static char title[80], info[140];
 
@@ -1103,12 +1107,14 @@ void win_open(void)
 	y = opt.win_y;
 	w = opt.win_w;
 	h = opt.win_h;
-	if (w < 50 * cw || h < 14 * ch || x < desk_x || y < desk_y ||
+	/* the same smallest size as WM_SIZED's (D38); a first run, or a place
+	   that doesn't fit, opens on the whole desk (D39) */
+	if (w < WIN_MIN_W * cw || h < WIN_MIN_H * ch || x < desk_x || y < desk_y ||
 	    x + w > desk_x + desk_w + 8 || y + h > desk_y + desk_h + 8) {
-		x = desk_x + (desk_w > 80 * cw ? desk_w / 20 : 0);
-		y = desk_y + (desk_h > 30 * ch ? ch : 0);
-		w = desk_w - 2 * (x - desk_x);
-		h = desk_h - 2 * (y - desk_y);
+		x = desk_x;
+		y = desk_y;
+		w = desk_w;
+		h = desk_h;
 	}
 	{
 		short sx = snap_x(x);
@@ -1233,7 +1239,7 @@ void win_message(short *msg)
 	}
 	case WM_SIZED:
 	case WM_MOVED: {
-		short w = msg[6] < 44 * cw ? 44 * cw : msg[6], h = msg[7] < 12 * ch ? 12 * ch : msg[7];
+		short w = msg[6] < WIN_MIN_W * cw ? WIN_MIN_W * cw : msg[6], h = msg[7] < WIN_MIN_H * ch ? WIN_MIN_H * ch : msg[7];
 		short sx = snap_x(msg[4]);
 		if (win_iconified) {	/* the icon goes where it is put, as it is */
 			wind_set(win_h, WF_CURRXYWH, msg[4], msg[5], msg[6], msg[7]);
@@ -1569,9 +1575,9 @@ int win_key(short kstate, short key)
 		switch (scan) {
 		case 0x1c: case 0x72: pick_end(1); return 1;	/* Return: Choose */
 		}
-		/* Undo cancels, and Esc once the search field is empty: Esc
-		   empties it first, as a dialog's field (3.5) */
-		if (dlg_cancel_key(key, search_text[0] != 0)) {
+		/* Undo cancels; Esc only empties the search field and never
+		   cancels (CONTROLS 2, D28): the choice ends by Cancel or Undo */
+		if (dlg_cancel_key(key, 1)) {
 			pick_end(0);
 			return 1;
 		}

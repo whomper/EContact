@@ -656,7 +656,7 @@ static void value_menu(short mx, short my, CONTACT *c, HIT *h)
 		return;
 	}
 	if (mail)
-		items[n++] = "  Send Email";
+		items[n++] = "  Send email";
 	items[n++] = "  Copy";
 	k = win_popup(mx, my, items, n);
 	if (k < 0)
