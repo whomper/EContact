@@ -65,7 +65,7 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 # loaded on a 68020 or better the first time a Direct connection needs
 # it (tls_ovl.c, ovl.c, dsp_ovl.c); an ST never loads it. Copied, never
 # built here
-TLSOVL  := common/tlsovl/TLS.OVL
+TLSOVL  := common/tlsovl/tls.ovl
 
 CORE    := util charset conn ovl bidi secret futil ctime xml inflate http vcard carddav abook photo photopack jpegdc pfkeep
 ATARI   := libc tos plat_tos net_tos sting gem tls_ovl bigbuf

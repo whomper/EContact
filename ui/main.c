@@ -809,7 +809,7 @@ void cmd_mail_to(const CONTACT *c, const char *email)
 static void help_key_pressed(void)
 {
 	if (help_key(opt.workdir, "econtact.hyp", 0, "Keys"))
-		dlg_keys();
+		dlg_keys_box();
 }
 
 /* Writing to someone: EMail, when it runs, gets "mailto:..." with VA_START
@@ -1116,7 +1116,7 @@ static void command(int c)
 	case C_SET: dlg_settings(); break;
 	case C_FONT: font_menu(); break;
 	case C_HELP: help_key_pressed(); break;
-	case C_KEYS: dlg_keys(); break;
+	case C_KEYS: dlg_keys_box(); break;
 	case C_QUIT:
 		quit_now = 1;
 		win_close();

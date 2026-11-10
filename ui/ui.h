@@ -251,7 +251,7 @@ int  dlg_account(int a);		/* 1 changed, -1 deleted */
 void dlg_settings(void);
 void dlg_connection(void);
 void dlg_about(void);
-void dlg_keys(void);
+void dlg_keys_box(void);
 void win_find(void);			/* ^F: a new search */
 void font_apply(void);
 void font_boot(short id);	/* the accessory, before its first event call */

@@ -415,7 +415,7 @@ void dlg_connection(void)
 
 /* the keys, as a table: headings, the keys in one column and what they
    do in the next, two to a row */
-void dlg_keys(void)
+void dlg_keys_box(void)
 {
 	static const struct {
 		short row, col;		/* col 0: left pair, 1: right pair, -1: heading */

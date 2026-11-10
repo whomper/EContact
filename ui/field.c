@@ -1097,7 +1097,7 @@ static int edit_key(DLG *d, FIELD *f, short kstate, short key)
    (the guidelines 5.7; Erez, 27 Oct 2026). Its items start with two
    spaces, the first of which the tick takes (popup.c) */
 #define POP_MAX 64
-static short popup_over(const GRECT *r, const FIELD *f)
+static short field_popup(const GRECT *r, const FIELD *f)
 {
 	const char *items[POP_MAX];
 	char ticked[80];
@@ -1326,7 +1326,7 @@ short dlg_run(DLG *d)
 					GRECT r;
 					short k;
 					field_rect(f, &r);
-					k = popup_over(&r, f);
+					k = field_popup(&r, f);
 					if (!popup_put_back)	/* the screen not put back: drawn again */
 						draw_all(d);
 					if (k >= 0 && k != f->val) {
