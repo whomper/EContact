@@ -330,8 +330,10 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (`tests/hatari/esc_test.py`). The buttons are the
   AES's own G_BUTTONs, drawn by objc_draw in the clip set (field.c
   aes_button; 5.6), a dialog's together in one call (aes_buttons: TOS
-  1.04 takes some 10 ms a call), and a pop-up opens over its button with
-  its choice ticked (popup_over; 5.7). Where the AES draws 3D (the guidelines 5.6;
+  1.04 takes some 10 ms a call), drawn pressed and done on the release over
+  them (press_button, common's press_track; C7), a tick the family's bitmap
+  (tick_image, D23), and a pop-up opens with its ticked choice over its
+  button (common's popup_over, D27; field_popup). Where the AES draws 3D (the guidelines 5.6;
   dlg_look3d: no setting since 27 Oct 2026), in 16 colours or more,
   they take the AES's look: the ground its grey (pen 8), pop-ups raised
   (one black line), fields, ticks, lists and the progress bar white,
