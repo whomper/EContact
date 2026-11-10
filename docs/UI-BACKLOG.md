@@ -26,7 +26,8 @@ S small, H half a day, M more. [hub] waits for shared code in `common/`; the hub
     S each.
 11. `sel_color` reads pens 0 to 15 (D42, W16); the palette stays. S.
 12. A pop-up opens with its ticked choice over its button (D27, C8) [hub]. S.
-13. Insert opens the context menu (D17, MD20); where it opens is still open. H.
+13. Insert opens the context menu (D17, MD20), at the selected row's top-left, the pane's top-left with no
+    selection (Erez, 10 Nov 2026, AERA-Atari 4432996). H.
 14. Tick boxes become bitmap ticks (D23, C5). H.
 15. Buttons act on the release over the button (C7); buttons only. H.
 16. The progress bar drawn with `progbar` (C22). H.
@@ -35,5 +36,8 @@ S small, H half a day, M more. [hub] waits for shared code in `common/`; the hub
 18. The older dialogs to the AES's look: rows, focus ring, pop-up (C24). M.
 19. Tooltips on the toolbar, 0.7 s (D18) [hub], H; keyboard reach (D25) [hub].
 
-Still open (do not start): Find's words (D4); press or release for ticks and pop-ups.
+20. The tagline `Contacts for the ST, TT and Falcon` in About and GUIDE (D49; Erez, 10 Nov 2026, 4432996). S.
+
+Decided 10 Nov 2026: Find stays `Find` (D4); ticks, pop-ups, page names and rows act on the press, buttons on the
+release (C7).
 Nothing to do: Select all stays in Contact (D20); Quit alone already (D3); copying never takes a password.
