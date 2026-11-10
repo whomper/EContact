@@ -5,7 +5,7 @@
  * pf_park).
  *
  * Every Fopen takes an entry in TOS's small internal pool, and a long
- * Sync Contact Photos opened the address book's cache and the log
+ * Sync contact photos opened the address book's cache and the log
  * hundreds of times; on Erez's Falcon the pool ran out ("OUT OF INTERNAL
  * MEMORY"). While pf_keep is on, a file opened for reading or appending
  * stays open when it is closed, and the next open of it gets the same

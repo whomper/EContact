@@ -149,7 +149,7 @@ def falcon_shots(r):
     time.sleep(1)
     r.click(579, 73)                     # the menu
     time.sleep(1.5)
-    r.click(500, 201)                    # Sync Contact Photos...
+    r.click(500, 93 + 7 * 18)             # Sync contact photos... (About first: 2.0)
     time.sleep(3.5)
     r.shot("photo-sync")
     time.sleep(20)

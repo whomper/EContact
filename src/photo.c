@@ -1146,7 +1146,7 @@ int photo_prune(void)
 	return removed;
 }
 
-/* ---------------- Sync Contact Photos ---------------- */
+/* ---------------- Sync contact photos ---------------- */
 
 typedef struct {
 	short book;
@@ -1303,7 +1303,7 @@ int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 		/* in the log: what was done, and the reasons */
 		char line[300];
 		int k, n;
-		n = snprintf(line, sizeof(line), "Sync Contact Photos: %d to do, %d made, %d not", nt, made < 0 ? 0 : made,
+		n = snprintf(line, sizeof(line), "Sync contact photos: %d to do, %d made, %d not", nt, made < 0 ? 0 : made,
 			     bad);
 		for (k = 1; k < PW_N; k++)
 			if (photo_sync_why[k] && n < (int)sizeof(line) - 40)

@@ -172,7 +172,7 @@ CONTACT *contact_complete(const CONTACT *c);
 /* the cards of b at these hrefs fetched whole (photo_sync_all, a few at
    a time); how many came, -1 and ab_err if none could */
 int  book_fetch_whole(BOOK *b, char **hrefs, int n);
-/* a job of fetches (Sync Contact Photos): book bi's cards fetched whole
+/* a job of fetches (Sync contact photos): book bi's cards fetched whole
    gather in memory, read from there, and are written at
    book_fetch_job_end (or when the job's memory is full): one open a file
    (6.5). 0 if the cache can't be added to; end: 0 with ab_err when the

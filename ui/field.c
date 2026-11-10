@@ -220,7 +220,7 @@ static void hold_msg(const short *m)
 static short pg_open;
 
 /* the window drawn while a dialog window is over it (dlg_redraw_hook):
-   in its own font; kept for later while Sync Contact Photos runs, which
+   in its own font; kept for later while Sync contact photos runs, which
    may be letting the contacts go */
 static void win_behind(const short *msg)
 {
@@ -1626,7 +1626,7 @@ int dlg_ask(const char *title, const char *label, char *buf, short len)
 }
 
 /* ---------------- progress ----------------
- * A box for long work (Sync Contact Photos): what is being done, a bar,
+ * A box for long work (Sync contact photos): what is being done, a bar,
  * the time left, and Stop (D31). The work calls prog_update between steps;
  * a step (a photo can take half a minute) calls pf_idle while it waits
  * for the network and conn_tick as data comes in or a picture is

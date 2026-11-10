@@ -82,7 +82,7 @@ enum { PHH_CACHE, PHH_DECODED, PHH_FETCHED, PHH_CHECKED };
 int  photo_get(const CONTACT *c, PHOTOIMG *out, int fetch, int *how);
 /* 1 if photo_get would answer from the cache without any work */
 int  photo_ready(const CONTACT *c);
-/* Sync Contact Photos: every photo not in the cache yet, fetched (the
+/* Sync contact photos: every photo not in the cache yet, fetched (the
    cards that came without theirs first, a few at a time) and made into
    a picture. cb is called before each one with its name (NULL: fetching
    cards); 0 from it stops, keeping what is done, so the next time goes

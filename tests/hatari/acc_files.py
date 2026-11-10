@@ -79,7 +79,7 @@ def main():
     nph = int(args[3]) if len(args) > 3 else n // 2
     step = max(1, n // nph) if nph else 0
     st = machine.startswith("ST")
-    small = machine.startswith("ST-1") and not prg	# 1 MB: no Sync Contact Photos in the accessory
+    small = machine.startswith("ST-1") and not prg	# 1 MB: no Sync contact photos in the accessory
     d = os.path.join(work, machine.replace(":", "-") + ("-prg" if prg else ""))
     shutil.rmtree(d, ignore_errors=True)
     hd = os.path.join(d, "hd")
@@ -184,7 +184,7 @@ def main():
             r.shot("1-synced")
             r.key(0x01)			# Esc: an alert there (contacts that don't fit) goes
             wait_quiet(5, 90)
-            # Sync Contact Photos: the menu (the button at the toolbar's right)
+            # Sync contact photos: the menu (the button at the toolbar's right)
             r.click(*MENU)
             time.sleep(2)
             r.shot("2-menu")
@@ -204,7 +204,7 @@ def main():
 
     t = log_text()
     opened = re.findall(r"(\d+) files opened", t)
-    print("files opened: the refresh %s, Sync Contact Photos %s" % tuple((opened + ["?", "?"])[:2]))
+    print("files opened: the refresh %s, Sync contact photos %s" % tuple((opened + ["?", "?"])[:2]))
     # the guidelines, 6.5: about one open a file a job, and one a buffer
     # written (the photos, the cards and the pack through the job's
     # memory: 24 KB on a 1 MB ST to 256 KB with 8 MB free, the log 16 KB)
@@ -219,13 +219,13 @@ def main():
     if opened and "ACCF_WAIT" not in os.environ:
         check("the refresh within its budget (%s of %d opens)" % (opened[0], budget[0]), int(opened[0]) <= budget[0])
     if len(opened) >= 2 and "ACCF_WAIT" not in os.environ:
-        check("Sync Contact Photos within its budget (%s of %d opens, %d photos)" % (opened[1], budget[1], made),
+        check("Sync contact photos within its budget (%s of %d opens, %d photos)" % (opened[1], budget[1], made),
               int(opened[1]) <= budget[1])
     check("refreshed with the window open", synced)
     if small:
-        check("Sync Contact Photos declined on a 1 MB machine", photod and len(opened) == 1)
+        check("Sync contact photos declined on a 1 MB machine", photod and len(opened) == 1)
     else:
-        check("Sync Contact Photos ran", photod)
+        check("Sync contact photos ran", photod)
     shutil.copy(os.path.join(hd, "econtact.inf"), os.path.join(folder, "econtact.inf"))	# for card-cli
     out = subprocess.run([CLI, folder, "list"], check=True, capture_output=True, text=True).stdout
     changed = len(range(1, n, 4))
@@ -246,11 +246,11 @@ def main():
     sys.exit(1 if fails else 0)
 
 
-# where the toolbar's menu button is, and its Sync Contact Photos line
+# where the toolbar's menu button is, and its Sync contact photos line
 MENU = (579, 73)  # the toolbar's menu button (16 pixels left of 1.77's: the badge's room)
-PHOTOS = (520, 93 + 7 * 18)  # About first, Sync Contact Photos the 8th row (2.0)
+PHOTOS = (520, 93 + 7 * 18)  # About first, Sync contact photos the 8th row (2.0)
 PHOTOS_ST = 175			# on an ST's 400 lines: compact rows, separators 4 pixels (2.0)
-DECLINED = "Sync Contact Photos: not in the accessory, "
+DECLINED = "Sync contact photos: not in the accessory, "
 
 
 def pack_pictures(path):

@@ -16,7 +16,7 @@
  * Syncing asks the server for the cards without their photos (CardDAV's
  * partial retrieval): 500 contacts with photos are 12 MB, without them
  * half a megabyte. A photo is fetched, with the rest of its card, when
- * the card is shown, or for all of them by Sync Contact Photos. A server
+ * the card is shown, or for all of them by Sync contact photos. A server
  * that sends the photos anyway has them kept as they come.
  */
 #include <stdlib.h>

@@ -19,7 +19,7 @@ under a search field, the chosen person's card on the right.
 - **Photos**: the JPEG in the card (as the Mac and iPhone write it) or behind a link (as iCloud often
   gives it), cropped as you cropped it on the iPhone, dithered to the screen's own colours on a Falcon
   or TT and to black and white on an ST. Syncing leaves them on the server: a photo is fetched when
-  its card is opened, or all of them at once with **Sync Contact Photos...** (a progress bar, the time
+  its card is opened, or all of them at once with **Sync contact photos...** (a progress bar, the time
   left, Cancel, and it goes on where it stopped; not in the accessory with under 1.5 MB free at start, a
   1 MB ST for one, whose memory is kept for the contacts: `ECONTACT.PRG` can). Decoded once (a second or two on a Falcon, about
   four on an 8 MHz ST, as measured in Hatari) and kept in `CACHE\PHOTOS.PAK`; a photo changed on the
@@ -111,7 +111,7 @@ average alone: a progressive JPEG's first scan has them all, so the rest of the 
 and HEIC aren't shown; the reason for each photo that isn't is in the status line, the closing alert
 and the log. That picture (8 KB) is kept in one file for all of them, `CACHE\PHOTOS.PAK`, whose index
 EContact holds in memory, and dithered for the screen when shown. (Up to 1.49 each had a file of its
-own in `CACHE\PHOTOS`: that folder can be deleted, and Sync Contact Photos makes them again.)
+own in `CACHE\PHOTOS`: that folder can be deleted, and Sync contact photos makes them again.)
 
 Keeping it right:
 

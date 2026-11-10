@@ -107,7 +107,7 @@ tests/hatari/falcon_tls.py WORK [MACHINE] [--no-dsp]
                                                   # Radicale with an ECDSA certificate: the curves
                                                   # on the DSP, SIGS.DAT, ROOTS.DAT dated in place;
                                                   # without TLS.OVL it says so, no crash
-tests/hatari/acc_files.py WORK [MACHINE] [cards]  # the accessory's refresh and Sync Contact Photos:
+tests/hatari/acc_files.py WORK [MACHINE] [cards]  # the accessory's refresh and Sync contact photos:
                                                   # no file open across an event call (2.2), from
                                                   # Hatari's GEMDOS and AES trace; what it wrote
                                                   # reads back whole

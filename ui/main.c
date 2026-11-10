@@ -826,7 +826,7 @@ void cmd_mail(const char *addr)
 	status("Sent to EMail.");
 }
 
-/* ---------------- Sync Contact Photos ---------------- */
+/* ---------------- Sync contact photos ---------------- */
 
 typedef struct {
 	unsigned long t0;
@@ -899,7 +899,7 @@ void cmd_sync_photos(void)
 		   and another accessory): its memory is the contacts' (Erez, 19
 		   Oct 2026). A photo is still fetched as its card is opened */
 		char m[100];
-		snprintf(m, sizeof(m), "Sync Contact Photos: not in the accessory, %ld KB free at start",
+		snprintf(m, sizeof(m), "Sync contact photos: not in the accessory, %ld KB free at start",
 			 acc_heap_avail / 1024);
 		conn_log("EContact", "--", m, (long)strlen(m));
 		alert(1, "[1][With little memory free at start, the accessory keeps it for the contacts. ECONTACT.PRG syncs photos; each also comes when its contact opens.][ OK ]");
@@ -910,7 +910,7 @@ void cmd_sync_photos(void)
 		return;
 	memset(&p, 0, sizeof(p));
 	p.t0 = pf_ms();
-	prog_open("Sync Contact Photos");
+	prog_open("Sync contact photos");
 	pf_keep(1);		/* the cache and the log stay open while it runs */
 	opens_note(1);
 	made = photo_sync_all(photo_progress, &p, &failed);
@@ -922,10 +922,10 @@ void cmd_sync_photos(void)
 	after_change();
 	card_photo_recheck();
 	if (made < 0)
-		alert(1, "[1][The photos couldn't all be fetched: %s|What is done is kept: choose Sync Contact Photos again to go on.][ OK ]",
+		alert(1, "[1][The photos couldn't all be fetched: %s|What is done is kept: choose Sync contact photos again to go on.][ OK ]",
 		      ab_err);
 	else if (p.stopped)
-		alert(1, "[1][Stopped: %d photo%s made. What is done is kept: choose Sync Contact Photos again to go on.][ OK ]",
+		alert(1, "[1][Stopped: %d photo%s made. What is done is kept: choose Sync contact photos again to go on.][ OK ]",
 		      made, made == 1 ? "" : "s");
 	else if (!made && !failed)
 		alert(1, "[1][Every contact's photo is here already.][ OK ]");
@@ -967,7 +967,7 @@ static const MBAR_ITEM m_desk[] = {
 static const MBAR_ITEM m_file[] = {
 	{ "Import vCards...", 0, C_IMP },
 	{ "Export vCards...", 0, C_EXP },
-	{ "Sync Contact Photos...", 0, C_PHOTOS },
+	{ "Sync contact photos...", 0, C_PHOTOS },
 	{ "-", 0, 0 },
 	{ "Refresh", "^R", C_REFRESH },
 	{ "Refresh everything", "\x01^R", C_REFRESH_ALL },
@@ -1155,7 +1155,7 @@ void cmd_menu(short x, short y)
 		{ "-", 0 },
 		{ "  Import vCards...", C_IMP },
 		{ "  Export vCards...", C_EXP },
-		{ "  Sync Contact Photos...", C_PHOTOS },
+		{ "  Sync contact photos...", C_PHOTOS },
 		{ "-", 0 },
 		{ "  Groups              \x01^S", C_SIDE },
 		{ "-", 0 },
@@ -1332,7 +1332,7 @@ static int locate_folder(void)
 }
 
 /* Bulk work's memory (the guidelines, 6.5), of a fixed size: what a
-   refresh or Sync Contact Photos gathers before it writes, each file's
+   refresh or Sync contact photos gathers before it writes, each file's
    write buffer, the photo pack's, and how much of a server's answer to
    ask for at a time (an answer is in memory twice while it is read).
    By the memory free at boot: free, for the accessory (0: the program,

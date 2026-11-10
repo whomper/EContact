@@ -305,19 +305,19 @@ two on a Falcon, about four seconds on an 8 MHz ST, and the time to
 download it) and kept in `CACHE\PHOTOS.PAK`; after that it shows at once,
 offline too.
 
-To have them all, choose **Sync Contact Photos...** in the menu (the
+To have them all, choose **Sync contact photos...** in the menu (the
 button at the right of the toolbar). A box shows who is being done, how
 many are left and about how long it will take. **Stop** (or Esc) stops
 at once, even in the middle of a photo; what is done is kept, and choosing
 it again goes on from there. Offline, it makes the pictures of the photos already
 downloaded. Some servers send the photos while syncing anyway: those are
-kept as they come, and Sync Contact Photos only has to decode them.
+kept as they come, and Sync contact photos only has to decode them.
 With little memory free when the Atari starts (under 1.5 MB: a 1 MB ST,
 or a 4 MB Falcon with NVDI and other accessories) the accessory keeps its
 memory for the contacts and doesn't sync photos; `ECONTACT.PRG` can, and
 each photo still comes when its contact is opened.
 
-![Sync Contact Photos](photo-sync.png)
+![Sync contact photos](photo-sync.png)
 
 When someone's photo changes on another device, EContact sees it after the
 next refresh and decodes the new one; a photo taken off a card goes, and
@@ -330,7 +330,7 @@ EContact shows JPEG photos of every kind (baseline and progressive,
 CMYK too), which is what iPhones, Macs and most other places write. A
 photo it can't show (a PNG, an iPhone's HEIC, a damaged one) keeps the
 initials, and the status line says why when the card is opened. At the
-end of Sync Contact Photos an alert says how many weren't made and the
+end of Sync contact photos an alert says how many weren't made and the
 main reasons; with **Write a log** on, ECONTACT.LOG has a line for each
 one (its name and why) and a summary.
 

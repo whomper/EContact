@@ -33,7 +33,7 @@
  *   card-cli DIR photo-file NAME              its cache file, and whether it is there
  *   card-cli DIR prune                        pictures of contacts gone or changed out
  *   card-cli DIR cache NAME                   how the cache has it: part or whole, the photo
- *   card-cli DIR photo-sync [STOP]            Sync Contact Photos (STOP: cancel after that many)
+ *   card-cli DIR photo-sync [STOP]            Sync contact photos (STOP: cancel after that many)
  * CARD_BUDGET=bytes sets carddav_budget (the answer size asked for at a time).
  * BOOK is an address book's name; names are UTF-8 on the command line
  * and in the output.

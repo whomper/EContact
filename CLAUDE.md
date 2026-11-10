@@ -442,7 +442,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   card only when another is chosen; a key meanwhile starts it again. `make test` sets it against the old matcher
   over 17,000 cards and texts (tests/unit.c test_matches): it must find
   the same.
-- Sync Contact Photos that ends with the window behind another
+- Sync contact photos that ends with the window behind another
   program's says so as a BGEM.NG notification, its Show bringing the
   window to the front (main.c note_behind, common/ui/notify.c; the
   guidelines 4.5); where notify_send gives 0 (TOS, MagiC, no BGEM.NG) and
@@ -452,7 +452,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (ui/about.c: common's about_net_line and about_mem_line, and "N
   contacts in M address books"; the guidelines 1.3).
 - Photo failures say why (photo_why, PW_...): the status line, the alert
-  after Sync Contact Photos, a line each in the log. A failure is kept in
+  after Sync contact photos, a line each in the log. A failure is kept in
   the pack's entry with the decoder's number (PHOTO_DECODER): raise it when
   the decoders read more, so old failures are tried again.
 - The pictures are in one file, CACHE\PHOTOS.PAK (src/photopack.c, the
@@ -475,7 +475,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 - While a sync runs (pf_keep, src/pfkeep.c) the files it opens again and
   again stay open: every Fopen takes an entry in TOS's small internal
   pool, and Erez's Falcon ran out of it ("OUT OF INTERNAL MEMORY") during
-  a long Sync Contact Photos. TOS writes a file's length only when it is
+  a long Sync contact photos. TOS writes a file's length only when it is
   closed, so code must ask for sizes and dates, remove and rename through
   pf_* (they close a kept file first), never through GEMDOS directly.
 - No file open across an event call in the accessory (the guidelines,
@@ -489,7 +489,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   says how many files a sync opened; `tests/hatari/acc_files.py WORK
   [MACHINE]` checks it all from Hatari's GEMDOS and AES trace.
 - Disk access goes through memory (the guidelines, 6.5): a job (a
-  refresh, Sync Contact Photos, the index written after a load) gathers
+  refresh, Sync contact photos, the index written after a load) gathers
   what it writes in abook.c's OUT buffers and writes each file once, at its
   end or when ab_out_max is reached, never a write per card or photo; no
   file is open meanwhile, so pf_park has nothing to reopen. Sync Contact

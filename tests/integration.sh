@@ -401,7 +401,7 @@ PY
   absent "the stand-in never leaves" "X-ECONTACT-PHOTO" "$R"
   R=$($CLI "$P" cache "Pat Social")
   expect "kept whole after" "whole photo=" "$R"
-  # Sync Contact Photos: the rest, and stopped half way it goes on later
+  # Sync contact photos: the rest, and stopped half way it goes on later
   R=$($CLI "$P" photo-sync 2)
   expect "stopped after two" "made 2" "$R"
   R=$($CLI "$P" photo-sync)
