@@ -46,6 +46,7 @@
 #include "people_ask.h"
 #include "answer.h"
 #include "dialog.h"
+#include "tooltip.h"
 #include "hebkey.h"
 #include "panebar.h"
 #include "notify.h"
@@ -2134,6 +2135,7 @@ int main(void)
 	if (is_acc)
 		menu_id = menu_register(ap_id, "  EContact");
 	notify_init("ECONTACT");	/* before the first event call (4.5) */
+	tip_init(win_tip_repaint);	/* the toolbar's tips (D18) */
 	notify_ask();			/* notify_send waits for BGEM.NG's yes */
 	notify_clicked = note_clicked;
 	phys_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
@@ -2195,6 +2197,7 @@ int main(void)
 	}
 	crash_offer("EContact", "next to ECONTACT.PRG");
 
+	static short tip_x = -1, tip_y = -1;	/* the pointer, from its last move */
 	while (!quit_now) {
 		short flags = MU_MESAG | MU_TIMER, which;
 		int pf_fg = (!is_acc || win_h > 0) && people_file_now();
@@ -2233,7 +2236,24 @@ int main(void)
 			/* one click: the AES hands a press over at once (asking
 			   for two holds every press back for the double-click
 			   time; the guidelines 5.8) */
+		{
+			/* the pointer's rest for the toolbar's tips (D18):
+			   woken when it leaves its pixel */
+			if (win_h > 0 && !win_iconified) {
+				flags |= MU_M1;
+				evnt_set_m1(1, tip_x, tip_y, 1, 1);
+				wait = tip_wait(wait);
+			}
 			which = evnt_multi_(flags, 0x101, 3, 0, wait, msg, &ev);
+		}
+		if (win_h > 0 && !win_iconified) {
+			short k;
+			if (which & MU_M1)
+				graf_mkstate(&tip_x, &tip_y, &k, &k);
+			tip_tick(which, tip_x, tip_y, win_tip);
+			which &= ~MU_M1;
+		} else
+			tip_hide();
 		turn_at = pf_ms();
 		if ((which & MU_MESAG) && notify_message(msg))
 			which &= ~MU_MESAG;	/* BGEM.NG's */

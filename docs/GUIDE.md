@@ -528,6 +528,7 @@ next time EContact saves its settings.
 |-----|------|
 | ↑ ↓ | the contact above, below |
 | Shift+↑, Shift+↓ | a page up, down |
+| Insert | the menu of the contact (or contacts) chosen, as a right-click |
 | Clr/Home, Shift+Clr/Home | the first, the last |
 | Return, ^E | edit the card |
 | Delete | delete the card, or the cards chosen (not while the search field has the focus: a click in the list, or an arrow key, gives it back to the list) |

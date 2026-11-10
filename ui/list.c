@@ -1272,6 +1272,22 @@ int list_key(short kstate, short key)
 		if (sel_contact())
 			cmd_delete_selected();
 		return 1;
+	case 0x52:						/* Insert: the context menu (MENUS 3.2, D17) */
+		if (!picking && sel_contact()) {
+			/* at the chosen row's top-left; scrolled out of
+			   sight, the list's (Erez, 10 Nov 2026) */
+			GRECT a;
+			int r = sel_row();
+			if (r < 0 || !row_area(r, &a)) {
+				a.x = r_list.x;
+				a.y = r_list.y;
+			}
+			if (list_chosen() > 1)
+				chosen_menu(a.x, a.y);
+			else
+				contact_menu(a.x, a.y, sel_contact());
+		}
+		return 1;
 	}
 	return 0;
 }

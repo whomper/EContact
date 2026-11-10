@@ -447,6 +447,7 @@ void dlg_keys_box(void)
 		{ 14, 0, "^V  ^X", "paste, cut the search" },
 		{ 14, 1, "^C ^X ^V", "in a dialog's field" },
 		{ 15, 0, "^,", "settings" },
+		{ 15, 1, "Insert", "its menu" },
 	};
 	enum { N = sizeof(k) / sizeof(k[0]) };
 	FIELD f[2 * N + 1];

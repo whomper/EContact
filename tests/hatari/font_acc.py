@@ -36,8 +36,8 @@ fails = 0
 # the Desk menu's EContact, the accessory's toolbar menu and its Font...
 # line, the program's Options title and its Font... line
 DESK, ACC_ITEM = (30, 8), (60, 61)
-MENU, ACC_FONT = (579, 73), (520, 201 + 10 * 16)
-ACC_FONT_ST = (520, 171 + 11 * 16)  # the menu 30 lines higher on an ST's 400
+MENU, ACC_FONT = (579, 73), (520, 93 + 13 * 18)  # About first, Font the 14th row (2.0)
+ACC_FONT_ST = (520, 247)  # on an ST's 400 lines: compact rows, separators 4 pixels (2.0)
 OPTIONS, PRG_FONT = (276, 8), (300, 19 + 16 + 8)
 
 

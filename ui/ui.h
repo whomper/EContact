@@ -75,6 +75,8 @@ typedef struct {
 void pen_color(short k, PEN *p);	/* colour k of the twelve */
 #include "popup.h"		/* popup(), popup_area: common/ui */
 short win_popup(short x, short y, const char *const *labels, short n);
+int win_tip(short x, short y, char *out, int size);	/* the toolbar's tips (D18) */
+void win_tip_repaint(const GRECT *r);
 short red_color(void);
 short grey_color(void);		/* lines (the light grey) */
 short text_grey(int pale);	/* the dark (0) or light (1) grey for text */

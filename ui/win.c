@@ -17,6 +17,8 @@
 #include "dialog.h"
 #include "text.h"
 #include "click.h"
+#include "arrowed.h"
+#include "tooltip.h"
 #include <tos.h>
 
 short win_h = -1;
@@ -1069,6 +1071,7 @@ void win_bars(const GRECT *a)
 
 short win_popup(short x, short y, const char *const *labels, short n)
 {
+	tip_hide();
 	short k = popup(x, y, labels, n);
 	win_redraw(&popup_area);
 	return k;
@@ -1155,6 +1158,34 @@ int win_rows_at(short mx, short my)
 int win_instant(short mx, short my)
 {
 	return rect_hit(&r_tool, mx, my) || card_instant(mx, my) || list_bar_hit(mx, my);
+}
+
+/* the toolbar's tips (D18, common's tooltip.c): the button under (x, y)
+   with its key, the window on top; 0 elsewhere */
+int win_tip(short x, short y, char *out, int size)
+{
+	static const char *const tips[NBUT] = { "Groups (\x01^S)", "Refresh (^R)", "Menu" };
+	static const char *const pick_tips[NBUT] = { "Groups (\x01^S)", "Cancel (Undo)", "Choose (Return)" };
+	short top, d, i;
+	if (win_h <= 0 || win_iconified)
+		return 0;
+	wind_get(0, WF_TOP, &top, &d, &d, &d);
+	if (top != win_h)
+		return 0;
+	for (i = 0; i < NBUT; i++)
+		if (rect_hit(&but[i], x, y)) {
+			str_copy(out, picking ? pick_tips[i] : tips[i], size);
+			return 1;
+		}
+	return 0;
+}
+
+/* tooltip.c's repaint: what was under the tip, from the window's buffer */
+void win_tip_repaint(const GRECT *r)
+{
+	GRECT a = *r;
+	if (win_h > 0)
+		win_redraw(&a);
 }
 
 void win_close(void)
@@ -1261,12 +1292,15 @@ void win_message(short *msg)
 		break;
 	}
 	case WM_ARROWED: {
-		/* the window's arrows and track: the card's; the mouse wheel,
-		   which some AESes send so, over the list: the list's. 0 page
+		/* the family's rule (D37, common's arrow_target): the
+		   scrolling pane under the pointer (the list, where some
+		   AESes send the wheel), else the slider's (the card). 0 page
 		   up, 1 page down, 2 line up, 3 line down */
-		short mx, my, mb, ks;
-		graf_mkstate(&mx, &my, &mb, &ks);
-		if (!rect_hit(&r_list, mx, my)) {
+		enum { P_CARD, P_LIST };
+		ARROW_PANE pane;
+		pane.r = r_list;
+		pane.id = P_LIST;
+		if (arrow_target(&pane, 1, P_CARD) == P_CARD) {
 			card_arrowed(msg[4]);
 			break;
 		}

@@ -19,9 +19,12 @@
 #include "bidi.h"
 #include "util.h"
 #include "clip.h"
+#include "tooltip.h"
+#include "progbar.h"
 #include "plat.h"
 #include "conn.h"
 #include "dialog.h"
+#include "click.h"
 #include "offdraw.h"
 
 static GRECT box;		/* the dialog on screen */
@@ -283,6 +286,7 @@ static void level_save(void)
    draws it */
 static void box_open(const char *title, void (*paint)(void), short cx, short ctop)
 {
+	tip_hide();	/* a modal loop: no tip left over it (D18) */
 	short x = 0, y = 0, w, h, k, d;
 	k = nlv < LEVELS ? nlv++ : LEVELS - 1;	/* deeper than EContact goes: the last reused */
 	cur_paint = paint;
@@ -615,6 +619,52 @@ static int eye_hit(const FIELD *f, short mx, short my)
 /* an exit button is the AES's G_BUTTON, drawn by the AES in its look,
    flat or 3D, never by hand (the guidelines 5.6; Erez, 27 Oct 2026);
    pressed: SELECTED. objc_draw takes the clip that is set */
+/* the tick box, the family's bitmap (common/ui/dlgbuild.c's tick_art,
+   EMail's): 16 pixels square, every other row on an 8-pixel font, in
+   pen 1 on the dialog's ground; a frame, and the tick inside when on */
+static const unsigned short tick_bits[16] = {
+	0x0000, 0x7FFE, 0x4002, 0x400A, 0x401A, 0x4032, 0x4062, 0x58C2,
+	0x5D82, 0x4F02, 0x4602, 0x4002, 0x4002, 0x4002, 0x7FFE, 0x0000
+};
+
+static void tick_image(short x, short y, int on, short ground)
+{
+	unsigned short rows[16];
+	short n = ch >= 16 ? 16 : 8, r, pxy[8], col[2];
+	MFDB src, dst;
+	GRECT b;
+	for (r = 0; r < n; r++) {
+		short k = n == 16 ? r : (r == n - 1 ? 14 : r * 2 + (r ? 0 : 1));
+		unsigned short v = tick_bits[k];
+		rows[r] = on ? v : (k == 1 || k == 14 ? v : (v ? 0x4002 : 0));
+	}
+	b.x = x;
+	b.y = y;
+	b.w = 16;
+	b.h = n;
+	fill(&b, ground);
+	src.fd_addr = rows;
+	src.fd_w = 16;
+	src.fd_h = n;
+	src.fd_wdwidth = 1;
+	src.fd_stand = 0;
+	src.fd_nplanes = 1;
+	src.fd_r1 = src.fd_r2 = src.fd_r3 = 0;
+	dst.fd_addr = 0;	/* the screen (or the buffer it is drawn to) */
+	pxy[0] = pxy[1] = 0;
+	pxy[2] = 15;
+	pxy[3] = n - 1;
+	pxy[4] = x;
+	pxy[5] = y;
+	pxy[6] = x + 15;
+	pxy[7] = y + n - 1;
+	col[0] = 1;
+	col[1] = 0;
+	graf_mouse(M_OFF, 0);
+	vrt_cpyfm(vdi_h, MD_TRANS, pxy, &src, &dst, col);
+	graf_mouse(M_ON, 0);
+}
+
 static void aes_button(const FIELD *f, int pressed)
 {
 	OBJECT t;
@@ -712,23 +762,11 @@ static void draw_field(DLG *d, short i)
 		fill(&r, bg);		/* the AES's 3D edge stands out of it */
 		aes_button(f, 0);
 		break;
-	case FT_CHECK: {
-		GRECT b;
-		b.x = FX(f);
-		b.y = FY(f) + 1;
-		b.w = 2 * cw - 4;
-		b.h = ch - 2;
-		fill(&b, 0);
-		frame(&b, dis ? dim_line() : 1);
-		if (f->val) {
-			line_col(b.x + 2, b.y + b.h / 2, b.x + b.w / 2 - 1, b.y + b.h - 3, 1);
-			line_col(b.x + b.w / 2 - 1, b.y + b.h - 3, b.x + b.w - 3, b.y + 2, 1);
-			line_col(b.x + 2, b.y + b.h / 2 + 1, b.x + b.w / 2 - 1, b.y + b.h - 2, 1);
-			line_col(b.x + b.w / 2 - 1, b.y + b.h - 2, b.x + b.w - 3, b.y + 3, 1);
-		}
-		text_at(FX(f) + 2 * cw, FY(f), f->label, (long)strlen(f->label), f->w - 2, TX_LTR | dis);
+	case FT_CHECK:
+		/* the family's bitmap tick (CONTROLS 4, D23), its words 3 cells on */
+		tick_image(FX(f), FY(f) + (ch - (ch >= 16 ? 16 : 8)) / 2, f->val, bg);
+		text_at(FX(f) + 3 * cw, FY(f), f->label, (long)strlen(f->label), f->w - 3, TX_LTR | dis);
 		break;
-	}
 	case FT_POPUP: {
 		const char *l = f->val >= 0 && f->val < f->nitems ? f->items[f->val] : "";
 		field_rect(f, &r);
@@ -967,6 +1005,30 @@ static void set_focus(DLG *d, short i)
 		dlg_redraw_field(d, i);
 }
 
+/* a message while a button is held: the dialog's as the loop's (kept on
+   TOS and in a window alike, given back when the last dialog closes) */
+static void press_msg(short *m)
+{
+	hold_msg(m);
+}
+
+/* a click on a button: drawn pressed and done on the release over it,
+   let go elsewhere nothing (CONTROLS 6, 5.8, C7: buttons only; ticks,
+   pop-ups, tabs' names and rows act on the press). 1: it is done */
+static int press_button(DLG *d, short i, short mx, short my)
+{
+	GRECT r;
+	int k;
+	if (!clip_dlg(0))
+		return 1;
+	field_rect(&d->f[i], &r);
+	aes_button(&d->f[i], 1);
+	k = press_track(&r, mx, my, 0, press_msg, 0, 0);
+	if (clip_dlg(0))
+		aes_button(&d->f[i], 0);
+	return k == PRESS_IN;
+}
+
 static void press_effect(DLG *d, short i)
 {
 	if (!clip_dlg(0))
@@ -1100,25 +1162,21 @@ static int edit_key(DLG *d, FIELD *f, short kstate, short key)
 static short field_popup(const GRECT *r, const FIELD *f)
 {
 	/* common's popup_over (D27, 5.7): the ticked choice over the button.
-	   Its labels are the words alone (popup_m's contract): the two
-	   spaces of the items' margin left out, the tick put in front */
+	   Its labels are the words alone (popup_m's contract): the items'
+	   two spaces of margin left out, the tick put in front of the one */
 	const char *items[POP_MAX];
-	static char lab[POP_MAX][40];	/* 2.5 KB, not on the stack */
+	char ticked[80];
 	short i, n = f->nitems < POP_MAX ? f->nitems : POP_MAX;
 	for (i = 0; i < n; i++) {
 		const char *t = f->items[i];
-		short k = 0;
-		if (t[0] == '-' || t[0] == '~') {
-			items[i] = t;
-			continue;
-		}
-		while (*t == ' ' && k < 2) {
-			t++;
-			k++;
-		}
-		lab[i][0] = '\x08';
-		str_copy(lab[i] + 1, t, sizeof(lab[i]) - 1);
-		items[i] = i == f->val ? lab[i] : lab[i] + 1;
+		if (t[0] == ' ')
+			t += t[1] == ' ' ? 2 : 1;
+		items[i] = t;
+	}
+	if (f->val >= 0 && f->val < n && items[f->val][0] != '-' && items[f->val][0] != '~') {
+		ticked[0] = '\x08';
+		str_copy(ticked + 1, items[f->val], sizeof(ticked) - 1);
+		items[f->val] = ticked;
 	}
 	return popup_over(r->x, r->y, items, n, f->val);
 }
@@ -1324,8 +1382,8 @@ short dlg_run(DLG *d)
 					click_field(d, hit, e.mx, e.my);
 					break;
 				case FT_BUTTON:
-					press_effect(d, hit);
-					result = hit;
+					if (press_button(d, hit, e.mx, e.my))
+						result = hit;
 					break;
 				case FT_CHECK:
 					f->val = !f->val;
@@ -1659,10 +1717,11 @@ static void prog_bar(long done, long total)
 	in.w -= 2;
 	in.h -= 2;
 	w = total > 0 ? (long)in.w * (done > total ? total : done) / total : 0;
+	/* the family's bar (5.9, C22: common's progbar) */
+	if (w > 0)
+		progbar_fill(vdi_h, in.x, in.y, in.w, in.h, 0,
+			     (short)(total > 0 ? (long)PB_FULL * (done > total ? total : done) / total : 0));
 	part = in;
-	part.w = (short)w;
-	if (part.w > 0)
-		fill(&part, sel_color());
 	part.x = in.x + (short)w;
 	part.w = in.w - (short)w;
 	if (part.w > 0)
@@ -1678,6 +1737,7 @@ static void prog_paint(void)
 
 void prog_open(const char *title)
 {
+	progbar_pens(vdi_h, 0);	/* the bar's pens, on its white ground */
 	short w = 46;
 	memset(pg_f, 0, sizeof(pg_f));
 	memset(&pg_d, 0, sizeof(pg_d));
