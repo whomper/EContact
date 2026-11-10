@@ -21,6 +21,7 @@
 #include "clip.h"
 #include "tooltip.h"
 #include "progbar.h"
+#include "dlgbuild.h"
 #include "plat.h"
 #include "conn.h"
 #include "dialog.h"
@@ -619,38 +620,35 @@ static int eye_hit(const FIELD *f, short mx, short my)
 /* an exit button is the AES's G_BUTTON, drawn by the AES in its look,
    flat or 3D, never by hand (the guidelines 5.6; Erez, 27 Oct 2026);
    pressed: SELECTED. objc_draw takes the clip that is set */
-/* the tick box, the family's bitmap (common/ui/dlgbuild.c's tick_art,
-   EMail's): 16 pixels square, every other row on an 8-pixel font, in
-   pen 1 on the dialog's ground; a frame, and the tick inside when on */
-static const unsigned short tick_bits[16] = {
-	0x0000, 0x7FFE, 0x4002, 0x400A, 0x401A, 0x4032, 0x4062, 0x58C2,
-	0x5D82, 0x4F02, 0x4602, 0x4002, 0x4002, 0x4002, 0x7FFE, 0x0000
-};
-
+/* the tick box, the family's bitmap (common's dlgbuild.c, EMail's art):
+   16 pixels square, every other row on an 8-pixel font, in pen 1 on the
+   dialog's ground; a frame, and the tick inside when on */
 static void tick_image(short x, short y, int on, short ground)
 {
-	unsigned short rows[16];
-	short n = ch >= 16 ? 16 : 8, r, pxy[8], col[2];
+	static short made;
+	const BITBLK *bb;
+	short n, pxy[8], col[2];
 	MFDB src, dst;
 	GRECT b;
-	for (r = 0; r < n; r++) {
-		short k = n == 16 ? r : (r == n - 1 ? 14 : r * 2 + (r ? 0 : 1));
-		unsigned short v = tick_bits[k];
-		rows[r] = on ? v : (k == 1 || k == 14 ? v : (v ? 0x4002 : 0));
+	if (made != ch) {
+		db_tick_bits(ch >= 16 ? 16 : 8);
+		made = ch;
 	}
+	bb = on ? &db_tick_on : &db_tick_off;
+	n = bb->bi_hl;
 	b.x = x;
 	b.y = y;
 	b.w = 16;
 	b.h = n;
 	fill(&b, ground);
-	src.fd_addr = rows;
+	src.fd_addr = bb->bi_pdata;
 	src.fd_w = 16;
 	src.fd_h = n;
 	src.fd_wdwidth = 1;
 	src.fd_stand = 0;
 	src.fd_nplanes = 1;
 	src.fd_r1 = src.fd_r2 = src.fd_r3 = 0;
-	dst.fd_addr = 0;	/* the screen (or the buffer it is drawn to) */
+	dst.fd_addr = 0;	/* the screen */
 	pxy[0] = pxy[1] = 0;
 	pxy[2] = 15;
 	pxy[3] = n - 1;

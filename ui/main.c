@@ -1352,6 +1352,10 @@ static void job_memory(long free)
 	/* the job's log held in 16 KB; on a 1 MB ST in the 4 KB it has (16
 	   KB taken left a refresh no room for the server's answer) */
 	conn_log_hold_bytes = job >= 32L * 1024 ? 16384L : 0;
+	/* and its everyday buffer, taken from the heap at the first line
+	   logged, 1 KB there: 4 KB cost a 1 MB ST's first boot 8 of 350
+	   contacts (common's conn_log_small, 10 Nov 2026) */
+	conn_log_small = job >= 32L * 1024 ? 4096L : 1024L;
 }
 
 /* an accessory takes its memory once, now: later it would belong to
