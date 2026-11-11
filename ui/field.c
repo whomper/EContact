@@ -657,6 +657,74 @@ static void tick_image(short x, short y, int on, short ground)
 	graf_mouse(M_ON, 0);
 }
 
+/* a radio group (CONTROLS 4, D24: up to four choices, a pop-up above):
+   the AES's own RBUTTONs in a row, each as wide as the longest word and
+   2 cells more, a cell apart; the chosen one SELECTED */
+static const char *radio_word(const FIELD *f, short k)
+{
+	const char *t = f->items[k];
+	while (*t == ' ')
+		t++;
+	return t;
+}
+
+static short radio_step(const FIELD *f)
+{
+	short k, n = 0;
+	for (k = 0; k < f->nitems; k++)
+		if ((short)strlen(radio_word(f, k)) > n)
+			n = (short)strlen(radio_word(f, k));
+	return n + 3;
+}
+
+static void radio_rect(const FIELD *f, short k, GRECT *r)
+{
+	short step = radio_step(f);
+	r->x = FX(f) + k * step * cw;
+	r->y = FY(f) - 3;
+	r->w = (step - 1) * cw;
+	r->h = ch + 6;
+}
+
+static void aes_radios(const FIELD *f)
+{
+	OBJECT t[5];
+	GRECT c, r, all;
+	short k, n = f->nitems < 4 ? f->nitems : 4;
+	if (!clip_rect(&c)) {
+		c.x = c.y = 0;
+		c.w = scr_w;
+		c.h = scr_h;
+	}
+	radio_rect(f, 0, &all);
+	all.w = n * radio_step(f) * cw;
+	memset(t, 0, sizeof(t));
+	t[0].ob_next = -1;
+	t[0].ob_head = 1;
+	t[0].ob_tail = n;
+	t[0].ob_type = G_IBOX;
+	t[0].ob_x = all.x;
+	t[0].ob_y = all.y;
+	t[0].ob_width = all.w;
+	t[0].ob_height = all.h;
+	for (k = 0; k < n; k++) {
+		OBJECT *o = &t[k + 1];
+		radio_rect(f, k, &r);
+		o->ob_next = k + 1 < n ? k + 2 : 0;
+		o->ob_head = o->ob_tail = -1;
+		o->ob_type = G_BUTTON;
+		o->ob_flags = SELECTABLE | RBUTTON | (k + 1 == n ? LASTOB : 0);
+		o->ob_state = ((f->flags & FF_DISABLED) ? DISABLED : 0) | (k == f->val ? SELECTED : 0);
+		o->ob_spec = (long)radio_word(f, k);
+		o->ob_x = r.x - all.x;
+		o->ob_y = 3;		/* a cell high: the 3D edge stays in the row */
+		o->ob_width = r.w;
+		o->ob_height = ch;
+	}
+	dlg_3d(t);
+	objc_draw(t, 0, 1, c.x, c.y, c.w, c.h);
+}
+
 static void aes_button(const FIELD *f, int pressed)
 {
 	OBJECT t;
@@ -754,6 +822,14 @@ static void draw_field(DLG *d, short i)
 		fill(&r, bg);		/* the AES's 3D edge stands out of it */
 		aes_button(f, 0);
 		break;
+	case FT_RADIO: {
+		GRECT r;
+		radio_rect(f, 0, &r);
+		r.w = f->nitems * radio_step(f) * cw;
+		fill(&r, bg);
+		aes_radios(f);
+		break;
+	}
 	case FT_CHECK:
 		/* the family's bitmap tick (CONTROLS 4, D23), its words 3 cells on */
 		tick_image(FX(f), FY(f) + (ch - (ch >= 16 ? 16 : 8)) / 2, f->val, bg);
@@ -1208,7 +1284,10 @@ static short field_at(DLG *d, short mx, short my)
 		if (eye_hit(f, mx, my))
 			return i;
 		field_rect(f, &r);
-		if (f->type == FT_CHECK) {
+		if (f->type == FT_RADIO) {
+			radio_rect(f, 0, &r);
+			r.w = f->nitems * radio_step(f) * cw;
+		} else if (f->type == FT_CHECK) {
 			r.w = ((short)strlen(f->label) + 2) * cw + 4;
 		} else if (f->type == FT_COLOR) {
 			r.w = NCOLORS * 3 * cw;
@@ -1369,6 +1448,20 @@ short dlg_run(DLG *d)
 					if (press_button(d, hit, e.mx, e.my))
 						result = hit;
 					break;
+				case FT_RADIO: {	/* on the press, as a tick (5.8) */
+					short k = (short)((e.mx - FX(f)) / (radio_step(f) * cw));
+					GRECT r;
+					if (k < 0 || k >= f->nitems)
+						break;
+					radio_rect(f, k, &r);
+					if (!rect_hit(&r, e.mx, e.my) || k == f->val)
+						break;
+					f->val = k;
+					dlg_redraw_field(d, hit);
+					if (d->changed)
+						d->changed(d, hit);
+					break;
+				}
 				case FT_CHECK:
 					f->val = !f->val;
 					dlg_redraw_field(d, hit);

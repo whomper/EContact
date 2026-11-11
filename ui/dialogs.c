@@ -277,15 +277,17 @@ static void settings(short first)
 	}
 
 	/* General */
+	/* two choices: radio buttons (D24), in the value column as the
+	   pop-ups were */
 	row = 3;
 	put(&f[L1], FT_LABEL, 0, CX, row, 0, "Sort by:");
-	put(&f[F1], FT_POPUP, 0, VX, row, 16, 0);
+	put(&f[F1], FT_RADIO, 0, VX, row, 2 * 14, 0);
 	f[F1].items = sort_items;
 	f[F1].nitems = 2;
 	f[F1].val = opt.sort_first;
 	row++;
 	put(&f[L2], FT_LABEL, 0, CX, row, 0, "Show names as:");
-	put(&f[F2], FT_POPUP, 0, VX, row, 16, 0);
+	put(&f[F2], FT_RADIO, 0, VX, row, 2 * 14, 0);
 	f[F2].items = show_items;
 	f[F2].nitems = 2;
 	f[F2].val = opt.last_first;

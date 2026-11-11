@@ -76,7 +76,7 @@ def main():
         "click 200 200", "wait 2", PARK, "shot",			# 1 the window
         "ctrl 0x33", "wait 5", PARK, "shot",				# 2 Settings
         "drag 300 86 300 150", "wait 4", PARK, "shot",			# 3 moved
-        "click 384 224", "wait 3", PARK, "shot", "key 0x01", "wait 2",	# 4 Sort by's pop-up
+        "click 384 268", "wait 3", PARK, "shot", "key 0x01", "wait 2",	# 4 New contacts in's pop-up (Sort by is radios: D24)
         "click 110 224", "wait 3", PARK, "shot",			# 5 Refresh's section
         "click 82 150", "wait 4", PARK, "shot",				# 6 the closer
         "ctrl 0x33", "wait 5", "key 0x01", "wait 4", PARK, "shot",	# 7 Esc
@@ -127,7 +127,7 @@ def main():
     dlg = (90, 160, 560, 440)		# Settings, moved down 64
     check("Settings opens over the window", not same(1, 2))
     check("Settings moved: the window drawn again where it was", same(1, 3, (100, 76, 560, 134)))
-    check("Settings moved: Sort by's pop-up at its place", not same(3, 4, (316, 230, 456, 280)))
+    check("Settings moved: New contacts in's pop-up at its place", not same(3, 4, (316, 250, 560, 330)))
     check("Settings moved: the Refresh section chosen", not same(3, 5, dlg))
     check("its closer closes it, the window as it was", same(1, 6))
     check("Esc closes it", same(1, 7))

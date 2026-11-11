@@ -197,7 +197,8 @@ void side_draw(GRECT *clip);
 int  side_click(short mx, short my, short clicks, short button);
 
 /* ---- dialogs drawn by us (field.c) ---- */
-enum { FT_LABEL, FT_TEXT, FT_PASS, FT_BUTTON, FT_CHECK, FT_POPUP, FT_MULTI, FT_HEAD, FT_COLOR };
+enum { FT_LABEL, FT_TEXT, FT_PASS, FT_BUTTON, FT_CHECK, FT_POPUP, FT_MULTI, FT_HEAD, FT_COLOR,
+       FT_RADIO };	/* FT_RADIO: items/nitems/val as FT_POPUP, one AES radio button each (D24) */
 #define FF_DEFAULT  1
 #define FF_CANCEL   2
 #define FF_DISABLED 4
