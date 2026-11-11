@@ -13,7 +13,8 @@
 #include <string.h>
 #include "inflate.h"
 
-#define FAST 9				/* bits looked up at once */
+#define FAST 8				/* bits looked up at once (8: 1 KB less of BSS for a 1 MB ST's
+					   first boot than 9; longer codes go bit by bit) */
 
 typedef struct {
 	short count[16];		/* codes of each length */
