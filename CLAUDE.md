@@ -16,9 +16,12 @@ EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari
 
   Such a release takes only that fix (one change from AERA-Atari, not a sync), and its notes say why.
 - Work on `main` that isn't released stays unreleased.
-- The UI backlog from Erez's decisions of 9 Nov 2026 is docs/UI-BACKLOG.md: it rides releases made anyway, as it says.
-- The next release is 2.0 (Erez, 9 Nov 2026): `tools/bump.py major` in its release commit, "2.0" in its notes' first line.
-- At that release, testing takes Erez's configuration (Erez, 10 Nov 2026; AERA-Atari 148df17, standards/TEST-MATRIX.md): `Falcon-4:256` with `AERA_WITH_NVDI=1` (machines.ERZ_MACHINE, erz_env()) replaces the main Falcon run of gui, quiet_start, card_scroll and speed.py (Falcon-4:16 and Falcon:16); the other Falcon runs of the same functions go. The hub's set per candidate: a paired speed run on his configuration, ST-1:mono, one TT + MiNT + XaAES run.
+- The UI alignment (Erez lifted the mode for it on 10 Nov 2026) is released: 2.0 and 2.1 (11 Nov 2026); the mode is back
+  since then. What is left of docs/UI-BACKLOG.md (Settings' other three choices as radio buttons, waiting on Erez's
+  words) rides a release made anyway.
+- Testing takes Erez's configuration (Erez, 10 Nov 2026; AERA-Atari 148df17, standards/TEST-MATRIX.md): `Falcon-4:256` with `AERA_WITH_NVDI=1` (machines.ERZ_MACHINE, erz_env()) replaces the main Falcon run of gui, quiet_start, card_scroll and speed.py (Falcon-4:16 and Falcon:16); the other Falcon runs of the same functions go. The hub's set per candidate: a paired speed run on his configuration, ST-1:mono, one TT + MiNT + XaAES run. A speed row slower than the last release goes to Erez (through the hub) before anyone profiles or fixes it (Erez, 11 Nov 2026).
+- A 1 MB ST's first boot holds 350 contacts with 1 KB to spare (2.1: quiet_start ST-1, 167 KB at the most of 168). Code
+  or BSS added costs that margin: measure quiet_start ST-1 with any change.
 - Nothing runs in the background; the session waits for Erez or the hub.
 - Only Erez's explicit word ends this mode, for instance that every app is to take the latest shared code and release. The hub passes it on quoting him.
 
