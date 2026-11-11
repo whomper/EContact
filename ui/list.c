@@ -1229,8 +1229,15 @@ int list_click(short mx, short my, short clicks, short button, short kstate)
 					c->mark |= MK_TICK;
 					pick_end(1);
 				} else {
+					/* only its row drawn again: a whole list's
+					   redraw between the press and the next event
+					   swallowed a quick double click's second press
+					   on an 8 MHz ST (EMail's e51010a2, the hub 11
+					   Nov 2026; common/ui/dialog.h's rule) */
+					GRECT a;
 					c->mark ^= MK_TICK;
-					win_redraw(&r_list);
+					if (row_area(i, &a))
+						win_redraw(&a);
 				}
 				return 1;
 			}
