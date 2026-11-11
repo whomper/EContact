@@ -21,7 +21,7 @@
  * SpeedoGDOS would give their memory to the program in front, which
  * frees it when it ends. Under NVDI it always loads them, so its Font...
  * is the program's (Erez, 19 Oct); under the others only when
- * ECONTACT.INF names one (FONT_ID=), their memory being an ST's for
+ * ECONTACT.INF names one (FONT=name,points; the old FONT_ID= read once), their memory being an ST's for
  * good. Without them its Font... lists the fonts ECONTACT.FNT knows, and
  * one chosen there is used from the next start.
  */
@@ -139,6 +139,27 @@ void font_boot(short id)
 		gdos_fonts = vst_load_fonts(vdi_h, 0);
 }
 
+/* the VDI's fonts by name (FONT=name,points, D43): the id of the one
+   called name, 0 none; or (name 0) the name of id into out */
+static short font_by_name(const char *name, short id, char *out, int size)
+{
+	short i, n = 1 + (gdos_fonts > 0 ? gdos_fonts : 0);
+	char nm[34];
+	for (i = 1; i <= n; i++) {
+		short k = vqt_name(vdi_h, i, nm), e;
+		nm[32] = 0;
+		for (e = (short)strlen(nm); e > 0 && nm[e - 1] == ' '; e--)
+			nm[e - 1] = 0;	/* the VDI pads it with spaces */
+		if (name && !strcmp(nm, name))
+			return k;
+		if (!name && k == id) {
+			str_copy(out, nm, size);
+			return k;
+		}
+	}
+	return 0;
+}
+
 void font_apply(void)
 {
 	if (sys_depth) {
@@ -149,7 +170,19 @@ void font_apply(void)
 		gdos_fonts = vst_load_fonts(vdi_h, 0);
 		win_buffer_fonts();
 	}
-	if (!set_font(opt.font_id, opt.font_pt)) {
+	if (opt.font_id == -1) {	/* FONT=name: its id, now the fonts are there */
+		short id = gdos_fonts >= 0 || !is_acc ? font_by_name(opt.font_name, 0, 0, 0) : 0;
+		if (id > 0)
+			opt.font_id = id;
+		else if (!is_acc || gdos_fonts >= 0) {
+			opt.font_id = 1;	/* not there */
+			opt.font_pt = 0;
+			opt.font_name[0] = 0;
+		}
+	}
+	if (opt.font_id > 1 && !opt.font_name[0])	/* the old FONT_ID=: its name, to write FONT= */
+		font_by_name(0, opt.font_id, opt.font_name, sizeof(opt.font_name));
+	if (opt.font_id == -1 || !set_font(opt.font_id, opt.font_pt)) {
 		if (!is_acc || gdos_fonts >= 0) {
 			opt.font_id = 1;	/* not there */
 			opt.font_pt = 0;
@@ -228,6 +261,9 @@ static void take(fontsel *s)
 {
 	opt.font_id = s->id;
 	opt.font_pt = s->pt;
+	opt.font_name[0] = 0;
+	if (s->id > 1 && !font_by_name(0, s->id, opt.font_name, sizeof(opt.font_name)))
+		str_copy(opt.font_name, s->font, sizeof(opt.font_name));	/* (not loaded here: the dialog's) */
 	font_apply();
 	settings_later();
 	win_layout();
@@ -247,6 +283,7 @@ void font_menu(void)
 	fs.fnt = fnt;
 	fs.id = opt.font_id;
 	fs.pt = opt.font_pt;
+	fs.name = opt.font_name[0] ? opt.font_name : 0;	/* FONT=name, not loaded here */
 	/* the accessory without them (FONTGDOS, SpeedoGDOS, none named at
 	   boot): ECONTACT.FNT's for the next start */
 	fs.gdos = gdos_fonts < 0 ? FS_UNLOADED : gdos_fonts;

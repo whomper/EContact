@@ -1255,7 +1255,7 @@ static void inf_folder(char *out, int size)
 }
 
 static char boot_start[12];	/* START= as ECONTACT.INF had it at boot */
-static char boot_font[8];	/* FONT_ID=: the GDOS fonts loaded at boot or never */
+static char boot_font[8];	/* FONT= (or FONT_ID=): the GDOS fonts loaded at boot or never */
 
 static void find_workdir(void)
 {
@@ -1266,7 +1266,16 @@ static void find_workdir(void)
 		inf_read(inf_file);	/* once: FOLDER=, START=, FONT_ID=, HEAPKB= */
 		inf_folder(workdir, sizeof(workdir));
 		inf_value("start=", boot_start, sizeof(boot_start));
-		inf_value("font_id=", boot_font, sizeof(boot_font));
+		/* FONT=name,points (D43), or the old FONT_ID=: a font named, or
+		   one other than the system's (1), loads the GDOS fonts at boot */
+		{
+			char f[40];
+			inf_value("font=", f, sizeof(f));
+			if (f[0] && f[0] != ',')
+				str_copy(boot_font, "2", sizeof(boot_font));
+			else if (!f[0])
+				inf_value("font_id=", boot_font, sizeof(boot_font));
+		}
 		if (inf_n < 0) {
 			/* settings in the folder instead (copied there, or written
 			   by card-cli): taken to the root at the first opening */
@@ -2164,7 +2173,7 @@ int main(void)
 		return 1;
 	}
 	find_workdir();
-	if (is_acc && vdi_h)	/* FONT_ID= from find_workdir's look; before the first event call */
+	if (is_acc && vdi_h)	/* FONT= from find_workdir's look; before the first event call */
 		font_boot(boot_font[0] ? (short)atoi(boot_font) : 1);
 	crash_install(workdir, "EContact", app_version);	/* the program only */
 	crash_cleanup = crash_quit;

@@ -71,10 +71,10 @@ def gdos_fonts(folder):
 
 
 def inf_font(hd):
-    """FONT_ID= in ECONTACT.INF (the root's)"""
+    """FONT='s name in ECONTACT.INF (the root's); "" the system font (D43: FONT=name,points)"""
     t = open(os.path.join(hd, "econtact.inf"), encoding="latin-1").read()
-    m = re.search(r"^FONT_ID=(\d+)", t, re.M)
-    return int(m.group(1)) if m else 1
+    m = re.search(r"^FONT=([^\r\n]*),\d*\s*$", t, re.M)
+    return m.group(1).strip() if m else ""
 
 
 def wait_file(path, secs):
@@ -107,7 +107,7 @@ def main():
     # opening, the system font
     inf = inf.replace(b"\nLOG=0", b"\nLOG=1").replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
-    inf = re.sub(rb"\nFONT_ID=[^\r\n]*", rb"\nFONT_ID=1", inf)
+    inf = re.sub(rb"\nFONT=[^\r\n]*", rb"\nFONT=,0", inf)
     with open(os.path.join(hd, "econtact.inf"), "wb") as f:
         f.write(inf)
     acc = "econtact.acc"
@@ -165,8 +165,8 @@ def main():
         if not fonts:
             skip("no fixed-width GDOS font (ECONTACT.FNT names none)")
         chosen = inf_font(hd)
-        names = dict((i, n) for n, i in fonts)
-        check("the program wrote FONT_ID=%d (%s)" % (chosen, names.get(chosen, "not listed")), chosen in names)
+        names = [n.strip() for n, i in fonts]
+        check("the program wrote FONT=%s, a font ECONTACT.FNT lists" % chosen, chosen in names)
         os.remove(os.path.join(folder, "econtact.prg"))
         shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "econtact.acc"))
         r = start("")
@@ -181,7 +181,7 @@ def main():
         check("the accessory drew its window", same(desk, first) < 0.9)
         check("drawn again the same after closing and opening (%.3f alike)" % same(first, again),
               same(first, again) > 0.97)
-        check("FONT_ID kept", inf_font(hd) == chosen)
+        check("FONT= kept", inf_font(hd) == chosen)
     else:
         shutil.copy(os.path.join(ROOT, "binary", acc), os.path.join(hd, "econtact.acc"))
         r = start("")
@@ -215,12 +215,12 @@ def main():
         if not fonts:
             skip("no fixed-width GDOS font in the accessory's Font... (ECONTACT.FNT names none)")
         got = inf_font(hd)
-        names = dict((i, n) for n, i in fonts)
-        check("the window redrawn in %s (%.3f alike the system font's)" % (names.get(got, got), same(first, chosen)),
+        names = [n.strip() for n, i in fonts]
+        check("the window redrawn in %s (%.3f alike the system font's)" % (got, same(first, chosen)),
               same(first, chosen) < 0.97 and same(desk, chosen) < 0.9)
         check("drawn again the same after closing and opening (%.3f alike)" % same(chosen, again),
               same(chosen, again) > 0.97)
-        check("FONT_ID=%d written, a font the dialog listed" % got, got in names)
+        check("FONT=%s written, a font the dialog listed" % got, got in names)
     print("screenshots in", os.path.join(work, "shots"))
     print("all passed" if not fails else "%d failed" % fails)
     sys.exit(1 if fails else 0)

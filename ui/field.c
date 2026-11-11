@@ -474,15 +474,9 @@ static void draw_text_field(FIELD *f, int focus)
 	char s[256];
 	field_rect(f, &r);
 	fill(&r, 0);
+	/* one line, focused or not: the cursor says where typing goes, as in
+	   the AES's dialogs (CONTROLS 4, C24) */
 	frame(&r, (f->flags & FF_DISABLED) ? dim_line() : 1);
-	if (focus) {
-		GRECT r2 = r;
-		r2.x--;
-		r2.y--;
-		r2.w += 2;
-		r2.h += 2;
-		frame(&r2, 1);
-	}
 	if (f->type == FT_MULTI) {
 		long br[64], nl = multi_lines(f, br, 64), len = (long)strlen(f->buf), i, curl = 0;
 		for (i = 0; i < nl; i++)
@@ -770,13 +764,8 @@ static void draw_field(DLG *d, short i)
 		field_rect(f, &r);
 		fill(&r, bg);
 		frame(&r, dis ? dim_line() : 1);
-		if (d3) {
-			bevel(&r, 1, 0);	/* raised, as the family's are */
-		} else {
-			/* a shadow says "menu" */
-			line_col(r.x + 1, r.y + r.h, r.x + r.w, r.y + r.h, 1);
-			line_col(r.x + r.w, r.y + 1, r.x + r.w, r.y + r.h, 1);
-		}
+		if (d3)
+			bevel(&r, 1, 0);	/* raised, as the family's are; flat a framed box (C24) */
 		while (*l == ' ')
 			l++;
 		/* (a cell in: its text on a byte) */
@@ -901,29 +890,26 @@ static void draw_all(DLG *d)
 	graf_mouse(M_OFF, 0);
 	fill(&box, bg);
 	if (!dlg_win) {
-		/* in a window the AES's frame and title bar are its own */
+		/* in a window the AES's frame and title bar are its own. Here
+		   the family's (CONTROLS 1, D22): a 2-pixel frame, and a black
+		   band across row 0 with the title at its left after a space */
 		GRECT in = box;
 		frame(&box, 1);
-		in.x += 2;
-		in.y += 2;
-		in.w -= 4;
-		in.h -= 4;
+		in.x++;
+		in.y++;
+		in.w -= 2;
+		in.h -= 2;
 		frame(&in, 1);
-		t.x = box.x + 3;
-		t.y = box.y + 3;
-		t.w = box.w - 6;
-		t.h = ch + 2;
+		t.x = box.x + 2;
+		t.y = box.y + 2;
+		t.w = box.w - 4;
+		t.h = ch + 3;
 		fill(&t, 1);
 		str_copy(title, d->title ? d->title : "", sizeof(title));
 		{
-			/* centred to the nearest byte: TOS draws text there some
-			   six times as fast (the guidelines' Speed: text on a byte) */
-			short n = (short)strlen(title), cols = t.w / cw, tx = t.x + (cols - n) * cw / 2;
-			if (n <= cols && !line_rtl(title, n) && ((tx + 4) & ~7) >= t.x)
-				text_at((tx + 4) & ~7, t.y + 1, title, n, n, TX_INVERSE | TX_BOLD | TX_LTR);
-			else
-				text_at(t.x, t.y + 1, title, n, cols, TX_INVERSE | TX_BOLD | TX_CENTER |
-					(line_rtl(title, n) ? 0 : TX_LTR));
+			/* the text on a byte, a cell in (the guidelines' Speed) */
+			short n = (short)strlen(title), tx = (t.x + cw + 7) & ~7, cols = (t.x + t.w - tx) / cw;
+			text_at(tx, t.y + 2, title, n, cols, TX_INVERSE | (line_rtl(title, n) ? 0 : TX_LTR));
 		}
 		/* the Hebrew keyboard's badge, white on the black band (the
 		   guidelines 5.3: hebkey.c's, the same in every app) */
@@ -1455,11 +1441,24 @@ static void pick_paint(void)
 	graf_mouse(M_OFF, 0);
 	fill(&box, bg);
 	if (!dlg_win) {		/* in a window the AES's frame and title */
+		GRECT in = box, t;
+		short tx;
 		frame(&box, 1);
+		in.x++;
+		in.y++;
+		in.w -= 2;
+		in.h -= 2;
+		frame(&in, 1);
+		/* the family's black band with the title (CONTROLS 1, D22) */
+		t.x = box.x + 2;
+		t.y = box.y + 2;
+		t.w = box.w - 4;
+		t.h = ch + 3;
+		fill(&t, 1);
+		tx = (t.x + cw + 7) & ~7;
+		text_at(tx, t.y + 2, pk_title, (long)strlen(pk_title), (t.x + t.w - tx) / cw, TX_INVERSE | TX_LTR);
 	}
 	fill(&list, 0);
-	if (!dlg_win)
-		text_at(box.x + cw, box.y + 4, pk_title, (long)strlen(pk_title), w, TX_BOLD | TX_LTR | (bg ? 0 : TX_WHITE));
 	frame(&list, 1);
 	for (i = 0; i < pk_rows && pk_first + i < pk_n; i++) {
 		GRECT r;

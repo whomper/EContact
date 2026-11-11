@@ -111,6 +111,38 @@ static void set_opt(const char *k, const char *v)
 		opt.gateport = (unsigned short)atoi(v);
 		return;
 	}
+	/* WINDOW=x,y,w,h and FONT=name,points (D43); WIN_X..WIN_H and
+	   FONT_ID/FONT_PT above are read as they come, and the new key,
+	   where there is one, wins: it comes later in the file (D44) */
+	if (!strcasecmp(k, "window")) {
+		short w[4] = { 0, 0, 0, 0 }, i = 0;
+		const char *p = v;
+		while (i < 4 && *p) {
+			w[i++] = (short)atoi(p);
+			while (*p && *p != ',')
+				p++;
+			if (*p)
+				p++;
+		}
+		if (i == 4) {
+			opt.win_x = w[0];
+			opt.win_y = w[1];
+			opt.win_w = w[2];
+			opt.win_h = w[3];
+		}
+		return;
+	}
+	if (!strcasecmp(k, "font")) {
+		const char *comma = strrchr(v, ',');
+		size_t n = comma ? (size_t)(comma - v) : strlen(v);
+		if (n >= sizeof(opt.font_name))
+			n = sizeof(opt.font_name) - 1;
+		memcpy(opt.font_name, v, n);
+		opt.font_name[n] = 0;
+		opt.font_pt = comma ? (short)atoi(comma + 1) : 0;
+		opt.font_id = opt.font_name[0] ? -1 : 1;	/* -1: found by name once the fonts are there */
+		return;
+	}
 #undef S
 #undef I
 }
@@ -317,8 +349,9 @@ void store_save_settings(void)
 	I("HEAPKB", heapkb, "memory the accessory takes at boot, in KB, to choose it yourself; 0: what it measured (MEMKB)")
 	I("MEMKB", memkb, "what the accessory needed the last time, as it measured it (KB): it takes that at the next start; 0: not known yet (then 1.5 MB on a Falcon/TT, 4 MB in TT RAM, 2 MB on an ST; at most a quarter of the free memory, half below 1 MB)")
 	S("START", start, "when the accessory reads the address books after the Atari starts, a little at a time: now, opened (when its window first opens), or seconds after boot")
-	I("FONT_ID", font_id, "the font, as a GDOS id; 1: the system font (the accessory loads GDOS fonts only as the Atari starts: always with NVDI, else when one is chosen here)")
-	I("FONT_PT", font_pt, "the font's size in points; 0: the system font's")
+	if (!sb_printf(&b, "; the window's font: its name and size in points; no name: the system font (the accessory loads GDOS fonts only as the Atari starts: always with NVDI, else when one is named here)\r\nFONT=%s,%d\r\n\r\n",
+		       opt.font_id == 1 ? "" : opt.font_name, opt.font_pt))
+		save_ok = 0;
 	I("FALCON", falcon, "Direct connection: TLS on this Atari (68020 or better, TLS.OVL); 0: through the Gateway")
 	I("DSP", dsp, "check certificates on the Falcon's DSP56001")
 	S("GATE", gate, "the Gateway's address (Settings > Connection); ECal's Gateway serves both")
@@ -336,10 +369,9 @@ void store_save_settings(void)
 	S("ME", me, "the UID of your own card (right-click a contact > Make This My Card)")
 	I("HEBFONT", hebfont, "where the font has the Hebrew letters: 0 Atari, 1 ISO-8859-8, 2 DOS 862")
 	I("SIDEBAR", sidebar, "show the groups on the left")
-	I("WIN_X", win_x, "the window's left edge, in pixels")
-	I("WIN_Y", win_y, "the window's top edge, in pixels")
-	I("WIN_W", win_w, "the window's width, in pixels")
-	I("WIN_H", win_h, "the window's height, in pixels")
+	if (!sb_printf(&b, "; the window's place and size in pixels: left, top, width, height\r\nWINDOW=%d,%d,%d,%d\r\n\r\n",
+		       opt.win_x, opt.win_y, opt.win_w, opt.win_h))
+		save_ok = 0;
 #undef S
 #undef I
 	for (i = 0; i < naccts; i++) {

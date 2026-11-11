@@ -517,13 +517,15 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (font_boot; the guidelines, 2.2): their memory is the program in
   front's after that. Under NVDI (its cookie) always, so its Font... is
   the program's and a font chosen is used at once (Erez: the accessory on
-  par with the program); under FONTGDOS or SpeedoGDOS only when FONT_ID=
+  par with the program); under FONTGDOS or SpeedoGDOS only when FONT=
   names one. Without them its Font... lists the fonts ECONTACT.FNT knows
   (read at each opening, with their ids), and one chosen is used from
   the next start. The dialog is the family's, common/ui/fontsel.c (the
   guidelines 5.3): ui/font.c only fills it and takes the font (take);
-  change the dialog in AERA-Atari. FONT_ID= is near the INF's start, where inf_value
-  reads it at boot.
+  change the dialog in AERA-Atari. FONT=name,points (D43: font.c font_by_name finds its id once the fonts
+  are there; the old FONT_ID=/FONT_PT= are read once, the new key wins, D44) is near
+  the INF's start, where inf_value reads it at boot. The window is WINDOW=x,y,w,h
+  (WIN_X..WIN_H read once).
 - Memory on an ST is the limit (docs/DETAILS.md "How many contacts"). Reading a
   card leaves nothing in memory but its CONTACT (vcard_parse keeps its
   scratch from card to card): small mallocs left between contacts make

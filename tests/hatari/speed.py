@@ -95,8 +95,9 @@ def seed(folder, work):
     font = os.environ.get("FONT")
     if font:
         fid, fpt = font.split(",")
-        t = re.sub(rb"\nFONT_ID=[^\r\n]*", b"\nFONT_ID=" + fid.encode(), t)
-        t = re.sub(rb"\nFONT_PT=[^\r\n]*", b"\nFONT_PT=" + fpt.encode(), t)
+        # the old keys, read once in FONT='s place (D44): the id is what
+        # ECONTACT.FNT knows, and EContact writes FONT=name from then on
+        t = re.sub(rb"\nFONT=[^\r\n]*", b"\nFONT_ID=" + fid.encode() + b"\r\nFONT_PT=" + fpt.encode(), t)
     os.remove(inf)
     return t
 

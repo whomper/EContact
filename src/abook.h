@@ -65,6 +65,7 @@ typedef struct {
 	unsigned short gateport;
 	short log;
 	short font_id, font_pt, hebfont;
+	char font_name[36];	/* FONT=name,points: the font by its VDI name ("" the system font) */
 	short win_x, win_y, win_w, win_h;
 	short sidebar;		/* the groups on the left */
 	short sort_first;	/* sort by first name (else by last) */
