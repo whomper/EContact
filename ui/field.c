@@ -657,47 +657,63 @@ static void tick_image(short x, short y, int on, short ground)
 	graf_mouse(M_ON, 0);
 }
 
-/* a radio group (CONTROLS 4, D24: up to four choices, a pop-up above):
-   the AES's own RBUTTONs in a row, each as wide as the longest word and
-   2 cells more, a cell apart; the chosen one SELECTED */
-static const char *radio_word(const FIELD *f, short k)
+/* ---- a radio group (CONTROLS 4, D24: up to four choices, a pop-up above) ----
+   Self-contained, to be lifted into common's dialog engine (the hub, 11
+   Nov 2026; ECal takes the same): no EContact global but the AES's. The
+   group's top-left text cell at (x, y), cells cw x ch, n words (leading
+   spaces left out), sel chosen. Each choice is the AES's own RBUTTON
+   (dlg_3d's look: pressed in while chosen in 3D, turned over flat), as
+   wide as the longest word and 2 cells more, a cell apart, a cell high so
+   its 3D edge stays in a row of ch + 6. */
+#define RADIO_MAX 4
+
+static const char *radio_word(const char *const *words, short k)
 {
-	const char *t = f->items[k];
+	const char *t = words[k];
 	while (*t == ' ')
 		t++;
 	return t;
 }
 
-static short radio_step(const FIELD *f)
+/* the distance from one button to the next, pixels */
+static short radio_pitch(const char *const *words, short n, short cw)
 {
-	short k, n = 0;
-	for (k = 0; k < f->nitems; k++)
-		if ((short)strlen(radio_word(f, k)) > n)
-			n = (short)strlen(radio_word(f, k));
-	return n + 3;
+	short k, w = 0;
+	for (k = 0; k < n; k++)
+		if ((short)strlen(radio_word(words, k)) > w)
+			w = (short)strlen(radio_word(words, k));
+	return (w + 3) * cw;
 }
 
-static void radio_rect(const FIELD *f, short k, GRECT *r)
+/* the whole group's rectangle (the hit area, and what a redraw clears) */
+void radio_area(short x, short y, short cw, short ch, const char *const *words, short n, GRECT *r)
 {
-	short step = radio_step(f);
-	r->x = FX(f) + k * step * cw;
-	r->y = FY(f) - 3;
-	r->w = (step - 1) * cw;
+	if (n > RADIO_MAX)
+		n = RADIO_MAX;
+	r->x = x;
+	r->y = y - 3;
+	r->w = n * radio_pitch(words, n, cw) - cw;
 	r->h = ch + 6;
 }
 
-static void aes_radios(const FIELD *f)
+/* draws the group in the clip c (0: the screen) */
+void radio_draw(short x, short y, short cw, short ch, const char *const *words, short n, short sel, int disabled,
+		const GRECT *c)
 {
-	OBJECT t[5];
-	GRECT c, r, all;
-	short k, n = f->nitems < 4 ? f->nitems : 4;
-	if (!clip_rect(&c)) {
-		c.x = c.y = 0;
-		c.w = scr_w;
-		c.h = scr_h;
+	OBJECT t[RADIO_MAX + 1];
+	GRECT all, scr;
+	short k, pitch;
+	if (n > RADIO_MAX)
+		n = RADIO_MAX;
+	pitch = radio_pitch(words, n, cw);
+	radio_area(x, y, cw, ch, words, n, &all);
+	if (!c) {
+		wind_get(0, WF_WORKXYWH, &scr.x, &scr.y, &scr.w, &scr.h);
+		scr.h += scr.y;
+		scr.w += scr.x;
+		scr.x = scr.y = 0;
+		c = &scr;
 	}
-	radio_rect(f, 0, &all);
-	all.w = n * radio_step(f) * cw;
 	memset(t, 0, sizeof(t));
 	t[0].ob_next = -1;
 	t[0].ob_head = 1;
@@ -709,20 +725,34 @@ static void aes_radios(const FIELD *f)
 	t[0].ob_height = all.h;
 	for (k = 0; k < n; k++) {
 		OBJECT *o = &t[k + 1];
-		radio_rect(f, k, &r);
 		o->ob_next = k + 1 < n ? k + 2 : 0;
 		o->ob_head = o->ob_tail = -1;
 		o->ob_type = G_BUTTON;
 		o->ob_flags = SELECTABLE | RBUTTON | (k + 1 == n ? LASTOB : 0);
-		o->ob_state = ((f->flags & FF_DISABLED) ? DISABLED : 0) | (k == f->val ? SELECTED : 0);
-		o->ob_spec = (long)radio_word(f, k);
-		o->ob_x = r.x - all.x;
-		o->ob_y = 3;		/* a cell high: the 3D edge stays in the row */
-		o->ob_width = r.w;
+		o->ob_state = (disabled ? DISABLED : 0) | (k == sel ? SELECTED : 0);
+		o->ob_spec = (long)radio_word(words, k);
+		o->ob_x = k * pitch;
+		o->ob_y = 3;
+		o->ob_width = pitch - cw;
 		o->ob_height = ch;
 	}
 	dlg_3d(t);
-	objc_draw(t, 0, 1, c.x, c.y, c.w, c.h);
+	objc_draw(t, 0, 1, c->x, c->y, c->w, c->h);
+}
+
+/* the choice a press at (mx, my) falls on, -1 none (the gap, outside) */
+short radio_hit(short x, short y, short cw, short ch, const char *const *words, short n, short mx, short my)
+{
+	short pitch, k;
+	if (n > RADIO_MAX)
+		n = RADIO_MAX;
+	pitch = radio_pitch(words, n, cw);
+	if (mx < x || my < y - 3 || my >= y + ch + 3)
+		return -1;
+	k = (short)((mx - x) / pitch);
+	if (k >= n || mx - x - k * pitch >= pitch - cw)
+		return -1;
+	return k;
 }
 
 static void aes_button(const FIELD *f, int pressed)
@@ -823,11 +853,11 @@ static void draw_field(DLG *d, short i)
 		aes_button(f, 0);
 		break;
 	case FT_RADIO: {
-		GRECT r;
-		radio_rect(f, 0, &r);
-		r.w = f->nitems * radio_step(f) * cw;
+		GRECT r, c;
+		radio_area(FX(f), FY(f), cw, ch, f->items, f->nitems, &r);
 		fill(&r, bg);
-		aes_radios(f);
+		radio_draw(FX(f), FY(f), cw, ch, f->items, f->nitems, f->val, (f->flags & FF_DISABLED) != 0,
+			   clip_rect(&c) ? &c : 0);
 		break;
 	}
 	case FT_CHECK:
@@ -1284,10 +1314,9 @@ static short field_at(DLG *d, short mx, short my)
 		if (eye_hit(f, mx, my))
 			return i;
 		field_rect(f, &r);
-		if (f->type == FT_RADIO) {
-			radio_rect(f, 0, &r);
-			r.w = f->nitems * radio_step(f) * cw;
-		} else if (f->type == FT_CHECK) {
+		if (f->type == FT_RADIO)
+			radio_area(FX(f), FY(f), cw, ch, f->items, f->nitems, &r);
+		else if (f->type == FT_CHECK) {
 			r.w = ((short)strlen(f->label) + 2) * cw + 4;
 		} else if (f->type == FT_COLOR) {
 			r.w = NCOLORS * 3 * cw;
@@ -1449,12 +1478,8 @@ short dlg_run(DLG *d)
 						result = hit;
 					break;
 				case FT_RADIO: {	/* on the press, as a tick (5.8) */
-					short k = (short)((e.mx - FX(f)) / (radio_step(f) * cw));
-					GRECT r;
-					if (k < 0 || k >= f->nitems)
-						break;
-					radio_rect(f, k, &r);
-					if (!rect_hit(&r, e.mx, e.my) || k == f->val)
+					short k = radio_hit(FX(f), FY(f), cw, ch, f->items, f->nitems, e.mx, e.my);
+					if (k < 0 || k == f->val)
 						break;
 					f->val = k;
 					dlg_redraw_field(d, hit);
