@@ -5,9 +5,10 @@
 as only. **Left:** Hebrew in font, Refresh all and Once at start as radio buttons, waiting on Erez's shorter words (the
 hub has the proposal: Atari | ISO 8859-8 | PC 862; Never | 15 min | Hourly | Daily; No | 2 min | 5 min | 15 min).
 
-**Decided 12 Nov 2026 (Erez, through the hub):** Hebrew in font moves into the family's Font dialog
-(common/ui/fontsel.c, once for all apps): the Settings pop-up stays until the hub says it is in, and goes at the
-release that syncs it (no radios for it). The Font dialog builds with `-DDLG_CLICK` at the next sync, with
+**Decided 12 Nov 2026 (Erez, through the hub):** the Hebrew in font setting is removed (it replaces moving it to
+the Font dialog): Hebrew is always drawn as the Atari standard stores it. At the next release: the Settings pop-up,
+HEBFONT= (an old one read and ignored), heb_font_map and its callers, its tests and the guide's text go; one line in
+the notes (an ISO 8859-8 or PC 862 Hebrew bitmap font now shows accented Latin letters). The Font dialog builds with `-DDLG_CLICK` at the next sync, with
 quiet_start ST-1 measured. W14 (the job's result by alert): no change. Refresh all and Once at start become radio buttons with
 the short words (Never / 15 min / Hourly / Daily; No / 2 min / 5 min / 15 min), Settings 6 cells wider (SW = VX + 36):
 at the next release, with the common sync (Erez, 12 Nov 2026).
