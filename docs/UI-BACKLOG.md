@@ -5,6 +5,11 @@
 as only. **Left:** Hebrew in font, Refresh all and Once at start as radio buttons, waiting on Erez's shorter words (the
 hub has the proposal: Atari | ISO 8859-8 | PC 862; Never | 15 min | Hourly | Daily; No | 2 min | 5 min | 15 min).
 
+**Decided 12 Nov 2026 (Erez, through the hub):** Hebrew in font moves into the family's Font dialog
+(common/ui/fontsel.c, once for all apps): the Settings pop-up stays until the hub says it is in, and goes at the
+release that syncs it (no radios for it). The Font dialog builds with `-DDLG_CLICK` at the next sync, with
+quiet_start ST-1 measured. W14 (the job's result by alert): no change. Refresh all and Once at start: waiting on Erez.
+
 From AERA-Atari a261597 (`standards/ui/DECISIONS-2026-11-09.md`, MENUS.md, CONTROLS.md, WINDOWS.md,
 DEVIATIONS.md), as the hub listed it for EContact on 9 Nov 2026. EContact is in maintenance mode: nothing
 here starts on its own. It rides a release EContact makes anyway (a fault fix, or one Erez asks for)
