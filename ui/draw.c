@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include "ui.h"
 #include "../src/photo.h"
+#include "../src/plat.h"
 #include "bidi.h"
 #include "conn.h"
 #include "text.h"
@@ -936,6 +937,14 @@ static void photo_palette(void)
 	/* (255 marks what isn't drawn: the last of 256 colours isn't used) */
 	short n = ncolors >= 16 ? (ncolors > 255 ? 255 : ncolors) : 2, i, rgb[3];
 	long sum = n;
+	/* the pens asked for once a second at most: 255 vq_color a call
+	   were most of each of a photo's dither slices in 256 colours (the
+	   photo shown after 4.9 s under NVDI on a 4 MB Falcon); a palette
+	   another program changes is seen within the second */
+	static unsigned long asked_at;
+	if (ph_npal == n && pf_ms() - asked_at < 1000UL)
+		return;
+	asked_at = pf_ms();
 	for (i = 0; i < n; i++) {
 		if (ncolors >= 16) {
 			vq_color(vdi_h, i, rgb);
