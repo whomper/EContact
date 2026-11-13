@@ -1033,6 +1033,29 @@ void win_scroll(const GRECT *a, short dy)
 		pxy[5] = a->y + (dy > 0 ? 0 : ady);
 		pxy[7] = pxy[5] + a->h - ady - 1;
 		graf_mouse(M_OFF, 0);
+		strip.h = ady;
+		if (dy > 0)
+			strip.y = a->y + a->h - ady;
+		if (obuf_whole && buffered()) {
+			/* the strip coming in drawn first, in the buffer moved
+			   as the screen will be; then the rows moved on the screen
+			   and the strip copied straight after, in this one update:
+			   drawn after the move, the strip showed the old rows twice
+			   while it was made (ECal and EHypView in 256 colours under
+			   NVDI, Erez's video, 13 Nov 2026) */
+			clip_on((GRECT *)a);
+			vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &obuf_mfdb);	/* the buffer as the screen */
+			clip_off();
+			draw_off(&strip);
+			clip_on((GRECT *)a);	/* NVDI clips raster copies */
+			scr_rows(vdi_h, pxy);
+			clip_off();
+			copy_pieces(&strip);
+			graf_mouse(M_ON, 0);
+			wind_update(END_UPDATE);
+			win_slider();
+			return;
+		}
 		clip_on((GRECT *)a);	/* NVDI clips raster copies */
 		/* common's scr_rows: the CPU only for a box 384 pixels wide or
 		   more on a 68000 (the list is 240 at most: by the CPU its 192
@@ -1043,9 +1066,6 @@ void win_scroll(const GRECT *a, short dy)
 			vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &obuf_mfdb);	/* the buffer as the screen */
 		clip_off();
 		graf_mouse(M_ON, 0);
-		strip.h = ady;
-		if (dy > 0)
-			strip.y = a->y + a->h - ady;
 	}
 	wind_update(END_UPDATE);
 	win_redraw(&strip);
