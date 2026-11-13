@@ -29,6 +29,7 @@ Download the latest **[release](https://github.com/whomper/EContact/releases/lat
 | `econtact.acc` | the accessory, for every ST, STE, TT and Falcon |
 | `econtact.prg` | the same, to start from the desktop, with a menu bar |
 | `tls.ovl`, `cacert.pem`, `roots.dat` | a Direct connection on a TT or Falcon |
+| `pic.ovl` | a Falcon's photos drawn with its DSP |
 | `econtact.hyp`, `econtact.ref` | the guide, for the Help key |
 | `econtact.rsc` and the rest | the desktop icon |
 
@@ -57,7 +58,7 @@ address book needs no server at all.
 
 ```sh
 sudo apt install gcc-m68k-linux-gnu python3 zip
-make          # binary/: econtact.acc, econtact.prg, roots.dat, tls.ovl (and econtact.hyp with hcp)
+make          # binary/: econtact.acc, econtact.prg, roots.dat, tls.ovl, pic.ovl (and econtact.hyp with hcp)
 make dist     # a release's files and zip in dist/
 ```
 

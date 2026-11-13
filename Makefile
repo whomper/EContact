@@ -68,7 +68,7 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 TLSOVL  := common/tlsovl/tls.ovl
 
 CORE    := util charset conn ovl bidi secret futil ctime xml inflate http vcard carddav abook photo photopack jpegdc pfkeep
-ATARI   := libc tos plat_tos net_tos sting gem tls_ovl bigbuf
+ATARI   := libc tos plat_tos net_tos sting gem tls_ovl pic_ovl bigbuf
 UI      := main evwrap win draw popup panebar dsp_ovl sidebar list card editor dialogs field about font fontsel accmem help av av_people alert dialog aboutbox iconify clip dd mbar twin busy bgwork people_ask answer notify aboutline text offdraw click hebkey pic arrowed tooltip progbar dlgbuild
 
 OBJDIR  := build
@@ -89,7 +89,7 @@ BIN     := binary
 HCP     ?= hcp
 HAVEHCP := $(shell command -v $(HCP) 2>/dev/null)
 
-all: $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/roots.dat $(if $(HAVEHCP),$(BIN)/econtact.hyp)
+all: $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/pic.ovl $(BIN)/roots.dat $(if $(HAVEHCP),$(BIN)/econtact.hyp)
 
 help: $(BIN)/econtact.hyp
 
@@ -112,6 +112,11 @@ $(OBJDIR)/contact.elf: $(OBJS) common/atari/link.ld
 	$(CC) $(LDFLAGS) $(EVWRAP) -o $@ $(OBJS) -lgcc
 
 $(BIN)/tls.ovl: $(TLSOVL) | $(BIN)
+	cp $< $@
+
+# PIC.OVL: a photo's dither on a Falcon's DSP (common/picovl), copied as TLS.OVL
+PICOVL  := common/picovl/pic.ovl
+$(BIN)/pic.ovl: $(PICOVL) | $(BIN)
 	cp $< $@
 
 $(OBJDIR)/bssl/%.o: $(BSSL)/src/hash/%.c
@@ -315,7 +320,7 @@ HYPCHECK = test ! -f $(BIN)/econtact.hyp || grep -q "ECONTACT.HYP $$(cat VERSION
 # a release's files: each one in dist/, and all of them in
 # dist/econtact-x.y.zip (the icons in icons/), for the release workflow;
 # every name in lowercase, the icons' too (the guidelines 6.6)
-DIST    := $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/cacert.pem $(BIN)/roots.dat \
+DIST    := $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/pic.ovl $(BIN)/cacert.pem $(BIN)/roots.dat \
            $(BIN)/econtact.hyp $(BIN)/econtact.ref
 ICONS   := icons/ECONTACT.RSC icons/ECONTNV.RSC icons/ECONTACT.DEF icons/ECONTACT.ICN icons/ECONTMSK.ICN
 dist: all help

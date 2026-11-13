@@ -51,8 +51,10 @@ C:\ECONTACT\              EContact's folder (any folder will do):
     CACHE\                a copy of every address book: BOOKnnnn.DAT the cards,
                           .PHO their photos, .IDX the contacts ready to read
     CACHE\PHOTOS.PAK      the photos, made small for the screen, in one file
+    CACHE\NEAR.DAT        each colour's nearest pen, kept for the next start
     ECONTACT.FNT          which GDOS fonts are fixed-width (made by Font...)
     TLS.OVL               a Direct connection: the TLS, loaded when it is used (copy it here)
+    PIC.OVL               a Falcon's photos on its DSP, loaded on a TT or Falcon (copy it here)
     CACERT.PEM            a Direct connection: root certificates (copy them here)
     ROOTS.DAT             a Direct connection: the same, decoded ahead of time
     SEED.DAT              a Direct connection: randomness kept for the next start

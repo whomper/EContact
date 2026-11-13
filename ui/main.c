@@ -24,6 +24,7 @@
 #include "secret.h"
 #include "busy.h"
 #include "tls.h"
+#include "pic_ovl.h"
 #include "tlsovl.h"
 #include "../src/http.h"
 #include "../src/plat.h"
@@ -1830,6 +1831,7 @@ static void files_check(void)
 		conn_log("EContact", "--", m2, (long)(sizeof(m2) - 1));
 	http_close_all();
 	store_release();		/* and the load, part done */
+	pic_ovl_unload();
 	list_invalidate();
 	settings_ready = 0;
 	data_ready = 0;

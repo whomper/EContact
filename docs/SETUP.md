@@ -14,6 +14,7 @@ and all of them together in `ECONTACT-x.y.zip`.
 | `ECONTACT.PRG` | the same as `ECONTACT.ACC`, to start from the desktop, with a menu bar |
 | `TLS.OVL` | the Direct connection (TLS on a TT or Falcon, RSA and curves on the DSP), loaded only when used; an ST leaves it on the disk |
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for a Direct connection |
+| `PIC.OVL` | a photo's colours worked out on a Falcon's DSP (the AERA family's file, as `TLS.OVL`), loaded on a TT or Falcon; without it the same photos, drawn slower |
 | `ECONTACT.HYP` | the user guide for ST-Guide or EHypView: in EContact's folder, the Help key opens it |
 | `ECONTACT.REF` | its pages' names, for ST-Guide's index (`ALL.REF`): goes with the .HYP |
 | `ECONTACT.RSC`, `ECONTNV.RSC`, `ECONTACT.DEF`, `ECONTACT.ICN`, `ECONTMSK.ICN` | the desktop icon (on their own, and in the zip's `icons/` folder): `ECONTACT.RSC` (black and white for TOS 1 and 2; 256 colours, 16 and black and white for the colour desktops), `ECONTNV.RSC` (the same, its 256 colours on NVDI's own palette), `ECONTACT.DEF` (its names, for resource editors), `ECONTACT.ICN` and its mask `ECONTMSK.ICN` |
@@ -32,7 +33,7 @@ and black and white): `make icons` makes the files from AERA-Atari's drawing,
 1. Copy `ECONTACT.ACC` to the root of your boot drive (e.g. `C:\`): TOS loads accessories only
    from there. (Until 1.63 an ST had `ECONTST.ACC`: delete it.)
 2. Choose a folder for EContact, anywhere on any drive, and put the rest in it: `TLS.OVL`,
-   `CACERT.PEM` and `ROOTS.DAT` for a Direct connection, `ECONTACT.HYP` and `ECONTACT.REF` for the Help key, and
+   `CACERT.PEM` and `ROOTS.DAT` for a Direct connection, `PIC.OVL` for the photos on a Falcon, `ECONTACT.HYP` and `ECONTACT.REF` for the Help key, and
    `ECONTACT.PRG` if you want the program. EContact keeps its address books there too. No folder
    has to exist beforehand, and none has a fixed name: the settings, `ECONTACT.INF` in the boot
    drive's root, say where it is in `FOLDER=`. Start `ECONTACT.PRG` from the folder once and it

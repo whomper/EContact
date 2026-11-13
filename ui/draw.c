@@ -17,6 +17,7 @@
 #include "conn.h"
 #include "text.h"
 #include "pic.h"
+#include "pic_ovl.h"
 
 static short next_text_color = 1;
 
@@ -904,60 +905,20 @@ static long ph_palsum;
 
 static PIC_PAL ph_pal;		/* pic.c's: the screen's pens, the nearest of each colour */
 
-/* The nearest pen of each colour (pic.c's near[], 32 KB, 0 not yet
-   known) kept in cache\\near.dat between starts, for the palette it was
-   made for: filling it took half of the first photo's dither in 256
-   colours (0.3 s of 0.6 under NVDI on a 4 MB Falcon; warm, 0.3 s in
-   all). Read when the palette is set, written when the window closes
-   and it learnt more (draw_near_save), never while a photo is made. */
-#define NEAR_N (32L * 32 * 32)
-static const char near_magic[8] = "ECNEAR1";
-static long near_known;		/* entries known when read or last written */
-
-static long near_count(void)
+/* The nearest pen of each colour (pic.c's near[], 32 KB) kept in
+   cache\\near.dat between starts for its palette: PIC.OVL's (common's
+   picovl, read when the palette is set and written when the window
+   closes), so an ST carries none of it */
+static int near_path(char *path)
 {
-	long i, k = 0;
-	for (i = 0; i < NEAR_N; i++)
-		k += ph_pal.near[i] != 0;
-	return k;
-}
-
-static void near_load(void)
-{
-	char path[220], head[16];
-	long sum = 0;
-	int h;
-	near_known = 0;
-	if (!ph_pal.near || !photo_near_path(path, sizeof(path)) || (h = pf_open(path, PF_READ)) < 0)
-		return;
-	if (pf_read(h, head, 16) == 16 && !memcmp(head, near_magic, 8)) {
-		memcpy(&sum, head + 8, 4);
-		if (sum == ph_palsum && head[12] == (char)(ph_npal >> 8) && head[13] == (char)ph_npal &&
-		    pf_read(h, ph_pal.near, NEAR_N) == NEAR_N)
-			near_known = near_count();
-		else
-			memset(ph_pal.near, 0, NEAR_N);	/* (another palette's, or cut short) */
-	}
-	pf_close(h);
+	return photo_near_path(path, 220);
 }
 
 void draw_near_save(void)
 {
-	char path[220], head[16];
-	long k;
-	int h;
-	if (!ph_pal.near || ph_npal <= 4 || (k = near_count()) <= near_known || !photo_near_path(path, sizeof(path)))
-		return;
-	memset(head, 0, sizeof(head));
-	memcpy(head, near_magic, 8);
-	memcpy(head + 8, &ph_palsum, 4);
-	head[12] = (char)(ph_npal >> 8);
-	head[13] = (char)ph_npal;
-	if ((h = pf_open(path, PF_WRITE)) < 0)
-		return;
-	if (pf_write(h, head, 16) == 16 && pf_write(h, ph_pal.near, NEAR_N) == NEAR_N)
-		near_known = k;
-	pf_close(h);
+	char path[220];
+	if (near_path(path))
+		pic_ovl_near_save(&ph_pal, path, ph_palsum);
 }
 
 static void photo_palette(void)
@@ -992,7 +953,11 @@ static void photo_palette(void)
 		return;			/* black and white: no table, a threshold */
 	/* (its table of nearest pens is filled as colours come) */
 	pic_pal_init(&ph_pal, n, (const unsigned char (*)[3])ph_rgb);
-	near_load();
+	{
+		char path[220];
+		if (near_path(path))
+			pic_ovl_palette(&ph_pal, path, ph_palsum);
+	}
 }
 
 /* one pen's pixels of rows y0 to y1 (bits, wpl words a row) copied to
@@ -1073,13 +1038,22 @@ static int dither(const unsigned short *px, int serial, short rx, short ry, int 
 	if (dz_y < 0 || serial != dz_serial || W != dz_w || H != dz_h || ph_npal != dz_npal) {
 		/* begun: shifts and adds only, a 68000 multiplies and divides
 		   32-bit numbers in software */
+		int dsp = 0;
+		if (!grey) {
+			/* PIC.OVL a step a turn (the file, then the table and the
+			   DSP's check), at once when no turns are given (more 0) */
+			char path[220];
+			if (!near_path(path))
+				path[0] = 0;
+			while ((dsp = pic_ovl_step(&ph_pal, path, ph_palsum)) < 0)
+				if (more)
+					return 0;
+		}
 		memset(ge, 0, sizeof(ge));
 		if (dt) {
 			pic_dither_close(dt);
 			dt = 0;
 		}
-		if (!grey && !(dt = pic_dither_open(W, &ph_pal)))
-			return 0;
 		memset(used, 0, sizeof(used));
 		for (y = 0; y < H; y++) {
 			/* rx * sqrt(1 - ((y - ry) / ry)^2), once a row */
@@ -1099,6 +1073,12 @@ static int dither(const unsigned short *px, int serial, short rx, short ry, int 
 		}
 		for (x = 0; x < W; x++)
 			row[x] = (unsigned char)((long)x * PHOTO_N / W);
+		if (dsp && pic_ovl_cells(px, PHOTO_N, PHOTO_N, W, H, rx, half, &ph_pal, pens, used)) {
+			dz_y = -1;
+			goto made;
+		}
+		if (!grey && !(dt = pic_dither_open(W, &ph_pal)))
+			return 0;
 		dz_y = 0;
 		dz_serial = (short)serial;
 		dz_w = W;
@@ -1165,6 +1145,7 @@ static int dither(const unsigned short *px, int serial, short rx, short ry, int 
 		dt = 0;
 	}
 	dz_y = -1;
+made:
 	pserial = (short)serial;
 	pw = W;
 	ph = H;
@@ -1206,90 +1187,6 @@ int photo_dither(const unsigned short *px, int serial, short rx, short ry, int (
 	return dither(px, serial, rx, ry, more);
 }
 
-/* In 256 colours the photo as one picture: its pixels and a mask (every
-   plane set where a pen of 1 or more is) in the VDI's standard format,
-   turned into the screen's, then two copies: the mask clears its pixels
-   (NOT S AND D), the photo is ORed in. A pen a copy (ph_copy) was some
-   200 calls, 385 ms under NVDI on a 4 MB Falcon. Kept for the picture,
-   size and palette they were made for. Only where the heap is ST RAM
-   (the VDI's copies may use the blitter): else the pens one by one. */
-static unsigned short *b8;
-static long b8cap;
-static short b8serial = -1, b8w, b8h, b8npal;
-
-static int blit8(short wpl, short W, short H, const GRECT *vis, short cx, short cy, short rx, short ry)
-{
-	/* VDI pen to the register its pixel holds (pens 16-254 their own) */
-	static const unsigned char hw16[16] = { 0, 255, 1, 2, 4, 6, 3, 5, 7, 8, 9, 10, 12, 14, 11, 13 };
-	long plane = (long)wpl * H, n = plane * 8;
-	unsigned short *std, *dev, *msk;
-	MFDB s, d;
-	short x, y, p, pxy[8];
-	if (n * 3 > b8cap) {
-		free(b8);
-		b8cap = 0;
-		b8serial = -1;
-		if (!(b8 = malloc(n * 3 * 2)) || (unsigned long)b8 + n * 6 > 0x1000000UL) {
-			free(b8);
-			b8 = 0;
-			return 0;
-		}
-		b8cap = n * 3;
-	}
-	std = b8;
-	dev = b8 + n;
-	msk = b8 + 2 * n;
-	memset(&s, 0, sizeof(s));
-	s.fd_w = wpl * 16;
-	s.fd_h = H;
-	s.fd_wdwidth = wpl;
-	s.fd_nplanes = 8;
-	d = s;
-	if (pserial != b8serial || W != b8w || H != b8h || pnpal != b8npal) {
-		int m;
-		s.fd_stand = 1;
-		for (m = 0; m < 2; m++) {	/* the photo, then the mask */
-			memset(std, 0, n * 2);
-			for (y = 0; y < H; y++) {
-				const unsigned char *in = pens + (long)y * W;
-				for (x = 0; x < W; x++) {
-					short v = in[x], bit = (short)(0x8000U >> (x & 15));
-					unsigned short *o = std + (long)y * wpl + (x >> 4);
-					if (v == 255 || v == 0)
-						continue;
-					v = m ? 255 : v < 16 ? hw16[v] : v;
-					for (p = 0; p < 8; p++, o += plane)
-						if (v & (1 << p))
-							*o |= bit;
-				}
-			}
-			s.fd_addr = std;
-			d.fd_addr = m ? msk : dev;
-			d.fd_stand = 0;
-			vr_trnfm(vdi_h, &s, &d);
-		}
-		b8serial = pserial;
-		b8w = W;
-		b8h = H;
-		b8npal = pnpal;
-	}
-	s.fd_stand = 0;
-	pxy[0] = vis->x - (cx - rx);
-	pxy[1] = vis->y - (cy - ry);
-	pxy[2] = pxy[0] + vis->w - 1;
-	pxy[3] = pxy[1] + vis->h - 1;
-	pxy[4] = vis->x;
-	pxy[5] = vis->y;
-	pxy[6] = vis->x + vis->w - 1;
-	pxy[7] = vis->y + vis->h - 1;
-	memset(&d, 0, sizeof(d));	/* the screen */
-	s.fd_addr = msk;
-	vro_cpyfm(vdi_h, 4, pxy, &s, &d);	/* NOT S AND D */
-	s.fd_addr = dev;
-	vro_cpyfm(vdi_h, 7, pxy, &s, &d);	/* S OR D */
-	return 1;
-}
-
 void draw_photo(const unsigned short *px, int serial, short cx, short cy, short rx, short ry, const GRECT *clip)
 {
 	short W, H, x, y, k, wpl;
@@ -1310,7 +1207,11 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 	if (!rect_and(&vis, clip))
 		return;
 	wpl = (W + 15) / 16;
-	if (planes == 8 && blit8(wpl, W, H, &vis, cx, cy, rx, ry))
+	/* in 256 colours PIC.OVL's chunky8: the photo in two copies, a mask
+	   and the picture (a copy a pen was 385 ms under NVDI on a 4 MB
+	   Falcon, 70 so); without PIC.OVL a copy a pen, below */
+	if (planes == 8 && pic_ovl_chunky8(pens, W, H, ((long)pserial << 9) | pnpal, vdi_h, vis.x - (cx - rx),
+					   vis.y - (cy - ry), vis.w, vis.h, vis.x, vis.y))
 		return;
 	if (lists) {
 		short top = vis.y - (cy - ry), bottom = top + vis.h, strip = (short)(1024 / (wpl * 2));
