@@ -380,6 +380,9 @@ def machine_run(work, machine, bin_dir, only):
     con = Console(os.path.join(d, "hatari.log"))
     if only in (None, "prg"):
         shutil.copy(os.path.join(bin_dir, "econtact.prg"), os.path.join(folder, "econtact.prg"))
+        for ovl in ("tls.ovl", "pic.ovl"):	# (beside it, as a release has them)
+            if os.path.exists(os.path.join(bin_dir, ovl)):
+                shutil.copy(os.path.join(bin_dir, ovl), os.path.join(folder, ovl))
         log = os.path.join(folder, "econtact.log")
         for n in (1, 2):
             n0 = open(log, encoding="latin-1").read().count("the list sorted") if os.path.exists(log) else 0

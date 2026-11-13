@@ -113,16 +113,36 @@ def main():
                                     headers={"Content-Type": ctype, "Authorization": auth})
         return urllib.request.urlopen(rq).read()
 
-    def card(i, name):
+    # the first sample card's photo (folded lines and all): with PIC.OVL
+    # beside the program, its dither goes to the DSP that TLS uses too
+    sample = open(os.path.join(ROOT, "tests", "hatari", "sample.vcf"), encoding="latin-1").read().split("\n")
+    k = next(n for n, l in enumerate(sample) if l.startswith("PHOTO"))
+    photo = [sample[k]]
+    for l in sample[k + 1:]:
+        if not l.startswith(" "):
+            break
+        photo.append(l)
+    photo = "\n".join(photo).replace("\r", "").replace("\n", "\r\n") + "\r\n"
+
+    def card(i, name, with_photo=False):
         return ("BEGIN:VCARD\r\nVERSION:3.0\r\nN:%s;Test;;;\r\nFN:Test %s\r\nEMAIL:t%d@example.org\r\n"
-                "UID:FT-%03d\r\nEND:VCARD\r\n" % (name, name, i, i)).encode()
+                "%sUID:FT-%03d\r\nEND:VCARD\r\n" % (name, name, i, photo if with_photo else "", i)).encode()
 
     def log_text():
         p = os.path.join(folder, "econtact.log")
         return open(p, encoding="latin-1").read() if os.path.exists(p) else ""
 
-    def run(tag, expect, until=("secure:", "error")):
-        """ECONTACT.PRG on the Falcon until the log has the refresh's end"""
+    def wait_log(start, what, secs=300):
+        t0 = time.time()
+        while time.time() - t0 < secs:
+            time.sleep(2)
+            if what in log_text()[start:]:
+                return True
+        return False
+
+    def run(tag, expect, until=("secure:", "error"), then=None):
+        """ECONTACT.PRG on the Falcon until the log has the refresh's end;
+        then(r, start) after it, if given"""
         start = len(log_text())
         r = Rig(d, machine, auto="C:\\ECONTACT\\econtact.prg", network=True)
         try:
@@ -132,6 +152,8 @@ def main():
                 t = log_text()[start:]
                 if expect in t and any(u in t or u in t.lower() for u in until):
                     break
+            if then:
+                then(r, start)
             time.sleep(5)
             r.shot(tag)
             r.ctrl("q")
@@ -151,7 +173,7 @@ def main():
              b'xmlns:C="urn:ietf:params:xml:ns:carddav"><D:set><D:prop><D:resourcetype><D:collection/>'
              b'<C:addressbook/></D:resourcetype><D:displayname>Book</D:displayname></D:prop></D:set></D:mkcol>',
              "application/xml")
-        http("PUT", base + "book/a.vcf", card(1, "Before"))
+        http("PUT", base + "book/a.vcf", card(1, "Before", with_photo=True))
         subprocess.run([CLI, folder, "carddav", "Server", "http://127.0.0.1:%d/" % hport, "alice", "wonderland"],
                        check=True, stdout=subprocess.DEVNULL)
         # meanwhile, on the server: one new
@@ -179,9 +201,35 @@ def main():
         open(os.path.join(hd, "econtact.inf"), "wb").write(inf)
         shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), folder)
         shutil.copy(os.path.join(ROOT, "binary", "tls.ovl"), folder)     # beside CACERT.PEM (7.4)
+        picovl = os.path.exists(os.path.join(ROOT, "binary", "pic.ovl"))
+        if picovl:
+            shutil.copy(os.path.join(ROOT, "binary", "pic.ovl"), folder)
 
-        first, took1 = run("1-first", "Server")
+        def photo_after(r, start):
+            # the Direct sync done (the DSP's curves), then the photo (its dither)
+            r.key(0x47)		# Clr/Home: the first contact, with the photo
+            wait_log(start, "shown after")
+
+        first, took1 = run("1-first", "Server", then=photo_after)
         second, took2 = run("2-second", "Server")
+        # the other way round: the photo first (its dither on the DSP), then
+        # a Direct sync (^R: the curves on the DSP), PIC.OVL beside it
+        fourth = ""
+        if picovl:
+            pak = os.path.join(folder, "cache", "photos.pak")
+            if os.path.exists(pak):
+                os.remove(pak)		# (made again, not taken from the cache)
+            inf4 = open(os.path.join(hd, "econtact.inf"), "rb").read()
+            open(os.path.join(hd, "econtact.inf"), "wb").write(re.sub(rb"\nSYNC_OPEN=[^\r\n]*", b"\nSYNC_OPEN=0", inf4))
+
+            def sync_after(r, start):
+                r.key(0x47)
+                wait_log(start, "shown after")
+                r.ctrl("r")
+                wait_log(start, "secure:")
+
+            fourth, _ = run("4-photo-then-sync", "", until=("",), then=sync_after)
+            open(os.path.join(hd, "econtact.inf"), "wb").write(inf4)
         os.remove(os.path.join(folder, "tls.ovl"))
         third, took3 = run("3-no-tls-ovl", "tls.ovl", ("is missing",))
     finally:
@@ -215,6 +263,13 @@ def main():
     check("TLS the second time too", "secure: TLS 1.2" in second)
     check("without TLS.OVL: the log says it is missing", "TLS.OVL is missing" in third)
     crash = [os.path.join(dd, f) for dd, _, fs in os.walk(hd) for f in fs if f.upper() == "CRASH.LOG"]
+    if picovl:
+        p1 = first.find("shown after")
+        check("photo after a Direct sync: TLS over the DSP first, then the photo",
+              first.find("secure:") >= 0 and p1 > first.find("secure:") and "PIC.OVL loaded" in first)
+        s4 = fourth.find("shown after")
+        check("a Direct sync after a photo: the photo first, then TLS with the DSP's curves",
+              s4 >= 0 and fourth.find("secure:", s4) > s4 and "on the DSP" in fourth[s4:])
     check("no crash (CRASH.LOG)", not crash)
     for c in crash:
         print(open(c, "rb").read().decode("latin-1"))
