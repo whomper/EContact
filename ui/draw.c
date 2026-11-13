@@ -1168,6 +1168,90 @@ int photo_dither(const unsigned short *px, int serial, short rx, short ry, int (
 	return dither(px, serial, rx, ry, more);
 }
 
+/* In 256 colours the photo as one picture: its pixels and a mask (every
+   plane set where a pen of 1 or more is) in the VDI's standard format,
+   turned into the screen's, then two copies: the mask clears its pixels
+   (NOT S AND D), the photo is ORed in. A pen a copy (ph_copy) was some
+   200 calls, 385 ms under NVDI on a 4 MB Falcon. Kept for the picture,
+   size and palette they were made for. Only where the heap is ST RAM
+   (the VDI's copies may use the blitter): else the pens one by one. */
+static unsigned short *b8;
+static long b8cap;
+static short b8serial = -1, b8w, b8h, b8npal;
+
+static int blit8(short wpl, short W, short H, const GRECT *vis, short cx, short cy, short rx, short ry)
+{
+	/* VDI pen to the register its pixel holds (pens 16-254 their own) */
+	static const unsigned char hw16[16] = { 0, 255, 1, 2, 4, 6, 3, 5, 7, 8, 9, 10, 12, 14, 11, 13 };
+	long plane = (long)wpl * H, n = plane * 8;
+	unsigned short *std, *dev, *msk;
+	MFDB s, d;
+	short x, y, p, pxy[8];
+	if (n * 3 > b8cap) {
+		free(b8);
+		b8cap = 0;
+		b8serial = -1;
+		if (!(b8 = malloc(n * 3 * 2)) || (unsigned long)b8 + n * 6 > 0x1000000UL) {
+			free(b8);
+			b8 = 0;
+			return 0;
+		}
+		b8cap = n * 3;
+	}
+	std = b8;
+	dev = b8 + n;
+	msk = b8 + 2 * n;
+	memset(&s, 0, sizeof(s));
+	s.fd_w = wpl * 16;
+	s.fd_h = H;
+	s.fd_wdwidth = wpl;
+	s.fd_nplanes = 8;
+	d = s;
+	if (pserial != b8serial || W != b8w || H != b8h || pnpal != b8npal) {
+		int m;
+		s.fd_stand = 1;
+		for (m = 0; m < 2; m++) {	/* the photo, then the mask */
+			memset(std, 0, n * 2);
+			for (y = 0; y < H; y++) {
+				const unsigned char *in = pens + (long)y * W;
+				for (x = 0; x < W; x++) {
+					short v = in[x], bit = (short)(0x8000U >> (x & 15));
+					unsigned short *o = std + (long)y * wpl + (x >> 4);
+					if (v == 255 || v == 0)
+						continue;
+					v = m ? 255 : v < 16 ? hw16[v] : v;
+					for (p = 0; p < 8; p++, o += plane)
+						if (v & (1 << p))
+							*o |= bit;
+				}
+			}
+			s.fd_addr = std;
+			d.fd_addr = m ? msk : dev;
+			d.fd_stand = 0;
+			vr_trnfm(vdi_h, &s, &d);
+		}
+		b8serial = pserial;
+		b8w = W;
+		b8h = H;
+		b8npal = pnpal;
+	}
+	s.fd_stand = 0;
+	pxy[0] = vis->x - (cx - rx);
+	pxy[1] = vis->y - (cy - ry);
+	pxy[2] = pxy[0] + vis->w - 1;
+	pxy[3] = pxy[1] + vis->h - 1;
+	pxy[4] = vis->x;
+	pxy[5] = vis->y;
+	pxy[6] = vis->x + vis->w - 1;
+	pxy[7] = vis->y + vis->h - 1;
+	memset(&d, 0, sizeof(d));	/* the screen */
+	s.fd_addr = msk;
+	vro_cpyfm(vdi_h, 4, pxy, &s, &d);	/* NOT S AND D */
+	s.fd_addr = dev;
+	vro_cpyfm(vdi_h, 7, pxy, &s, &d);	/* S OR D */
+	return 1;
+}
+
 void draw_photo(const unsigned short *px, int serial, short cx, short cy, short rx, short ry, const GRECT *clip)
 {
 	short W, H, x, y, k, wpl;
@@ -1188,6 +1272,8 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 	if (!rect_and(&vis, clip))
 		return;
 	wpl = (W + 15) / 16;
+	if (planes == 8 && blit8(wpl, W, H, &vis, cx, cy, rx, ry))
+		return;
 	if (lists) {
 		short top = vis.y - (cy - ry), bottom = top + vis.h, strip = (short)(1024 / (wpl * 2));
 		for (k = 1; k < ph_npal; k++) {		/* pen 0 is the white under it */
