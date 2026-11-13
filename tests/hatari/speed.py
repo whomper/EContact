@@ -390,14 +390,20 @@ def machine_run(work, machine, bin_dir, only):
                     start_symbols(r, d, folder)
                     profiled(r, con, d, "start", lambda: None)
                 ok = boot_wait(con, "start")
+                run.check("start %d: the window drawn" % n, ok, "no AESDRAWN within 600 s")
                 t0 = time.time()
                 at = len(con.text())
                 # the books read (the window answers meanwhile: the program
                 # reads them in slices), and sorted
+                sorted_ = False
                 while time.time() - t0 < 600:
                     if os.path.exists(log) and open(log, encoding="latin-1").read().count("the list sorted") > n0:
+                        sorted_ = True
                         break
                     time.sleep(2)
+                # (a wait that times out fails the run: the rows after it
+                # would time an empty list; the hub, 13 Nov 2026)
+                run.check("start %d: the books read and sorted" % n, sorted_, "not within 600 s")
                 settle(r, 3)
                 gaps, drawn = con.since()
                 start = max([g for g, t in drawn if t == "start"] or [0])
@@ -435,10 +441,13 @@ def machine_run(work, machine, bin_dir, only):
         r = Rig(d, machine, auto="")
         try:
             t0 = time.time()
+            sorted_ = False
             while time.time() - t0 < 600:
                 time.sleep(2)
                 if os.path.exists(log) and open(log, encoding="latin-1").read().count("the list sorted") > n0:
+                    sorted_ = True
                     break
+            run.check("the accessory: the books read and sorted at boot", sorted_, "not within 600 s")
             time.sleep(3)
             w, h = screen_rows(r)
             ch = 8 if h <= 200 else 16
