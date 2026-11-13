@@ -242,7 +242,15 @@ int list_search_step(int (*more)(void))
 	int k = 0;
 	if (!sj_on)
 		return 0;
-	while (sj_i < sj_of && (k++ < 8 || !more || more())) {
+	/* on a 68020 or later the clock asked every 16 contacts: on TOS
+	   pf_ms() is a Supexec, through every driver hooked on the XBIOS
+	   (NVDI's: some 0.4 ms on a stock Falcon), and asked at each contact
+	   it was a third of a search's time there (common's dspec.c says the
+	   same of the TLS). A 68000 asks at each, as before: 16 of its
+	   contacts were 25 ms more in a slice */
+	extern int mem_unaligned_ok;
+	int every = mem_unaligned_ok ? 15 : 0;
+	while (sj_i < sj_of && (k++ < 8 || (k & every) || !more || more())) {
 		CONTACT *c = sj_listed ? listed[sj_i] : people[sj_i];
 		if (wanted(c))
 			sj[sj_n++] = c;
