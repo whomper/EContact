@@ -238,7 +238,6 @@ static const char *const after_items[] = {
 static const short after_min[] = { 0, 2, 5, 15 };
 static const char *const sort_items[] = { "  Last name", "  First name" };
 static const char *const show_items[] = { "  First Last", "  Last, First" };
-static const char *const heb_items[] = { "  Atari (standard)", "  ISO-8859-8 font", "  PC (code page 862)" };
 
 enum { S_GENERAL = 1, S_REFRESH, S_CONN };
 static const char *const section_names[] = { "General", "Refresh", "Connection" };
@@ -250,7 +249,7 @@ static const char *const section_names[] = { "General", "Refresh", "Connection" 
 
 static void settings(short first)
 {
-	enum { L1, F1, L2, F2, L3, F3, L4, F4, L6, F6,
+	enum { L1, F1, L2, F2, L3, F3, L6, F6,
 	       L11, F11, F12, L13, F13, N3,
 	       C1, C2, N1, L7, C3, L8, C4, N2, C7,
 	       BCAN, BOK, N };
@@ -299,12 +298,6 @@ static void settings(short first)
 	for (i = 0; i < nb; i++)
 		if (book_id[i] == opt.default_book)
 			f[F3].val = i;
-	row += 2;
-	put(&f[L4], FT_LABEL, 0, CX, row, 0, "Hebrew in font:");
-	put(&f[F4], FT_POPUP, 0, VX, row, 24, 0);
-	f[F4].items = heb_items;
-	f[F4].nitems = 3;
-	f[F4].val = opt.hebfont;
 	row += 2;
 	put(&f[L6], FT_LABEL, 0, CX, row, 0, "Photos:");
 	put(&f[F6], FT_CHECK, 0, VX, row, 32, "Show contacts' photos");
@@ -389,7 +382,6 @@ static void settings(short first)
 	}
 	if (book_id[f[F3].val] >= 0)
 		opt.default_book = book_id[f[F3].val];
-	opt.hebfont = f[F4].val;
 	opt.photos = f[F6].val;
 	opt.refresh = refresh_min[f[F11].val];
 	opt.sync_open = f[F12].val;

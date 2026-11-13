@@ -52,7 +52,6 @@ void vline(short x, short y1, short y2);
 void line_col(short x1, short y1, short x2, short y2, short color);
 long wrap_text(const char *s, long n, short width, long *breaks, long max);
 short line_rtl(const char *s, long n);
-void heb_font_map(char *s, long n, short where);
 void draw_near_save(void);	/* the photos' nearest-pen table to cache\\near.dat, if it grew */
 int  rect_hit(const GRECT *r, short x, short y);
 int  rect_and(GRECT *a, const GRECT *b);	/* a = a & b; 0 if empty */

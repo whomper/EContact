@@ -105,7 +105,7 @@ static void set_opt(const char *k, const char *v)
 #define S(name) if (c == #name[0] && !strcasecmp(k, #name)) { str_copy(opt.name, v, sizeof(opt.name)); return; }
 #define I(name) if (c == #name[0] && !strcasecmp(k, #name)) { opt.name = (short)atoi(v); return; }
 	S(gate) S(folder) S(me) S(start)
-	I(falcon) I(dsp) I(log) I(font_id) I(font_pt) I(hebfont) I(win_x) I(win_y) I(win_w) I(win_h)
+	I(falcon) I(dsp) I(log) I(font_id) I(font_pt) I(win_x) I(win_y) I(win_w) I(win_h)
 	I(sidebar) I(sort_first) I(last_first) I(refresh) I(sync_open) I(sync_after) I(photos) I(offline) I(heapkb) I(memkb) I(default_book)
 	if (!strcasecmp(k, "gateport")) {
 		opt.gateport = (unsigned short)atoi(v);
@@ -367,7 +367,6 @@ void store_save_settings(void)
 	I("LAST_FIRST", last_first, "show names as Last, First; 0: First Last")
 	I("DEFAULT_BOOK", default_book, "new contacts go into this address book (its ID below); -1: the first")
 	S("ME", me, "the UID of your own card (right-click a contact > Make This My Card)")
-	I("HEBFONT", hebfont, "where the font has the Hebrew letters: 0 Atari, 1 ISO-8859-8, 2 DOS 862")
 	I("SIDEBAR", sidebar, "show the groups on the left")
 	if (!sb_printf(&b, "; the window's place and size in pixels: left, top, width, height\r\nWINDOW=%d,%d,%d,%d\r\n\r\n",
 		       opt.win_x, opt.win_y, opt.win_w, opt.win_h))

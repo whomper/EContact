@@ -64,7 +64,7 @@ typedef struct {
 	char gate[64];		/* the Raspberry Pi gateway */
 	unsigned short gateport;
 	short log;
-	short font_id, font_pt, hebfont;
+	short font_id, font_pt;
 	char font_name[36];	/* FONT=name,points: the font by its VDI name ("" the system font) */
 	short win_x, win_y, win_w, win_h;
 	short sidebar;		/* the groups on the left */
@@ -84,9 +84,6 @@ typedef struct {
 	char start[12];		/* START=: when the accessory reads its books after boot */
 } OPT;
 
-#define HEB_ATARI 0	/* where the font has Hebrew (draw.c) */
-#define HEB_ISO   1
-#define HEB_DOS   2
 
 extern OPT opt;
 #define MAXACCT 12

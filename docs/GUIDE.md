@@ -420,8 +420,8 @@ Right-click your own card > **Make this my card**. The list marks it
 ## Settings
 
 - **General**: sort by last or first name, show names as "First Last" or
-  "Last, First", which address book new contacts go into, where the font
-  has its Hebrew letters, and showing photos. The Hebrew keyboard has
+  "Last, First", which address book new contacts go into, and showing
+  photos. The Hebrew keyboard has
   no setting: it starts off, and F10 switches it. Dialogs take the 3D look wherever the Atari draws one (TOS 4,
   MagiC, XaAES), as other programs' do.
 - **Refresh**: refresh all every 15 minutes, hour or day, or only by
@@ -449,8 +449,8 @@ server's address book can't be changed until you're online again) and
 the chosen one's styles and sizes beside them, what kind of font it is,
 and a sample. Only fonts EContact can use
 are listed: the system font and the fixed-width GDOS fonts with letters,
-as EContact sets text in character cells. Where a font keeps its Hebrew
-letters is in Settings.
+as EContact sets text in character cells. Hebrew is drawn with the
+letters where the Atari's own fonts have them.
 
 **Fonts in the accessory.** The accessory loads GDOS fonts only as the
 Atari starts: later, their memory would belong to whichever program is

@@ -2054,12 +2054,6 @@ static short click_count(short mx, short my, short button)
 	return 1;
 }
 
-/* alerts (common/ui/alert.c): Hebrew letters where the font has them */
-static void alert_heb(char *line, long n)
-{
-	if (opt.hebfont != HEB_ATARI)
-		heb_font_map(line, n, opt.hebfont);
-}
 
 /* EContact (the program) crashed and CRASH.LOG is written
    (common/atari/crash.c): say so and leave GEM tidy. Only the AES and
@@ -2177,7 +2171,6 @@ int main(void)
 		font_boot(boot_font[0] ? (short)atoi(boot_font) : 1);
 	crash_install(workdir, "EContact", app_version);	/* the program only */
 	crash_cleanup = crash_quit;
-	alert_hebrew = alert_heb;
 	crash_report = conn_log_append;	/* the report in ECONTACT.LOG too */
 	help_init();			/* memory the help viewer and EMail may read */
 	av_init("ECONTACT");	/* the desktop's AV server, if one runs yet */
