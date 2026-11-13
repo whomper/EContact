@@ -35,6 +35,14 @@ void photo_dir(const char *dir)
 	pack_path(pack);
 }
 
+int photo_near_path(char *buf, int n)
+{
+	if (!pdir[0])
+		return 0;
+	path_join(buf, n, pdir, "near.dat");
+	return 1;
+}
+
 static unsigned long fnv(const char *s, long n, unsigned long h)
 {
 	long i;

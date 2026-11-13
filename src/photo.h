@@ -74,6 +74,8 @@ int  photo_kind(const unsigned char *d, long n);	/* PW_OK for a JPEG */
 /* the folder the pictures are kept in (store_init sets it: CACHE; the
    pack is PHOTOS.PAK there) */
 void photo_dir(const char *dir);
+/* the file the nearest-pen table is kept in (cache\\near.dat) into buf; 0 until photo_dir */
+int photo_near_path(char *buf, int n);
 
 /* the picture of c: from the cache when it is still right, else made
    (and, for a link, fetched when fetch is 1). how says which */

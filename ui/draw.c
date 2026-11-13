@@ -932,6 +932,62 @@ static long ph_palsum;
 
 static PIC_PAL ph_pal;		/* pic.c's: the screen's pens, the nearest of each colour */
 
+/* The nearest pen of each colour (pic.c's near[], 32 KB, 0 not yet
+   known) kept in cache\\near.dat between starts, for the palette it was
+   made for: filling it took half of the first photo's dither in 256
+   colours (0.3 s of 0.6 under NVDI on a 4 MB Falcon; warm, 0.3 s in
+   all). Read when the palette is set, written when the window closes
+   and it learnt more (draw_near_save), never while a photo is made. */
+#define NEAR_N (32L * 32 * 32)
+static const char near_magic[8] = "ECNEAR1";
+static long near_known;		/* entries known when read or last written */
+
+static long near_count(void)
+{
+	long i, k = 0;
+	for (i = 0; i < NEAR_N; i++)
+		k += ph_pal.near[i] != 0;
+	return k;
+}
+
+static void near_load(void)
+{
+	char path[220], head[16];
+	long sum = 0;
+	int h;
+	near_known = 0;
+	if (!ph_pal.near || !photo_near_path(path, sizeof(path)) || (h = pf_open(path, PF_READ)) < 0)
+		return;
+	if (pf_read(h, head, 16) == 16 && !memcmp(head, near_magic, 8)) {
+		memcpy(&sum, head + 8, 4);
+		if (sum == ph_palsum && head[12] == (char)(ph_npal >> 8) && head[13] == (char)ph_npal &&
+		    pf_read(h, ph_pal.near, NEAR_N) == NEAR_N)
+			near_known = near_count();
+		else
+			memset(ph_pal.near, 0, NEAR_N);	/* (another palette's, or cut short) */
+	}
+	pf_close(h);
+}
+
+void draw_near_save(void)
+{
+	char path[220], head[16];
+	long k;
+	int h;
+	if (!ph_pal.near || ph_npal <= 4 || (k = near_count()) <= near_known || !photo_near_path(path, sizeof(path)))
+		return;
+	memset(head, 0, sizeof(head));
+	memcpy(head, near_magic, 8);
+	memcpy(head + 8, &ph_palsum, 4);
+	head[12] = (char)(ph_npal >> 8);
+	head[13] = (char)ph_npal;
+	if ((h = pf_open(path, PF_WRITE)) < 0)
+		return;
+	if (pf_write(h, head, 16) == 16 && pf_write(h, ph_pal.near, NEAR_N) == NEAR_N)
+		near_known = k;
+	pf_close(h);
+}
+
 static void photo_palette(void)
 {
 	/* (255 marks what isn't drawn: the last of 256 colours isn't used) */
@@ -964,6 +1020,7 @@ static void photo_palette(void)
 		return;			/* black and white: no table, a threshold */
 	/* (its table of nearest pens is filled as colours come) */
 	pic_pal_init(&ph_pal, n, (const unsigned char (*)[3])ph_rgb);
+	near_load();
 }
 
 /* one pen's pixels of rows y0 to y1 (bits, wpl words a row) copied to

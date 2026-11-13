@@ -1192,6 +1192,7 @@ void win_close(void)
 {
 	if (win_h <= 0)
 		return;
+	draw_near_save();	/* (at the program's quit and the accessory's close: one write) */
 	if (!win_iconified)	/* the place was kept when it was iconified */
 		remember_place();
 	closing_down(quit_now || !is_acc);
