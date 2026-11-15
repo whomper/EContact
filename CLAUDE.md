@@ -505,8 +505,8 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   the accessory doesn't sync photos (ab_job_bytes 24 KB: cmd_sync_photos
   says so, with the memory free; Erez: the memory is the contacts'). Sizes and dates come from one look (pf_info);
   ECONTACT.INF is read once at boot (inf_read); reads are ab_read_bytes
-  (16 KB on a 68000, 32 KB on a 68030). The job's log is held
-  (conn_log_hold) and written at its end. `tests/hatari/acc_files.py`
+  (16 KB on a 68000, 32 KB on a 68030). The log is written a line at once
+  (common's conn_log, Erez 15 Nov 2026: conn_log_hold holds nothing). `tests/hatari/acc_files.py`
   fails above each job's budget of opens.
 - The accessory's memory is what it measured (mem_note): common's
   heap_peak since boot, at least what it holds plus room for a job and a

@@ -58,9 +58,15 @@ static int same(const char *a, const char *b)
 	return *a == *b;
 }
 
+extern char conn_logfile[200];
+
+/* the opens a job's budget counts (the guidelines 6.5): the log's aren't,
+   since it is written a line at once (Erez, 15 Nov 2026) and the budgets
+   are counted as with Write a log off */
 static int os_open_counted(const char *path, int mode)
 {
-	pf_opens++;
+	if (!same(path, conn_logfile))
+		pf_opens++;
 	return os_open(path, mode);
 }
 

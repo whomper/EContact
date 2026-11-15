@@ -347,7 +347,7 @@ static void opens_note(int start)
 	char t[60];
 	if (start) {
 		at = pf_opens;
-		conn_log_hold(1);	/* the job's log written once, at its end (6.5) */
+		conn_log_hold(1);	/* (holds nothing now: each line is written at once, 6.5) */
 		return;
 	}
 	snprintf(t, sizeof(t), "%ld files opened", pf_opens - at);
@@ -1369,8 +1369,9 @@ static void job_memory(long free)
 	ab_out_max = job >= 32L * 1024 ? job / 2 : 8L * 1024;
 	pack_buf_max = job >= 32L * 1024 ? job : ab_out_max;	/* 8 KB a picture */
 	carddav_budget = job / 2 > 24L * 1024 ? job / 2 : 24L * 1024;
-	/* the job's log held in 16 KB; on a 1 MB ST in the 4 KB it has (16
-	   KB taken left a refresh no room for the server's answer) */
+	/* the job's log held in 16 KB, on a 1 MB ST in the 4 KB it has: common's
+	   conn_log_hold no longer takes it (every line written at once, Erez,
+	   15 Nov 2026), the size kept for the call */
 	conn_log_hold_bytes = job >= 32L * 1024 ? 16384L : 0;
 	/* and its everyday buffer, taken from the heap at the first line
 	   logged, 1 KB there: 4 KB cost a 1 MB ST's first boot 8 of 350
@@ -1624,7 +1625,7 @@ static void quiet_begin(void)
 		return;
 	if (!quiet_sync_begin())
 		return;
-	conn_log_hold(1);		/* its log written once, at its end (6.5) */
+	conn_log_hold(1);		/* (holds nothing now: each line is written at once, 6.5) */
 	conn_log("EContact", "--", "refreshing in the background", 28L);
 	was_idle = pf_idle;
 	was_budget = carddav_budget;
