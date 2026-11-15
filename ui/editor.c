@@ -27,10 +27,36 @@ static const char *const pages[] = { "Name", "Phone", "Email", "Address", "More"
 typedef struct {
 	const char *items[16];
 	char own[24];		/* a label not in the list */
-	char lab[16][28];
+	char ownlab[28];	/* it as the pop-up shows it */
 	short n, custom;	/* how many; the index of Custom... */
 	char *dest;		/* the CEDIT label it fills */
 } LPOP;
+
+/* the standard labels as the pop-ups show them, made once a kind and
+   shared by its rows (17 pop-ups each with its own copy were 9 KB of a
+   1 MB ST's memory: 350 contacts didn't fit its first boot, 2.3 to 2.6) */
+#define LP_STD 13
+static struct {
+	const char *const *std;
+	char lab[LP_STD][28];
+	short n;
+} lp_kind[4];
+static const char lp_custom[] = "  Custom...";
+
+static short lp_kind_of(const char *const *std)
+{
+	short k, i;
+	for (k = 0; k < 4 && lp_kind[k].std; k++)
+		if (lp_kind[k].std == std)
+			return k;
+	if (k == 4)
+		k = 3;			/* (four kinds: phone, email, address, web) */
+	lp_kind[k].std = std;
+	for (i = 0; std[i] && i < LP_STD; i++)
+		snprintf(lp_kind[k].lab[i], sizeof(lp_kind[k].lab[0]), "  %s", std[i]);
+	lp_kind[k].n = i;
+	return k;
+}
 
 static CEDIT ed;
 static LPOP lp[CE_TEL + CE_EMAIL + NADR + CE_URL];
@@ -60,27 +86,24 @@ static void text(FIELD *f, short flags, short x, short y, short w, char *buf, sh
 /* the pop-up's items for label (std: the standard ones) */
 static short lpop_init(LPOP *p, const char *const *std, char *label)
 {
-	short i, sel = 0, found = -1;
+	short i, sel = 0, found = -1, k = lp_kind_of(std);
 	p->n = 0;
 	p->dest = label;
-	for (i = 0; std[i] && p->n < 13; i++) {
-		snprintf(p->lab[p->n], sizeof(p->lab[0]), "  %s", std[i]);
+	p->own[0] = 0;
+	for (i = 0; i < lp_kind[k].n; i++) {
 		if (!strcasecmp(std[i], label))
 			found = p->n;
-		p->items[p->n] = p->lab[p->n];
-		p->n++;
+		p->items[p->n++] = lp_kind[k].lab[i];
 	}
 	if (found < 0 && label[0]) {
 		str_copy(p->own, label, sizeof(p->own));
-		snprintf(p->lab[p->n], sizeof(p->lab[0]), "  %s", p->own);
-		p->items[p->n] = p->lab[p->n];
+		snprintf(p->ownlab, sizeof(p->ownlab), "  %s", p->own);
+		p->items[p->n] = p->ownlab;
 		found = p->n++;
 	}
 	sel = found >= 0 ? found : 0;
 	p->custom = p->n;
-	snprintf(p->lab[p->n], sizeof(p->lab[0]), "  Custom...");
-	p->items[p->n] = p->lab[p->n];
-	p->n++;
+	p->items[p->n++] = lp_custom;
 	return sel;
 }
 
@@ -98,14 +121,13 @@ static void changed(DLG *d, short i)
 			/* it takes the place of the row's own label, or a new one before Custom... */
 			if (p->own[0]) {
 				str_copy(p->own, name, sizeof(p->own));
-				snprintf(p->lab[p->custom - 1], sizeof(p->lab[0]), "  %s", name);
+				snprintf(p->ownlab, sizeof(p->ownlab), "  %s", name);
 				f->val = p->custom - 1;
 			} else if (p->n < 16) {
 				str_copy(p->own, name, sizeof(p->own));
-				snprintf(p->lab[p->custom], sizeof(p->lab[0]), "  %s", name);
-				p->items[p->custom] = p->lab[p->custom];
-				snprintf(p->lab[p->custom + 1], sizeof(p->lab[0]), "  Custom...");
-				p->items[p->custom + 1] = p->lab[p->custom + 1];
+				snprintf(p->ownlab, sizeof(p->ownlab), "  %s", name);
+				p->items[p->custom] = p->ownlab;
+				p->items[p->custom + 1] = lp_custom;
 				f->val = p->custom;
 				p->custom++;
 				p->n++;
