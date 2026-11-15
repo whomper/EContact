@@ -43,6 +43,19 @@ static struct {
 } lp_kind[4];
 static const char lp_custom[] = "  Custom...";
 
+/* Placement (the guidelines' Speed, AERA-Atari 098183d): the 5.7 KB the
+   shared labels saved moved the code after this file 76 bytes and the
+   BSS after lp 5,660 bytes, off their places modulo 256, and the start
+   on a Falcon took 10 ms more, an ST's search 25 ms (its 68030's caches,
+   the buffers' alignment). The two gaps put them back where 2.6 had them:
+   76 bytes of code after this file's, 28 of BSS after lp, each added to
+   a section that is kept (--gc-sections keeps nothing unreferenced): the
+   editor's last code (editor_open) and lp_kind's. Change them when this
+   file's code or BSS changes, measured with speed.py */
+__asm__(".section .text.editor_open,\"ax\",@progbits\n\t.skip 76\n"
+	"\t.section .bss.lp_kind,\"aw\",@nobits\n\t.skip 28\n"
+	"\t.previous");
+
 static short lp_kind_of(const char *const *std)
 {
 	short k, i;
