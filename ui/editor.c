@@ -41,15 +41,15 @@ static struct {
 	char lab[LP_STD][28];
 	short n;
 } lp_kind[4];
-static const char lp_custom[] = "  Custom...";
+#define LP_CUSTOM "  Custom..."	/* (a literal: with the merged strings, as in 2.6) */
 
 /* Placement (the guidelines' Speed, AERA-Atari 098183d): the 5.7 KB the
    shared labels saved moved the code after this file 76 bytes and the
    BSS after lp 5,660 bytes, off their places modulo 256, and the start
    on a Falcon took 10 ms more, an ST's search 25 ms (its 68030's caches,
    the buffers' alignment). The two gaps put them back where 2.6 had them:
-   76 bytes of code after this file's, 28 of BSS after lp, each added to
-   a section that is kept (--gc-sections keeps nothing unreferenced): the
+   76 bytes of code after this file's and 28 of BSS after lp, each
+   added to a section that is kept (--gc-sections keeps nothing unreferenced): the
    editor's last code (editor_open) and lp_kind's. Change them when this
    file's code or BSS changes, measured with speed.py */
 __asm__(".section .text.editor_open,\"ax\",@progbits\n\t.skip 76\n"
@@ -116,7 +116,7 @@ static short lpop_init(LPOP *p, const char *const *std, char *label)
 	}
 	sel = found >= 0 ? found : 0;
 	p->custom = p->n;
-	p->items[p->n++] = lp_custom;
+	p->items[p->n++] = LP_CUSTOM;
 	return sel;
 }
 
@@ -140,7 +140,7 @@ static void changed(DLG *d, short i)
 				str_copy(p->own, name, sizeof(p->own));
 				snprintf(p->ownlab, sizeof(p->ownlab), "  %s", name);
 				p->items[p->custom] = p->ownlab;
-				p->items[p->custom + 1] = lp_custom;
+				p->items[p->custom + 1] = LP_CUSTOM;
 				f->val = p->custom;
 				p->custom++;
 				p->n++;
