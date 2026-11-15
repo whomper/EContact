@@ -54,6 +54,7 @@ C:\ECONTACT\              EContact's folder (any folder will do):
     CACHE\NEAR.DAT        each colour's nearest pen, kept for the next start
     ECONTACT.FNT          which GDOS fonts are fixed-width (made by Font...)
     TLS.OVL               a Direct connection: the TLS, loaded when it is used (copy it here)
+    TLSFB.OVL             the same on a FireBee, built for its ColdFire (copy it here)
     PIC.OVL               a Falcon's photos on its DSP, loaded on a TT or Falcon (copy it here)
     CACERT.PEM            a Direct connection: root certificates (copy them here)
     ROOTS.DAT             a Direct connection: the same, decoded ahead of time

@@ -89,7 +89,7 @@ BIN     := binary
 HCP     ?= hcp
 HAVEHCP := $(shell command -v $(HCP) 2>/dev/null)
 
-all: $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/pic.ovl $(BIN)/roots.dat $(if $(HAVEHCP),$(BIN)/econtact.hyp)
+all: $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/tlsfb.ovl $(BIN)/pic.ovl $(BIN)/roots.dat $(if $(HAVEHCP),$(BIN)/econtact.hyp)
 
 help: $(BIN)/econtact.hyp
 
@@ -112,6 +112,10 @@ $(OBJDIR)/contact.elf: $(OBJS) common/atari/link.ld
 	$(CC) $(LDFLAGS) $(EVWRAP) -o $@ $(OBJS) -lgcc
 
 $(BIN)/tls.ovl: $(TLSOVL) | $(BIN)
+	cp $< $@
+
+# TLSFB.OVL: TLS.OVL's ColdFire build, loaded on a FireBee (common/tlsovl)
+$(BIN)/tlsfb.ovl: common/tlsovl/tlsfb.ovl | $(BIN)
 	cp $< $@
 
 # PIC.OVL: a photo's dither on a Falcon's DSP (common/picovl), copied as TLS.OVL
@@ -320,7 +324,7 @@ HYPCHECK = test ! -f $(BIN)/econtact.hyp || grep -q "ECONTACT.HYP $$(cat VERSION
 # a release's files: each one in dist/, and all of them in
 # dist/econtact-x.y.zip (the icons in icons/), for the release workflow;
 # every name in lowercase, the icons' too (the guidelines 6.6)
-DIST    := $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/pic.ovl $(BIN)/cacert.pem $(BIN)/roots.dat \
+DIST    := $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/tlsfb.ovl $(BIN)/pic.ovl $(BIN)/cacert.pem $(BIN)/roots.dat \
            $(BIN)/econtact.hyp $(BIN)/econtact.ref
 ICONS   := icons/ECONTACT.RSC icons/ECONTNV.RSC icons/ECONTACT.DEF icons/ECONTACT.ICN icons/ECONTMSK.ICN
 dist: all help
