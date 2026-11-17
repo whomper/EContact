@@ -4,7 +4,9 @@
 """One boot with no NATFEATS= in ECONTACT.INF, as on a real machine (the
 regression gate's row 12, TEST-MATRIX.md; the guidelines 6.5): ECONTACT.PRG
 starts, opens its window with the sample book, quits with ^Q, and leaves
-no CRASH.LOG; the INF it writes has no NATFEATS= either.
+no CRASH.LOG; the INF it writes has no NATFEATS= either. With LOG=1: the
+log, kept open a second after a line (the guidelines 6.5, 17 Nov 2026),
+is on the disk whole after the quit, to its last step.
 
     tests/hatari/natfeats_off.py WORK [MACHINE]    (Falcon-4:256 by default;
                                                   AERA_WITH_NVDI=1 for Erez's)
@@ -51,6 +53,7 @@ def main():
     inf = inf.replace(b"\nSYNC_OPEN=1", b"\nSYNC_OPEN=0")
     inf = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", inf)
     inf = re.sub(rb"\nNATFEATS=[^\r\n]*\r?\n", b"\n", inf)
+    inf = re.sub(rb"\nLOG=0", b"\nLOG=1", inf)
     open(os.path.join(hd, "econtact.inf"), "wb").write(inf)
     os.remove(os.path.join(folder, "econtact.inf"))
     shutil.copy(os.path.join(BIN, "econtact.prg"), folder)
@@ -71,6 +74,10 @@ def main():
     check("no CRASH.LOG", not crash)
     t = open(ci_path(hd, "econtact.inf"), "rb").read()
     check("the INF it wrote: its window (WINDOW=), no NATFEATS=", b"\nWINDOW=" in t and b"NATFEATS" not in t.upper())
+    lp = ci_path(folder, "econtact.log")
+    lt = open(lp, encoding="latin-1").read() if os.path.exists(lp) else ""
+    check("ECONTACT.LOG whole after the quit: its start to 'quit: out of the AES' (%d lines)" % lt.count("\n"),
+          "EContact 2" in lt and lt.rstrip().endswith("quit: out of the AES"))
     log = open(os.path.join(work, "hatari.log"), errors="replace").read()
     check("nothing through NatFeats (no AESGAP or EContact line in Hatari's log)",
           "AESGAP" not in log and "EContact" not in log)

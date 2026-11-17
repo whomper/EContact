@@ -16,6 +16,7 @@
 #include "gem.h"
 #include "ui.h"
 #include "../src/plat.h"
+#include "conn.h"
 
 short __real_evnt_multi_(short flags, short clicks, short mask, short state,
 			 unsigned long timer, short *msg, AEVENT *ev);
@@ -23,6 +24,16 @@ short __real_evnt_timer_(unsigned long ms);
 short __real_form_do(OBJECT *tree, short start);
 short __real_form_alert(short def, const char *str);
 short __real_fsel_exinput(char *path, char *name, short *button, const char *title);
+
+/* the accessory's files closed: pfkeep.c's, and the log's (common's
+   conn.c keeps it open a second after a line, guidelines 6.5; gem.c
+   closes it before an evnt_ call, form_do, form_alert and the file
+   selector wait for the user as well) */
+static void acc_park(void)
+{
+	pf_park();
+	conn_log_flush();
+}
 
 short __wrap_evnt_multi_(short flags, short clicks, short mask, short state,
 			 unsigned long timer, short *msg, AEVENT *ev)
@@ -42,20 +53,20 @@ short __wrap_evnt_timer_(unsigned long ms)
 short __wrap_form_do(OBJECT *tree, short start)
 {
 	if (is_acc)
-		pf_park();
+		acc_park();
 	return __real_form_do(tree, start);
 }
 
 short __wrap_form_alert(short def, const char *str)
 {
 	if (is_acc)
-		pf_park();
+		acc_park();
 	return __real_form_alert(def, str);
 }
 
 short __wrap_fsel_exinput(char *path, char *name, short *button, const char *title)
 {
 	if (is_acc)
-		pf_park();
+		acc_park();
 	return __real_fsel_exinput(path, name, button, title);
 }
