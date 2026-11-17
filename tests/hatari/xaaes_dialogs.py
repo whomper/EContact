@@ -77,10 +77,10 @@ def main():
     steps = [
         "click 200 200", "wait 2", PARK, "shot",			# 1 the window
         "ctrl 0x33", "wait 5", PARK, "shot",				# 2 Settings
-        "drag 300 86 300 150", "wait 4", PARK, "shot",			# 3 moved
-        "click 384 268", "wait 3", PARK, "shot", "key 0x01", "wait 2",	# 4 New contacts in's pop-up (Sort by is radios: D24)
-        "click 110 224", "wait 3", PARK, "shot",			# 5 Refresh's section
-        "click 82 150", "wait 4", PARK, "shot",				# 6 the closer
+        "drag 300 97 300 161", "wait 4", PARK, "shot",			# 3 moved (its title at 97: the family's 57-wide box)
+        "click 380 345", "wait 3", PARK, "shot", "key 0x01", "wait 2",	# 4 New contacts in's pop-up (Sort by is radios: D24)
+        "click 138 235", "wait 3", PARK, "shot",			# 5 Refresh's section
+        "click 105 161", "wait 4", PARK, "shot",				# 6 the closer
         "ctrl 0x33", "wait 5", "key 0x01", "wait 4", PARK, "shot",	# 7 Esc
         "key 0x53", "wait 4", PARK, "shot",				# 8 Delete's alert
         "key 0x1c", "wait 3", PARK, "shot",				# 9 Return: Cancel
@@ -90,11 +90,11 @@ def main():
         "rclick 200 200", "wait 2", "click 290 264", "wait 4", PARK, "shot",	# 13 Add to Group
         "key 0x50", "wait 1", PARK, "shot",				# 14 the next one
         "key 0x01", "wait 3", PARK, "shot",				# 15 Esc
-        "ctrl 0x33", "wait 5", "drag 300 86 300 150", "wait 4", PARK, "shot",	# 16 Settings, moved
+        "ctrl 0x33", "wait 5", "drag 300 97 300 161", "wait 4", PARK, "shot",	# 16 Settings, moved
         "move 50 8", "wait 3", "move 60 59", "wait 3", "click 50 91",	# the desk menu's Clients: the stand-in
         "wait 8", PARK, "shot",						# 17 its alert over it
         "key 0x1c", "wait 6", PARK, "shot",				# 18 Return, its Cancel: the alert gone
-        "click 300 150", "wait 2", "key 0x01", "wait 3",		# Settings to the front, closed
+        "click 300 165", "wait 2", "key 0x01", "wait 3",		# Settings to the front, closed
     ]
     run = os.path.join(work, "run")
     cmd = [sys.executable, os.path.join(XA, "run.py"), run, machines.emutos(), "econtact.prg",
@@ -126,10 +126,10 @@ def main():
         cols = [c for c in range(d.width) if d.crop((c, 0, c + 1, d.height)).getbbox()]
         return len(cols) <= 4 and all(c + 1 not in cols for c in cols)
 
-    dlg = (90, 160, 560, 440)		# Settings, moved down 64
+    dlg = (92, 150, 548, 460)		# Settings, moved down 64
     check("Settings opens over the window", not same(1, 2))
-    check("Settings moved: the window drawn again where it was", same(1, 3, (100, 76, 560, 134)))
-    check("Settings moved: New contacts in's pop-up at its place", not same(3, 4, (316, 250, 560, 330)))
+    check("Settings moved: the window drawn again where it was", same(1, 3, (100, 90, 540, 150)))
+    check("Settings moved: New contacts in's pop-up at its place", not same(3, 4, (210, 320, 545, 420)))
     check("Settings moved: the Refresh section chosen", not same(3, 5, dlg))
     check("its closer closes it, the window as it was", same(1, 6))
     check("Esc closes it", same(1, 7))
@@ -142,7 +142,7 @@ def main():
     check("Down moves in it", not same(13, 14))
     check("Esc closes it", same(1, 15))
     check("another program's alert over Settings", not same(16, 17))
-    check("the alert gone: Settings whole again", same(16, 18, (72, 162, 566, 466)))
+    check("the alert gone: Settings whole again", same(16, 18, (92, 150, 548, 460)))
 
 main()
 print("%s: %s" % (os.path.basename(__file__), "all passed" if not fails else "%d failed" % fails))
