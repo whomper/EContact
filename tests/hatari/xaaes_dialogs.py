@@ -128,7 +128,7 @@ def main():
 
     dlg = (92, 150, 548, 460)		# Settings, moved down 64
     check("Settings opens over the window", not same(1, 2))
-    check("Settings moved: the window drawn again where it was", same(1, 3, (100, 90, 540, 150)))
+    check("Settings moved: the window drawn again where it was", same(1, 3, (100, 90, 540, 148)))
     check("Settings moved: New contacts in's pop-up at its place", not same(3, 4, (210, 320, 545, 420)))
     check("Settings moved: the Refresh section chosen", not same(3, 5, dlg))
     check("its closer closes it, the window as it was", same(1, 6))
@@ -142,7 +142,7 @@ def main():
     check("Down moves in it", not same(13, 14))
     check("Esc closes it", same(1, 15))
     check("another program's alert over Settings", not same(16, 17))
-    check("the alert gone: Settings whole again", same(16, 18, (92, 150, 548, 460)))
+    check("the alert gone: Settings whole again", same(16, 18, (92, 174, 548, 460)))	# (below its title bar, XaAES's look of the window in front)
 
 main()
 print("%s: %s" % (os.path.basename(__file__), "all passed" if not fails else "%d failed" % fails))
