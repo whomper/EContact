@@ -91,8 +91,8 @@ def thumb(png):
         v = [px[x, y] for x in xs]
         if min(v) != max(v):
             return False
-        if v[0] == 255:
-            return True                 # flat: white
+        if v[0] >= 240:
+            return True                 # flat: white (true colour's white is 248)
         return 0 < v[0] and px[x0, y] >= 128 and px[x0 + 1, y] >= 128   # 3D
 
     best, y = None, 0
