@@ -6,27 +6,32 @@ look and behave as one family.
 ## Maintenance mode (Erez, 1 Nov 2026)
 
 EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari, ATARI-APP-GUIDELINES.md, section 8). Until Erez ends it:
-- No new features, speed rounds, clean-ups, or catching up with new or changed guidelines.
-- No sync of the shared code (`common/`, `xl/`, `gateway/`). Shared code moving is no reason to rebuild or release.
-- A release only for:
+- No new features and no speed rounds of its own.
+- **Every family rule holds for EContact as for the focus apps** (Erez, 17 Nov 2026: "all applications must adhere to
+  family rules and be notified. We will review whether they need to issue a release." and "Applications on maintenance
+  does not mean they contain faults"; AERA-Atari 8ddb463). The hub notifies EContact of each new or changed rule and
+  each shared fix: EContact adopts it, with the shared code it needs (`tools/sync-common.sh`), and its row in section
+  8's table is ticked. Section 8's ✗, ~ and ? in EContact's column are work for it. Whether a change needs a release
+  of its own is put to Erez through the hub; a fault fix always gets one.
+- A release otherwise only for:
   - a security or data-loss fault;
-  - a crash or breakage Erez reports;
+  - a crash or breakage;
   - something outside that stops it working (a certificate, a server);
   - something EWeb, EPDF or EPlay need from it.
 
-  Such a release takes only that fix (one change from AERA-Atari, not a sync), and its notes say why.
+  Its notes say why.
 - Work on `main` that isn't released stays unreleased.
 - The UI alignment (Erez lifted the mode for it on 10 Nov 2026) is released: 2.0 and 2.1 (11 Nov 2026); the mode is back
   since then. What is left of docs/UI-BACKLOG.md (Settings' other three choices as radio buttons, waiting on Erez's
   words) rides a release made anyway.
 - Testing takes Erez's configuration (Erez, 10 Nov 2026; AERA-Atari 148df17, standards/TEST-MATRIX.md): `Falcon-4:256` with `AERA_WITH_NVDI=1` (machines.ERZ_MACHINE, erz_env()) replaces the main Falcon run of gui, quiet_start, card_scroll and speed.py (Falcon-4:16 and Falcon:16); the other Falcon runs of the same functions go. The hub's set per candidate: a paired speed run on his configuration, ST-1:mono, one TT + MiNT + XaAES run. A speed row slower than the last release goes to Erez (through the hub) before anyone profiles or fixes it (Erez, 11 Nov 2026).
-- A 1 MB ST's first boot holds 350 contacts with 3 KB to spare (2.7: quiet_start ST-1 on Erez's TOS 1.04, 167 KB at
-  the most of 170; 2.3 to 2.6 held 349 and didn't write CONTACTS.TXT, unseen while the rig ran on EmuTOS, whose heap is
+- A 1 MB ST's first boot holds 350 contacts (2.7: quiet_start ST-1 on Erez's TOS 1.04, 167 KB at the most of 170;
+  2.8, with the shared code of 17 Nov 2026 and inf_t at 3 KB: see its commit; 2.3 to 2.6 held 349 and didn't write CONTACTS.TXT, unseen while the rig ran on EmuTOS, whose heap is
   5 KB bigger). Code or BSS added costs that margin (the heap is half of what is free: a KB of program, half a KB of
   heap): measure quiet_start ST-1 on TOS 1.04 with any change. ui/editor.c keeps what follows it where 2.6 had it,
   modulo 256 (its gaps; AERA-Atari 098183d): change them with its code or BSS.
 - Nothing runs in the background; the session waits for Erez or the hub.
-- Only Erez's explicit word ends this mode, for instance that every app is to take the latest shared code and release. The hub passes it on quoting him.
+- Only Erez's explicit word ends this mode. The hub passes it on quoting him.
 
 ## For every AERA app
 
@@ -62,11 +67,20 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (there is no `-dev` label). Don't commit built programs, help files or certificates (`binary/`,
   `dist/`). Never reuse a number.
 - **Only formal releases leave the build machine.** Erez gets vX.Y releases made by the Release workflow from `main`, nothing else: no test builds, no CI artifacts, no builds from a branch. Work lands on `main`; to try a fix on real hardware, release it. If a release doesn't work, roll back with a release: revert on `main`, release the next number, and say in the bad release's notes that it is withdrawn and which one to use.
-- **Releases go out without asking Erez** (his decision, 23 Oct 2026; guidelines 1.2). Release when
-  work on `main` is ready:
-  - this repo's checks pass;
-  - the rigs on his TOS pass, where this file asks for them;
-  - the hub's family checks pass.
+- **Releases go out without asking Erez** (his decision, 23 Oct 2026; guidelines 1.2), through **the
+  regression gate** (Erez, 17 Nov 2026: "we need to be extra careful with regression issues as there are users of
+  our software. This means testing across all configurations" and "make sure we don't loose performance";
+  AERA-Atari a22574e, standards/TEST-MATRIX.md's gate table). Every code candidate, in order:
+  1. this repo's checks;
+  2. its rigs on every row of the gate table EContact runs on, on Erez's TOS images and NVDI (EmuTOS is no
+     evidence for a release), each row named by describe(), a row it can't run named with why;
+  3. the paired speed run against the last release on Erez's configuration, `Falcon-4:16` and `ST:mono`, the
+     timed build at the shipped layout (`make prof`, common/tools/profpad.py): no row slower beyond a tick (5 ms)
+     on any; fix it first, and only Erez accepts one;
+  4. the candidate commit and the results to the hub, which runs the family check and answers go or the faults;
+  5. only then the release.
+
+  A fault a user reports becomes a case in the rigs, in the release that fixes it.
 
   Then give Erez the link in one line, with anything he has to do, and send the hub the link. Roll
   back a bad release the same way. Decisions that are his still go to him first.
@@ -184,11 +198,17 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   docs/help/WINDOW.IMG (made once with `helpfront.py thumb` from
   docs/window.png). `tests/hatari/help_key.py` checks the Help key.
 - The speed rig is `tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--profile ELF]` (docs/DEVELOPMENT.md,
-  Tests): an AES_PROFILE=20 build, 621 contacts, each action's longest stretch set against the
+  Tests): an AES_PROFILE=20 build (`make prof`: the timed files with it, linked at the shipped build's places
+  modulo 256 by common's profpad.py, into build/prof/bin), 621 contacts, each action's longest stretch set against the
   guidelines' time. The profile build's ui/main.c says when the start and the accessory's opening
   have drawn the window (AESDRAWN) and has prof_turn_end, where --profile stops Hatari to save its
   profiler's counts (hatari_profile -p reads them); -DWIN_DIRECT draws straight on the screen, to
   measure the off-screen buffer against it.
+- NatFeats (the emulator's console: AESGAP, the rigs' lines) only where ECONTACT.INF says NATFEATS=1 (the
+  guidelines 6.5; Erez, 15 Nov 2026), read in find_workdir before anything is said there and kept when the INF is
+  written again (opt.natfeats); a real machine never runs the probe. rig.py writes it into the INF of every boot
+  (natfeats()), the test programs in tests/atari define their own nf_on = 1, and
+  `tests/hatari/natfeats_off.py WORK [MACHINE]` is the boot without it (the gate's row 12).
 - The UI is checked in Hatari. The rigs take a machine of the family's
   (`ST`, `ST-1`, `TT`, `Falcon`, a screen after a colon: common/tools/machines.py,
   the guidelines, The machines) and get Hatari's arguments, the TOS and the
