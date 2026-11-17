@@ -389,6 +389,21 @@ static int focusable(const FIELD *f)
 	return (f->type == FT_TEXT || f->type == FT_PASS || f->type == FT_MULTI) && !(f->flags & FF_DISABLED);
 }
 
+static int is_text(const FIELD *f)
+{
+	return f->type == FT_TEXT || f->type == FT_PASS || f->type == FT_MULTI;
+}
+
+/* what the keyboard reaches (D25): a text field and the controls; the
+   page list is LIST_FOCUS */
+#define LIST_FOCUS (-2)
+static int reachable(const FIELD *f)
+{
+	if (!shown_now(f) || (f->flags & FF_DISABLED))
+		return 0;
+	return is_text(f) || f->type == FT_CHECK || f->type == FT_RADIO || f->type == FT_POPUP || f->type == FT_BUTTON;
+}
+
 static void field_rect(const FIELD *f, GRECT *r)
 {
 	r->x = FX(f) - 2;
@@ -682,7 +697,7 @@ static short radio_pitch(const char *const *words, short n, short cw)
 	for (k = 0; k < n; k++)
 		if ((short)strlen(radio_word(words, k)) > w)
 			w = (short)strlen(radio_word(words, k));
-	return (w + 3) * cw;
+	return (w + 3 < 10 ? 10 : w + 3) * cw;	/* 10 apart at least, as the family's engine's (settings.c) */
 }
 
 /* the whole group's rectangle (the hit area, and what a redraw clears) */
@@ -920,6 +935,7 @@ static void draw_field(DLG *d, short i)
 /* ---- sections ---- */
 
 static void draw_all(DLG *d);
+static void ring_paint(DLG *d, int on);
 
 static void section_rect(DLG *d, short k, GRECT *r)
 {
@@ -954,7 +970,7 @@ static void section_rows(DLG *d)
 		section_rect(d, k, &r);
 		fill(&r, k + 1 == d->page ? 1 : bg);
 		/* (its text on a byte: the box's text column) */
-		text_at(box.x + pad, r.y + 3, s, (long)strlen(s), d->side,
+		text_at(box.x + pad + (d->family ? cw : 0), r.y + 3, s, (long)strlen(s), d->side,
 			TX_LTR | (k + 1 == d->page ? TX_INVERSE : bg ? 0 : TX_WHITE));
 	}
 }
@@ -967,7 +983,8 @@ static void draw_sections(DLG *d)
 	line_col(lx, box.y + ch + 6, lx, box.y + box.h - 4, 1);
 	if (d->page >= 1 && d->page <= d->npages) {
 		const char *s = d->pages[d->page - 1];
-		text_at(hx, hy, s, (long)strlen(s), d->w - d->side - 2, TX_LTR | TX_BOLD | (bg ? 0 : TX_WHITE));
+		text_at(hx, hy, s, (long)strlen(s), d->w - d->side - 2,
+			TX_LTR | (d->family ? 0 : TX_BOLD) | (bg ? 0 : TX_WHITE));
 		line_col(hx, hy + ch + 3, box.x + box.w - pad, hy + ch + 3, 1);
 	}
 }
@@ -1028,6 +1045,7 @@ static void draw_all(DLG *d)
 			draw_field(d, i);
 	aes_buttons(d);
 	graf_mouse(M_ON, 0);
+	ring_paint(d, 1);	/* (only once a key was used) */
 }
 
 static int redraw_off;		/* the progress box's lines: offdraw (dlg_redraw_field) */
@@ -1303,6 +1321,18 @@ static int click_field(DLG *d, short i, short mx, short my)
 	return 1;
 }
 
+/* where a click finds a field, and what the keyboard's ring goes round */
+static void hit_rect(const FIELD *f, GRECT *r)
+{
+	field_rect(f, r);
+	if (f->type == FT_RADIO)
+		radio_area(FX(f), FY(f), cw, ch, f->items, f->nitems, r);
+	else if (f->type == FT_CHECK)
+		r->w = ((short)strlen(f->label) + 2) * cw + 4;
+	else if (f->type == FT_COLOR)
+		r->w = NCOLORS * 3 * cw;
+}
+
 static short field_at(DLG *d, short mx, short my)
 {
 	short i;
@@ -1313,18 +1343,80 @@ static short field_at(DLG *d, short mx, short my)
 			continue;
 		if (eye_hit(f, mx, my))
 			return i;
-		field_rect(f, &r);
-		if (f->type == FT_RADIO)
-			radio_area(FX(f), FY(f), cw, ch, f->items, f->nitems, &r);
-		else if (f->type == FT_CHECK) {
-			r.w = ((short)strlen(f->label) + 2) * cw + 4;
-		} else if (f->type == FT_COLOR) {
-			r.w = NCOLORS * 3 * cw;
-		}
+		hit_rect(f, &r);
 		if (rect_hit(&r, mx, my))
 			return i;
 	}
 	return -1;
+}
+
+/* ---- the keyboard's reach (5.10, D25; as common's settings.c, f68f541):
+   the focus is a text field (its cursor), a control (a tick, a radio
+   group, a pop-up, a button) or the page list; a thin ring 2 pixels
+   outside the control shows it, only once a key was used, and a click
+   takes it away again. Tab and Shift+Tab go through the fields and
+   controls in their order, then the list, round; Space ticks, opens a
+   pop-up, does a button's work; the arrows choose in a radio group; Up
+   and Down choose the page in the list and go from control to control
+   elsewhere */
+static int ring_on;
+
+static int ring_rect(DLG *d, GRECT *r)
+{
+	if (d->focus == LIST_FOCUS && d->npages && d->page >= 1)
+		section_rect(d, d->page - 1, r);
+	else if (d->focus >= 0 && d->focus < d->n && !is_text(&d->f[d->focus]) && shown_now(&d->f[d->focus]))
+		hit_rect(&d->f[d->focus], r);
+	else
+		return 0;
+	r->x -= 3;
+	r->y -= 3;
+	r->w += 6;
+	r->h += 6;
+	return 1;
+}
+
+static void ring_paint(DLG *d, int on)
+{
+	GRECT r;
+	if (!ring_on || !ring_rect(d, &r) || !clip_dlg(0))
+		return;
+	graf_mouse(M_OFF, 0);
+	frame(&r, on ? 1 : bg);
+	graf_mouse(M_ON, 0);
+}
+
+/* the next reachable after from, dir 1 or -1: the fields in their order,
+   then the page list (when there is one), round */
+static short next_reach(DLG *d, short from, short dir)
+{
+	short pos = from == LIST_FOCUS ? d->n : from, k;
+	for (k = 0; k <= d->n; k++) {
+		pos += dir;
+		if (pos < 0)
+			pos = d->n;
+		if (pos > d->n)
+			pos = 0;
+		if (pos == d->n) {
+			if (d->npages)
+				return LIST_FOCUS;
+		} else if (reachable(&d->f[pos]))
+			return pos;
+	}
+	return from;
+}
+
+static void reach(DLG *d, short i)
+{
+	short old = d->focus;
+	ring_paint(d, 0);
+	ring_on = 1;
+	d->focus = i;
+	if (old >= 0 && old != i && is_text(&d->f[old]))
+		dlg_redraw_field(d, old);
+	if (i >= 0 && is_text(&d->f[i]))
+		dlg_redraw_field(d, i);
+	ring_paint(d, 1);
 }
 
 static short find_flag(DLG *d, short flag)
@@ -1347,9 +1439,48 @@ static void paint_run(void)
 	draw_all(cur_dlg);
 }
 
+/* a tick turned, a pop-up chosen from, a radio group's choice: by a click
+   or a key alike */
+static void act_check(DLG *d, short i)
+{
+	d->f[i].val = !d->f[i].val;
+	dlg_redraw_field(d, i);
+	if (d->changed)
+		d->changed(d, i);
+}
+
+static void act_radio(DLG *d, short i, short k)
+{
+	FIELD *f = &d->f[i];
+	if (k < 0 || k >= f->nitems || k == f->val)
+		return;
+	f->val = k;
+	dlg_redraw_field(d, i);
+	if (d->changed)
+		d->changed(d, i);
+}
+
+static void act_popup(DLG *d, short i)
+{
+	FIELD *f = &d->f[i];
+	GRECT r;
+	short k;
+	field_rect(f, &r);
+	k = field_popup(&r, f);
+	if (!popup_put_back)	/* the screen not put back: drawn again */
+		draw_all(d);
+	if (k >= 0 && k != f->val) {
+		f->val = k;
+		dlg_redraw_field(d, i);
+		if (d->changed)
+			d->changed(d, i);
+	}
+}
+
 short dlg_run(DLG *d)
 {
 	short result = -2, i, mx, my, mb, ks, m[8];
+	int ring_was;
 	AEVENT e;
 	font_sys_push();
 	level_save();			/* the dialog under this one */
@@ -1377,7 +1508,11 @@ short dlg_run(DLG *d)
 	if (d->focus < 0 || d->focus >= d->n || !focusable(&d->f[d->focus]))
 		d->focus = next_focus(d, -1, 1);
 	if (d->focus >= 0 && !focusable(&d->f[d->focus]))
-		d->focus = -1;
+		d->focus = d->npages ? LIST_FOCUS : -1;	/* no text field: the list (D25) */
+	if (d->focus == -1 && d->npages)
+		d->focus = LIST_FOCUS;
+	ring_was = ring_on;
+	ring_on = 0;
 	depth++;
 	graf_mouse(ARROW, 0);
 	/* the screen and mouse the dialog's (BEG_UPDATE, BEG_MCTRL), or a
@@ -1389,18 +1524,19 @@ short dlg_run(DLG *d)
 		if (e.which & MU_KEYBD) {
 			short scan = KEY_SCAN(e.kreturn);
 			FIELD *f = d->focus >= 0 ? &d->f[d->focus] : 0;
+			FIELD *tf = f && is_text(f) ? f : 0;	/* the text field the cursor is in */
 			if (scan == 0x44) {			/* F10: the Hebrew keyboard */
 				set_hebrew_kbd(!hebrew_kbd);
 				win_name(d->title);
 				draw_all(d);
-			} else if (dlg_cancel_key(e.kreturn, f != 0)) {
+			} else if (dlg_cancel_key(e.kreturn, tf != 0)) {
 				/* Undo, and Esc with no text field: as Cancel (the
 				   guidelines, 3.5); without a Cancel, no button at
 				   all: nothing is done */
 				result = find_flag(d, FF_CANCEL);
 				if (result < 0)
 					result = -1;
-			} else if (f && dlg_esc(e.kreturn)) {
+			} else if (tf && dlg_esc(e.kreturn)) {
 				/* Esc in a text field empties it, as GEM's form_do
 				   does (3.5; Erez, 27 Oct 2026); a text of several
 				   lines never */
@@ -1410,11 +1546,39 @@ short dlg_run(DLG *d)
 					f->first = 0;
 					dlg_redraw_field(d, d->focus);
 				}
-			} else if (scan == 0x0f || ((scan == 0x48 || scan == 0x50) && (!f || f->type != FT_MULTI))) {
+			} else if (d->focus == LIST_FOCUS && (scan == 0x48 || scan == 0x50)) {
+				/* the page list: Up and Down choose the page */
+				short pg = (short)(d->page + (scan == 0x48 ? -1 : 1));
+				if (pg >= 1 && pg <= d->npages) {
+					ring_paint(d, 0);
+					set_page(d, pg);
+					d->focus = LIST_FOCUS;
+					ring_paint(d, 1);
+				}
+			} else if (f && f->type == FT_RADIO && (scan == 0x48 || scan == 0x50 || scan == 0x4b || scan == 0x4d)) {
+				/* a radio group: the arrows choose, no wrapping */
+				ring_on = 1;
+				act_radio(d, d->focus, (short)(f->val + (scan == 0x48 || scan == 0x4b ? -1 : 1)));
+				ring_paint(d, 1);
+			} else if (scan == 0x0f || ((scan == 0x48 || scan == 0x50) && !(tf && tf->type == FT_MULTI))) {
 				short dir = (scan == 0x48 || (scan == 0x0f && (e.kstate & (K_LSHIFT | K_RSHIFT)))) ? -1 : 1;
-				if (d->focus >= 0)
-					set_focus(d, next_focus(d, d->focus, dir));
-			} else if (f && edit_key(d, f, e.kstate, e.kreturn)) {
+				short to = next_reach(d, d->focus, dir);
+				if (scan != 0x0f && to == LIST_FOCUS)	/* Up and Down: control to control */
+					to = next_reach(d, to, dir);
+				reach(d, to);
+			} else if (f && !tf && (e.kreturn & 0xff) == ' ') {
+				/* Space: a tick ticked, a pop-up opened, a button's work */
+				ring_on = 1;
+				if (f->type == FT_CHECK)
+					act_check(d, d->focus);
+				else if (f->type == FT_POPUP)
+					act_popup(d, d->focus);
+				else if (f->type == FT_BUTTON) {
+					press_effect(d, d->focus);
+					result = d->focus;
+				}
+				ring_paint(d, 1);
+			} else if (tf && edit_key(d, tf, e.kstate, e.kreturn)) {
 				/* typed */
 			} else if (scan == 0x1c || scan == 0x72) {	/* Return */
 				short b = find_flag(d, FF_DEFAULT);
@@ -1423,6 +1587,10 @@ short dlg_run(DLG *d)
 					result = b;
 				}
 			}
+		}
+		if ((e.which & MU_BUTTON) && ring_on) {
+			ring_paint(d, 0);	/* a click takes the ring away */
+			ring_on = 0;
 		}
 		if ((e.which & MU_BUTTON) && d->npages) {
 			short k = section_at(d, e.mx, e.my);
@@ -1477,37 +1645,15 @@ short dlg_run(DLG *d)
 					if (press_button(d, hit, e.mx, e.my))
 						result = hit;
 					break;
-				case FT_RADIO: {	/* on the press, as a tick (5.8) */
-					short k = radio_hit(FX(f), FY(f), cw, ch, f->items, f->nitems, e.mx, e.my);
-					if (k < 0 || k == f->val)
-						break;
-					f->val = k;
-					dlg_redraw_field(d, hit);
-					if (d->changed)
-						d->changed(d, hit);
+				case FT_RADIO:	/* on the press, as a tick (5.8) */
+					act_radio(d, hit, radio_hit(FX(f), FY(f), cw, ch, f->items, f->nitems, e.mx, e.my));
 					break;
-				}
 				case FT_CHECK:
-					f->val = !f->val;
-					dlg_redraw_field(d, hit);
-					if (d->changed)
-						d->changed(d, hit);
+					act_check(d, hit);
 					break;
-				case FT_POPUP: {
-					GRECT r;
-					short k;
-					field_rect(f, &r);
-					k = field_popup(&r, f);
-					if (!popup_put_back)	/* the screen not put back: drawn again */
-						draw_all(d);
-					if (k >= 0 && k != f->val) {
-						f->val = k;
-						dlg_redraw_field(d, hit);
-						if (d->changed)
-							d->changed(d, hit);
-					}
+				case FT_POPUP:
+					act_popup(d, hit);
 					break;
-				}
 				case FT_COLOR: {
 					short k = (e.mx - FX(f)) / (3 * cw);
 					if (k >= 0 && k < NCOLORS) {
@@ -1531,6 +1677,7 @@ short dlg_run(DLG *d)
 	font_sys_pop();
 	if (--depth == 0 && dlg_after)
 		dlg_after();
+	ring_on = ring_was;	/* (a dialog under this one) */
 	return result;
 }
 

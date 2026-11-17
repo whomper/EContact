@@ -237,19 +237,26 @@ static const short after_min[] = { 0, 2, 5, 15 };
 static const char *const sort_items[] = { "  Last name", "  First name" };
 static const char *const show_items[] = { "  First Last", "  Last, First" };
 
-enum { S_GENERAL = 1, S_REFRESH, S_CONN };
-static const char *const section_names[] = { "General", "Refresh", "Connection" };
+/* the family's pages, in 6.1's order: General, the app's own, Secure
+   (Direct connection and the Gateway, 7.3), Advanced (logs); the layout
+   that of common's settings.c (list 13, a page at 15, Cancel and OK at
+   W - 24 and W - 12 on row H - 2), in EContact's own dialog: the
+   engine's 10 KB would cost a 1 MB ST's first boot 9 of its 350
+   contacts (the hub, 17 Nov 2026) */
+enum { S_GENERAL = 1, S_REFRESH, S_SECURE, S_ADVANCED };
+static const char *const section_names[] = { "General", "Refresh", "Secure", "Advanced" };
 
 #define SIDE 12
-#define CX (SIDE + 2)
-#define VX (CX + 16)
-#define SW (VX + 36)	/* four radio buttons of 9 cells (Erez, 12 Nov 2026) */
+#define CX (SIDE + 2)	/* a page's column, 15 from the box's edge */
+#define SW 54		/* the box 57 wide: the list's 13 and a page's 42 */
+#define SH 13		/* rows: the tallest page, an empty row, Cancel and OK, an empty row */
 
 static void settings(short first)
 {
 	enum { L1, F1, L2, F2, L3, F3, L6, F6,
 	       L11, F11, F12, L13, F13, N3,
-	       C1, C2, N1, L7, C3, L8, C4, N2, C7,
+	       C1, C2, N1, L7, N2, C3, L8, C4, N4,
+	       C7,
 	       BCAN, BOK, N };
 	FIELD f[N];
 	DLG d;
@@ -274,31 +281,29 @@ static void settings(short first)
 	}
 
 	/* General */
-	/* two choices: radio buttons (D24), in the value column as the
-	   pop-ups were */
 	row = 3;
 	put(&f[L1], FT_LABEL, 0, CX, row, 0, "Sort by:");
-	put(&f[F1], FT_RADIO, 0, VX, row, 2 * 14, 0);
+	put(&f[F1], FT_RADIO, 0, CX, row + 1, 2 * 14, 0);
 	f[F1].items = sort_items;
 	f[F1].nitems = 2;
 	f[F1].val = opt.sort_first;
-	row++;
+	row += 2;
 	put(&f[L2], FT_LABEL, 0, CX, row, 0, "Show names as:");
-	put(&f[F2], FT_RADIO, 0, VX, row, 2 * 14, 0);
+	put(&f[F2], FT_RADIO, 0, CX, row + 1, 2 * 14, 0);
 	f[F2].items = show_items;
 	f[F2].nitems = 2;
 	f[F2].val = opt.last_first;
-	row++;
+	row += 2;
 	put(&f[L3], FT_LABEL, 0, CX, row, 0, "New contacts in:");
-	put(&f[F3], FT_POPUP, 0, VX, row, 30, 0);
+	put(&f[F3], FT_POPUP, 0, CX, row + 1, 40, 0);
 	f[F3].items = book_items;
 	f[F3].nitems = nb;
 	for (i = 0; i < nb; i++)
 		if (book_id[i] == opt.default_book)
 			f[F3].val = i;
 	row += 2;
-	put(&f[L6], FT_LABEL, 0, CX, row, 0, "Photos:");
-	put(&f[F6], FT_CHECK, 0, VX, row, 32, "Show contacts' photos");
+	put(&f[L6], FT_LABEL, FF_DISABLED, CX, row, 0, "");
+	put(&f[F6], FT_CHECK, 0, CX, row, 40, "Show contacts' photos");
 	f[F6].val = opt.photos;
 	for (i = L1; i <= F6; i++)
 		f[i].page = S_GENERAL;
@@ -306,65 +311,72 @@ static void settings(short first)
 	/* Refresh */
 	row = 3;
 	put(&f[L11], FT_LABEL, 0, CX, row, 0, "Refresh all:");
-	put(&f[F11], FT_RADIO, 0, VX, row, 4 * 9, 0);
+	put(&f[F11], FT_RADIO, 0, CX, row + 1, 4 * 10, 0);
 	f[F11].items = refresh_items;
 	f[F11].nitems = 4;
 	for (i = 0; i < 4; i++)
 		if (refresh_min[i] == opt.refresh)
 			f[F11].val = i;
-	row++;
-	put(&f[F12], FT_CHECK, 0, VX, row, 30, "When the window opens");
-	f[F12].val = opt.sync_open;
 	row += 2;
+	put(&f[F12], FT_CHECK, 0, CX, row, 40, "When the window opens");
+	f[F12].val = opt.sync_open;
+	row++;
 	put(&f[L13], FT_LABEL, 0, CX, row, 0, "Once at start:");
-	put(&f[F13], FT_RADIO, 0, VX, row, 4 * 9, 0);
+	put(&f[F13], FT_RADIO, 0, CX, row + 1, 4 * 10, 0);
 	f[F13].items = after_items;
 	f[F13].nitems = 4;
 	for (i = 0; i < 4; i++)
 		if (after_min[i] == opt.sync_after)
 			f[F13].val = i;
-	row++;
-	put(&f[N3], FT_LABEL, FF_LTR, CX, row, 0, "The accessory: with its window closed too");
+	row += 2;
+	/* (words under a setting: 3 columns in, 38 characters at most, 6.1) */
+	put(&f[N3], FT_LABEL, FF_LTR, CX + 3, row, 0, "With the accessory's window closed too");
 	for (i = L11; i <= N3; i++)
 		f[i].page = S_REFRESH;
 
-	/* Connection */
+	/* Secure: Direct connection, then the Gateway (6.1, 7.3) */
 	row = 3;
-	put(&f[C1], FT_CHECK, 0, CX, row, 44, "Direct connection: TLS on this Atari");
+	put(&f[C1], FT_CHECK, 0, CX, row, 40, "Direct connection: TLS on this Atari");
 	f[C1].val = opt.falcon;
 	row++;
-	put(&f[C2], FT_CHECK, 0, CX + 3, row, 40, "Check certificates on the DSP");
+	put(&f[C2], FT_CHECK, 0, CX + 3, row, 37, "Check certificates on the DSP");
 	f[C2].val = opt.dsp;
 	row++;
-	put(&f[N1], FT_LABEL, FF_LTR, CX + 3, row, 0, can_falcon ? "Needs TLS.OVL, CACERT.PEM and ROOTS.DAT"
+	put(&f[N1], FT_LABEL, FF_LTR, CX + 3, row, 0, can_falcon ? "Needs TLS.OVL, CACERT.PEM, ROOTS.DAT"
 							  : "Needs a 68020 or better (TT, Falcon)");
 	row += 2;
-	put(&f[L7], FT_LABEL, 0, CX, row, 0, "Gateway:");
-	text(&f[C3], FF_LTR, CX + 12, row, 20, gate, sizeof(gate));
-	put(&f[L8], FT_LABEL, 0, CX + 34, row, 0, "Port:");
-	text(&f[C4], FF_LTR | FF_DIGITS, CX + 40, row, 6, port, 6);
+	put(&f[L7], FT_LABEL, 0, CX, row, 0, "Through the Gateway:");
 	row++;
-	put(&f[N2], FT_LABEL, FF_LTR, CX + 12, row, 0, "aera-gateway install dav");
+	put(&f[N2], FT_LABEL, 0, CX, row, 0, "Address");
+	text(&f[C3], FF_LTR, CX + 8, row, 18, gate, sizeof(gate));
+	put(&f[L8], FT_LABEL, 0, CX + 28, row, 0, "Port");
+	text(&f[C4], FF_LTR | FF_DIGITS, CX + 33, row, 6, port, 6);
 	row++;
+	put(&f[N4], FT_LABEL, FF_LTR, CX + 8, row, 0, "aera-gateway install dav");
+	for (i = C1; i <= N4; i++)
+		f[i].page = S_SECURE;
+
+	/* Advanced */
+	row = 3;
 	put(&f[C7], FT_CHECK, 0, CX, row, 40, "Write a log (ECONTACT.LOG)");
 	f[C7].val = opt.log;
-	for (i = C1; i <= C7; i++)
-		f[i].page = S_CONN;
+	f[C7].page = S_ADVANCED;
 
-	row = 13;
-	put(&f[BCAN], FT_BUTTON, FF_CANCEL, SW - 24, row, 10, "Cancel");
-	put(&f[BOK], FT_BUTTON, FF_DEFAULT, SW - 12, row, 10, "OK");
+	row = SH - 2;		/* row H - 2 */
+	put(&f[BCAN], FT_BUTTON, FF_CANCEL, SW - 24 + 2, row, 10, "Cancel");
+	put(&f[BOK], FT_BUTTON, FF_DEFAULT, SW - 12 + 2, row, 10, "OK");
 
 	memset(&d, 0, sizeof(d));
 	d.title = "Settings";
 	d.f = f;
 	d.n = N;
 	d.w = SW;
-	d.h = row + 1;
+	d.h = SH;
 	d.focus = -1;
 	d.pages = section_names;
-	d.npages = 3;
+	d.npages = 4;
 	d.side = SIDE;
+	d.family = 1;
 	d.page = first;
 	for (;;) {
 		long pn;
@@ -377,7 +389,7 @@ static void settings(short first)
 		if (pn >= 1 && pn <= 65535)
 			break;
 		alert(1, "[1][Please type the Gateway's port:|a number from 1 to 65535.][ OK ]");
-		d.page = S_CONN;
+		d.page = S_SECURE;
 	}
 
 	if (opt.sort_first != f[F1].val || opt.last_first != f[F2].val) {
@@ -415,7 +427,7 @@ void dlg_settings(void)
 
 void dlg_connection(void)
 {
-	settings(S_CONN);
+	settings(S_SECURE);
 }
 
 /* the keys, as a table: headings, the keys in one column and what they

@@ -234,6 +234,7 @@ struct DLG {
 	void *ud;
 	const char *const *pages;
 	short npages, page, side;
+	short family;		/* the family's Settings page (6.1): the names two cells in, the heading plain */
 };
 short dlg_run(DLG *d);
 /* 1 when dialogs are drawn in the 3D look (5.6) */
