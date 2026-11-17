@@ -228,13 +228,11 @@ int dlg_account(int a)
  * As in ECal and EMail: a list of sections on the left (the chosen one
  * in a black bar) and that section's settings on the right. */
 
-static const char *const refresh_items[] = {
-	"  Never", "  Every 15 minutes", "  Every hour", "  Every day"
-};
+/* up to four choices: radio buttons, in Erez's short words (D24; 12 Nov
+   2026) */
+static const char *const refresh_items[] = { "Never", "15 min", "Hourly", "Daily" };
 static const short refresh_min[] = { 0, 15, 60, 1440 };
-static const char *const after_items[] = {
-	"  No", "  2 minutes after", "  5 minutes after", "  15 minutes after"
-};
+static const char *const after_items[] = { "No", "2 min", "5 min", "15 min" };
 static const short after_min[] = { 0, 2, 5, 15 };
 static const char *const sort_items[] = { "  Last name", "  First name" };
 static const char *const show_items[] = { "  First Last", "  Last, First" };
@@ -245,7 +243,7 @@ static const char *const section_names[] = { "General", "Refresh", "Connection" 
 #define SIDE 12
 #define CX (SIDE + 2)
 #define VX (CX + 16)
-#define SW (VX + 30)
+#define SW (VX + 36)	/* four radio buttons of 9 cells (Erez, 12 Nov 2026) */
 
 static void settings(short first)
 {
@@ -308,7 +306,7 @@ static void settings(short first)
 	/* Refresh */
 	row = 3;
 	put(&f[L11], FT_LABEL, 0, CX, row, 0, "Refresh all:");
-	put(&f[F11], FT_POPUP, 0, VX, row, 22, 0);
+	put(&f[F11], FT_RADIO, 0, VX, row, 4 * 9, 0);
 	f[F11].items = refresh_items;
 	f[F11].nitems = 4;
 	for (i = 0; i < 4; i++)
@@ -319,7 +317,7 @@ static void settings(short first)
 	f[F12].val = opt.sync_open;
 	row += 2;
 	put(&f[L13], FT_LABEL, 0, CX, row, 0, "Once at start:");
-	put(&f[F13], FT_POPUP, 0, VX, row, 22, 0);
+	put(&f[F13], FT_RADIO, 0, VX, row, 4 * 9, 0);
 	f[F13].items = after_items;
 	f[F13].nitems = 4;
 	for (i = 0; i < 4; i++)
@@ -368,9 +366,19 @@ static void settings(short first)
 	d.npages = 3;
 	d.side = SIDE;
 	d.page = first;
-	r = dlg_run(&d);
-	if (r != BOK)
-		return;
+	for (;;) {
+		long pn;
+		r = dlg_run(&d);
+		if (r != BOK)
+			return;
+		/* a port out of its limits refused, the dialog kept as it was
+		   (D30, ECal's way): never put right silently */
+		pn = atol(port);
+		if (pn >= 1 && pn <= 65535)
+			break;
+		alert(1, "[1][Please type the Gateway's port:|a number from 1 to 65535.][ OK ]");
+		d.page = S_CONN;
+	}
 
 	if (opt.sort_first != f[F1].val || opt.last_first != f[F2].val) {
 		opt.sort_first = f[F1].val;
@@ -387,7 +395,7 @@ static void settings(short first)
 	opt.sync_open = f[F12].val;
 	opt.sync_after = after_min[f[F13].val];
 	str_copy(opt.gate, gate, sizeof(opt.gate));
-	opt.gateport = (unsigned short)(atoi(port) > 0 ? atoi(port) : 8180);
+	opt.gateport = (unsigned short)atol(port);
 	opt.dsp = f[C2].val;
 	opt.log = f[C7].val;
 	if (f[C1].val != opt.falcon)
