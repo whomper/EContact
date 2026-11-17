@@ -1267,16 +1267,17 @@ static void find_workdir(void)
 	char old[200];
 	short boot = boot_drive();
 	snprintf(inf_file, sizeof(inf_file), "%c:\\econtact.inf", 'A' + boot);
-	if (is_acc || inf_n < 0)
-		inf_read(inf_file);	/* the accessory's FOLDER=, START=, FONT_ID=, HEAPKB= */
-	{
-		/* NatFeats only where a test rig asks (the guidelines 6.5;
-		   Erez, 15 Nov 2026): never probed on a real machine */
-		char nf[4];
-		inf_value("natfeats=", nf, sizeof(nf));
-		nf_on = nf[0] == '1';
-	}
 	if (is_acc) {
+		inf_read(inf_file);	/* once: FOLDER=, START=, FONT_ID=, HEAPKB= */
+		{
+			/* NatFeats only where a test rig asks (the guidelines 6.5;
+			   Erez, 15 Nov 2026): never probed on a real machine. The
+			   program takes it from its settings (load_store), read
+			   before its first event call */
+			char nf[4];
+			inf_value("natfeats=", nf, sizeof(nf));
+			nf_on = nf[0] == '1';
+		}
 		inf_folder(workdir, sizeof(workdir));
 		inf_value("start=", boot_start, sizeof(boot_start));
 		/* FONT=name,points (D43), or the old FONT_ID=: a font named, or
@@ -1463,6 +1464,8 @@ static int load_store(int quiet, int lines)
 	if (lines && !store_init_lines(lines)) {
 		store_parsing = 0;
 		store_ready = 1;
+		if (opt.natfeats)
+			nf_on = 1;	/* (the program's: before nf.S's first probe) */
 	}
 	return 1;
 }
