@@ -959,11 +959,11 @@ static void add_to_group(CONTACT *c)
 	for (i = 0; i < ngroups && n < 63; i++) {
 		if (groups[i].book != c->book)
 			continue;
-		snprintf(grp_lab[n], sizeof(grp_lab[n]), "%s%s", group_has(&groups[i], c) ? "\x08 " : "  ", groups[i].name);
+		snprintf(grp_lab[n], sizeof(grp_lab[n]), "%s%s", group_has(&groups[i], c) ? "\x08" : "", groups[i].name);
 		grp_items[n] = grp_lab[n];
 		idx[n++] = (short)i;
 	}
-	snprintf(grp_lab[n], sizeof(grp_lab[n]), "  New group...");
+	snprintf(grp_lab[n], sizeof(grp_lab[n]), "New group...");
 	grp_items[n] = grp_lab[n];
 	idx[n++] = -1;
 	k = dlg_pick("Add to group", grp_items, (short)n, 0);
@@ -1040,11 +1040,11 @@ static void add_chosen_to_group(void)
 		for (all = m > 0, j = 0; j < lm && all; j++)
 			if (l[j]->book == book && !group_has(&groups[i], l[j]))
 				all = 0;
-		snprintf(grp_lab[n], sizeof(grp_lab[n]), "%s%s", all ? "\x08 " : "  ", groups[i].name);
+		snprintf(grp_lab[n], sizeof(grp_lab[n]), "%s%s", all ? "\x08" : "", groups[i].name);
 		grp_items[n] = grp_lab[n];
 		idx[n++] = (short)i;
 	}
-	snprintf(grp_lab[n], sizeof(grp_lab[n]), "  New group...");
+	snprintf(grp_lab[n], sizeof(grp_lab[n]), "New group...");
 	grp_items[n] = grp_lab[n];
 	idx[n++] = -1;
 	free(l);
@@ -1093,25 +1093,25 @@ static void chosen_menu(short mx, short my)
 	const char *items[10];
 	short act[10], n = 0, k;
 	char del[40], out[80];
-	snprintf(del, sizeof(del), "  Delete %d contacts... Del", list_chosen());
+	snprintf(del, sizeof(del), "Delete %d contacts... Del", list_chosen());
 	items[n] = del;
 	act[n++] = A_DEL;
 	items[n] = "-";
 	act[n++] = A_NONE;
-	items[n] = "  Add to group...";
+	items[n] = "Add to group...";
 	act[n++] = A_GROUP;
 	if (src_kind == SRC_GROUP && src_idx < ngroups) {
-		snprintf(out, sizeof(out), "  Remove from %.20s", groups[src_idx].name);
+		snprintf(out, sizeof(out), "Remove from %.20s", groups[src_idx].name);
 		items[n] = out;
 		act[n++] = A_OUT;
 	}
-	items[n] = "  Send email";
+	items[n] = "Send email";
 	act[n++] = A_MAIL;
-	items[n] = "  Copy contacts        ^C";
+	items[n] = "Copy contacts        ^C";
 	act[n++] = A_COPY;
 	items[n] = "-";
 	act[n++] = A_NONE;
-	items[n] = "  Export vCards...";
+	items[n] = "Export vCards...";
 	act[n++] = A_EXPORT;
 	k = win_popup(mx, my, items, n);
 	if (k < 0 || act[k] == A_NONE)
@@ -1149,34 +1149,34 @@ void contact_menu(short mx, short my, CONTACT *c)
 	char out[80], uid[80];
 	short book = c->book;
 	int writable = book_writable(&books[c->book]);
-	items[n] = "  Edit contact...      ^E";
+	items[n] = "Edit contact...      ^E";
 	act[n++] = A_EDIT;
 	if (writable) {
-		items[n] = "  Delete...           Del";
+		items[n] = "Delete...           Del";
 		act[n++] = A_DEL;
 	}
 	items[n] = "-";
 	act[n++] = A_NONE;
 	if (writable) {
-		items[n] = "  Add to group...";
+		items[n] = "Add to group...";
 		act[n++] = A_GROUP;
 	}
 	if (writable && src_kind == SRC_GROUP && src_idx < ngroups) {
-		snprintf(out, sizeof(out), "  Remove from %.20s", groups[src_idx].name);
+		snprintf(out, sizeof(out), "Remove from %.20s", groups[src_idx].name);
 		items[n] = out;
 		act[n++] = A_OUT;
 	}
 	if (c->nemail) {
-		items[n] = "  Send email";
+		items[n] = "Send email";
 		act[n++] = A_MAIL;
 	}
-	items[n] = "  Copy contact         ^C";
+	items[n] = "Copy contact         ^C";
 	act[n++] = A_COPY;
 	items[n] = "-";
 	act[n++] = A_NONE;
-	items[n] = opt.me[0] && c->uid && !strcmp(c->uid, opt.me) ? "\x08 My card" : "  Make this my card";
+	items[n] = opt.me[0] && c->uid && !strcmp(c->uid, opt.me) ? "\x08My card" : "Make this my card";
 	act[n++] = A_ME;
-	items[n] = "  Export vCard...";
+	items[n] = "Export vCard...";
 	act[n++] = A_EXPORT;
 	k = win_popup(mx, my, items, n);
 	if (k < 0 || act[k] == A_NONE)

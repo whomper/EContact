@@ -1091,7 +1091,7 @@ void win_bars(const GRECT *a)
 short win_popup(short x, short y, const char *const *labels, short n)
 {
 	tip_hide();
-	short k = popup(x, y, labels, n);
+	short k = popup_m(x, y, labels, n);	/* the words alone: it adds the margin (D15) */
 	win_redraw(&popup_area);
 	return k;
 }

@@ -648,7 +648,7 @@ static void value_menu(short mx, short my, CONTACT *c, HIT *h)
 		static const char *its[16];
 		short m;
 		for (m = 0; m < c->nemail && m < 16 && (m + 1) * 110L <= size; m++) {
-			snprintf(lab[m], sizeof(lab[m]), "  %-8s %s", c->email[m].label, c->email[m].value);
+			snprintf(lab[m], sizeof(lab[m]), "%-8s %s", c->email[m].label, c->email[m].value);
 			its[m] = lab[m];
 		}
 		k = win_popup(mx, my, its, m);
@@ -657,8 +657,8 @@ static void value_menu(short mx, short my, CONTACT *c, HIT *h)
 		return;
 	}
 	if (mail)
-		items[n++] = "  Send email";
-	items[n++] = "  Copy";
+		items[n++] = "Send email";
+	items[n++] = "Copy";
 	k = win_popup(mx, my, items, n);
 	if (k < 0)
 		return;
