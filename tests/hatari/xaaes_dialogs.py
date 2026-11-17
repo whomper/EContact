@@ -5,7 +5,9 @@
 the AES runs several programs, the alerts are the AES's and a dialog is a
 window of the AES's):
 
-    tests/hatari/xaaes_dialogs.py WORK
+    tests/hatari/xaaes_dialogs.py WORK [--machine ct60] [--nvdi]
+(run.py's options after WORK: the regression gate's rows, a 68060 and
+Erez's NVDI; TEST-MATRIX.md, 17 Nov 2026)
 
 ECONTACT.PRG (binary/) with the sample book, in common/tests/xaaes (make
 base there first), and build/alertacc.acc beside it (`make build/alertacc.acc`:
@@ -53,7 +55,7 @@ def check(what, ok):
 
 
 def main():
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2 or sys.argv[1].startswith("-"):
         sys.exit(__doc__)
     work = os.path.abspath(sys.argv[1])
     if not os.path.isdir(os.path.join(XA, "build", "base")):
@@ -98,7 +100,7 @@ def main():
     cmd = [sys.executable, os.path.join(XA, "run.py"), run, machines.emutos(), "econtact.prg",
            "--copy"] + [os.path.join(files, n) for n in ("econtact.inf", "econtact.key", "cache",
                                                           "contacts.txt", "ALERTACC.ACC")] + \
-          ["--wait", "70", "--steps", ";".join(steps)]
+          ["--wait", "70", "--steps", ";".join(steps)] + sys.argv[2:]
     old = os.getcwd()
     os.chdir(files)
     r = subprocess.run(cmd)

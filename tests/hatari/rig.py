@@ -36,6 +36,24 @@ K = dict(RETURN=0x1c, ESC=0x01, TAB=0x0f, BACKSPACE=0x0e, DELETE=0x53, UP=0x48, 
          LEFT=0x4b, RIGHT=0x4d, HOME=0x47, HELP=0x62, UNDO=0x61, F10=0x44, CTRL=0x1d, SHIFT=0x2a, ALT=0x38)
 
 
+def natfeats(hd):
+    """NATFEATS=1 in the ECONTACT.INF a rig boots with, in the root and in
+    the folder: the program uses the emulator's console (AESGAP, the
+    rigs' lines) only where its INF says so, never on a real machine (the
+    guidelines 6.5; Erez, 15 Nov 2026). EContact keeps the line when it
+    writes the INF again."""
+    for d in (hd, ci_path(hd, "econtact")):
+        inf = ci_path(d, "econtact.inf")
+        if not os.path.isfile(inf):
+            continue
+        t = open(inf, "rb").read()
+        if b"\nNATFEATS=1" not in b"\n" + t:
+            # among the options, which come before the accounts
+            i = t.find(b"[OPTIONS]")
+            i = 0 if i < 0 else t.find(b"\n", i) + 1
+            open(inf, "wb").write(t[:i] + b"NATFEATS=1\r\n" + t[i:])
+
+
 def machine_arg(argv, i, default):
     """the machine named on a rig's command line (argv[i]), or its default;
     a TOS image there is the old way (machines.py chooses the TOS now)"""
@@ -48,7 +66,7 @@ def machine_arg(argv, i, default):
 
 class Rig:
     def __init__(self, work, machine="ST", display=None, extra=(), auto="C:\\ECONTACT.PRG",
-                 network=False, stdin=None, font_wait=True):
+                 network=False, stdin=None, font_wait=True, nf=True):
         """Hatari as MACHINE with WORK/hd as C:; screenshots in WORK/shots"""
         # RIG_DISPLAY=:98 runs a second rig beside one on :99
         display = display or os.environ.get("RIG_DISPLAY", ":99")
@@ -70,6 +88,8 @@ class Rig:
         if auto:
             args += ["--auto", auto]
         args += list(extra)
+        if nf:      # (natfeats_off.py: the boot without it, the gate's row 12)
+            natfeats(os.path.join(work, "hd"))
         print("  on", self.machine.describe())
         self.log = open(os.path.join(work, "hatari.log"), "w")
         self.proc = subprocess.Popen(args, env=self.env, stdin=stdin, stdout=self.log,

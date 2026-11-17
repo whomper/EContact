@@ -91,9 +91,10 @@ make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE \
 tests/hatari/quiet_start.py WORK [MACHINE]        # the accessory's quiet start: 600 contacts
                                                   # read in the background, at most 100 ms
                                                   # (ST) or 50 ms (TT, Falcon) between event calls
-make OBJDIR=WORK/build BIN=WORK/bin EXTRA_CFLAGS=-DAES_PROFILE=20 \
-     WORK/bin/econtact.prg WORK/bin/econtact.acc
-tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--profile WORK/build/contact.elf]
+make prof                                         # the speed rig's edition at the shipped
+                                                  # build's places (common's profpad.py), in
+                                                  # build/prof/bin
+tests/hatari/speed.py WORK [MACHINE...] [--nvdi] [--bin build/prof/bin] [--profile build/prof/contact.elf]
                                                   # how long the user waits (the guidelines'
                                                   # Speed): 621 contacts on ST:mono, ST:med and
                                                   # Falcon-4:16, each action's longest stretch
@@ -124,9 +125,11 @@ tests/hatari/list_bar.py WORK [MACHINE] [--acc] [--nvdi] [--flat]
 tests/hatari/card_scroll.py WORK [MACHINE] [--flat]
                                                   # a long card in the window's own slider (5.1):
                                                   # arrows and track scroll it, the list stays
-make build/alertacc.acc && tests/hatari/xaaes_dialogs.py WORK
+make build/alertacc.acc && tests/hatari/xaaes_dialogs.py WORK [--machine ct60] [--nvdi]
                                                   # the dialogs in windows under FreeMiNT and
                                                   # XaAES (3.5): moved, covered, closed; alerts
+tests/hatari/natfeats_off.py WORK [MACHINE]       # one boot with no NATFEATS= in the INF, as
+                                                  # on a real machine: starts, quits, no CRASH.LOG
 tests/hatari/busy_keys.py WORK [MACHINE]          # ^N typed while busy still opens New Contact
                                                   # (3.2: key_ctrl, not kstate alone)
 make build/ASKER.PRG && tests/hatari/people_ask.py WORK [MACHINE]

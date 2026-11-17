@@ -16,6 +16,8 @@
 #include "tos.h"
 #include "vcard.h"
 
+long nf_on = 1;		/* a test program: NatFeats always (nf.S's is 0) */
+
 /* (vcard.c's new UIDs, not used here) */
 unsigned long pf_ms(void)
 {

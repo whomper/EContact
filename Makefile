@@ -109,7 +109,27 @@ $(BIN)/econtact.prg: $(BIN)/econtact.acc
 	cp $< $@
 
 $(OBJDIR)/contact.elf: $(OBJS) common/atari/link.ld
-	$(CC) $(LDFLAGS) $(EVWRAP) -o $@ $(OBJS) -lgcc
+	$(CC) $(LDFLAGS) $(EVWRAP) -Wl,-Map,$@.map -o $@ $(OBJS) -lgcc
+
+# `make prof`: the speed rig's build (AES_PROFILE=20 in the files that
+# time; the rest the shipped objects) at the shipped build's places
+# modulo 256 (common/tools/profpad.py; AERA-Atari 098183d, f89e601), in
+# $(OBJDIR)/prof/bin for speed.py --bin and quiet_start.py
+PROFDIR   := $(OBJDIR)/prof
+PROF_TIMED := main win card field abook photo gem
+PROF_OBJS := $(foreach o,$(OBJS),$(if $(filter $(basename $(notdir $(o))),$(PROF_TIMED)),$(PROFDIR)/obj/$(notdir $(o)),$(o)))
+prof: $(PROFDIR)/bin/econtact.acc
+$(PROFDIR)/bin/econtact.acc: $(PROFDIR)/contact.elf common/tools/elf2tos.py
+	@mkdir -p $(dir $@)
+	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
+	cp $@ $(PROFDIR)/bin/econtact.prg
+$(PROFDIR)/contact.elf: $(OBJDIR)/contact.elf $(addprefix $(PROFDIR)/obj/,$(addsuffix .o,$(PROF_TIMED))) \
+                        common/tools/profpad.py common/atari/codepad.S
+	python3 common/tools/profpad.py --ship $(OBJDIR)/contact.elf --out $@ --cpu=-m68000 --dir $(PROFDIR)/pads \
+	    $(foreach t,$(PROF_TIMED),--exclude $(OBJDIR)/$(t).o --exclude $(PROFDIR)/obj/$(t).o) \
+	    -- $(CC) $(LDFLAGS) $(EVWRAP) $(PROF_OBJS) -lgcc
+$(addprefix $(PROFDIR)/obj/,$(addsuffix .o,$(PROF_TIMED))): FORCE
+	$(MAKE) --no-print-directory OBJDIR=$(PROFDIR)/obj EXTRA_CFLAGS=-DAES_PROFILE=20 $@
 
 $(BIN)/tls.ovl: $(TLSOVL) | $(BIN)
 	cp $< $@
@@ -344,4 +364,4 @@ itest: $(OBJDIR)/card-cli
 clean:
 	rm -rf $(OBJDIR) $(BIN) dist
 
-.PHONY: all help icons dist test itest clean fuzz FORCE
+.PHONY: all help icons dist test itest clean fuzz prof FORCE

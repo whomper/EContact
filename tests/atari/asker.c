@@ -19,6 +19,8 @@
 #include "av.h"
 #include "people_ask.h"
 
+long nf_on = 1;		/* a test program: NatFeats always (nf.S's is 0) */
+
 #define ADDR "grace.baker@example.net"
 
 static int changed, picked_n = -1;
