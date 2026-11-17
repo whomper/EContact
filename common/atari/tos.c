@@ -246,26 +246,6 @@ const char *tos_clock(void)
 	return s;
 }
 
-long nf_probe(void);
-long nf_call2(long id, long arg);
-static long nf_id = -1;
-
-/* nf.S finds the illegal-instruction vector itself (VBR + 0x10 on a 68010
-   or later: a Vampire V4SA's Atari core keeps VBR away from 0, 15 Nov
-   2026) */
-static void sup_nf_probe(void)
-{
-	nf_id = nf_probe();
-}
-
-void nf_debug(const char *s)
-{
-	if (nf_id < 0)
-		Supexec(sup_nf_probe);
-	if (nf_id > 0)
-		nf_call2(nf_id, (long)s);
-}
-
 /* ---- libgcc replacements for -m68000 ---- */
 
 static inline unsigned long mulu16(unsigned long a, unsigned long b)
@@ -382,4 +362,28 @@ long __modsi3(long a, long b)
 	udivmod(a < 0 ? -(unsigned long)a : (unsigned long)a,
 		b < 0 ? -(unsigned long)b : (unsigned long)b, &r);
 	return a < 0 ? -(long)r : (long)r;
+}
+
+/* ---- NatFeats: last in the file, as only a timed build (AES_PROFILE)
+   calls nf_debug, and code that only it keeps must not sit before code
+   both builds have (common/tools/profpad.py; EContact, 17 Nov 2026) ---- */
+
+long nf_probe(void);
+long nf_call2(long id, long arg);
+static long nf_id = -1;
+
+/* nf.S finds the illegal-instruction vector itself (VBR + 0x10 on a 68010
+   or later: a Vampire V4SA's Atari core keeps VBR away from 0, 15 Nov
+   2026) */
+static void sup_nf_probe(void)
+{
+	nf_id = nf_probe();
+}
+
+void nf_debug(const char *s)
+{
+	if (nf_id < 0)
+		Supexec(sup_nf_probe);
+	if (nf_id > 0)
+		nf_call2(nf_id, (long)s);
 }
