@@ -1159,29 +1159,29 @@ void cmd_menu(short x, short y)
 		const char *text;
 		short cmd;
 	} m[] = {
-		{ "  About EContact...", C_ABOUT },
+		{ "About EContact...", C_ABOUT },
 		{ "-", 0 },
-		{ "  New contact          ^N", C_NEW },
-		{ "  New group            ^G", C_GROUP },
+		{ "New contact          ^N", C_NEW },
+		{ "New group            ^G", C_GROUP },
 		{ "-", 0 },
-		{ "  Import vCards...", C_IMP },
-		{ "  Export vCards...", C_EXP },
-		{ "  Sync contact photos...", C_PHOTOS },
+		{ "Import vCards...", C_IMP },
+		{ "Export vCards...", C_EXP },
+		{ "Sync contact photos...", C_PHOTOS },
 		{ "-", 0 },
-		{ "  Groups              \x01^S", C_SIDE },
+		{ "Groups              \x01^S", C_SIDE },
 		{ "-", 0 },
-		{ "  Add account...", C_ADD },
-		{ "  Settings...          ^,", C_SET },
-		{ "  Font...", C_FONT },
+		{ "Add account...", C_ADD },
+		{ "Settings...          ^,", C_SET },
+		{ "Font...", C_FONT },
 		{ "-", 0 },
-		{ "  Work offline", C_OFFL },
-		{ "  Direct connection", C_FALC },
-		{ "  Write a log", C_LOG },
+		{ "Work offline", C_OFFL },
+		{ "Direct connection", C_FALC },
+		{ "Write a log", C_LOG },
 		{ "-", 0 },
-		{ "  EContact help      Help", C_HELP },
-		{ "  Keys...", C_KEYS },
+		{ "EContact help      Help", C_HELP },
+		{ "Keys...", C_KEYS },
 		{ "-", 0 },
-		{ "  Quit                  ^Q", C_QUIT },
+		{ "Quit                  ^Q", C_QUIT },
 	};
 	enum { N = sizeof(m) / sizeof(m[0]) };
 	char ticked[N][40];
@@ -1193,8 +1193,8 @@ void cmd_menu(short x, short y)
 			 (m[i].cmd == C_LOG && opt.log);
 		items[i] = m[i].text;
 		if (on) {
-			str_copy(ticked[i], m[i].text, sizeof(ticked[i]));
-			ticked[i][0] = '\x08';		/* the tick */
+			/* the tick in the margin (popup_m, D15) */
+			snprintf(ticked[i], sizeof(ticked[i]), "\x08%s", m[i].text);
 			items[i] = ticked[i];
 		}
 	}
@@ -2162,6 +2162,9 @@ int main(void)
 	ap_id = appl_init();
 	if (ap_id < 0)
 		return 1;
+	/* a Shift typed while the window is drawn and the books read keeps
+	   its state (3.2; common's gem.c, hub 9 Nov 2026) */
+	key_state_init();
 	twin_init("ECONTACT");
 	if (!is_acc && twin_handover(av_command())) {
 		appl_exit();		/* ECONTACT.ACC runs, and has it */
