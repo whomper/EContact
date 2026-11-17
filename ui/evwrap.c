@@ -76,5 +76,5 @@ short __wrap_fsel_exinput(char *path, char *name, short *button, const char *tit
    68030's caches): the shared code of 17 Nov 2026 moved them by 208, and
    a row let go drew its card 8 ms slower on a stock Falcon (Falcon-4:16,
    three pairs). Appended to the last of this file's sections the link
-   keeps; change it with the code before win.o */
-__asm__(".section .text.__wrap_fsel_exinput,\"ax\",@progbits\n\t.skip 48\n\t.previous");
+   keeps (54: main.c 6 bytes smaller); change it with the code before win.o */
+__asm__(".section .text.__wrap_fsel_exinput,\"ax\",@progbits\n\t.skip 54\n\t.previous");

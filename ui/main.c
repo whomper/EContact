@@ -2453,9 +2453,11 @@ int main(void)
 				prof_drawn();
 		}
 		/* (a slice of a photo's pens only in a turn of its own; the card
-		   first, the photo goes in it) */
-		else if ((which & MU_TIMER) && win_h > 0 && !win_later_pending() &&
-			 (!card_photo_dithering() || (which == MU_TIMER && turn_free()))) {
+		   first, the photo goes in it; never in a turn that took 30 ms
+		   already, as the opening's: one stretch with it, 435 ms on a
+		   1 MB ST, quiet_start) */
+		else if ((which & MU_TIMER) && win_h > 0 && !win_later_pending() && turn_free() &&
+			 (!card_photo_dithering() || which == MU_TIMER)) {
 			aes_profile_tag("photo");
 			card_photo_tick();
 		}
