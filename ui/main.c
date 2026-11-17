@@ -1210,8 +1210,12 @@ void cmd_menu(short x, short y)
    of EContact's files are. */
 
 /* the start of ECONTACT.INF, read once (inf_read) without malloc: the
-   accessory reads it before its heap is taken. -1: there is none */
-static char inf_t[8192];
+   accessory reads it before its heap is taken. -1: there is none. The
+   keys read here are in its first 1.5 KB as EContact writes it (the
+   options end at some 2.5 KB); 3 KB, not 8: a 1 MB ST's first boot has
+   2.5 KB of heap more for it (2.8: its 350 contacts with the shared code
+   of 17 Nov 2026) */
+static char inf_t[3072];
 static long inf_n = -1;
 
 static void inf_read(const char *inf)
@@ -1263,8 +1267,16 @@ static void find_workdir(void)
 	char old[200];
 	short boot = boot_drive();
 	snprintf(inf_file, sizeof(inf_file), "%c:\\econtact.inf", 'A' + boot);
+	if (is_acc || inf_n < 0)
+		inf_read(inf_file);	/* the accessory's FOLDER=, START=, FONT_ID=, HEAPKB= */
+	{
+		/* NatFeats only where a test rig asks (the guidelines 6.5;
+		   Erez, 15 Nov 2026): never probed on a real machine */
+		char nf[4];
+		inf_value("natfeats=", nf, sizeof(nf));
+		nf_on = nf[0] == '1';
+	}
 	if (is_acc) {
-		inf_read(inf_file);	/* once: FOLDER=, START=, FONT_ID=, HEAPKB= */
 		inf_folder(workdir, sizeof(workdir));
 		inf_value("start=", boot_start, sizeof(boot_start));
 		/* FONT=name,points (D43), or the old FONT_ID=: a font named, or

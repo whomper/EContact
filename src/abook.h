@@ -82,6 +82,7 @@ typedef struct {
 	char workdir[160];	/* EContact's folder in use: CACHE, ECONTACT.KEY, the log... */
 	char folder[160];	/* FOLDER= as ECONTACT.INF had it */
 	char start[12];		/* START=: when the accessory reads its books after boot */
+	short natfeats;		/* NATFEATS=1: a test rig's, kept as it was (the guidelines 6.5) */
 } OPT;
 
 
