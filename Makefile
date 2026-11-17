@@ -75,6 +75,30 @@ OBJDIR  := build
 OBJS    := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI))) \
            $(addprefix $(OBJDIR)/bssl/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/version.o
+# Release pads (Erez, 17 Nov 2026: "Fix first"): what changed since 2.8
+# (abook.c, main.c, field.c, common's key_state_init in gem.o and popup_m
+# in popup.o, kept now that they are called, and the strings) moved what
+# follows it, and the stock Falcon's start drew a photo 15-20 ms slower.
+# These pads (common/atari/codepad.S, after the object named) put every
+# symbol of the objects that didn't change back at 2.8's places modulo 256,
+# worked out with common/tools/profpad.py against 2.8's ELF and map. A
+# kind already in place gets none (256 is 0 modulo 256): the bytes are a
+# 1 MB ST's heap (an empty code pad's "repeat count is zero" is
+# expected: -Wa,-W). Change them when the code before them changes
+RELPAD_tjpgd := 0 126 0 0
+RELPAD_abook := 92 0 0 0
+RELPAD_gem   := 240 0 0 0
+RELPAD_main  := 244 0 0 0
+RELPAD_popup := 254 0 0 0
+RELPAD_field := 32 252 0 250
+RELPADS := $(patsubst RELPAD_%,%,$(filter RELPAD_%,$(.VARIABLES)))
+OBJS    := $(foreach o,$(OBJS),$(o) $(if $(filter $(basename $(notdir $(o))),$(RELPADS)),$(OBJDIR)/pad_$(basename $(notdir $(o))).o))
+relpad_n = $(word $(2),$(RELPAD_$(1)))
+comma   := ,
+RELPAD_LD := $(foreach p,$(RELPADS),-Wl$(comma)-u$(comma)pad_$(p) \
+             $(if $(filter-out 0,$(call relpad_n,$(p),2)),-Wl$(comma)-u$(comma)pad_$(p)_ro) \
+             $(if $(filter-out 0,$(call relpad_n,$(p),3)),-Wl$(comma)-u$(comma)pad_$(p)_data) \
+             $(if $(filter-out 0,$(call relpad_n,$(p),4)),-Wl$(comma)-u$(comma)pad_$(p)_bss))
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h \
            third_party/tjpgd/*.h)
@@ -109,7 +133,10 @@ $(BIN)/econtact.prg: $(BIN)/econtact.acc
 	cp $< $@
 
 $(OBJDIR)/contact.elf: $(OBJS) common/atari/link.ld
-	$(CC) $(LDFLAGS) $(EVWRAP) -Wl,-Map,$@.map -o $@ $(OBJS) -lgcc
+	$(CC) $(LDFLAGS) $(EVWRAP) $(RELPAD_LD) -Wl,-Map,$@.map -o $@ $(OBJS) -lgcc
+$(OBJDIR)/pad_%.o: common/atari/codepad.S Makefile | $(OBJDIR)
+	$(CC) -m68000 $(if $(filter 0,$(call relpad_n,$*,1)),-Wa$(comma)-W) -DPAD_NAME=pad_$* -DPAD_TEXT=$(call relpad_n,$*,1) -DPAD_RO=$(call relpad_n,$*,2) \
+	    -DPAD_DATA=$(call relpad_n,$*,3) -DPAD_BSS=$(call relpad_n,$*,4) -c -o $@ $<
 
 # `make prof`: the speed rig's build (AES_PROFILE=20 in the files that
 # time; the rest the shipped objects) at the shipped build's places
@@ -127,7 +154,7 @@ $(PROFDIR)/contact.elf: $(OBJDIR)/contact.elf $(addprefix $(PROFDIR)/obj/,$(adds
                         common/tools/profpad.py common/atari/codepad.S
 	python3 common/tools/profpad.py --ship $(OBJDIR)/contact.elf --out $@ --cpu=-m68000 --dir $(PROFDIR)/pads \
 	    $(foreach t,$(PROF_TIMED),--exclude $(OBJDIR)/$(t).o --exclude $(PROFDIR)/obj/$(t).o) \
-	    -- $(CC) $(LDFLAGS) $(EVWRAP) $(PROF_OBJS) -lgcc
+	    -- $(CC) $(LDFLAGS) $(EVWRAP) $(RELPAD_LD) $(PROF_OBJS) -lgcc
 $(addprefix $(PROFDIR)/obj/,$(addsuffix .o,$(PROF_TIMED))): FORCE
 	$(MAKE) --no-print-directory OBJDIR=$(PROFDIR)/obj EXTRA_CFLAGS=-DAES_PROFILE=20 $@
 
