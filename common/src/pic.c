@@ -1351,6 +1351,18 @@ static int decode_dsp(DSPJ *dj, PIC *p, SCALER *sc, int *why)
 		src.fill = dj->fill;
 		src.fu = dj->fu;
 	}
+	if (pic_poll != NULL && !pic_poll()) {
+		/* (the headers read and the buffers had: a turn before the DSP's
+		   program loads, 65 ms of a stock Falcon in one piece before) */
+		free(band);
+		free(bpx);
+		free(bal);
+		free(src.buf);
+		if (shrink)
+			dsp_shrink_free(&shr);
+		*why = PIC_STOPPED;
+		return 0;
+	}
 	if ((tmp = malloc(sizeof *tmp)) == NULL || !pic_dsp->begin(PIC_DSP_JPEG)) {
 		int had = tmp != NULL;
 		free(tmp);
@@ -1368,8 +1380,13 @@ static int decode_dsp(DSPJ *dj, PIC *p, SCALER *sc, int *why)
 	if (dj->on != NULL)
 		*dj->on = 1;
 	pic_dsp_failed = 0;
-	if (pic_poll != NULL)
-		pic_poll();	/* (its program loaded, 30 to 45 ms of a stock Falcon: a turn; a stop is seen at the rows) */
+	/* (its program loaded, 30 to 45 ms of a stock Falcon: a turn; a stop
+	   there is taken at once, not left to the rows: a poll that said stop
+	   once needn't say it again, tests/pic's slices) */
+	if (pic_poll != NULL && !pic_poll()) {
+		*why = PIC_STOPPED;
+		goto out;
+	}
 
 	/* the setup: the variables (jpeg.a56's V_M to V_TB) */
 	memset(w, 0, sizeof w);
@@ -2174,6 +2191,7 @@ static int decode_lj(const unsigned char *d, long n, PIC *p, SCALER *sc, int *wh
 	j->src.bytes_in_buffer = (size_t) n;
 	j->ci.src = &j->src;
 	jpeg_read_header(&j->ci, TRUE);
+	lj_progress((j_common_ptr) &j->ci);	/* (the headers read, before the decoder's setup: a turn, 55 ms of a stock Falcon in one piece to the DSP's first) */
 	/* CMYK (Adobe's, inverted) is made RGB below; the rest by libjpeg */
 	j->ci.out_color_space = j->ci.jpeg_color_space == JCS_CMYK || j->ci.jpeg_color_space == JCS_YCCK ?
 				JCS_CMYK : JCS_RGB;
