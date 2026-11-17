@@ -24,7 +24,6 @@ static unsigned long os_magic;
    screen's layout from Line-A; on (1) once the first draw's check found
    the VDI's pixels where it would put them, off (-1) for the run else */
 static int sf;				/* 0 not checked yet, 1 on, -1 off */
-static int sf_again;			/* -1 from a first draw's compare: checked again at the next text_font */
 static const unsigned char *glyph;	/* the font's form: row r of c at [r * 256 + c] */
 static short sf_planes, sf_w, sf_h;
 static int sf_rows_cpu;			/* scr_rows by the CPU: a 68000 (on a 68030 TOS's copy is as fast) */
@@ -111,34 +110,12 @@ static int sf_setup(short height)
 
 void text_font(short h, short id, short w, short hgt)
 {
-	static short last_id = -1, last_w, last_h;
-	static long last_base;
-	long base = trap14_w(3);	/* Logbase: the screen, or an app's buffer */
-
+	/* the whole setup every call, as before 24e2257: keeping it for the
+	   same font cost EContact's card 5-10 ms on Falcon-4:16 (17 Nov 2026;
+	   neither keying it on Logbase nor retrying a compare brought it
+	   back, while doing it every call did). An app that sets one font
+	   each redraw calls it once instead (ClaudeST 2.8's way) */
 	(void)h;
-	/* the same font again (an app that sets it each redraw): keep what
-	   was found, the CPU path's first-draw check (sf) too; asked again it
-	   cost each redraw's first fills the CPU path (ClaudeST, 13 Nov 2026) */
-	if (id == last_id && w == last_w && hgt == last_h && base == last_base) {
-		/* but a compare that failed is tried again, as before 24e2257: one
-		   draw it couldn't judge (the screen under something, a buffer's
-		   Logbase) left the CPU path off for good, and EContact's card
-		   went to the VDI on every redraw (Falcon-4:16, 35 -> 45 ms, 17 Nov
-		   2026). sf_setup's own refusals stay */
-		if (sf_again) {
-			sf = 0;
-			sf_again = 0;
-		}
-		return;
-	}
-	last_id = id;
-	last_w = w;
-	last_h = hgt;
-	/* and only for the same place drawn to: an app drawing into a buffer
-	   (TOS's Logbase moved there, EContact's window) and then the screen
-	   with one font kept the screen's findings for the buffer, and its
-	   card went to the VDI (Falcon-4:16, 35-40 -> 45 ms, 17 Nov 2026) */
-	last_base = base;
 	fast = id == 1 && !get_cookie(0x4E564449L);	/* 'NVDI' */
 	/* TOS 4.04's VDI bolds a line and then clips it, so a column left
 	   of the clip, not drawn, smears into the clip's first; TOS 1.04's
@@ -149,7 +126,6 @@ void text_font(short h, short id, short w, short hgt)
 	cw = w > 0 ? w : 8;
 	ch = hgt > 0 ? hgt : 16;
 	sf = fast && cw == 8 ? sf_setup(ch) : -1;
-	sf_again = 0;
 }
 
 void text_clip(short h, const short *r)
@@ -448,7 +424,6 @@ void text_plain(short h, short x, short y, const char *s, long n)
 				;
 			if (r < ch && kx >= cx1 && kx + 7 <= cx2) {
 				sf = cell_is(base, kx, y, (unsigned char)s[k]) ? 1 : -1;
-				sf_again = sf < 0;
 				return;
 			}
 		}
