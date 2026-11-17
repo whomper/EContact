@@ -329,11 +329,40 @@ static void kn(SBUF *b, const char *text, const char *key, long value)
 	kv(b, text, key, p);
 }
 
+/* the encrypted password of the account'th [ACCOUNT] in old (the INF as it
+   is on the disk), into out; 0 when there is none or it isn't encrypted */
+static int old_pass(const char *old, int account, char *out, int size)
+{
+	const char *p = old, *e;
+	int n = -1;
+	for (; p && *p; p = strchr(p, '\n'), p = p ? p + 1 : 0) {
+		if (!strncasecmp(p, "[account]", 9))
+			n++;
+		else if (n == account && !strncasecmp(p, "pass=", 5)) {
+			p += 5;
+			if (strncmp(p, SECRET_TAG, strlen(SECRET_TAG)))
+				return 0;	/* typed in plain: encrypted now */
+			e = p + strcspn(p, "\r\n");
+			if (e - p >= size)
+				return 0;
+			memcpy(out, p, e - p);
+			out[e - p] = 0;
+			return 1;
+		}
+	}
+	return 0;
+}
+
 void store_save_settings(void)
 {
 	SBUF b;
 	int i, j;
-	char enc[200];
+	char enc[200], dec[sizeof(accts[0].pass)];
+	long olen = 0;
+	/* the INF as it is: written again only when it would change (6.1,
+	   Erez 12 Nov 2026), a password kept as it was encrypted when it is
+	   the same (its nonce would make every save differ) */
+	char *old = pf_load(inf_path, &olen);
 	sb_init(&b);
 	save_ok = 1;
 	add(&b, "; EContact settings, written by ECONTACT.ACC / ECONTACT.PRG. Lines starting with ; are notes.\r\n"
@@ -386,7 +415,9 @@ void store_save_settings(void)
 		kv(&b, "the server's address", "URL", a->url);
 		kv(&b, "the user name (iCloud: the Apple ID)", "USER", a->user);
 		if (a->pass[0]) {
-			secret_encode(a->pass, enc, sizeof(enc));
+			if (!old || !old_pass(old, i, enc, sizeof(enc)) ||
+			    !secret_decode(enc, dec, sizeof(dec)) || strcmp(dec, a->pass))
+				secret_encode(a->pass, enc, sizeof(enc));
 			kv(&b, "the password, encrypted with ECONTACT.KEY (type a new one in plain text: it is encrypted at start-up)",
 			   "PASS", enc);
 		}
@@ -407,12 +438,15 @@ void store_save_settings(void)
 	/* all of it or nothing: in a full heap (an accessory's, on a 1 MB
 	   ST) the old file stays, and it is written at the next save */
 	if (save_ok && b.s) {
-		pf_save(inf_path, b.s, b.len);
+		if (!old || olen != b.len || memcmp(old, b.s, b.len))
+			pf_save(inf_path, b.s, b.len);
 		store_unsaved = 0;
 	} else {
 		store_unsaved = 1;
 	}
 	sb_free(&b);
+	free(old);
+	memset(dec, 0, sizeof(dec));
 	apply_http();
 }
 
