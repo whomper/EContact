@@ -170,11 +170,3 @@ void answer_forget(void)
 	pick_new = 0;
 }
 
-/* Placement (AERA-Atari 098183d): common's text.o, whose text_plain draws
-   the list's and the card's text, where 2.7 had it modulo 256 (the
-   68030's caches; text.c's own notes: its loops' place moved Falcon-4:16's
-   text_plain 59 -> 72 ms). The shared code of 17 Nov 2026 moved it by 12,
-   and a row let go drew its card 8 ms slower on Falcon-4:16. Appended to
-   this file's last section the link keeps (only common's notify.o and
-   aboutline.o come between): change it with the code before text.o */
-__asm__(".section .text.answer_busy,\"ax\",@progbits\n\t.skip 244\n\t.previous");
