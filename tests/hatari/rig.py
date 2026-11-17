@@ -48,10 +48,12 @@ def natfeats(hd):
             continue
         t = open(inf, "rb").read()
         if b"\nNATFEATS=1" not in b"\n" + t:
-            # among the options, which come before the accounts
-            i = t.find(b"[OPTIONS]")
-            i = 0 if i < 0 else t.find(b"\n", i) + 1
-            open(inf, "wb").write(t[:i] + b"NATFEATS=1\r\n" + t[i:])
+            # first among the options, as EContact writes it again
+            # (abook.c store_save_settings): the same bytes, so a rig that
+            # sets the INF against what it was sees no change of its own
+            i = t.find(b"[OPTIONS]\r\n")
+            i = 0 if i < 0 else i + len(b"[OPTIONS]\r\n")
+            open(inf, "wb").write(t[:i] + b"; the emulator's console, for a test rig\r\nNATFEATS=1\r\n\r\n" + t[i:])
 
 
 def machine_arg(argv, i, default):

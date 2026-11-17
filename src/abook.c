@@ -341,6 +341,11 @@ void store_save_settings(void)
 		    "; 1 means on, 0 means off. Keys may be in any case.\r\n\r\n[OPTIONS]\r\n");
 #define S(key, name, text) kv(&b, text, key, opt.name);
 #define I(key, name, text) kn(&b, text, key, opt.name);
+	/* first: the accessory reads it from the start of the file at boot;
+	   NATFEATS=1 only where a test rig wrote it (the guidelines 6.5), as
+	   tests/hatari/rig.py writes it */
+	if (opt.natfeats)
+		add(&b, "; the emulator's console, for a test rig\r\nNATFEATS=1\r\n\r\n");
 	/* first: the accessory reads it from the start of the file at boot */
 	add(&b, "; EContact's folder, with its address books, keys and certificates;\r\n"
 		    "; ECONTACT.PRG writes where it was started from\r\nFOLDER=");
@@ -368,8 +373,6 @@ void store_save_settings(void)
 	I("DEFAULT_BOOK", default_book, "new contacts go into this address book (its ID below); -1: the first")
 	S("ME", me, "the UID of your own card (right-click a contact > Make This My Card)")
 	I("SIDEBAR", sidebar, "show the groups on the left")
-	if (opt.natfeats)	/* only a test rig's INF has it (the guidelines 6.5) */
-		add(&b, "; the emulator's console for a test rig (NatFeats)\r\nNATFEATS=1\r\n\r\n");
 	if (!sb_printf(&b, "; the window's place and size in pixels: left, top, width, height\r\nWINDOW=%d,%d,%d,%d\r\n\r\n",
 		       opt.win_x, opt.win_y, opt.win_w, opt.win_h))
 		save_ok = 0;
