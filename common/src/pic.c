@@ -23,6 +23,10 @@
  * streams); such a file is then PIC_UNSUPPORTED. Each is some 8 KB of a
  * program's resident size (png.c; nsgif's gif.c and lzw.c), which NVDI's
  * menus under four accessories on a 4 MB Falcon want (2 Nov 2026).
+ * PIC_NO_FAST_ROWS leaves out row_many's loops for a picture with no
+ * alpha (row_near, row_few: some 1.9 KB): the general loop gives the same
+ * pens, slower. For a program that always passes alpha, or whose memory
+ * counts more than that speed (EContact on a 1 MB ST, 19 Nov 2026).
  */
 #include <stdint.h>
 #include <stdlib.h>
@@ -3306,6 +3310,7 @@ static const short c5_of[32] = {
 #undef C5_
 };
 
+#ifndef PIC_NO_FAST_ROWS
 /* a pen not in near[] yet: found, kept (out of the loop below: the loop
    small enough for the 68030's cache) */
 static __attribute__((noinline)) int near_miss(PIC_PAL *pal, int r, int g, int b)
@@ -3408,6 +3413,7 @@ static __attribute__((noinline)) void NAME(PIC_DITHER *dt, const unsigned short 
 	? (few[FEW_KNOWN + ((cell) >> 2)] >> (((cell) & 3) << 1)) & 3 : few_miss(dt, cell, r, g, b))
 ROW_PENS(row_near, PEN_NEAR)
 ROW_PENS(row_few, PEN_FEW)
+#endif /* PIC_NO_FAST_ROWS */
 
 static void row_many(PIC_DITHER *dt, const unsigned short *px, const unsigned char *al, unsigned char *o)
 {
@@ -3437,6 +3443,7 @@ static void row_many(PIC_DITHER *dt, const unsigned short *px, const unsigned ch
 		}
 		return;
 	}
+#ifndef PIC_NO_FAST_ROWS
 	if (al == NULL && near != NULL) {
 		row_near(dt, px, o);
 		return;
@@ -3445,6 +3452,7 @@ static void row_many(PIC_DITHER *dt, const unsigned short *px, const unsigned ch
 		row_few(dt, px, o);
 		return;
 	}
+#endif
 	c = dt->cur + (x + 1) * 3;
 	d = dt->nxt + (x + 1) * 3;
 	for (n = w; n > 0; n--, s += dir, op += dir, c += step, d += step) {
