@@ -191,8 +191,10 @@ $(OBJDIR)/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 # common's pictures (pic.c): its palette and dither draw the photos (ui/draw.c;
 # Erez, 8 Nov 2026), no PNG or GIF decoder (the link keeps only what is called)
+# nor its rows for pictures without alpha (PIC_NO_FAST_ROWS, AERA-Atari 18edfb7): every row
+# EContact dithers has the ellipse as its alpha, and their 1.9 KB were a 1 MB ST's contacts
 $(OBJDIR)/pic.o: common/src/pic.c $(HDRS) | $(OBJDIR)
-	$(CC) $(CFLAGS) -DPIC_NO_PNG -DPIC_NO_GIF -Icommon/third_party/nsgif/include -c -o $@ $<
+	$(CC) $(CFLAGS) -DPIC_NO_PNG -DPIC_NO_GIF -DPIC_NO_FAST_ROWS -Icommon/third_party/nsgif/include -c -o $@ $<
 # ChaN's JPEG decoder for the photos: 68000 code, for speed. Its IDCT
 # overflows on a damaged photo's coefficients: -fwrapv (here and in every
 # host build) makes that the wrap the 68000 does anyway, not undefined
