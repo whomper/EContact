@@ -162,6 +162,10 @@ $(OBJDIR)/%.o: common/atari/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 $(OBJDIR)/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
+# common's dialog.c serves the Font dialog alone here: without the parts EContact
+# never calls (dlg_later's slices, the kept press, dlg_keys, dlg_badge: DLG_NO_LATER,
+# AERA-Atari 8f542df), 556 bytes a 1 MB ST's contacts need
+$(OBJDIR)/dialog.o: CFLAGS += -DDLG_NO_LATER
 # common's pictures (pic.c): its palette and dither draw the photos (ui/draw.c;
 # Erez, 8 Nov 2026), no PNG or GIF decoder (the link keeps only what is called)
 # nor its rows for pictures without alpha (PIC_NO_FAST_ROWS, AERA-Atari 18edfb7): every row
