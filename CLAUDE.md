@@ -5,6 +5,17 @@ look and behave as one family.
 
 ## Maintenance mode (Erez, 1 Nov 2026)
 
+**Lifted for three rows** (Erez, 19 Nov 2026, through the hub: "Work on 1, 2 and 3"); the mode comes back when they
+are met, each reported to the hub in one line:
+1. the speed rows over on the stock machines: the books read (215-220 ms against 100), and on the ST Clr/Home, the
+   list's arrow and Backspace;
+2. text through common's text_n/text_fx in place of text_plain and draw.c's own paths, where it is no slower
+   (section 8's text row);
+3. every redraw of 300 ms or less in one piece, longer ones in pieces of at most 100 ms.
+
+The 1 MB ST holds: quiet_start ST-1 on TOS 1.04 after every change, still 350 contacts with CONTACTS.TXT written.
+Releases as any other: the regression gate, the pairs against 2.9, the candidate to the hub for its family check.
+
 EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari, ATARI-APP-GUIDELINES.md, section 8). Until Erez ends it:
 - No new features and no speed rounds of its own.
 - **Every family rule holds for EContact as for the focus apps** (Erez, 17 Nov 2026: "all applications must adhere to
