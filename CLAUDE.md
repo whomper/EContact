@@ -5,16 +5,11 @@ look and behave as one family.
 
 ## Maintenance mode (Erez, 1 Nov 2026)
 
-**Lifted for three rows** (Erez, 19 Nov 2026, through the hub: "Work on 1, 2 and 3"); the mode comes back when they
-are met, each reported to the hub in one line:
-1. the speed rows over on the stock machines: the books read (215-220 ms against 100), and on the ST Clr/Home, the
-   list's arrow and Backspace;
-2. text through common's text_n/text_fx in place of text_plain and draw.c's own paths, where it is no slower
-   (section 8's text row);
-3. every redraw of 300 ms or less in one piece, longer ones in pieces of at most 100 ms.
-
-The 1 MB ST holds: quiet_start ST-1 on TOS 1.04 after every change, still 350 contacts with CONTACTS.TXT written.
-Releases as any other: the regression gate, the pairs against 2.9, the candidate to the hub for its family check.
+**Back since 2.11** (20 Nov 2026): the three rows Erez lifted it for on 19 Nov ("Work on 1, 2 and 3") are met,
+with his accepts of 20 Nov (AERA-Atari standards/PERF-REVISIT.md): the books read 100 ms on the ST and 95 on a stock
+Falcon; the ST's Clr/Home 60, arrow 90 and Backspace 65, and its "let go" 90 (2.10: 80), accepted; text through
+common's text_fx and text_n; the whole window drawn again after ^S or sizing in one piece, up to 390 ms on his Falcon
+(in bands it was 30 % slower), accepted.
 
 EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari, ATARI-APP-GUIDELINES.md, section 8). Until Erez ends it:
 - No new features and no speed rounds of its own.
@@ -306,11 +301,15 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (it reads Logbase), the VDI's pixels byte for byte; clip_on and
   clip_off set the clip through common's text_clip and text_noclip,
   which it reads, so ui/ never calls vs_clip itself. A name's right part
-  is drawn before its left, whose bold is ORed a pixel onto it. The
-  list's scroll stays the VDI's copy: common's scr_rows takes the CPU
-  only for a box 384 pixels wide or more on a 68000 (the list is 240 at
-  most), and by the CPU it made the arrow's line 215 ms on an ST against
-  145. On TOS's own screen the card's round picture (draw.c disc) has
+  is drawn before its left, whose bold is ORed a pixel onto it. In one
+  plane on a 68000 (scr_cpu_wins) the buffer's copies to the screen and
+  the list's moves are the CPU's whole bytes, a part byte by its mask
+  (win.c rows_cpu: the card's copy 40 -> 25 ms on ST:mono); elsewhere the
+  VDI's copy and common's scr_rows (the CPU only for a box 384 pixels
+  wide or more: by its masked groups the arrow's line was 215 ms on an
+  ST against 145). The stack is 32 KB (the Makefile's crt0.o: the
+  deepest measured 13.2 KB, Sync Contact Photos), not crt0's 48: 8 KB
+  more heap on a 1 MB ST. On TOS's own screen the card's round picture (draw.c disc) has
   its middle row filled by the VDI and the others by the CPU with the
   plane bits read back, its rows' half widths worked out once a size
   (the 68000's 32-bit routines were 55 of its 60 ms); in black and white
