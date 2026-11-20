@@ -328,14 +328,21 @@ static void memory_check(void)
 		      lost, lost == 1 ? "" : "s");
 }
 
-void after_change(void)
+/* what follows a change once the list is right: the window and the
+   status line */
+static void after_list(void)
 {
-	list_invalidate();
 	win_redraw(0);
 	if (data_ready)
 		updated_status();
 	if (!win_hold)		/* the window opening: after it is drawn (open_window) */
 		memory_check();
+}
+
+void after_change(void)
+{
+	list_invalidate();
+	after_list();
 }
 
 /* how many files a sync opened, in the log: TOS's internal pool is
@@ -1929,6 +1936,10 @@ static void open_window(void)
 static void window_ready(void)
 {
 	aes_profile_tag("open-select");
+	/* the list made again once, for the choice below (marked out of
+	   date after it, as it was, it was made a second time in the first
+	   band: 105 ms more of an 8 MHz ST's) */
+	list_invalidate();
 	/* the timed refresh counts from now: the 200 Hz timer counts from
 	   when the Atari was switched on, and the window may have been
 	   closed for hours (only "refresh when the window opens" refreshes
@@ -1943,7 +1954,7 @@ static void window_ready(void)
 			list_step(1);
 	}
 	aes_profile_tag("open-after");
-	after_change();
+	after_list();
 	win_hold = 0;
 	if (plain_untold || lost_untold || (!naccts && !welcomed) ||
 	    (data_ready && contacts_lost() > 0 && contacts_lost() != warned_lost))
@@ -1975,8 +1986,19 @@ static int nload_msgs, nload_keys;
 
 static void prg_load_slice(int (*more)(void))
 {
-	if (!prg_loading || books_load_run(more))
+	static int read_all;	/* the books read: the rest in a turn of its own */
+	if (!prg_loading)
 		return;
+	if (!read_all) {
+		if (books_load_run(more))
+			return;
+		/* (with the last slice it was a 150 ms stretch of an 8 MHz ST's;
+		   all at once, more 0, it goes on) */
+		read_all = 1;
+		if (more)
+			return;
+	}
+	read_all = 0;
 	prg_loading = 0;
 	busy(1);
 	loaded();
@@ -2235,6 +2257,7 @@ int main(void)
 	crash_offer("EContact", "next to ECONTACT.PRG");
 
 	static short tip_x = -1, tip_y = -1;	/* the pointer, from its last move */
+	static char about_made;		/* about_ready done */
 	while (!quit_now) {
 		short flags = MU_MESAG | MU_TIMER, which;
 		int pf_fg = (!is_acc || win_h > 0) && people_file_now();
@@ -2442,7 +2465,11 @@ int main(void)
 			settings_flush();
 		/* a search's matching, then a part of the window drawn later
 		   (the card, the list), some 30 ms a turn of its own */
-		if (which == MU_TIMER && win_h > 0 && list_search_pending() && turn_free()) {
+		if (which == MU_TIMER && !about_made && turn_free()) {
+			/* (a turn of its own: the About box's icon, once) */
+			about_made = 1;
+			about_ready();
+		} else if (which == MU_TIMER && win_h > 0 && list_search_pending() && turn_free()) {
 			aes_profile_tag("search");
 			later_at = pf_ms();
 			win_search_step(later_more);

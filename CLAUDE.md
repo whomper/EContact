@@ -325,13 +325,13 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   scr_xor where it is 1, scr_fill for pens 0 and 1 where scr_cpu_wins()
   (draw.c fill_pat, else its own vr_recfl), scr_rows for the list's
   scroll on the screen, pb_vdi, offdraw for the progress box's lines
-  (not a field typed in: 15 ms a key more on an ST); bold is draw.c's
-  smear and text_bold_strike (text_fx's source); DLG_CPU off (one build
+  (not a field typed in: 15 ms a key more on an ST); bold is common's
+  text_fx and text_bold_strike, the VDI's text text_n; DLG_CPU off (one build
   for ECONTACT.ACC and .PRG, and only the font dialog is dialog.c's).
   Bold with TX_WHITE (the ground under it is pen 0: the list's rows and
   headings, the card's name, flat dialogs) is drawn plain and ORed onto
-  itself a pixel to the right under TOS's own VDI (draw.c smear: what
-  its bold is, in the system font; a third of the time), the VDI's bold
+  itself a pixel to the right under TOS's own VDI (common's text_fx:
+  what its bold is, in the system font; a third of the time), the VDI's bold
   elsewhere (NVDI, EdDI, another font, inverse, a grey ground). The
   screen must stay the same: compare screenshots of the old and new
   builds on ST:mono, ST:med, Falcon:16 and EmuTOS. The

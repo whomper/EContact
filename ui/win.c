@@ -522,6 +522,89 @@ void win_buffer_fonts(void)
 
 /* each piece of the window in full shown: copied from the buffer, the
    list's bar drawn over it (AES objects: on the screen, 5.1) */
+/* columns x1..x2 of rows rows from s to d (images of the screen's
+   layout, np planes, sl and dl bytes on to the next row, negative going
+   up) by the CPU: on a 68000 drawing into TOS's screen (scr_cpu_wins),
+   one plane with the box on bytes, else on 16 pixels. A lone byte at
+   either side by itself, the rest by common's scr_copy_rows (an 8 MHz
+   ST's VDI copied the list and the card in 80 ms). 0, nothing done,
+   elsewhere */
+static void edge_bytes(unsigned char *d, long dl, const unsigned char *s, long sl, short rows, unsigned char m)
+{
+	for (; rows > 0; rows--, d += dl, s += sl)
+		*d ^= (*d ^ *s) & m;
+}
+
+static int rows_cpu(unsigned char *d, long dl, const unsigned char *s, long sl, short np, short x1, short x2,
+		    short rows)
+{
+	short g = np == 1 ? 7 : 15, n;
+	long off;
+	if (!d || !s || rows <= 0 || (x1 & g) || (np > 1 && ((x2 + 1) & g)) || x2 < x1 || !scr_cpu_wins())
+		return 0;
+	if (np == 1) {
+		off = x1 >> 3;
+		n = (short)((x2 + 1 - x1) >> 3);
+		if ((x2 + 1) & 7)	/* the last pixels part of a byte: by its mask */
+			edge_bytes(d + off + n, dl, s + off + n, sl, rows, (unsigned char)(0xFF00 >> ((x2 + 1) & 7)));
+	} else {
+		off = (long)(x1 >> 4) * 2 * np;
+		n = (short)(((x2 + 1 - x1) >> 4) * 2 * np);
+	}
+	if (n <= 0)
+		return 1;
+	d += off;
+	s += off;
+	if (off & 1) {		/* (the lines are even: every row's the same) */
+		edge_bytes(d, dl, s, sl, rows, 0xFF);
+		d++;
+		s++;
+		n--;
+	}
+	if (n & 1)
+		edge_bytes(d + n - 1, dl, s + n - 1, sl, rows, 0xFF);
+	scr_copy_rows(d, dl, s, sl, rows, (short)(n & ~1));
+	return 1;
+}
+
+/* the buffer's line, for rows_cpu (TOS's layout: not an EdDI bitmap) */
+static long obuf_line(void)
+{
+	return bm_h ? 0 : (long)obuf_mfdb.fd_wdwidth * 2 * planes;
+}
+
+/* p (vro_cpyfm's eight, the same columns) moved within the screen or
+   the buffer (buf), by the CPU where rows_cpu can, else the VDI's */
+static void move_rows(const short *p, int buf)
+{
+	long bpl;
+	short np = planes, w, h, rows = p[3] - p[1] + 1;
+	unsigned char *at = buf ? obuf : scr_at(&bpl, &np, &w, &h);
+	int up = p[5] <= p[1];
+	if (buf)
+		bpl = obuf_line();
+	if (bpl && at && (buf || (p[2] < w && p[3] < h && p[7] < h)) &&
+	    rows_cpu(at + (long)(up ? p[5] : p[7]) * bpl, up ? bpl : -bpl, at + (long)(up ? p[1] : p[3]) * bpl,
+		     up ? bpl : -bpl, np, p[0], p[2], rows))
+		return;
+	if (buf)
+		vro_cpyfm(vdi_h, 3, (short *)p, &obuf_mfdb, &obuf_mfdb);
+	else
+		scr_rows(vdi_h, p);
+}
+
+/* d copied from the buffer to the screen by the CPU, where rows_cpu can */
+static int put_cpu(const GRECT *d)
+{
+	long bpl, bl = obuf_line();
+	short np, w, h;
+	unsigned char *at = scr_at(&bpl, &np, &w, &h);
+	if (!at || !bl || np != planes || d->x + d->w > w || d->y + d->h > h)
+		return 0;
+	return rows_cpu(at + (long)d->y * bpl, bpl, (unsigned char *)obuf + (long)d->y * bl, bl, np, d->x,
+			d->x + d->w - 1, d->h);
+}
+
 static void copy_pieces(const GRECT *full)
 {
 	GRECT box;
@@ -539,7 +622,8 @@ static void copy_pieces(const GRECT *full)
 			/* NVDI clips raster copies too (TOS's VDI doesn't):
 			   the piece's own, not one left by a dialog */
 			clip_on(&d);
-			vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &scr);	/* S_ONLY */
+			if (!put_cpu(&d))
+				vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &scr);	/* S_ONLY */
 			list_bar_draw(&d);
 		}
 		wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
@@ -554,10 +638,44 @@ static int buffered(void)
 	return obuf && (bm_h || xbios_base(3) == xbios_base(2));
 }
 
-void win_redraw(GRECT *area)
+/* the card's slider set after its copy, in a turn of its own: the AES
+   draws the window's slider then (the copy and it were 105 ms of an
+   8 MHz ST's turn) */
+static int slider_due;
+static int slider_part(void);
+static short sl_size = -1, sl_pos = -1;	/* the window's slider as set */
+
+/* the card's slider: its size and place, 0 to 1000 */
+static void slider_want(short *size, short *pos)
 {
-	GRECT box, full;
-	int took;
+	short total, shown, top;
+	card_scroll_info(&total, &shown, &top);
+	if (total <= shown || shown <= 0) {
+		*size = 1000;
+		*pos = 0;
+	} else {
+		*size = (short)((long)shown * 1000 / total);
+		*pos = (short)((long)top * 1000 / (total - shown));
+	}
+	if (*size < 1)
+		*size = 1;
+}
+
+/* 1: the window's slider isn't where the card wants it */
+static int slider_moved(void)
+{
+	short size, pos;
+	slider_want(&size, &pos);
+	return size != sl_size || pos != sl_pos;
+}
+
+/* areas (one, or two: a list's old and new chosen rows) drawn: the
+   window's own cost once for both (each was some 35 ms of an 8 MHz
+   ST's: Clr/Home, a row pressed) */
+static void redraw_n(GRECT *area, int n)
+{
+	GRECT box, full[2];
+	int took, i, k = 0;
 	if (win_h <= 0 || win_hold)
 		return;
 	if (win_iconified) {
@@ -569,8 +687,12 @@ void win_redraw(GRECT *area)
 	   at the release: the guidelines 5.8, EHypView) */
 	took = press_update_begin();
 	graf_mouse(M_OFF, 0);
-	full = work;
-	if (area && !rect_and(&full, area)) {
+	for (i = 0; i < n; i++) {
+		full[k] = work;
+		if (!area || rect_and(&full[k], &area[i]))
+			k++;
+	}
+	if (!k) {
 		graf_mouse(M_ON, 0);
 		press_update_end(took);
 		return;
@@ -582,37 +704,61 @@ void win_redraw(GRECT *area)
 			vdi_h = bm_h;
 			draw_forget();
 			font_reselect();	/* the window's font, on the bitmap too */
-			draw_all(&full);
+			for (i = 0; i < k; i++)
+				draw_all(&full[i]);
 			vdi_h = keep;
 			draw_forget();
 		} else {
 			void *screen = xbios_base(3);
 			xbios_setscreen(obuf);
-			draw_all(&full);
+			for (i = 0; i < k; i++)
+				draw_all(&full[i]);
 			xbios_setscreen(screen);
 		}
-		if (later_on && full.x <= later.x && full.y <= later.y && full.x + full.w >= later.x + later.w &&
-		    full.y + full.h >= later.y + later.h) {
-			later_on = 0;	/* drawn now, all of it */
-			obuf_whole = later_whole;
+		for (i = 0; i < k; i++) {
+			GRECT *f = &full[i];
+			if (later_on && f->x <= later.x && f->y <= later.y && f->x + f->w >= later.x + later.w &&
+			    f->y + f->h >= later.y + later.h) {
+				later_on = 0;	/* drawn now, all of it */
+				obuf_whole = later_whole;
+			}
+			if (f->x == work.x && f->y == work.y && f->w == work.w && f->h == work.h)
+				obuf_whole = 1;
+			copy_pieces(f);
 		}
-		if (full.x == work.x && full.y == work.y && full.w == work.w && full.h == work.h)
-			obuf_whole = 1;
-		copy_pieces(&full);
 	} else {
 		wind_get(win_h, WF_FIRSTXYWH, &box.x, &box.y, &box.w, &box.h);
 		while (box.w && box.h) {
-			GRECT d = box;
-			if (rect_and(&d, &full)) {
-				draw_all(&d);
-				list_bar_draw(&d);
+			for (i = 0; i < k; i++) {
+				GRECT d = box;
+				if (rect_and(&d, &full[i])) {
+					draw_all(&d);
+					list_bar_draw(&d);
+				}
 			}
 			wind_get(win_h, WF_NEXTXYWH, &box.x, &box.y, &box.w, &box.h);
 		}
 	}
 	graf_mouse(M_ON, 0);
 	press_update_end(took);
-	win_slider();		/* the card's height is known once it is drawn */
+	/* the card's height is known once it is drawn: its slider set in a
+	   turn of its own (win_later_slice), as after a band, when it moved:
+	   the AES drawing it was 55 ms of an 8 MHz ST's, a key's row 105 */
+	if (slider_moved())
+		slider_due = 1;
+}
+
+void win_redraw(GRECT *area)
+{
+	redraw_n(area, 1);
+}
+
+void win_redraw2(GRECT *a, GRECT *b)
+{
+	GRECT two[2];
+	two[0] = *a;
+	two[1] = *b;
+	redraw_n(two, 2);
 }
 
 /* the window moved, its size the same: its picture moved in the buffer
@@ -792,14 +938,15 @@ void win_open_bands(void)
 	win_redraw_bands();
 }
 
-/* the card's slider set after its copy, in a turn of its own: the AES
-   draws the window's slider then (the copy and it were 105 ms of an
-   8 MHz ST's turn) */
-static int slider_due;
+
+/* the list's bar after a scroll, in a turn of its own (win_bars_later) */
+static GRECT bars_due;
+static int status_due;		/* a search's status line, set in the next turn */
+static int bars_on;
 
 int win_later_pending(void)
 {
-	return later_on || slider_due;
+	return later_on || slider_due || bars_on || status_due;
 }
 
 /* the whole window drawn a pane at a time (the accessory's opening, the
@@ -823,7 +970,8 @@ static void blit(const GRECT *d)
 	pxy[2] = pxy[6] = d->x + d->w - 1;
 	pxy[3] = pxy[7] = d->y + d->h - 1;
 	clip_on((GRECT *)d);
-	vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &scr);	/* S_ONLY */
+	if (!put_cpu(d))
+		vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &scr);	/* S_ONLY */
 }
 
 static void copy_band(const GRECT *b)
@@ -862,9 +1010,18 @@ static void copy_band(const GRECT *b)
 void win_later_slice(int (*more)(void))
 {
 	short band = 2 * ch;
+	if (bars_on) {
+		bars_on = 0;
+		win_bars(&bars_due);
+		return;
+	}
+	if (status_due) {
+		status_due = 0;
+		status_updated();
+		return;
+	}
 	if (slider_due && !later_on) {
-		slider_due = 0;
-		win_slider();
+		slider_due = slider_part();	/* (the other in the next turn) */
 		return;
 	}
 	if (!later_on)
@@ -882,7 +1039,12 @@ void win_later_slice(int (*more)(void))
 			obuf_whole = later_whole;
 			list_bar_area(&bar);
 			win_bars(&bar);
-			win_slider();
+			/* the window's slider in a turn of its own: with the bar
+			   it was 115 ms of an 8 MHz ST's */
+			if (more)
+				slider_due = 1;
+			else
+				win_slider();
 			return;
 		}
 		wind_update(BEG_UPDATE);
@@ -909,9 +1071,11 @@ void win_later_slice(int (*more)(void))
 			   8 MHz ST's for the window, in one piece 1.27 s); one
 			   line in a new pane */
 			t = pf_ms() - t;
-			if (t <= 60 && later_bh < 8 * ch)
+			/* (doubled after 60 ms, a band and its copy reached 100 ms
+			   of an 8 MHz ST's: the guidelines' 100 for a slice) */
+			if (t <= 35 && later_bh < 8 * ch)
 				later_bh *= 2;
-			else if (t > 120 && later_bh > ch)
+			else if (t > 80 && later_bh > ch)
 				later_bh /= 2;
 			if (later_y >= p->y + p->h && ++part_i < nparts) {
 				later_y = part[part_i].y;
@@ -949,8 +1113,15 @@ void win_later_slice(int (*more)(void))
 		unsigned long t0 = tos_ms();
 		char m[48];
 #endif
+		GRECT bar;
 		later_on = 0;
-		copy_pieces(&later);
+		/* all but the list's bar, which keeps what it showed: the
+		   AES draws it in the next turn (the copy and it were 65 ms of
+		   an 8 MHz ST's, a search's letter) */
+		copy_band(&later);
+		list_bar_area(&bar);
+		if (bar.w && rect_and(&bar, &later))
+			win_bars_later(&bar);
 		obuf_whole = later_whole;
 #ifdef AES_PROFILE
 		snprintf(m, sizeof(m), "LATERCOPY %lu ms\n", tos_ms() - t0);
@@ -973,29 +1144,31 @@ void win_later_finish(void)
 		win_later_slice(0);
 }
 
-static short sl_size = -1, sl_pos = -1;	/* the window's slider as set */
+/* one of the window's slider's two settings, the size first: 1 the
+   other is still to set. Each is the AES drawing the slider, some 55 ms
+   of an 8 MHz ST's: the two were 115 in one turn (quiet_start) */
+static int slider_part(void)
+{
+	short size, pos;
+	if (win_h <= 0 || win_iconified)
+		return 0;
+	slider_want(&size, &pos);
+	if (size != sl_size) {
+		wind_set(win_h, WF_VSLSIZE, size, 0, 0, 0);
+		sl_size = size;
+		return pos != sl_pos;
+	}
+	if (pos != sl_pos) {
+		wind_set(win_h, WF_VSLIDE, pos, 0, 0, 0);
+		sl_pos = pos;
+	}
+	return 0;
+}
 
 void win_slider(void)
 {
-	short total, shown, top, size, pos;
-	if (win_h <= 0 || win_iconified)
-		return;
-	card_scroll_info(&total, &shown, &top);
-	if (total <= shown || shown <= 0) {
-		size = 1000;
-		pos = 0;
-	} else {
-		size = (short)((long)shown * 1000 / total);
-		pos = (short)((long)top * 1000 / (total - shown));
-	}
-	if (size < 1)
-		size = 1;
-	if (size != sl_size)
-		wind_set(win_h, WF_VSLSIZE, size, 0, 0, 0);
-	if (pos != sl_pos)
-		wind_set(win_h, WF_VSLIDE, pos, 0, 0, 0);
-	sl_size = size;
-	sl_pos = pos;
+	while (slider_part())
+		;
 }
 
 /* the content of a moves up by dy pixels, down when dy < 0: copied on
@@ -1043,11 +1216,11 @@ void win_scroll(const GRECT *a, short dy)
 			   while it was made (ECal and EHypView in 256 colours under
 			   NVDI, Erez's video, 13 Nov 2026) */
 			clip_on((GRECT *)a);
-			vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &obuf_mfdb);	/* the buffer as the screen */
+			move_rows(pxy, 1);	/* the buffer as the screen */
 			clip_off();
 			draw_off(&strip);
 			clip_on((GRECT *)a);	/* NVDI clips raster copies */
-			scr_rows(vdi_h, pxy);
+			move_rows(pxy, 0);
 			clip_off();
 			copy_pieces(&strip);
 			graf_mouse(M_ON, 0);
@@ -1060,14 +1233,36 @@ void win_scroll(const GRECT *a, short dy)
 		   more on a 68000 (the list is 240 at most: by the CPU its 192
 		   made the arrow's line 215 ms on an ST against 145), else the
 		   VDI's copy as before */
-		scr_rows(vdi_h, pxy);
+		move_rows(pxy, 0);
 		if (obuf_whole)
-			vro_cpyfm(vdi_h, 3, pxy, &obuf_mfdb, &obuf_mfdb);	/* the buffer as the screen */
+			move_rows(pxy, 1);	/* the buffer as the screen */
 		clip_off();
 		graf_mouse(M_ON, 0);
 	}
 	wind_update(END_UPDATE);
 	win_redraw(&strip);
+}
+
+/* a of the list's bar drawn in the next turn, not after the rows that
+   moved (the rows and the bar were 125 ms of an 8 MHz ST's for a click
+   on the arrow); a second scroll before then (a held arrow, a loop that
+   takes no event) draws what is due at once, so the slider keeps up */
+void win_bars_later(const GRECT *a)
+{
+	if (bars_on) {
+		GRECT u = bars_due;
+		short x1 = u.x + u.w > a->x + a->w ? u.x + u.w : a->x + a->w;
+		short y1 = u.y + u.h > a->y + a->h ? u.y + u.h : a->y + a->h;
+		u.x = u.x < a->x ? u.x : a->x;
+		u.y = u.y < a->y ? u.y : a->y;
+		u.w = x1 - u.x;
+		u.h = y1 - u.y;
+		bars_on = 0;
+		win_bars(&u);
+		return;
+	}
+	bars_due = *a;
+	bars_on = 1;
 }
 
 void win_bars(const GRECT *a)
@@ -1144,7 +1339,13 @@ void win_open(void)
 			w = desk_x + desk_w - sx;
 		x = sx;
 	}
-	sl_size = sl_pos = -1;		/* a new window's slider */
+	/* a new window's slider at full size, set before it opens, when the
+	   AES draws nothing: a card that fits needs no setting after its
+	   first drawing (each was 55 ms of an 8 MHz ST's) */
+	wind_set(win_h, WF_VSLSIZE, 1000, 0, 0, 0);
+	wind_set(win_h, WF_VSLIDE, 0, 0, 0, 0);
+	sl_size = 1000;
+	sl_pos = 0;
 	wind_open(win_h, x, y, w, h);
 	if (is_acc)		/* the desktop drops files on it (VA_DRAGACCWIND) */
 		av_window(win_h, 1);
@@ -1381,7 +1582,7 @@ static short search_was_book;
 static void search_done(void)
 {
 	list_fix_selection();
-	status_updated();		/* "2 of 21 contacts" */
+	status_due = 1;			/* "2 of 21 contacts": the AES draws it */
 	win_redraw_later(&r_list);
 	if (strcmp(search_was, sel_uid) || search_was_book != sel_book)
 		win_redraw_later(&r_card);

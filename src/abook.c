@@ -568,6 +568,20 @@ static int people_add(CONTACT *c)
 	return 1;
 }
 
+/* room for n more at once, before a book's cards are read (its records
+   counted): the array as big as they are, not doubled to 512 for 350 (a
+   1 MB ST's heap, quiet_start) */
+static void people_room(int n)
+{
+	if (npeople + n > maxpeople) {
+		CONTACT **p = realloc(people, (npeople + n) * sizeof(CONTACT *));
+		if (p) {
+			people = p;
+			maxpeople = npeople + n;
+		}
+	}
+}
+
 /* the contacts that came from book bi (and resource r, or all: -1) go */
 static void people_drop(int bi, int r)
 {
@@ -1606,10 +1620,12 @@ static void ld_trim(void)
 static void ld_after_records(void)
 {
 	BOOK *b = &books[ld.bi];
-	if (b->ver != CACHE_VER && !parse_old)
+	if (b->ver != CACHE_VER && !parse_old) {
 		ld_to(LB_END);		/* the old kind is only listed: read after it is written anew */
-	else
+	} else {
+		people_room(b->nres);
 		ld_to(ld.kind ? LB_IDX : LB_PARSE);
+	}
 }
 
 /* the cards as they were parsed before, where their text is the same:

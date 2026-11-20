@@ -40,6 +40,11 @@ static GRECT clip_card;		/* the part of the card being drawn */
 /* the photo got, its pens made a slice a turn (draw.c photo_dither: an
    8 MHz ST took 390 ms for one in ST high), the initials shown till then */
 static int cur_ready, shown_quick;
+/* a photo got: its pens (0), its own picture (1, draw.c photo_image_step),
+   then drawn (2), each going on in the same turn only while it has time
+   (the DSP's dither and the first drawing were one 235 ms stretch of a
+   stock Falcon's) */
+static int cur_stage;
 static unsigned long shown_t0, shown_tl, dz_at;
 
 static int same(const CONTACT *c, const char *uid, short book, unsigned long key)
@@ -92,8 +97,20 @@ static void photo_slice(void)
 		return;
 	}
 	dz_at = pf_ms();
-	if (!photo_dither(cur.px, cur_serial, (r_avatar.w - 1) / 2, (r_avatar.h - 1) / 2, dz_more))
-		return;
+	if (cur_stage == 0) {
+		if (!photo_dither(cur.px, cur_serial, (r_avatar.w - 1) / 2, (r_avatar.h - 1) / 2, dz_more))
+			return;
+		cur_stage = 1;
+		if (!dz_more())
+			return;
+	}
+	if (cur_stage == 1) {
+		if (!photo_image_step(dz_more))
+			return;
+		cur_stage = 2;
+		if (!dz_more())
+			return;
+	}
 	cur_ready = 1;
 	win_redraw(&r_avatar);
 	if (!shown_quick) {
@@ -198,6 +215,7 @@ void card_photo_tick(void)
 		cur_book = tried_book;
 		cur_key = tried_key;
 		cur_ready = 0;		/* its pens in the next turns (photo_slice) */
+		cur_stage = 0;
 		shown_t0 = t0;
 		shown_tl = tl;
 		shown_quick = quick;

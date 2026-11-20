@@ -66,6 +66,7 @@ void disc(short cx, short cy, short rx, short ry, short color);	/* a filled elli
    changes when the picture does (the dithering is kept until then) */
 void draw_photo(const unsigned short *px, int serial, short cx, short cy, short rx, short ry, const GRECT *clip);
 int photo_dither(const unsigned short *px, int serial, short rx, short ry, int (*more)(void));
+int photo_image_step(int (*more)(void));	/* the photo's own picture, a few pens a turn: 1 ready */
 
 #define NCOLORS 12	/* red orange yellow green blue purple brown grey pink teal navy dark green */
 typedef struct {
@@ -101,6 +102,7 @@ extern GRECT work;		/* its work area */
 void win_open(void);
 void win_close(void);
 void win_redraw(GRECT *area);	/* NULL: everything */
+void win_redraw2(GRECT *a, GRECT *b);	/* both, the window's cost once */
 void win_redraw_later(const GRECT *area);	/* in bands from the event loop, copied when all drawn */
 void win_redraw_bands(void);			/* all of it, a line a band, each copied when drawn */
 void win_open_bands(void);			/* the accessory's window as it opens: the same */
@@ -116,6 +118,7 @@ const char *win_drawing(void);	/* how the window is drawn, for the log */
 void win_scroll(const GRECT *a, short dy);	/* a's content up by dy pixels */
 /* the panes' bars drawn again where a is, on the screen (5.1) */
 void win_bars(const GRECT *a);
+void win_bars_later(const GRECT *a);	/* the same, in the next turn (a scroll's) */
 /* the window's slider set from the card (5.1) */
 void win_slider(void);
 void draw_forget(void);		/* the VDI attributes set again at the next use */
@@ -262,6 +265,7 @@ int  dlg_account(int a);		/* 1 changed, -1 deleted */
 void dlg_settings(void);
 void dlg_connection(void);
 void dlg_about(void);
+void about_ready(void);	/* the About box's icon made ahead, while idle */
 void dlg_keys_box(void);
 void win_find(void);			/* ^F: a new search */
 void font_apply(void);

@@ -39,6 +39,15 @@ void dlg_about(void)
 	about_show(&a);
 }
 
+/* the 256-colour icon's pens found ahead, from the first timer event after
+   the start (common's about_prepare): the box's first opening then only
+   draws */
+void about_ready(void)
+{
+	static const ABOUT a = { 0, 0, 0, { 0, 0, 0 }, { 0, 0, 0 }, 0, 0, 0, icon256_px, icon256_rgb };
+	about_prepare(&a);
+}
+
 /* The iconified window: the icon, and how many contacts there are under
    it when there is room (common/ui/iconify.c) */
 void icon_window(GRECT *area)

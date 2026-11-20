@@ -221,7 +221,7 @@ static int scan(JDC *j, COMP **sc, int ns, int al)
 				if (!block(j, c, mx, my, al))
 					return 0;
 				n++;
-				if (jdc_poll && !(n & 7) && !jdc_poll())
+				if (jdc_poll && !(n & 1) && !jdc_poll())
 					return 0;
 			}
 		return 1;
@@ -239,7 +239,7 @@ static int scan(JDC *j, COMP **sc, int ns, int al)
 							return 0;
 			}
 			n++;
-			if (jdc_poll && !(n & 7) && !jdc_poll())
+			if (jdc_poll && !(n & 1) && !jdc_poll())
 				return 0;
 		}
 	return 1;

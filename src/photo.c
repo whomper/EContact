@@ -150,6 +150,7 @@ int photo_ref(char *raw, long len, PHOTOREF *ref)
 {
 	char *p = raw, *end = raw + len, *line = 0, *colon, *vend, params[300];
 	int v21 = 0;
+	unsigned short nl = 0;	/* line ends passed, for decode_poll */
 	memset(ref, 0, sizeof(*ref));
 	/* the line: PHOTO or group.PHOTO at the start of a line */
 	while (p < end) {
@@ -174,6 +175,9 @@ int photo_ref(char *raw, long len, PHOTOREF *ref)
 	for (vend = line; vend < end; vend++) {
 		if (*vend != '\n')
 			continue;
+		if (!(++nl & 31))
+			decode_poll();	/* (every 32 lines: here and in the unfolding, a photo's
+					   40 KB of letters were 205 ms of an 8 MHz ST's in one piece) */
 		if (vend + 1 < end && (vend[1] == ' ' || vend[1] == '\t'))
 			continue;
 		if (v21 && vend + 1 < end && vend[1] != '\r' && vend[1] != '\n') {
@@ -194,10 +198,14 @@ int photo_ref(char *raw, long len, PHOTOREF *ref)
 		while (r < vend) {
 			if (r[0] == '\r' && r + 2 < end && r[1] == '\n' && (r[2] == ' ' || r[2] == '\t')) {
 				r += 3;
+				if (!(++nl & 31))
+					decode_poll();
 				continue;
 			}
 			if (r[0] == '\n' && r + 1 < end && (r[1] == ' ' || r[1] == '\t')) {
 				r += 2;
+				if (!(++nl & 31))
+					decode_poll();
 				continue;
 			}
 			*w++ = *r++;
@@ -333,15 +341,17 @@ typedef struct {
    the progress box looks at Cancel as it goes (conn_tick, every 50 ms),
    or Esc is looked for five times a second (pf_idle, the busy bee), and
    a stop (conn_stop) ends the decode. 0: stop */
+static unsigned long poll_last;
+
 static int decode_poll(void)
 {
-	static unsigned long last;
+	unsigned long last = poll_last;
 	if (conn_tick) {
 		conn_tick();
 	} else if (pf_idle) {
 		unsigned long now = pf_ms();
 		if (now - last >= 80) {	/* (200 made 200 ms stretches; 50 made none shorter, 0.4 s more) */
-			last = now;
+			poll_last = now;
 			pf_idle();
 		}
 	}
@@ -370,7 +380,7 @@ static int out_fn(JDEC *jd, void *bitmap, JRECT *r)
 	DEC *d = jd->device;
 	const unsigned char *px = bitmap;
 	long x, y, w = r->right - r->left + 1;
-	if (++d->polls >= 8) {
+	if (++d->polls >= 2) {	/* (8: an ST's stretches to 145 ms between looks) */
 		d->polls = 0;
 		if (!decode_poll())
 			return 0;	/* stopped: JDR_INTR */
@@ -744,8 +754,15 @@ static int load_px(const PHDR *h, PHOTOIMG *out)
 	int i;
 	if (!h->px)
 		return 0;
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	/* big-endian, as the cache keeps them: the bytes as they are (the loop
+	   was some 15 ms of an 8 MHz ST's, in the turn that reads the photo) */
+	(void)i;
+	memcpy(out->px, pxb, sizeof(out->px));
+#else
 	for (i = 0; i < PHOTO_N * PHOTO_N; i++)
 		out->px[i] = (unsigned short)((pxb[2 * i] << 8) | pxb[2 * i + 1]);
+#endif
 	return 1;
 }
 
@@ -1025,8 +1042,15 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 		unsigned long t = pf_ms();
 		if (photo_decode_jpeg(ref.data, ref.len, &ref, out)) {
 			took.dec = pf_ms() - t;
+			/* a look for keys before the picture is written and after
+			   (the writing and what followed were a 215 ms stretch of an
+			   8 MHz ST's) */
+			poll_last = 0;
+			decode_poll();
 			write_cache(c, 0, 0, 0, out);
 			took.keep = pf_ms() - t - took.dec;
+			poll_last = 0;
+			decode_poll();
 #ifdef AES_PROFILE
 			{
 				char m[80];

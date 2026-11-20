@@ -47,6 +47,7 @@ static void chosen_clear(void);
    Speed). Anything else that makes the list again forgets it */
 static char narrow_from[64];
 static int narrow_ok;
+static int fix_sel;		/* a search the rebuild makes whole (a pick's as its window opens): the choice fixed then, as the job's end does */
 
 void list_invalidate(void)
 {
@@ -98,31 +99,6 @@ static int wanted(const CONTACT *c)
 	return contact_matches(c, search_text);
 }
 
-static char heading_of(const CONTACT *c)
-{
-	unsigned char k = (unsigned char)c->sortkey[0];
-	if (k >= 'A' && k <= 'Z')
-		return (char)k;
-	if (k >= 0xC2 && k <= 0xDC)
-		return (char)k;		/* a Hebrew letter: its own heading */
-	return '#';
-}
-
-static void add_row(short contact, char letter)
-{
-	if (nrows >= maxrows) {
-		int max = maxrows ? maxrows * 2 : 128;
-		LROW *n = realloc(rows, max * sizeof(LROW));
-		if (!n)
-			return;
-		rows = n;
-		maxrows = max;
-	}
-	rows[nrows].contact = contact;
-	rows[nrows].letter = letter;
-	nrows++;
-}
-
 /* more typed after the text the list was made for, nothing else changed
    since (list_invalidate): what matches now is among those it found. Not
    after digits: a phone number's match leaves its dashes out */
@@ -146,12 +122,37 @@ static void make_rows(void)
 	nrows = 0;
 	str_copy(narrow_from, search_text, sizeof(narrow_from));
 	narrow_ok = 1;
-	for (i = 0; i < nlisted; i++) {
-		char h = heading_of(listed[i]);
-		if (h != last && !search_text[0])
-			add_row(-1, h);
-		last = h;
-		add_row((short)i, 0);
+	if (nlisted + 56 > maxrows) {
+		/* room for them all and their headings ('#', A to Z, the 27
+		   Hebrew letters), then filled here, not a call a row: 621
+		   rows by a call each for the heading and the row took an 8 MHz
+		   ST 45 ms */
+		LROW *n = realloc(rows, (nlisted + 56) * sizeof(LROW));
+		if (n) {
+			rows = n;
+			maxrows = nlisted + 56;
+		}
+	}
+	{
+		/* (as many as there is room for, if realloc failed) */
+		LROW *r = rows, *end = rows + maxrows;
+		int head = !search_text[0];
+		for (i = 0; i < nlisted && r < end; i++, r++) {
+			if (head) {
+				unsigned char k = (unsigned char)listed[i]->sortkey[0];
+				char h = (k >= 'A' && k <= 'Z') || (k >= 0xC2 && k <= 0xDC) ? (char)k : '#';
+				if (h != last) {
+					r->contact = -1;
+					r->letter = h;
+					last = h;
+					if (++r == end)
+						break;
+				}
+			}
+			r->contact = (short)i;
+			r->letter = 0;
+		}
+		nrows = (int)(r - rows);
 	}
 	if (top > nrows - 1)
 		top = nrows > 0 ? nrows - 1 : 0;
@@ -175,6 +176,8 @@ static void rebuild(void)
 	int i, k;
 	nrows = 0;
 	rh = ch + 2;
+	if (sj_on)
+		fix_sel = 1;	/* (the job's end, below: the chosen one fixed) */
 	search_cancel();	/* made whole now */
 	/* the program reading its books (main.c, in slices): nothing listed
 	   until they are all read and sorted, then made again */
@@ -196,11 +199,23 @@ static void rebuild(void)
 		nlisted = 0;
 		if (!listed)
 			return;
-		for (i = 0; i < npeople; i++)
-			if (wanted(people[i]))
-				listed[nlisted++] = people[i];
+		if (src_kind == SRC_ALL && !search_text[0]) {
+			/* everyone, nothing typed: the groups' cards left out, no
+			   call a contact (wanted() for 621 took an 8 MHz ST 60 ms) */
+			for (i = 0; i < npeople; i++)
+				if (!people[i]->group)
+					listed[nlisted++] = people[i];
+		} else {
+			for (i = 0; i < npeople; i++)
+				if (wanted(people[i]))
+					listed[nlisted++] = people[i];
+		}
 	}
 	make_rows();
+	if (fix_sel) {
+		fix_sel = 0;
+		list_fix_selection();
+	}
 }
 
 static void ensure(void)
@@ -215,7 +230,10 @@ void list_search_changed(void)
 {
 	search_cancel();
 	if (dirty || !listed || books_loading()) {
+		/* made whole when next drawn, the chosen one then fixed as the
+		   job's end does */
 		dirty = 1;
+		fix_sel = 1;
 		return;
 	}
 	resolve_source();
@@ -257,6 +275,11 @@ int list_search_step(int (*more)(void))
 		sj_i++;
 	}
 	if (sj_i < sj_of)
+		return 0;
+	/* the rows made in a turn of their own, not after a slice's
+	   matching (the two and the status were 85 ms of an 8 MHz ST's:
+	   speed.py's Backspace) */
+	if (k && more)
 		return 0;
 	chosen_clear();
 	free(listed);
@@ -434,7 +457,7 @@ static int list_scroll_to(int t)
 	a.y -= 3;
 	a.h += 6;
 	rect_and(&a, &pb.r);
-	win_bars(&a);
+	win_bars_later(&a);
 	return 1;
 }
 
@@ -858,10 +881,13 @@ void select_contact(CONTACT *c)
 				a.h = (short)(y2 - a.y);
 				old_shows = 0;
 			}
-			win_redraw(&a);
-		}
-		if (old_shows)
+			if (old_shows)
+				win_redraw2(&a, &o);
+			else
+				win_redraw(&a);
+		} else if (old_shows) {
 			win_redraw(&o);
+		}
 	}
 	win_redraw_later(&r_card);	/* a band a turn: keys meanwhile (a held Down) */
 }

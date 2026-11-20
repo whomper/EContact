@@ -460,7 +460,7 @@ static void runs_at(short x, short y, const char *s, short n)
 		while (j < n && is_heb((unsigned char)s[j]) == heb && j - i < 120)
 			j++;
 		if (!heb) {
-			v_gtext_n(vdi_h, x + i * cw, y, s + i, j - i);
+			text_n(vdi_h, x + i * cw, y, s + i, j - i);
 		} else if (heb_mode == HM_UNICODE) {
 			unsigned short w[120];
 			short k;
@@ -538,60 +538,11 @@ void text_color(short color)
 	next_text_color = color;
 }
 
-/* TOS's own VDI draws bold slowly (an ST in ST high: 24 ms for 18 letters,
-   2.9 for them plain on a byte): there, on a white ground, the text is
-   drawn plain and then ORed onto itself a pixel to the right, which is
-   what its bold is (the same pixels in ST high, ST medium and a Falcon's
-   16 colours: speed.py's bench, 26 Oct 2026). Not under NVDI or an EdDI
-   driver (fast already, and drawing in a bitmap of its own) nor in
-   another font than the system one, whose thickening may differ. */
-static int smear_ok(void)
-{
-	static int ok = -1;
-	if (ok < 0)
-		ok = !get_cookie(0x4E564449L) && !get_cookie(0x45644449L);	/* NVDI, EdDI */
-	return ok && font_is_system();
-}
-
-/* the cell x, y (n letters) ORed a pixel to the right; the VDI's raster
-   copy doesn't clip: by hand, to the clip and the screen */
-static void smear(short x, short y, short n)
-{
-	GRECT d;
-	MFDB scr;
-	short pxy[8];
-	d.x = x + 1;
-	d.y = y;
-	d.w = n * cw;
-	d.h = ch;
-	if (clip_now.w && !rect_and(&d, &clip_now))
-		return;
-	{
-		GRECT s;
-		s.x = 0;
-		s.y = 0;
-		s.w = scr_w;
-		s.h = scr_h;
-		if (!rect_and(&d, &s) || d.x < 1)
-			return;
-	}
-	memset(&scr, 0, sizeof(scr));
-	pxy[0] = d.x - 1;
-	pxy[1] = d.y;
-	pxy[2] = d.x + d.w - 2;
-	pxy[3] = d.y + d.h - 1;
-	pxy[4] = d.x;
-	pxy[5] = d.y;
-	pxy[6] = d.x + d.w - 1;
-	pxy[7] = d.y + d.h - 1;
-	vro_cpyfm(vdi_h, 7, pxy, &scr, &scr);	/* S_OR_D */
-}
-
 void text_at(short x, short y, const char *s, long n, short cols, short flags)
 {
 	char vis[BIDI_MAX];
 	const char *out = s;
-	short i, color = next_text_color, effects;
+	short color = next_text_color, effects;
 	next_text_color = 1;
 	if (cols <= 0 || n <= 0)
 		return;
@@ -644,19 +595,20 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 		return;
 	}
 	set_wrmode(2);
-	/* (not when the clip cuts the text's start: the column left of the
-	   clip would be ORed in as it is, not as the letter makes it) */
+	/* TOS's own VDI draws bold slowly (an ST in ST high: 24 ms for 18
+	   letters, 2.9 for them plain on a byte): on a white ground, where
+	   our MD_TRANS is its MD_REPLACE, plain and then common's text_fx,
+	   which ORs it onto itself a pixel to the right, what TOS's bold is
+	   (the guidelines' Speed: text). Not when the clip cuts the text's
+	   start: the column left of the clip would be ORed in as it is */
 	if (effects == 1 && (flags & TX_WHITE) && !(flags & TX_INVERSE) && (!clip_now.w || clip_now.x <= x) &&
-	    smear_ok()) {
+	    text_fx_fast(1, 1)) {
 		set_text(color, 0);
 		if (color == 1 && text_plain_state() >= 0)
 			text_plain(vdi_h, x, y, out, n);
 		else
-			for (i = 0; i < n; i += 120) {
-				short k = n - i > 120 ? 120 : (short)(n - i);
-				v_gtext_n(vdi_h, x + i * cw, y, out + i, k);
-			}
-		smear(x, y, (short)n);
+			text_n(vdi_h, x, y, out, n);
+		text_fx(vdi_h, x, y, out, n, 1, color);
 		return;
 	}
 	/* plain black on a white ground (pen 0, where MD_REPLACE and our
@@ -676,14 +628,11 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 	   wider than the cells (the guidelines, Speed: text; EHypView, 27 Oct
 	   2026) */
 	set_text((flags & TX_INVERSE) ? 0 : color, effects & ~1);
-	for (i = 0; i < n; i += 120) {
-		short k = n - i > 120 ? 120 : (short)(n - i);
-		v_gtext_n(vdi_h, x + i * cw, y, out + i, k);
-		if (effects & 1) {
-			text_bold_strike(vdi_h, x + i * cw, y, out + i, k);
-			c_wr = 1;	/* it leaves MD_REPLACE */
-			set_wrmode(2);
-		}
+	text_n(vdi_h, x, y, out, n);
+	if (effects & 1) {
+		text_bold_strike(vdi_h, x, y, out, n);
+		c_wr = 1;	/* it leaves MD_REPLACE */
+		set_wrmode(2);
 	}
 }
 
@@ -962,13 +911,14 @@ static void photo_palette(void)
 
 /* one pen's pixels of rows y0 to y1 (bits, wpl words a row) copied to
    the screen, transparent, where the photo shows (vis) */
+static MFDB screen_mfdb;	/* fd_addr 0: the screen */
+
 static void ph_copy(unsigned short *bits, short wpl, const GRECT *vis, short cx, short cy, short rx,
-                    short ry, short y0, short y1, short pen)
+                    short ry, short y0, short y1, short pen, MFDB *dst)
 {
 	short pxy[8], colors[2];
-	MFDB src, dst;
+	MFDB src;
 	memset(&src, 0, sizeof(src));
-	memset(&dst, 0, sizeof(dst));
 	src.fd_addr = bits;
 	src.fd_w = wpl * 16;
 	src.fd_h = y1 - y0;
@@ -984,7 +934,7 @@ static void ph_copy(unsigned short *bits, short wpl, const GRECT *vis, short cx,
 	pxy[7] = cy - ry + y1 - 1;
 	colors[0] = pen;
 	colors[1] = 0;
-	vrt_cpyfm(vdi_h, 2, pxy, &src, &dst, colors);	/* transparent */
+	vrt_cpyfm(vdi_h, 2, pxy, &src, dst, colors);	/* transparent */
 }
 
 /* The photo's pens, dithered: kept for the picture, size and palette
@@ -1187,9 +1137,117 @@ int photo_dither(const unsigned short *px, int serial, short rx, short ry, int (
 	return dither(px, serial, rx, ry, more);
 }
 
+/* pen k's pixels in rows y0..y1 as one plane's bits: any there */
+static int pen_bits(unsigned short *bits, short k, short y0, short y1, short W, short wpl)
+{
+	short y, x, any = 0;
+	memset(bits, 0, (size_t)wpl * 2 * (y1 - y0));
+	for (y = y0; y < y1; y++) {
+		const unsigned char *in = pens + (long)y * W;
+		unsigned short *o = bits + (long)(y - y0) * wpl, m = 0x8000;
+		for (x = 0; x < W; x++) {
+			if (in[x] == k) {
+				*o |= m;
+				any = 1;
+			}
+			m >>= 1;
+			if (!m) {
+				m = 0x8000;
+				o++;
+			}
+		}
+	}
+	return any;
+}
+
+/* With 1, 2 or 4 planes the pens are drawn once into a picture of the
+   photo's own, in the screen's format, a few pens a turn
+   (photo_image_step); a drawing is then one copy of it. Drawn on the
+   screen a pen at a time, a 65 by 65 photo was 15 transparent copies,
+   130 ms of a stock Falcon's in 16 colours, and an ST's pixel loop 70.
+   Outside the ellipse it is pen 0, the card's ground under it as
+   before. Only where malloc gives ST RAM, which the blitter reaches
+   (else as before) */
+static unsigned short *pimg;
+static MFDB pimg_mfdb;
+static long pimg_cap;
+static short pimg_k, pimg_serial = -1, pimg_w, pimg_h, pimg_npal, pimg_planes;
+
+static int pimg_ready(void)
+{
+	return pimg && pimg_serial == pserial && pimg_w == pw && pimg_h == ph && pimg_npal == pnpal &&
+	       pimg_planes == planes && pimg_k >= pnpal;
+}
+
+/* 1: the picture is ready (or isn't made here: drawn as before) */
+int photo_image_step(int (*more)(void))
+{
+	short W = pw, H = ph, wpl = (W + 15) / 16, k;
+	GRECT whole;
+	if (planes > 4 || pserial < 0 || lists || pimg_ready())
+		return 1;
+	if (pimg_serial != pserial || pimg_w != W || pimg_h != H || pimg_npal != pnpal || pimg_planes != planes) {
+		long n = (long)wpl * 2 * H * planes;
+		if (n > pimg_cap) {
+			free(pimg);
+			pimg_cap = 0;
+			pimg = malloc(n);
+			if (!pimg)
+				return 1;
+			pimg_cap = n;
+		}
+		if ((unsigned long)pimg >= 0x01000000UL) {	/* TT or Fast RAM */
+			free(pimg);
+			pimg = 0;
+			pimg_cap = 0;
+			return 1;
+		}
+		memset(pimg, 0, n);	/* pen 0 */
+		memset(&pimg_mfdb, 0, sizeof(pimg_mfdb));
+		pimg_mfdb.fd_addr = pimg;
+		pimg_mfdb.fd_w = wpl * 16;
+		pimg_mfdb.fd_h = H;
+		pimg_mfdb.fd_wdwidth = wpl;
+		pimg_mfdb.fd_nplanes = planes;
+		pimg_serial = pserial;
+		pimg_w = W;
+		pimg_h = H;
+		pimg_npal = pnpal;
+		pimg_planes = planes;
+		pimg_k = 1;		/* pen 0 is the white under it */
+	}
+	whole.x = whole.y = 0;
+	whole.w = W;
+	whole.h = H;
+	for (k = pimg_k; k < pnpal; k++) {
+		short y0, strip = (short)(1024 / (wpl * 2));
+		if (more && k > pimg_k && !more()) {
+			pimg_k = k;
+			return 0;
+		}
+		if (!used[k])
+			continue;
+		for (y0 = 0; y0 < H; y0 += strip) {
+			short y1 = y0 + strip < H ? y0 + strip : H, any;
+			unsigned short *bits = st_ram((long)wpl * 2 * strip);
+			if (!bits) {
+				free(pimg);
+				pimg = 0;
+				pimg_cap = 0;
+				return 1;
+			}
+			any = pen_bits(bits, k, y0, y1, W, wpl);
+			if (any)
+				ph_copy(bits, wpl, &whole, 0, 0, 0, 0, y0, y1, k, &pimg_mfdb);
+		}
+	}
+	pimg_k = pnpal;
+	return 1;
+}
+
 void draw_photo(const unsigned short *px, int serial, short cx, short cy, short rx, short ry, const GRECT *clip)
 {
-	short W, H, x, y, k, wpl;
+	short W, H, k, wpl;
 	GRECT vis;
 	if (rx > PH_MAXW / 2)
 		rx = PH_MAXW / 2;
@@ -1213,6 +1271,21 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 	if (planes == 8 && pic_ovl_chunky8(pens, W, H, ((long)pserial << 9) | pnpal, vdi_h, vis.x - (cx - rx),
 					   vis.y - (cy - ry), vis.w, vis.h, vis.x, vis.y))
 		return;
+	if (pimg_ready()) {
+		short pxy[8];
+		MFDB scr;
+		memset(&scr, 0, sizeof(scr));
+		pxy[0] = vis.x - (cx - rx);
+		pxy[1] = vis.y - (cy - ry);
+		pxy[2] = pxy[0] + vis.w - 1;
+		pxy[3] = pxy[1] + vis.h - 1;
+		pxy[4] = vis.x;
+		pxy[5] = vis.y;
+		pxy[6] = vis.x + vis.w - 1;
+		pxy[7] = vis.y + vis.h - 1;
+		vro_cpyfm(vdi_h, 3, pxy, &pimg_mfdb, &scr);	/* S_ONLY */
+		return;
+	}
 	if (lists) {
 		short top = vis.y - (cy - ry), bottom = top + vis.h, strip = (short)(1024 / (wpl * 2));
 		for (k = 1; k < ph_npal; k++) {		/* pen 0 is the white under it */
@@ -1233,7 +1306,7 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 					short col = *p & 0xFF;
 					bits[(long)((*p >> 8) - y0) * wpl + (col >> 4)] |= 0x8000 >> (col & 15);
 				}
-				ph_copy(bits, wpl, &vis, cx, cy, rx, ry, y0, y1, k);
+				ph_copy(bits, wpl, &vis, cx, cy, rx, ry, y0, y1, k, &screen_mfdb);
 			}
 		}
 		return;
@@ -1249,24 +1322,9 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 				return;
 			if (y1 > vis.y - (cy - ry) + vis.h)
 				y1 = vis.y - (cy - ry) + vis.h;
-			memset(bits, 0, (size_t)wpl * 2 * (y1 - y0));
-			for (y = y0; y < y1; y++) {
-				const unsigned char *in = pens + (long)y * W;
-				unsigned short *o = bits + (long)(y - y0) * wpl, m = 0x8000;
-				for (x = 0; x < W; x++) {
-					if (in[x] == k) {
-						*o |= m;
-						any = 1;
-					}
-					m >>= 1;
-					if (!m) {
-						m = 0x8000;
-						o++;
-					}
-				}
-			}
+			any = pen_bits(bits, k, y0, y1, W, wpl);
 			if (any)
-				ph_copy(bits, wpl, &vis, cx, cy, rx, ry, y0, y1, k);
+				ph_copy(bits, wpl, &vis, cx, cy, rx, ry, y0, y1, k, &screen_mfdb);
 		}
 	}
 }

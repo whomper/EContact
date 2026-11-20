@@ -53,7 +53,7 @@ BSSL    := common/third_party/bearssl
 BSSLSRC := $(wildcard $(BSSL)/src/*/*.c)
 BSSLDEF := -DBR_USE_URANDOM=0 -DBR_USE_GETENTROPY=0 -DBR_USE_UNIX_TIME=0 \
            -DBR_USE_WIN32_TIME=0 -DBR_USE_WIN32_RAND=0 -DBR_RDRAND=0
-BSSLST  := -m68000 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
+BSSLST  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
            -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables -w \
            -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include -I$(BSSL)/inc -I$(BSSL)/src $(BSSLDEF) \
            -fno-store-merging -fdisable-tree-bswap
@@ -180,8 +180,13 @@ TJPGD   := third_party/tjpgd/tjpgd.c third_party/tjpgd/tjpgd.h third_party/tjpgd
 $(OBJDIR)/tjpgd.o: $(TJPGD) | $(OBJDIR)
 	$(CC) $(subst -Os,-O2,$(CFLAGS)) -fwrapv -w -c -o $@ $<
 
+# the stack: 32 KB, not crt0's 48 (the 1 MB ST's heap is half of what is
+# free: 16 KB of BSS are 8 KB of contacts). The deepest measured, from the
+# BSS's zeros, was 13.2 KB (Sync Contact Photos on ST-1: acc_files.py),
+# 8.7 the accessory's refresh (quiet_sync.py), 6.2 the dialogs, the
+# editor and the speed rig's actions, 1.7 the Falcon's TLS (falcon_tls.py)
 $(OBJDIR)/crt0.o: common/atari/crt0.S | $(OBJDIR)
-	$(CC) -m68000 -c -o $@ $<
+	$(CC) -m68000 -DSTACK_SIZE=32768 -c -o $@ $<
 $(OBJDIR)/sting_s.o: common/atari/sting.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
 $(OBJDIR)/nf.o: common/atari/nf.S | $(OBJDIR)
