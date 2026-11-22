@@ -183,7 +183,7 @@ int main(int argc, char **argv)
 		char *buf = load(files[i], &n);
 		if (!buf)
 			continue;
-		if (!strncmp(buf, "\xff\xd8", 2)) {
+		if (!strncmp(buf, "\xff\xd8", 2) || !strncmp(buf, "\x89PNG", 4)) {
 			PHOTOREF ref;
 			memset(&ref, 0, sizeof(ref));
 			ref.kind = PR_DATA;
