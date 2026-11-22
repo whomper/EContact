@@ -122,7 +122,7 @@ $(BIN)/econtact.prg: $(BIN)/econtact.acc
 # with speed.py
 
 , := ,
-LPAD    := ovl:254 libc:180 pic_ovl:158 draw:106:254 accmem:208 av:242 pic:28 cpucheck:244:0:24:232
+LPAD    := ovl:254 libc:180 pic_ovl:158 draw:106:254 accmem:208 av:242 pic:28 cpucheck:244:140:24:232
 ifeq ($(PADS),no)
 LPAD    :=
 endif
@@ -134,7 +134,7 @@ LPADU   := $(foreach p,$(LPAD),-Wl,-u,lpad_$(call lpad_n,$(p),1) \
              $(if $(filter-out 0,$(call lpad_n,$(p),4)),-Wl$(,)-u$(,)lpad_$(call lpad_n,$(p),1)_ro) \
              $(if $(filter-out 0,$(call lpad_n,$(p),5)),-Wl$(,)-u$(,)lpad_$(call lpad_n,$(p),1)_data))
 define lpad_rule
-$(call lpad_o,$(1)): common/atari/codepad.S | $(OBJDIR)
+$(call lpad_o,$(1)): common/atari/codepad.S Makefile | $(OBJDIR)
 	$(CC) -m68000 -DPAD_NAME=lpad_$(word 1,$(subst :, ,$(1))) -DPAD_TEXT=$(word 2,$(subst :, ,$(1))) \
 	    -DPAD_RO=$(or $(word 4,$(subst :, ,$(1))),0) -DPAD_DATA=$(or $(word 5,$(subst :, ,$(1))),0) \
 	    -DPAD_BSS=$(or $(word 3,$(subst :, ,$(1))),0) -c $$< -o $$@
