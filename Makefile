@@ -67,7 +67,7 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 # built here
 TLSOVL  := common/tlsovl/tls.ovl
 
-CORE    := util charset conn ovl bidi secret futil ctime xml inflate http vcard carddav abook photo photopack jpegdc pfkeep
+CORE    := util charset conn ovl bidi secret futil ctime xml inflate http vcard carddav abook photo photopack jpegdc png pfkeep
 ATARI   := libc tos plat_tos net_tos sting gem tls_ovl pic_ovl bigbuf
 UI      := main evwrap win draw popup panebar dsp_ovl sidebar list card editor dialogs field about font fontsel accmem help av av_people alert dialog aboutbox iconify clip dd mbar twin busy bgwork people_ask answer notify aboutline text offdraw click hebkey pic arrowed tooltip progbar dlgbuild
 
@@ -451,7 +451,7 @@ dist: all firebee help
 # rotation gives another key here), over the sample cards, the fuzz seeds
 # and tests/host/vcgen.py's cards (fixed seeds)
 CFT     := common/tests/coldfire
-CCSRC   := src/vcard.c src/abook.c src/photo.c src/jpegdc.c third_party/tjpgd/tjpgd.c common/src/util.c \
+CCSRC   := src/vcard.c src/abook.c src/photo.c src/jpegdc.c common/src/png.c common/src/inflate.c third_party/tjpgd/tjpgd.c common/src/util.c \
            common/src/charset.c common/atari/libc.c $(CFT)/gemdos.c tests/coldfire/cfrun.c
 CCFLAGS  = -Os -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
            -fno-tree-loop-distribute-patterns -w -DCAL_TOS -DCFRUN -nostdinc -isystem $(GCCINC) \

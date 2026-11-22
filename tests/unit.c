@@ -443,8 +443,21 @@ static void test_photos(void)
 		CHECK(!photo_decode_jpeg(twice, k, 0, &im));
 	}
 	/* and why not, when not */
-	CHECK(!photo_decode_jpeg(png_quarters, sizeof(png_quarters), 0, &im));
-	CHECK_EQ(photo_why, PW_PNG);
+	/* PNGs (common's png.c): RGB, sampled, Adam7, a palette, alpha over white */
+	CHECK(photo_decode_jpeg(png_quarters, sizeof(png_quarters), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(png_wide, sizeof(png_wide), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(png_big, sizeof(png_big), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(png_interlaced, sizeof(png_interlaced), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(png_palette, sizeof(png_palette), 0, &im));
+	CHECK(quarters_ok(&im));
+	CHECK(photo_decode_jpeg(png_alpha, sizeof(png_alpha), 0, &im));
+	CHECK(near(&im, 8, 8, 230, 30, 30));
+	CHECK(near(&im, 55, 8, 255, 255, 255));	/* (x 55, y 8: the transparent quarter) */
+	CHECK(photo_decode_jpeg(png_wide, 300, 0, &im) || photo_why == PW_DAMAGED);	/* cut short */
 	CHECK(!photo_decode_jpeg((const unsigned char *)"not a picture", 13, 0, &im));
 	CHECK_EQ(photo_why, PW_OTHER);
 	{

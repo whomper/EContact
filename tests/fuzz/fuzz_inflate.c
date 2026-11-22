@@ -13,13 +13,13 @@ int LLVMFuzzerTestOneInput(const uint8_t *d, size_t n)
 {
 	SBUF out;
 	sb_init(&out);
-	inflate_gzip(d, (long)n, &out);
+	inflate_gzip(d, (long)n, &out, 4L << 20);
 	sb_free(&out);
 	sb_init(&out);
-	inflate_zlib(d, (long)n, &out);
+	inflate_zlib(d, (long)n, &out, 4L << 20);
 	sb_free(&out);
 	sb_init(&out);
-	inflate_raw(d, (long)n, &out);
+	inflate_raw(d, (long)n, &out, 4L << 20);
 	sb_free(&out);
 	return 0;
 }

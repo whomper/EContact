@@ -17,6 +17,10 @@
 #include "bearssl.h"
 #include "version.h"
 
+/* a compressed answer unpacked: at most this much (common's inflate.c,
+   for PNG photos too, takes a ceiling; the heap is the real one) */
+#define HTTP_PLAIN_MAX 0x7FFFFFFFL
+
 HTTPCFG http_cfg = { .gateport = 8180 };
 
 static CONN *kept;
@@ -490,8 +494,8 @@ static int exchange(const HTTPREQ *rq, const URL *u, const char *auth, HTTPRESP 
 		SBUF plain;
 		int good;
 		sb_init(&plain);
-		good = h->packed == 1 ? inflate_gzip((const unsigned char *)body->s + body_start, body->len - body_start, &plain)
-				      : inflate_zlib((const unsigned char *)body->s + body_start, body->len - body_start, &plain);
+		good = h->packed == 1 ? inflate_gzip((const unsigned char *)body->s + body_start, body->len - body_start, &plain, HTTP_PLAIN_MAX)
+				      : inflate_zlib((const unsigned char *)body->s + body_start, body->len - body_start, &plain, HTTP_PLAIN_MAX);
 		if (!good) {
 			sb_free(&plain);
 			str_copy(err, "the server's compressed answer is damaged", errlen);

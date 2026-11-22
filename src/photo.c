@@ -18,6 +18,7 @@
 #include "util.h"
 #include "tjpgd.h"
 #include "jpegdc.h"
+#include "png.h"
 #ifdef AES_PROFILE
 #include <tos.h>	/* nf_debug: the speed rig's console */
 #endif
@@ -423,7 +424,7 @@ const char *photo_why_text(int w)
 {
 	switch (w) {
 	case PW_OK: return "made";
-	case PW_PNG: return "a PNG picture";
+	case PW_PNG: return "a kind of PNG EContact can't read";
 	case PW_HEIC: return "an HEIC picture";
 	case PW_GIF: return "a GIF picture";
 	case PW_WEBP: return "a WebP picture";
@@ -583,6 +584,91 @@ static int decode_dc(const unsigned char *jpg, long len, const PHOTOREF *ref, DE
 	return 1;
 }
 
+/* a PNG (common's png.c, its rows top to bottom as they come): every k-th
+   pixel of every k-th row of the square into the cells, k so that at
+   most 192 of each are taken (a cell's sums stay in 16 bits), what is
+   transparent over white as the card's ground; no division per pixel */
+typedef struct {
+	DEC *d;
+	long x0, y0, k, n, next, got;
+	short polls;
+} PNGU;
+
+static int png_row(void *u, long y, const unsigned char *rgba)
+{
+	PNGU *p = u;
+	DEC *d = p->d;
+	const unsigned char *q;
+	long i, ry;
+	if (++p->polls >= 16) {
+		p->polls = 0;
+		if (!decode_poll())
+			return 0;		/* stopped */
+	}
+	if (y != p->next)
+		return 1;
+	if (p->got >= p->n)
+		return 0;		/* the square is done: the rest isn't read */
+	ry = p->got++;
+	p->next += p->k;
+	q = rgba + p->x0 * 4;
+	for (i = 0; i < p->n; i++, q += p->k * 4) {
+		unsigned r = q[0], g = q[1], b = q[2], t = 255 - q[3];
+		short ty, tx;
+		if (t) {
+			r += ((255 - r) * t) >> 8;
+			g += ((255 - g) * t) >> 8;
+			b += ((255 - b) * t) >> 8;
+		}
+		for (ty = d->t0[ry]; ty <= d->t1[ry]; ty++)
+			for (tx = d->t0[i]; tx <= d->t1[i]; tx++) {
+				unsigned short *s = d->sum + ((ty << 6) + tx) * 3;	/* PHOTO_N is 64 */
+				s[0] += r >> 2;
+				s[1] += g >> 2;
+				s[2] += b >> 2;
+			}
+	}
+	return 1;
+}
+
+static int decode_png(const unsigned char *png, long len, const PHOTOREF *ref, DEC *d, PHOTOIMG *out)
+{
+	PNGU u;
+	long w, h, side;
+	int rc;
+	if (!png_size(png, len, &w, &h) || w < 1 || h < 1) {
+		why(PW_DAMAGED, "");
+		return 0;
+	}
+	memset(&u, 0, sizeof(u));
+	u.d = d;
+	square_of(w, h, ref, &u.x0, &u.y0, &side);
+	for (u.k = 1; side / u.k > 192; u.k++)
+		;
+	u.n = side / u.k;
+	u.next = u.y0;
+	if (u.n < 1 || !cells_for(d, 0, 0, u.n)) {
+		why(PW_MEMORY, 0);
+		return 0;
+	}
+	dec_how = u.k > 1 ? ", PNG, sampled" : ", PNG";
+	rc = png_decode(png, len, 16L << 20, png_row, &u);
+	if (rc == PNG_STOPPED && conn_stop) {
+		why(PW_NO_ANSWER, "stopped");
+		return 0;
+	}
+	if (rc != PNG_OK && rc != PNG_STOPPED) {
+		why(rc == PNG_MEMORY || rc == PNG_TOO_BIG ? PW_MEMORY : rc == PNG_UNSUPPORTED ? PW_PNG : PW_DAMAGED, "");
+		return 0;
+	}
+	if (u.got < u.n) {
+		why(PW_DAMAGED, "");
+		return 0;
+	}
+	cells_out(d, out);
+	return 1;
+}
+
 /* the decoder's two big blocks, taken once for a whole job (photo_hold):
    taken and let go for each photo, a full heap breaks into pieces too
    small for them (a 1 MB ST) */
@@ -615,17 +701,22 @@ int photo_decode_jpeg(const unsigned char *jpg, long len, const PHOTOREF *ref, P
 	memset(&d, 0, sizeof(d));
 	d.p = jpg;
 	d.left = len;
-	if (photo_kind(jpg, len) != PW_OK) {
+	if (photo_kind(jpg, len) != PW_OK && photo_kind(jpg, len) != PW_PNG) {
 		why(photo_kind(jpg, len), 0);
 		return 0;
 	}
-	pool = held_pool ? held_pool : malloc(POOL);
+	/* (a PNG takes no TJpgDec workspace) */
+	pool = photo_kind(jpg, len) == PW_PNG ? 0 : held_pool ? held_pool : malloc(POOL);
 	if (held_sum && (d.sum = held_sum) != 0)
 		memset(d.sum, 0, PHOTO_N * PHOTO_N * 3 * sizeof(unsigned short));
 	else
 		d.sum = calloc(PHOTO_N * PHOTO_N * 3, sizeof(unsigned short));
-	if (!pool || !d.sum) {
+	if ((!pool && photo_kind(jpg, len) != PW_PNG) || !d.sum) {
 		why(PW_MEMORY, 0);
+		goto done;
+	}
+	if (photo_kind(jpg, len) == PW_PNG) {
+		ok = decode_png(jpg, len, ref, &d, out);
 		goto done;
 	}
 	rc = jd_prepare(&jd, in_fn, pool, POOL, &d);
@@ -680,7 +771,7 @@ done:
 /* ---------------- the cache ---------------- */
 
 /* pictures that failed are tried again when the decoder is newer */
-#define PHOTO_DECODER 3
+#define PHOTO_DECODER 4
 
 typedef struct {
 	int valid;

@@ -58,6 +58,27 @@ g = Image.new("L", (128, 128), 128)
 b = io.BytesIO()
 g.save(b, "JPEG", quality=90)
 vec["jpg_gray"] = b.getvalue()
+# PNGs (common's png.c): the kinds a phone or a server gives, decoded
+def png(im, **kw):
+    b = io.BytesIO()
+    im.save(b, "PNG", **kw)
+    return b.getvalue()
+vec["png_wide"] = png(quarters_im(400, 300))                       # RGB, the middle square
+vec["png_big"] = png(quarters_im(2000, 1500))                      # sampled: every k-th pixel
+vec["png_interlaced"] = png(quarters_im(256, 256), interlace=1)    # Adam7 (Pillow writes none, so magick below)
+ra = quarters_im(128, 128).convert("RGBA")
+pa = ra.load()
+for y in range(128):
+    for x in range(64, 128):
+        if y < 64:
+            pa[x, y] = (0, 0, 0, 0)                                    # top right transparent: white
+vec["png_alpha"] = png(ra)
+vec["png_palette"] = png(quarters_im(128, 128).convert("P", palette=Image.ADAPTIVE, colors=4))
+with tempfile.TemporaryDirectory() as d:
+    src, dst = os.path.join(d, "q.png"), os.path.join(d, "i.png")
+    quarters_im(256, 256).save(src)
+    subprocess.run(["convert", src, "-interlace", "PNG", dst], check=True)
+    vec["png_interlaced"] = open(dst, "rb").read()
 out = os.path.join(os.path.dirname(__file__), "photo_vec.h")
 with open(out, "w") as f:
     f.write("/* SPDX-License-Identifier: GPL-2.0-or-later\n * Copyright (C) 2026 AERA | Erez Yaary */\n")
