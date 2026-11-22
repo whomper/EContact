@@ -213,13 +213,16 @@ TJPGD   := third_party/tjpgd/tjpgd.c third_party/tjpgd/tjpgd.h third_party/tjpgd
 $(OBJDIR)/tjpgd.o: $(TJPGD) | $(OBJDIR)
 	$(CC) $(subst -Os,-O2,$(CFLAGS)) -fwrapv -w -c -o $@ $<
 
-# the stack: 32 KB, not crt0's 48 (the 1 MB ST's heap is half of what is
-# free: 16 KB of BSS are 8 KB of contacts). The deepest measured, from the
-# BSS's zeros, was 13.2 KB (Sync Contact Photos on ST-1: acc_files.py),
-# 8.7 the accessory's refresh (quiet_sync.py), 6.2 the dialogs, the
-# editor and the speed rig's actions, 1.7 the Falcon's TLS (falcon_tls.py)
-$(OBJDIR)/crt0.o: common/atari/crt0.S | $(OBJDIR)
-	$(CC) -m68000 -DSTACK_SIZE=32768 -c -o $@ $<
+# the stack: 24 KB, not crt0's 48 (EFTP's too). The accessory's load is
+# what a program started beside it on a 1 MB ST doesn't have: 2.13's
+# 1.5 KB more left EFTP (359,200 bytes) without room to start; 24 KB
+# gives a program 8 KB more than 32 (tests/hatari/acc_room.py). The
+# deepest measured, from the BSS's zeros, was 13.2 KB (Sync Contact
+# Photos on ST-1: acc_files.py), 8.7 the accessory's refresh
+# (quiet_sync.py), 6.2 the dialogs, the editor and the speed rig's
+# actions, 1.7 the Falcon's TLS (falcon_tls.py)
+$(OBJDIR)/crt0.o: common/atari/crt0.S Makefile | $(OBJDIR)
+	$(CC) -m68000 -DSTACK_SIZE=24576 -c -o $@ $<
 $(OBJDIR)/sting_s.o: common/atari/sting.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
 $(OBJDIR)/nf.o: common/atari/nf.S | $(OBJDIR)
@@ -318,6 +321,13 @@ $(OBJDIR)/VCBENCH.PRG: tests/atari/vcbench.c $(VCBOBJ)
 	$(CC) $(CFLAGS) -c -o $(OBJDIR)/vcbench.o $<
 	$(CC) $(LDFLAGS) -o $(OBJDIR)/vcbench.elf $(OBJDIR)/crt0.o $(OBJDIR)/vcbench.o $(filter-out %crt0.o,$(VCBOBJ)) -lgcc
 	python3 common/tools/elf2tos.py $(OBJDIR)/vcbench.elf $@
+
+# the room TOS gives a program after ECONTACT.ACC's boot, for tests/hatari/acc_room.py
+$(OBJDIR)/memprobe.prg: tests/atari/memprobe.c $(OBJDIR)/crt0.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o
+	$(CC) $(CFLAGS) -c -o $(OBJDIR)/memprobe.o $<
+	$(CC) $(LDFLAGS) -o $(OBJDIR)/memprobe.elf $(OBJDIR)/crt0.o $(OBJDIR)/memprobe.o \
+		$(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
+	python3 common/tools/elf2tos.py $(OBJDIR)/memprobe.elf $@
 
 # a stand-in for another program's accessory (its alert), for tests/hatari/xaaes_dialogs.py
 $(OBJDIR)/alertacc.acc: tests/atari/alertacc.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o
