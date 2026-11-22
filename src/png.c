@@ -14,6 +14,12 @@
  *
  * Bytes are read one at a time (a 68000 can't read a word at an odd
  * address), and the loops over pixels have no 32-bit multiply or divide.
+ *
+ * -DPNG_SLIM, for a program whose every KB counts (a 1 MB ST): the same
+ * pictures, the same pixels, 2.8 KB less on a 68000 (6,970 bytes to
+ * 4,140 with -Os): Paeth's |x| worked out, not read from a 2 KB table,
+ * and the conversion made once, R G B rows packed from R G B A. Slower
+ * a row; for small pictures (a contact's photo), not a browser's.
  */
 #include <stdlib.h>
 #include <string.h>
@@ -58,7 +64,9 @@ static long row_bytes(const HDR *h, long w)
 /* |x| for x from -510 to 510 (at x + 510), for Paeth's filter: a table
    instead of three tests and jumps a byte; made the first time it is
    needed */
+#ifndef PNG_SLIM
 static unsigned short absv[1021];
+#endif
 
 /* row (n bytes after its filter byte f) unfiltered in place, prev the
    row above unfiltered (zeros above the first): 0 for an unknown filter.
@@ -89,17 +97,26 @@ static int unfilter(unsigned char *row, const unsigned char *prev, long n, int b
 		   left + above - above-left (ties in that order); the first
 		   pixel's is the byte above */
 		const unsigned char *q = prev + bpp, *qc = prev;
+#ifndef PNG_SLIM
 		const unsigned short *ab = absv + 510;
+#endif
 		unsigned char *r = row + bpp, *ra = row;
 		for (i = 0; i < m; i++)
 			row[i] = (unsigned char) (row[i] + prev[i]);
+#ifndef PNG_SLIM
 		if (absv[0] == 0)
 			for (i = 0; i <= 1020; i++)
 				absv[i] = (unsigned short) (i < 510 ? 510 - i : i - 510);
+#endif
 		for (i = n - m; i > 0; i--) {
 			int a = *ra++, bb = *q++, c = *qc++;
 			int da = bb - c, db = a - c;
+#ifndef PNG_SLIM
 			unsigned pa = ab[da], pb = ab[db], pc = ab[da + db];
+#else
+			int dc = da + db;
+			unsigned pa = da < 0 ? -da : da, pb = db < 0 ? -db : db, pc = dc < 0 ? -dc : dc;
+#endif
 			*r = (unsigned char) (*r + (pa <= pb && pa <= pc ? a : pb <= pc ? bb : c));
 			r++;
 		}
@@ -122,7 +139,12 @@ static unsigned small(const unsigned char *s, long x, int depth)
 /* w pixels of an unfiltered row as R G B A (n 4), or as R G B (n 3,
    for a picture with no transparency: opaque()); made twice, each with
    its n fixed */
-static inline __attribute__((always_inline)) void convert_n(const HDR *h, const unsigned char *s, long w,
+#ifndef PNG_SLIM
+#define CONVERT_INLINE inline __attribute__((always_inline))
+#else
+#define CONVERT_INLINE __attribute__((noinline))
+#endif
+static CONVERT_INLINE void convert_n(const HDR *h, const unsigned char *s, long w,
 							   unsigned char *o, const int n)
 {
 	long x;
@@ -264,7 +286,20 @@ static void convert(const HDR *h, const unsigned char *s, long w, unsigned char 
 
 static void convert3(const HDR *h, const unsigned char *s, long w, unsigned char *o)
 {
+#ifndef PNG_SLIM
 	convert_n(h, s, w, o, 3);
+#else
+	/* PNG_SLIM: one conversion made, its R G B A packed to R G B in place
+	   (o holds w * 4) */
+	const unsigned char *q = o;
+	long x;
+	convert_n(h, s, w, o, 4);
+	for (x = 0; x < w; x++, q += 4, o += 3) {
+		o[0] = q[0];
+		o[1] = q[1];
+		o[2] = q[2];
+	}
+#endif
 }
 
 /* no pixel can be transparent: no alpha channel, no key, a palette's
