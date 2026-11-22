@@ -435,6 +435,7 @@ const char *photo_why_text(int w)
 	case PW_REFUSED: return "refused by the server";
 	case PW_NO_ANSWER: return "no answer from the server";
 	case PW_NO_CARD: return "its card couldn't be fetched";
+	case PW_PNG_BIG: return "a PNG too big for this Atari";
 	}
 	return "not made";
 }
@@ -633,6 +634,14 @@ static int decode_png(const unsigned char *png, long len, const PHOTOREF *ref, D
 	int rc;
 	if (!png_size(png, len, &w, &h) || w < 1 || h < 1) {
 		why(PW_DAMAGED, "");
+		return 0;
+	}
+	/* on a 68000 (ab_read_bytes' 16 KB) a PNG up to about 550 x 550 only:
+	   every byte of it is unpacked, some 45 ms a 400-wide row on an 8 MHz
+	   ST, so 30 s or so; a bigger one keeps the initials there, a Falcon
+	   or TT makes it (decided 22 Nov 2026) */
+	if (ab_read_bytes <= 16384 && w * h > 300000L) {
+		why(PW_PNG_BIG, "");
 		return 0;
 	}
 	memset(&u, 0, sizeof(u));

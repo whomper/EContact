@@ -55,6 +55,7 @@ int main(void)
 		/* an interlaced PNG is put together whole first (common's png.c):
 		   one too big for the memory says so, it isn't called damaged */
 		static PHOTOIMG im;
+		ab_read_bytes = 32768;	/* (a 68030's: a 68000 doesn't try 1000 x 1000) */
 		fail_above = 1L << 20;
 		check(!photo_decode_jpeg(png_adam7_big, sizeof(png_adam7_big), 0, &im), "a big Adam7 PNG not made");
 		check(photo_why == PW_MEMORY, "... for lack of memory");

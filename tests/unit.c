@@ -448,8 +448,12 @@ static void test_photos(void)
 	CHECK(quarters_ok(&im));
 	CHECK(photo_decode_jpeg(png_wide, sizeof(png_wide), 0, &im));
 	CHECK(quarters_ok(&im));
+	ab_read_bytes = 32768;		/* a 68030: every PNG */
 	CHECK(photo_decode_jpeg(png_big, sizeof(png_big), 0, &im));
 	CHECK(quarters_ok(&im));
+	ab_read_bytes = 16384;		/* a 68000: up to about 550 x 550 */
+	CHECK(!photo_decode_jpeg(png_big, sizeof(png_big), 0, &im));
+	CHECK_EQ(photo_why, PW_PNG_BIG);
 	CHECK(photo_decode_jpeg(png_interlaced, sizeof(png_interlaced), 0, &im));
 	CHECK(quarters_ok(&im));
 	CHECK(photo_decode_jpeg(png_palette, sizeof(png_palette), 0, &im));

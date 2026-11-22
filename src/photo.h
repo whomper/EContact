@@ -65,7 +65,7 @@ int  photo_hold(int on);
 
 /* why the last photo_get or photo_decode_jpeg made no picture */
 enum { PW_OK, PW_PNG, PW_HEIC, PW_GIF, PW_WEBP, PW_OTHER, PW_JPEG_KIND, PW_DAMAGED, PW_MEMORY,
-       PW_REFUSED, PW_NO_ANSWER, PW_NO_CARD, PW_N };
+       PW_REFUSED, PW_NO_ANSWER, PW_NO_CARD, PW_PNG_BIG, PW_N };
 extern int photo_why;
 extern char photo_why_detail[100];	/* "HTTP 401", the host...: for the log */
 const char *photo_why_text(int why);
