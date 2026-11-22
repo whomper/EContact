@@ -8,7 +8,7 @@
 # make testdsp, EWeb's with the transform and colours on the Falcon's DSP
 # (dsp/jpeg.a56 on Hatari's core), and the dither on it (dsp/dither.a56)
 # against the 68030's; make pens, aerapens (tools/pens) against the
-# Atari's own code
+# Atari's own code; make slim, png.c's -DPNG_SLIM against the full one
 S      := ../../src
 T      := ../../third_party
 SRC    := test_pic.c $(S)/pic.c $(S)/png.c $(S)/jpegdc.c $(S)/inflate.c $(S)/util.c \
@@ -110,6 +110,16 @@ test: $(B)/test_pic $(B)/test_pic_lj
 test68k: $(B)/test_pic $(B)/test_pic68k $(B)/test_pic_lj $(B)/test_pic_lj68k
 	python3 run.py --same $(B)/test_pic "qemu-m68k -cpu m68030 $(B)/test_pic68k"
 	python3 run.py --same $(B)/test_pic_lj "qemu-m68k -cpu m68030 $(B)/test_pic_lj68k"
+# -DPNG_SLIM (png.c) gives the very rows of the full build, ASan clean
+PNGSRC := png_slim.c $(S)/png.c $(S)/inflate.c $(S)/util.c
+slim: $(PNGSRC)
+	@mkdir -p $(B)
+	cc -O2 -w -Istub -I$(S) -o $(B)/png_full $(PNGSRC)
+	cc -O2 -w -Istub -I$(S) -DPNG_SLIM -fsanitize=address,undefined -o $(B)/png_slim $(PNGSRC)
+	find $(B)/images -name '*.png' | sort > $(B)/png.list
+	$(B)/png_full $$(cat $(B)/png.list) > $(B)/png_full.txt
+	$(B)/png_slim $$(cat $(B)/png.list) > $(B)/png_slim.txt
+	cmp $(B)/png_full.txt $(B)/png_slim.txt && echo "slim: $$(wc -l < $(B)/png.list) pictures the same"
 clean:
 	rm -rf $(B)
-.PHONY: test test68k testdsp pens fuzzpens pensseeds clean
+.PHONY: slim test test68k testdsp pens fuzzpens pensseeds clean
