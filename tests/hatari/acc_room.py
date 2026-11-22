@@ -5,11 +5,13 @@
 a 1 MB ST runs another program beside the accessory). ST-1 boots with
 econtact.acc in the root and starts build/memprobe.prg (tests/atari/
 memprobe.c) once the desktop is up: its p_hitpa - p_lowtpa, the block TOS
-gives a program, must be BUDGET bytes or more (365,000: EFTP's 359,200
-and room; 2.13 left too little for it). Its first boot (no MEMKB= yet,
-accmem's share of what is free) and a boot with the MEMKB= a book of 350
-contacts asks for (tests/hatari/quiet_start.py's) are both measured, and
-the same boot without the accessory, for the record.
+gives a program, must be BUDGET bytes or more (392,000: EFTP started beside
+2.12's 388,080 and not beside 2.13's 386,544; 4 KB more than 2.12). Its first boot (no MEMKB= yet,
+ECONTACT.INF with FOLDER= alone and the folder's cache empty: accmem's
+first share of what is free, as the family check boots it), a boot with
+no INF at all, and the same boot without the accessory, for the record;
+--hd starts from another drive C: (quiet_start.py's), --memkb adds a
+boot with that MEMKB=.
 
     tests/hatari/acc_room.py WORK [MACHINE] [--bin DIR] [--memkb N]
 """
@@ -24,10 +26,13 @@ sys.path.insert(0, os.path.dirname(__file__))
 from rig import Rig, machines  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-BUDGET = 365000
+# the room EFTP 2.16 needed (the family check, 22 Nov 2026): it started beside
+# 2.12 (388,080 here) and not beside 2.13 (386,544); this budget is 2.12's
+# and 4 KB more, so a release that eats the margin again fails here first
+BUDGET = 392000
 
 
-def probe(work, machine, acc, memkb, template=None):
+def probe(work, machine, acc, memkb, template=None, folder=False):
     shutil.rmtree(work, ignore_errors=True)
     hd = os.path.join(work, "hd")
     if template:
@@ -37,6 +42,12 @@ def probe(work, machine, acc, memkb, template=None):
                 os.remove(os.path.join(hd, f))
     else:
         os.makedirs(hd)
+    if folder:
+        # the family check's first boot: ECONTACT.INF with FOLDER= alone, the
+        # folder there with an empty cache, no MEMKB= (accmem's first share)
+        os.makedirs(os.path.join(hd, "econtact", "cache"))
+        with open(os.path.join(hd, "econtact.inf"), "wb") as f:
+            f.write(b"[OPTIONS]\r\nFOLDER=C:\\ECONTACT\r\n\r\n")
     shutil.copy(os.path.join(ROOT, "build", "memprobe.prg"), os.path.join(hd, "memprobe.prg"))
     if acc:
         shutil.copy(acc, os.path.join(hd, "econtact.acc"))
@@ -67,11 +78,11 @@ def main():
     a = ap.parse_args()
     acc = machines.ci_path(a.bin, "econtact.acc")
     fails = 0
-    cases = [("none", None, 0), ("acc-first-boot", acc, 0)]
+    cases = [("none", None, 0, False), ("acc-no-inf", acc, 0, False), ("acc-first-boot", acc, 0, True)]
     if a.memkb:
-        cases.append(("acc-memkb", acc, a.memkb))
-    for name, f, memkb in cases:
-        got = probe(os.path.join(a.work, name), a.machine, f, memkb, a.hd)
+        cases.append(("acc-memkb", acc, a.memkb, False))
+    for name, f, memkb, folder in cases:
+        got = probe(os.path.join(a.work, name), a.machine, f, memkb, a.hd, folder)
         if not got:
             print("  FAIL %s: memprobe said nothing" % name)
             fails += 1
