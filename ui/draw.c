@@ -902,6 +902,12 @@ static void photo_palette(void)
 		return;			/* black and white: no table, a threshold */
 	/* (its table of nearest pens is filled as colours come) */
 	pic_pal_init(&ph_pal, n, (const unsigned char (*)[3])ph_rgb);
+	/* a softer dither (common's pic_pal_soft): each pixel's error passed
+	   on 3/4 with 16 pens, 1/2 with more, where the palette has no near
+	   colour for a pastel or a face's tones (Erez, 21 Nov 2026: the dots
+	   in 256 colours; the grain 39 -> 25 there, 141 -> 118 in 16, over
+	   the sample photos) */
+	pic_pal_soft(&ph_pal, n > 16 ? 8 : 12);
 	{
 		char path[220];
 		if (near_path(path))
