@@ -110,12 +110,13 @@ test: $(B)/test_pic $(B)/test_pic_lj
 test68k: $(B)/test_pic $(B)/test_pic68k $(B)/test_pic_lj $(B)/test_pic_lj68k
 	python3 run.py --same $(B)/test_pic "qemu-m68k -cpu m68030 $(B)/test_pic68k"
 	python3 run.py --same $(B)/test_pic_lj "qemu-m68k -cpu m68030 $(B)/test_pic_lj68k"
-# -DPNG_SLIM (png.c) gives the very rows of the full build, ASan clean
+# -DPNG_SLIM with -DPNG_STEPS (png.c) gives the very rows of the full build,
+# in one go and 3 rows a step, ASan clean
 PNGSRC := png_slim.c $(S)/png.c $(S)/inflate.c $(S)/util.c
 slim: $(PNGSRC)
 	@mkdir -p $(B)
 	cc -O2 -w -Istub -I$(S) -o $(B)/png_full $(PNGSRC)
-	cc -O2 -w -Istub -I$(S) -DPNG_SLIM -fsanitize=address,undefined -o $(B)/png_slim $(PNGSRC)
+	cc -O2 -w -Istub -I$(S) -DPNG_SLIM -DPNG_STEPS -fsanitize=address,undefined -o $(B)/png_slim $(PNGSRC)
 	find $(B)/images -name '*.png' | sort > $(B)/png.list
 	$(B)/png_full $$(cat $(B)/png.list) > $(B)/png_full.txt
 	$(B)/png_slim $$(cat $(B)/png.list) > $(B)/png_slim.txt

@@ -407,6 +407,261 @@ static long read_all(INFLATE *z, unsigned char *buf, long n)
 	return k;
 }
 
+#ifdef PNG_STEPS
+/* -DPNG_STEPS: the decode as a job (png.h: png_begin, png_step, png_end),
+   so a program can unpack a big picture a few rows a turn (an 8 MHz ST
+   takes some 13 s for 400 x 300); png_decode_rgb runs the same job in
+   one go */
+struct PNG_JOB {
+	HDR h;
+	IDATS src;
+	INFLATE *zs;
+	unsigned char *line, *full, *cur, *prev;
+	long y, rbmax, w4;
+	int rgb, ended, pass;		/* pass: 0-6 Adam7's, 7 the rows given */
+};
+
+void png_end(PNG_JOB *j)
+{
+	if (j == NULL)
+		return;
+	free(j->full);
+	free(j->line);
+	free(j->cur);
+	free(j->prev);
+	if (j->zs != NULL)
+		inflate_close(j->zs);
+	free(j);
+}
+
+int png_begin(PNG_JOB **jp, const unsigned char *d, long n, long max_px, int rgb)
+{
+	PNG_JOB *j;
+	HDR *h;
+	long p = 8, first = 0;
+	int r, i, seen_ihdr = 0, found = 0;
+
+	*jp = NULL;
+	if (n < 8 || memcmp(d, sig, 8) != 0)
+		return PNG_DAMAGED;
+	j = calloc(1, sizeof *j);
+	if (j == NULL)
+		return PNG_MEMORY;
+	h = &j->h;
+	/* the chunks: the header, the palette, transparency, where the data
+	   starts (read from there a row at a time, chunk after chunk) */
+	while (n - p >= 12) {
+		unsigned long len = rd32(d + p);
+		const unsigned char *t = d + p + 4, *c = d + p + 8;
+		if (len > (unsigned long) (n - p - 12)) {
+			if (memcmp(t, "IDAT", 4) != 0)
+				break;
+			len = (unsigned long) (n - p - 8);	/* cut short: what there is */
+		}
+		if (memcmp(t, "IHDR", 4) == 0 && len >= 13 && !seen_ihdr) {
+			if ((r = header(h, c)) != PNG_OK)
+				goto fail;
+			seen_ihdr = 1;
+			for (i = 0; i < 256; i++) {
+				h->pal[i][0] = h->pal[i][1] = h->pal[i][2] = 0;
+				h->pal[i][3] = 255;
+			}
+		} else if (!seen_ihdr) {
+			r = PNG_DAMAGED;
+			goto fail;
+		} else if (memcmp(t, "PLTE", 4) == 0) {
+			h->npal = (int) (len / 3 > 256 ? 256 : len / 3);
+			for (i = 0; i < h->npal; i++)
+				memcpy(h->pal[i], c + 3 * i, 3);
+		} else if (memcmp(t, "tRNS", 4) == 0) {
+			if (h->ctype == 3) {
+				for (i = 0; i < (int) len && i < 256; i++)
+					h->pal[i][3] = c[i];
+			} else if (h->ctype == 0 && len >= 2) {
+				h->has_key = 1;
+				h->key[0] = (unsigned) c[0] << 8 | c[1];
+			} else if (h->ctype == 2 && len >= 6) {
+				h->has_key = 1;
+				for (i = 0; i < 3; i++)
+					h->key[i] = (unsigned) c[2 * i] << 8 | c[2 * i + 1];
+			}
+		} else if (memcmp(t, "IDAT", 4) == 0) {
+			if (!found) {
+				found = 1;
+				first = p;
+			}
+		} else if (memcmp(t, "IEND", 4) == 0) {
+			break;
+		}
+		p += 12 + (long) len;
+	}
+	r = PNG_DAMAGED;
+	if (!seen_ihdr || !found)
+		goto fail;
+	r = PNG_TOO_BIG;
+	if (h->w > max_px / h->h)
+		goto fail;
+	j->src.d = d;
+	j->src.n = n;
+	j->src.p = first;
+	{
+		unsigned char zh[2];
+		r = PNG_DAMAGED;
+		if (idat_get(&j->src, zh, 2) != 2 || (zh[0] & 15) != 8 || ((unsigned) zh[0] << 8 | zh[1]) % 31 != 0 ||
+		    (zh[1] & 0x20))
+			goto fail;
+	}
+	j->rbmax = row_bytes(h, h->w);
+	j->w4 = h->w * 4;
+	j->zs = inflate_open(idat_get, &j->src);
+	j->line = malloc((size_t) j->w4);
+	j->cur = malloc((size_t) j->rbmax + 1);
+	j->prev = calloc((size_t) j->rbmax + 1, 1);	/* zeros above the first row */
+	r = PNG_MEMORY;
+	if (j->zs == NULL || j->line == NULL || j->cur == NULL || j->prev == NULL)
+		goto fail;
+	if (h->interlace) {
+		j->full = calloc((size_t) h->h, (size_t) j->w4);
+		if (j->full == NULL)
+			goto fail;
+		j->pass = -1;	/* the first pass starts at the first step */
+	} else {
+		j->rgb = rgb && opaque(h);
+		j->pass = 7;
+	}
+	*jp = j;
+	return PNG_OK;
+fail:
+	png_end(j);
+	return r;
+}
+
+int png_job_rgb(const PNG_JOB *j)
+{
+	return j->rgb;
+}
+
+/* the next pass of an interlaced picture whose rows there are, from j->pass
+   on (8 when they are all read): its rows' count, its row bytes */
+static long next_pass(PNG_JOB *j, long *rb)
+{
+	while (++j->pass < 7) {
+		long pw = pass_n(j->h.w, a7[j->pass][0], a7[j->pass][2]);
+		long ph = pass_n(j->h.h, a7[j->pass][1], a7[j->pass][3]);
+		if (pw > 0 && ph > 0) {
+			*rb = row_bytes(&j->h, pw);
+			memset(j->prev, 0, (size_t) *rb + 1);	/* zeros above a pass's first row */
+			j->y = 0;
+			return ph;
+		}
+	}
+	j->y = 0;
+	return 0;
+}
+
+int png_step(PNG_JOB *j, long rows,
+	     int (*row)(void *ud, long y, const unsigned char *rgba),
+	     int (*row_rgb)(void *ud, long y, const unsigned char *rgb), void *ud)
+{
+	HDR *h = &j->h;
+	unsigned char *t;
+	for (; rows > 0; rows--) {
+		if (j->pass < 7) {
+			/* an interlaced picture: a row of a pass into the whole */
+			long pw, ph, rb, got, x;
+			unsigned char *o, *q;
+			if (j->pass < 0 || j->ended) {
+				if (j->ended || next_pass(j, &rb) == 0) {
+					j->pass = 7;	/* all read: the rows given from here */
+					j->y = 0;
+					continue;
+				}
+			}
+			pw = pass_n(h->w, a7[j->pass][0], a7[j->pass][2]);
+			ph = pass_n(h->h, a7[j->pass][1], a7[j->pass][3]);
+			rb = row_bytes(h, pw);
+			got = read_all(j->zs, j->cur, 1 + rb);
+			if (got == 0) {
+				if (j->pass == 0 && j->y == 0)
+					return PNG_DAMAGED;	/* no picture at all */
+				j->ended = 1;
+				continue;
+			}
+			if (got < 1 + rb) {
+				j->ended = 1;
+				memset(j->cur + got, 0, (size_t) (1 + rb - got));
+			}
+			if (!unfilter(j->cur + 1, j->prev + 1, rb, h->bpp, j->cur[0]))
+				return PNG_DAMAGED;
+			convert(h, j->cur + 1, pw, j->line);
+			o = j->full + (a7[j->pass][1] + j->y * a7[j->pass][3]) * j->w4 + a7[j->pass][0] * 4;
+			q = j->line;
+			for (x = 0; x < pw; x++, q += 4, o += a7[j->pass][2] * 4)
+				memcpy(o, q, 4);
+			t = j->prev;
+			j->prev = j->cur;
+			j->cur = t;
+			if (++j->y >= ph && !j->ended && next_pass(j, &rb) == 0) {
+				j->pass = 7;
+				j->y = 0;
+			}
+			continue;
+		}
+		if (j->y >= h->h)
+			return PNG_OK;
+		if (j->full != NULL) {
+			if (!row(ud, j->y, j->full + j->y * j->w4))
+				return PNG_STOPPED;
+		} else {
+			/* each row unpacked as it is needed: no room for the whole */
+			long got = j->ended ? 0 : read_all(j->zs, j->cur, 1 + j->rbmax);
+			if (got < 1 + j->rbmax)
+				j->ended = 1;	/* the rest of the picture is clear */
+			if (j->y == 0 && got == 0)
+				return PNG_DAMAGED;	/* no picture at all */
+			if (got == 0) {
+				memset(j->line, 0, (size_t) j->w4);
+				j->rgb = 0;	/* transparent rows from here */
+			} else {
+				memset(j->cur + got, 0, (size_t) (1 + j->rbmax - got));	/* a row cut short */
+				if (!unfilter(j->cur + 1, j->prev + 1, j->rbmax, h->bpp, j->cur[0]))
+					return PNG_DAMAGED;
+				if (j->rgb)
+					convert3(h, j->cur + 1, h->w, j->line);
+				else
+					convert(h, j->cur + 1, h->w, j->line);
+				t = j->prev;
+				j->prev = j->cur;
+				j->cur = t;
+			}
+			if (!(j->rgb ? row_rgb(ud, j->y, j->line) : row(ud, j->y, j->line)))
+				return PNG_STOPPED;
+		}
+		j->y++;
+	}
+	return j->pass >= 7 && j->y >= h->h ? PNG_OK : PNG_MORE;
+}
+
+int png_decode(const unsigned char *d, long n, long max_px,
+	       int (*row)(void *ud, long y, const unsigned char *rgba), void *ud)
+{
+	return png_decode_rgb(d, n, max_px, row, NULL, ud);
+}
+
+int png_decode_rgb(const unsigned char *d, long n, long max_px,
+		   int (*row)(void *ud, long y, const unsigned char *rgba),
+		   int (*row_rgb)(void *ud, long y, const unsigned char *rgb), void *ud)
+{
+	PNG_JOB *j;
+	int r = png_begin(&j, d, n, max_px, row_rgb != NULL);
+	if (r != PNG_OK)
+		return r;
+	while ((r = png_step(j, 0x7fffffffL, row, row_rgb, ud)) == PNG_MORE)
+		;
+	png_end(j);
+	return r;
+}
+#else
 int png_decode(const unsigned char *d, long n, long max_px,
 	       int (*row)(void *ud, long y, const unsigned char *rgba), void *ud)
 {
@@ -587,3 +842,4 @@ out:
 		inflate_close(zs);
 	return r;
 }
+#endif
