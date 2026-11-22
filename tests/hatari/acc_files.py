@@ -184,6 +184,14 @@ def main():
             r.shot("1-synced")
             r.key(0x01)			# Esc: an alert there (contacts that don't fit) goes
             wait_quiet(5, 90)
+            # the chosen contact's photo made first: while one is made the
+            # window redraws and takes Esc, a click waits (an ST's PNG, some
+            # seconds), and the toolbar's click below would go to it
+            t0 = time.time()
+            while time.time() - t0 < 120 and nph and \
+                    not re.search(r"Photo -- (shown after|[^\n]*: (made|not|stopped))", log_text()):
+                time.sleep(2)
+            wait_quiet(3, 30)
             # Sync contact photos: the menu (the button at the toolbar's right)
             r.click(*MENU)
             time.sleep(2)

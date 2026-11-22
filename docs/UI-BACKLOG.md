@@ -54,3 +54,8 @@ S small, H half a day, M more. [hub] waits for shared code in `common/`; the hub
 Decided 10 Nov 2026: Find stays `Find` (D4); ticks, pop-ups, page names and rows act on the press, buttons on the
 release (C7).
 Nothing to do: Select all stays in Contact (D20); Quit alone already (D3); copying never takes a password.
+
+**Owed (22 Nov 2026):** a photo made while the window waits (photo_get, card.c): the window redraws and
+takes Esc, but a click or a key waits until the photo is done, which on an ST is some seconds for a PNG
+(2.15: up to about 550 x 550 or as decided). The fix is photo_get as a job across event turns, so clicks get
+through; it may ride with the release that reopens card.c and photo.c for the 256-colour photos' own pens.
