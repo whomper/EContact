@@ -2169,7 +2169,9 @@ void prof_turn_end(void)
 #define prof_drawn() ((void)0)
 #endif
 
-int main(void)
+/* (common's atari/cpucheck.c is main: it says, where the other package
+   belongs, which one to install, and calls this; ui/cpualert.c) */
+int app_main(void)
 {
 	short msg[8], d;
 	AEVENT ev;

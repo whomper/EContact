@@ -136,8 +136,17 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 
 ## EContact
 
-- **A release** carries `ECONTACT.ACC`, `ECONTACT.PRG`, `TLS.OVL`, `ECONTACT.HYP` and `.REF`,
-  `CACERT.PEM`, `ROOTS.DAT` and the icon. The icons are committed in `icons/` (`make icons`).
+- **A release** is two zips and nothing loose (the guidelines 7.4; Erez, 22 Nov 2026):
+  `econtact-x.y.zip` (ST, TT, Falcon: `econtact.acc`, `.prg`, `tls.ovl`, `pic.ovl`, `econtact.hyp` and `.ref`,
+  `cacert.pem`, `roots.dat`, `icons/`) and `econtact-x.y-firebee.zip`, the same names: `make firebee`'s
+  ColdFire `econtact.acc` and `.prg` (common's mkfirebee.py, no LPAD), common's `tlsfb.ovl` as `tls.ovl`, no
+  `pic.ovl` (pic_ovl.c never loads it on a FireBee). release.yml uploads the FireBee zip first and the
+  standard one last and checks the API lists them so (every EUpdate up to 2.14 unpacks each zip, the last
+  winning). Each package's alert on the other's machine is ui/cpualert.c (Erez's words; common's
+  cpucheck.c is `main`, ui/main.c's is `app_main`): `tests/hatari/cpu_alert_test.py WORK`. `make core-cf`
+  runs tests/corecheck.c (vcard.c as vcdump says it, the search, the photos) as ColdFire code under
+  `qemu-m68k -cpu cfv4e` and as 68000 code under `-cpu m68000`: the same output, byte for byte. The
+  icons are committed in `icons/` (`make icons`).
 - **File names in lowercase** (the guidelines 6.6, Erez, 2 Nov 2026): every file and folder
   EContact names itself is written in lowercase in the code (econtact.inf, the key, the log,
   cache\booknnnn.dat/.idx, photos.pak, contacts.txt, econtact.fnt, tls.ovl, cacert.pem, roots.dat,

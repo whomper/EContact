@@ -1,7 +1,9 @@
 name: Release
 
-# Builds EContact and publishes it as a GitHub Release: each file on its
-# own, and all of them in ECONTACT-x.y.zip. Two ways to start it:
+# Builds EContact and publishes it as a GitHub Release: two packages and
+# nothing else, econtact-x.y.zip (ST, TT, Falcon) and
+# econtact-x.y-firebee.zip (the guidelines, 7.4; Erez, 22 Nov 2026). Two
+# ways to start it:
 # - Actions > Release > Run workflow, on main, with the notes: it tags
 #   main's commit vX.Y, from VERSION;
 # - push a tag vX.Y that matches VERSION: the tag's message
@@ -72,5 +74,17 @@ jobs:
           else
             printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
           fi
-          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "EContact $(cat VERSION)" \
+          # the FireBee zip first, the standard one last, one upload each, and the order checked
+          # (the guidelines, 7.4: every EUpdate up to 2.14 unpacks each zip of a release, the
+          # last one winning, so the ST, TT and Falcon one must be last)
+          V=$(cat VERSION)
+          gh release create "$TAG" "dist/econtact-$V-firebee.zip" --target "$GITHUB_SHA" --title "EContact $V" \
             --notes-file "$RUNNER_TEMP/notes.md"
+          gh release upload "$TAG" "dist/econtact-$V.zip"
+          # the order as the API returns it (by name), which an old EUpdate unpacks in: no sorting here
+          ORDER=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '[.assets[].name] | join(" ")')
+          echo "assets, as the API lists them: $ORDER"
+          if [ "$ORDER" != "econtact-$V-firebee.zip econtact-$V.zip" ]; then
+            echo "::error::the assets are $ORDER: the FireBee zip first and econtact-$V.zip last, nothing else"
+            exit 1
+          fi

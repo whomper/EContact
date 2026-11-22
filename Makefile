@@ -74,7 +74,8 @@ UI      := main evwrap win draw popup panebar dsp_ovl sidebar list card editor d
 OBJDIR  := build
 OBJS    := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI))) \
-           $(addprefix $(OBJDIR)/bssl/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/version.o
+           $(addprefix $(OBJDIR)/bssl/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/version.o \
+           $(OBJDIR)/cpualert.o $(OBJDIR)/cpucheck.o
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h \
            third_party/tjpgd/*.h)
@@ -114,20 +115,29 @@ $(BIN)/econtact.prg: $(BIN)/econtact.acc
 # see it. 2.12's shared code (pic.c's soft rows, libc, ovl, accmem, av) and
 # photos (draw.c) moved them 2.4 KB: a row pressed on Falcon-4:16 50 ms
 # against 40, a letter typed in the search 45 against 35 (six pairs each);
-# with the room, 45 and 35. name:code[:bss] bytes, worked out with
+# with the room, 45 and 35. 2.13's cpucheck.c and cpualert.c, last, moved the
+# read-only data, the data and the BSS. name:code[:bss[:ro[:data]]] bytes, worked out with
 # common/tools/profpad.py --ship (2.11's ELF) over this link's objects:
 # change them when one of these objects' code or BSS changes, measured
 # with speed.py
 
 , := ,
-LPAD    := ovl:254 libc:180 pic_ovl:158 draw:106:254 accmem:208 av:242 pic:28
+LPAD    := ovl:254 libc:180 pic_ovl:158 draw:106:254 accmem:208 av:242 pic:28 cpucheck:244:0:24:232
+ifeq ($(PADS),no)
+LPAD    :=
+endif
 lpad_o   = $(OBJDIR)/lpad_$(word 1,$(subst :, ,$(1))).o
 LINKOBJS := $(foreach o,$(OBJS),$(o) $(foreach p,$(LPAD),$(if $(filter $(basename $(notdir $(o))),$(word 1,$(subst :, ,$(p)))),$(call lpad_o,$(p)))))
-LPADU   := $(foreach p,$(LPAD),-Wl,-u,lpad_$(word 1,$(subst :, ,$(p))) $(if $(word 3,$(subst :, ,$(p))),-Wl$(,)-u$(,)lpad_$(word 1,$(subst :, ,$(p)))_bss))
+lpad_n   = $(word $(2),$(subst :, ,$(1)))
+LPADU   := $(foreach p,$(LPAD),-Wl,-u,lpad_$(call lpad_n,$(p),1) \
+             $(if $(filter-out 0,$(call lpad_n,$(p),3)),-Wl$(,)-u$(,)lpad_$(call lpad_n,$(p),1)_bss) \
+             $(if $(filter-out 0,$(call lpad_n,$(p),4)),-Wl$(,)-u$(,)lpad_$(call lpad_n,$(p),1)_ro) \
+             $(if $(filter-out 0,$(call lpad_n,$(p),5)),-Wl$(,)-u$(,)lpad_$(call lpad_n,$(p),1)_data))
 define lpad_rule
 $(call lpad_o,$(1)): common/atari/codepad.S | $(OBJDIR)
 	$(CC) -m68000 -DPAD_NAME=lpad_$(word 1,$(subst :, ,$(1))) -DPAD_TEXT=$(word 2,$(subst :, ,$(1))) \
-	    -DPAD_RO=0 -DPAD_DATA=0 -DPAD_BSS=$(or $(word 3,$(subst :, ,$(1))),0) -c $$< -o $$@
+	    -DPAD_RO=$(or $(word 4,$(subst :, ,$(1))),0) -DPAD_DATA=$(or $(word 5,$(subst :, ,$(1))),0) \
+	    -DPAD_BSS=$(or $(word 3,$(subst :, ,$(1))),0) -c $$< -o $$@
 endef
 $(foreach p,$(LPAD),$(eval $(call lpad_rule,$(p))))
 
@@ -375,22 +385,96 @@ test: $(OBJDIR)/unit $(OBJDIR)/lowmem $(addprefix $(OBJDIR)/replay_,$(FUZZERS)) 
 HYPCHECK = test ! -f $(BIN)/econtact.hyp || grep -q "ECONTACT.HYP $$(cat VERSION)" $(BIN)/econtact.hyp || \
 	  { echo "$(BIN)/econtact.hyp isn't version $$(cat VERSION): make help"; exit 1; }
 
-# a release's files: each one in dist/, and all of them in
-# dist/econtact-x.y.zip (the icons in icons/), for the release workflow;
-# every name in lowercase, the icons' too (the guidelines 6.6)
-DIST    := $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/tlsfb.ovl $(BIN)/pic.ovl $(BIN)/cacert.pem $(BIN)/roots.dat \
+# the FireBee package (the guidelines, 7.4; Erez, 22 Nov 2026: two
+# packages, the same names inside): the same sources as ColdFire code, by
+# common's mkfirebee.py from the rules above (cpucheck.c becomes
+# cpucheck_cf.S, -lgcc ll64.c, no LPAD: the 68030's caches aren't the
+# ColdFire's), one ELF for ECONTACT.PRG and .ACC as here, in $(BIN)/firebee/
+FBBIN   := $(BIN)/firebee
+firebee: $(FBBIN)/econtact.prg $(FBBIN)/econtact.acc
+$(FBBIN)/econtact.acc: $(OBJDIR)/contact.elf common/tools/mkfirebee.py
+	@mkdir -p $(FBBIN)
+	python3 common/tools/mkfirebee.py --elf $(OBJDIR)/contact.elf --make "PADS=no" --outdir $(OBJDIR)/cf/ $@
+$(FBBIN)/econtact.prg: $(FBBIN)/econtact.acc
+	cp $< $@
+
+# a release: two packages and nothing else (the guidelines, 7.4; Erez,
+# 22 Nov 2026: "two ZIP files, one for each platform"),
+# dist/econtact-x.y.zip for the ST, TT and Falcon and
+# dist/econtact-x.y-firebee.zip for the FireBee, the same names in both
+# (the icons in icons/): the FireBee's ECONTACT.PRG and .ACC (make
+# firebee) and TLS.OVL, common's ColdFire build (tlsfb.ovl) under the
+# standard name; no PIC.OVL there (68030 and DSP code: pic_ovl.c never
+# loads it on a FireBee). Every name in lowercase (the guidelines 6.6)
+DIST    := $(BIN)/econtact.acc $(BIN)/econtact.prg $(BIN)/tls.ovl $(BIN)/pic.ovl $(BIN)/cacert.pem $(BIN)/roots.dat \
+           $(BIN)/econtact.hyp $(BIN)/econtact.ref
+FBDIST  := $(FBBIN)/econtact.acc $(FBBIN)/econtact.prg $(BIN)/cacert.pem $(BIN)/roots.dat \
            $(BIN)/econtact.hyp $(BIN)/econtact.ref
 ICONS   := icons/ECONTACT.RSC icons/ECONTNV.RSC icons/ECONTACT.DEF icons/ECONTACT.ICN icons/ECONTMSK.ICN
-dist: all help
+dist: all firebee help
 	@$(HYPCHECK)
 	rm -rf dist
-	mkdir -p dist/zip/icons
-	cp $(DIST) dist/
+	mkdir -p dist/zip/icons dist/fbzip/icons
 	cp $(DIST) dist/zip/
+	cp $(FBDIST) dist/fbzip/
+	cp $(BIN)/tlsfb.ovl dist/fbzip/tls.ovl
 	for f in $(ICONS); do n=$$(basename $$f | tr A-Z a-z); \
-	  cp $$f dist/$$n && cp $$f dist/zip/icons/$$n || exit 1; done
+	  cp $$f dist/zip/icons/$$n && cp $$f dist/fbzip/icons/$$n || exit 1; done
 	cd dist/zip && zip -q -9 -r ../econtact-$(VERSION_STR).zip .
-	rm -rf dist/zip
+	cd dist/fbzip && zip -q -9 -r ../econtact-$(VERSION_STR)-firebee.zip .
+	rm -rf dist/zip dist/fbzip
+	@if ls dist | grep -q '[A-Z]' || unzip -Z1 dist/econtact-$(VERSION_STR).zip | grep -q '[A-Z]' || \
+	    unzip -Z1 dist/econtact-$(VERSION_STR)-firebee.zip | grep -q '[A-Z]'; then \
+		echo "dist: a name with capitals (the guidelines, 6.6)"; exit 1; fi
+
+# ---- the core as ColdFire code (the FireBee package, the guidelines 7.4) ----
+# tests/corecheck.c (vcard.c as tests/host/vcdump.c says it, the search,
+# the photos made into EContact's picture with TJpgDec's two 68000 changes
+# and jpegdc.c) against common's atari/libc.c, built twice as the program
+# is: for the FireBee (-mcpu=5475, run under qemu-m68k -cpu cfv4e, no
+# libgcc: common's ll64.c, as mkfirebee.py) and for the ST (-m68000, under
+# qemu-m68k -cpu m68000; its 32-bit * and / common's tos.c's, as the
+# program's, not the build machine's libgcc, which is 68020 code);
+# tests/coldfire/cfrun.c stands in for GEMDOS's
+# memory and the files. The FireBee's output must be the ST's, byte for
+# byte (not this computer's: its long is 64 bits, and vcard_photo_key's
+# rotation gives another key here), over the sample cards, the fuzz seeds
+# and tests/host/vcgen.py's cards (fixed seeds)
+CFT     := common/tests/coldfire
+CCSRC   := src/vcard.c src/abook.c src/photo.c src/jpegdc.c third_party/tjpgd/tjpgd.c common/src/util.c \
+           common/src/charset.c common/atari/libc.c $(CFT)/gemdos.c tests/coldfire/cfrun.c
+CCFLAGS  = -Os -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
+           -fno-tree-loop-distribute-patterns -w -DCAL_TOS -DCFRUN -nostdinc -isystem $(GCCINC) \
+           -Iatari/include -Icommon/atari/include -Isrc -Icommon/src -Ithird_party/tjpgd -Itests \
+           -I$(CFT) -Itests/coldfire -ffunction-sections -fdata-sections
+CFD     := $(OBJDIR)/corecf
+# corecheck_rules(DIR, CPU flags, objects of its own, the link's libraries)
+define corecheck_rules
+$(1)/%.o: %.c $$(HDRS) tests/coldfire/cfstdio.h
+	@mkdir -p $$(dir $$@)
+	$$(CC) $(2) $$(CCFLAGS) -c -o $$@ $$<
+$(1)/tests/corecheck.o: tests/corecheck.c tests/host/vcdump.c $$(HDRS) tests/coldfire/cfstdio.h
+	@mkdir -p $$(dir $$@)
+	$$(CC) $(2) $$(CCFLAGS) -include tests/coldfire/cfstdio.h -c -o $$@ $$<
+$(1)/rt.o: $$(CFT)/rt.S
+	@mkdir -p $$(dir $$@)
+	$$(CC) $(2) -c -o $$@ $$<
+$(1)/corecheck: $(1)/tests/corecheck.o $$(addprefix $(1)/,$$(CCSRC:.c=.o)) $(1)/rt.o $(3)
+	$$(CC) $(2) -nostdlib -static -no-pie -Wl,-z,noexecstack -Wl,--gc-sections -o $$@ $$(filter %.o,$$^) $(4)
+endef
+$(eval $(call corecheck_rules,$(CFD)/cf,-mcpu=5475,$(CFD)/cf/common/atari/ll64.o,))
+$(eval $(call corecheck_rules,$(CFD)/st,-m68000 -fno-store-merging -fdisable-tree-bswap,$(CFD)/st/common/atari/tos.o,))
+# the list: the sample cards, the fuzz seeds (cards and JPEGs), vcgen.py's
+$(CFD)/list: tests/host/vcgen.py tests/hatari/sample.vcf $(wildcard tests/fuzz/seeds/vcard/* tests/fuzz/seeds/jpeg/*)
+	@mkdir -p $(CFD)/cards
+	python3 tests/host/vcgen.py $(CFD)/cards 300 >/dev/null
+	{ echo tests/hatari/sample.vcf; ls tests/fuzz/seeds/vcard/* tests/fuzz/seeds/jpeg/* tests/fuzz/found/jpeg/* \
+	    2>/dev/null; find $(CFD)/cards -type f | sort | head -n 300; } > $@
+core-cf: $(CFD)/cf/corecheck $(CFD)/st/corecheck $(CFD)/list
+	qemu-m68k -cpu m68000 $(CFD)/st/corecheck > $(CFD)/corecheck.st || { echo "the ST's corecheck failed"; exit 1; }
+	qemu-m68k -cpu cfv4e $(CFD)/cf/corecheck > $(CFD)/corecheck.cf || { echo "the FireBee's corecheck failed"; exit 1; }
+	cmp $(CFD)/corecheck.st $(CFD)/corecheck.cf
+	@echo "corecheck, the FireBee as the ST: $$(tail -n 1 $(CFD)/corecheck.cf), $$(wc -l < $(CFD)/corecheck.cf) lines"
 
 itest: $(OBJDIR)/card-cli
 	tests/integration.sh
@@ -398,4 +482,4 @@ itest: $(OBJDIR)/card-cli
 clean:
 	rm -rf $(OBJDIR) $(BIN) dist
 
-.PHONY: all help icons dist test itest clean fuzz prof FORCE
+.PHONY: all help icons dist firebee core-cf test itest clean fuzz prof FORCE

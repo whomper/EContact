@@ -32,8 +32,12 @@ before it is done, it reads the rest at once.
 |-------------------|------------------|---------------------------------|
 | Falcon, TT        | `ECONTACT.ACC`   | by itself (a Direct connection, with `TLS.OVL` in the folder) or through the Gateway |
 | ST, STE, Mega ST  | `ECONTACT.ACC`   | through the Gateway |
+| FireBee           | `ECONTACT.ACC` from the FireBee package | by itself (its own `TLS.OVL`) or through the Gateway |
 
-The same `ECONTACT.ACC` runs on every Atari. (Until 1.63 an ST had
+A release has two packages with the same names inside:
+`ECONTACT-x.y.ZIP` for every ST, STE, TT and Falcon, and
+`ECONTACT-x.y-FIREBEE.ZIP` for a FireBee, made for its ColdFire. Each
+says so, and stops, on the other's machine. (Until 1.63 an ST had
 `ECONTST.ACC`: delete it.)
 
 The settings are in `ECONTACT.INF` in the root of the boot drive, where
@@ -53,9 +57,10 @@ C:\ECONTACT\              EContact's folder (any folder will do):
     CACHE\PHOTOS.PAK      the photos, made small for the screen, in one file
     CACHE\NEAR.DAT        each colour's nearest pen, kept for the next start
     ECONTACT.FNT          which GDOS fonts are fixed-width (made by Font...)
-    TLS.OVL               a Direct connection: the TLS, loaded when it is used (copy it here)
-    TLSFB.OVL             the same on a FireBee, built for its ColdFire (copy it here)
-    PIC.OVL               a Falcon's photos on its DSP, loaded on a TT or Falcon (copy it here)
+    TLS.OVL               a Direct connection: the TLS, loaded when it is used (copy it here;
+                          the FireBee package has its own, built for the ColdFire)
+    PIC.OVL               a Falcon's photos on its DSP, loaded on a TT or Falcon (copy it here;
+                          not in the FireBee package)
     CACERT.PEM            a Direct connection: root certificates (copy them here)
     ROOTS.DAT             a Direct connection: the same, decoded ahead of time
     SEED.DAT              a Direct connection: randomness kept for the next start

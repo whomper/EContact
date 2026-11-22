@@ -22,17 +22,17 @@ other CardDAV servers.
 
 ## Getting started
 
-Download the latest **[release](https://github.com/whomper/EContact/releases/latest)** (each file, or all in `econtact-x.y.zip`).
+Download the latest **[release](https://github.com/whomper/EContact/releases/latest)**: `econtact-x.y.zip` for an
+ST, STE, TT or Falcon, or `econtact-x.y-firebee.zip` for a FireBee. Both hold the same names:
 
 | File | What it is |
 |---|---|
-| `econtact.acc` | the accessory, for every ST, STE, TT and Falcon |
+| `econtact.acc` | the accessory (the FireBee's made for its ColdFire) |
 | `econtact.prg` | the same, to start from the desktop, with a menu bar |
-| `tls.ovl`, `cacert.pem`, `roots.dat` | a Direct connection on a TT or Falcon |
-| `tlsfb.ovl` | the same Direct connection on a FireBee |
-| `pic.ovl` | a Falcon's photos drawn with its DSP |
+| `tls.ovl`, `cacert.pem`, `roots.dat` | a Direct connection on a TT, Falcon or FireBee |
+| `pic.ovl` | a Falcon's photos drawn with its DSP (not in the FireBee's) |
 | `econtact.hyp`, `econtact.ref` | the guide, for the Help key |
-| `econtact.rsc` and the rest | the desktop icon |
+| `icons/` | the desktop icon |
 
 1. Copy `econtact.acc` to the root of your boot drive.
 2. Put the other files in a folder of your choice; the first time it opens, EContact asks where it is.
@@ -60,7 +60,8 @@ address book needs no server at all.
 ```sh
 sudo apt install gcc-m68k-linux-gnu python3 zip
 make          # binary/: econtact.acc, econtact.prg, roots.dat, tls.ovl, tlsfb.ovl, pic.ovl (and econtact.hyp with hcp)
-make dist     # a release's files and zip in dist/
+make firebee  # binary/firebee/: the FireBee's econtact.prg and .acc (common's mkfirebee.py)
+make dist     # dist/: econtact-x.y.zip and econtact-x.y-firebee.zip
 ```
 
 Releases, the help file and the icons: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
