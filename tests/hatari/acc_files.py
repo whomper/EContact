@@ -189,7 +189,7 @@ def main():
             # seconds), and the toolbar's click below would go to it
             t0 = time.time()
             while time.time() - t0 < 120 and nph and \
-                    not re.search(r"Photo -- (shown after|[^\n]*: (made|not|stopped))", log_text()):
+                    not re.search(r"Photo -- (shown after|[^\n]*: (made|not made))", log_text()):
                 time.sleep(2)
             wait_quiet(3, 30)
             # Sync contact photos: the menu (the button at the toolbar's right)
