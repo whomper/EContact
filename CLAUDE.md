@@ -35,7 +35,9 @@ EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari
   2.8, with the shared code of 17 Nov 2026 and inf_t at 3 KB: see its commit; 2.3 to 2.6 held 349 and didn't write CONTACTS.TXT, unseen while the rig ran on EmuTOS, whose heap is
   5 KB bigger). Code or BSS added costs that margin (the heap is half of what is free: a KB of program, half a KB of
   heap): measure quiet_start ST-1 on TOS 1.04 with any change. ui/editor.c keeps what follows it where 2.6 had it,
-  modulo 256 (its gaps; AERA-Atari 098183d): change them with its code or BSS.
+  modulo 256 (its gaps; AERA-Atari 098183d): change them with its code or BSS. The Makefile's LPAD (2.12) does the same after the
+  objects that grew since 2.11 (common's codepad.S): everything else is at 2.11's places modulo 256; work its sizes out
+  again with common/tools/profpad.py --ship against the last release's ELF when one of them changes.
 - Nothing runs in the background; the session waits for Erez or the hub.
 - Only Erez's explicit word ends this mode. The hub passes it on quoting him.
 
