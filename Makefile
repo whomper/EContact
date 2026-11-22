@@ -35,6 +35,9 @@ CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
 # nothing uses (--gc-sections): common's code this program doesn't call
 # stays out of the accessory's memory (the hub, 1 Nov 2026)
 CFLAGS  += -ffunction-sections -fdata-sections
+# common's png.c made small (the same pictures, every format: the hub,
+# c36aba7): 2.8 KB more for a program beside the accessory on a 1 MB ST
+CFLAGS  += -DPNG_SLIM
 # `make EXTRA_CFLAGS=-DAES_PROFILE`: stretches between event calls over 50 ms
 # to the emulator's console (common/atari/gem.c)
 CFLAGS  += $(EXTRA_CFLAGS)
@@ -67,7 +70,10 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 # built here
 TLSOVL  := common/tlsovl/tls.ovl
 
-CORE    := util charset conn ovl bidi secret futil ctime xml inflate http vcard carddav abook photo photopack jpegdc png pfkeep
+CORE    := util charset conn ovl bidi secret futil ctime xml http vcard carddav abook photo photopack jpegdc pfkeep
+# (linked last, after cpucheck: 2.15's PNG photos, so the code before them stays
+# where 2.14 had it; the host builds take them with the core)
+CORE_END := inflate png
 ATARI   := libc tos plat_tos net_tos sting gem tls_ovl pic_ovl bigbuf
 UI      := main evwrap win draw popup panebar dsp_ovl sidebar list card editor dialogs field about font fontsel accmem help av av_people alert dialog aboutbox iconify clip dd mbar twin busy bgwork people_ask answer notify aboutline text offdraw click hebkey pic arrowed tooltip progbar dlgbuild
 
@@ -75,7 +81,7 @@ OBJDIR  := build
 OBJS    := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/tjpgd.o $(OBJDIR)/crash.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI))) \
            $(addprefix $(OBJDIR)/bssl/,$(addsuffix .o,$(notdir $(STBSSL)))) $(OBJDIR)/version.o \
-           $(OBJDIR)/cpualert.o $(OBJDIR)/cpucheck.o
+           $(OBJDIR)/cpualert.o $(OBJDIR)/cpucheck.o $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE_END)))
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h \
            third_party/tjpgd/*.h)
@@ -116,13 +122,16 @@ $(BIN)/econtact.prg: $(BIN)/econtact.acc
 # photos (draw.c) moved them 2.4 KB: a row pressed on Falcon-4:16 50 ms
 # against 40, a letter typed in the search 45 against 35 (six pairs each);
 # with the room, 45 and 35. 2.13's cpucheck.c and cpualert.c, last, moved the
-# read-only data, the data and the BSS. name:code[:bss[:ro[:data]]] bytes, worked out with
-# common/tools/profpad.py --ship (2.11's ELF) over this link's objects:
+# read-only data, the data and the BSS. 2.15: placed again against 2.14 (its
+# PNG code, inflate and png, linked last; http.c, photo.c and common's text.c
+# grown). name:code[:bss[:ro[:data[:strings]]]] bytes, worked out with
+# common/tools/profpad.py --ship (the last release's ELF) over this link's objects:
 # change them when one of these objects' code or BSS changes, measured
 # with speed.py
 
 , := ,
-LPAD    := ovl:254 libc:180 pic_ovl:158 draw:106:254 accmem:208 av:242 pic:28 cpucheck:244:140:24:232
+LPAD    := ovl:254 http:104:100:196 photo:12 libc:180 pic_ovl:158 draw:106:254 accmem:208 av:242 text:226:252 pic:28 \
+           png:214:136:16:232:194
 ifeq ($(PADS),no)
 LPAD    :=
 endif
@@ -132,12 +141,13 @@ lpad_n   = $(word $(2),$(subst :, ,$(1)))
 LPADU   := $(foreach p,$(LPAD),-Wl,-u,lpad_$(call lpad_n,$(p),1) \
              $(if $(filter-out 0,$(call lpad_n,$(p),3)),-Wl$(,)-u$(,)lpad_$(call lpad_n,$(p),1)_bss) \
              $(if $(filter-out 0,$(call lpad_n,$(p),4)),-Wl$(,)-u$(,)lpad_$(call lpad_n,$(p),1)_ro) \
-             $(if $(filter-out 0,$(call lpad_n,$(p),5)),-Wl$(,)-u$(,)lpad_$(call lpad_n,$(p),1)_data))
+             $(if $(filter-out 0,$(call lpad_n,$(p),5)),-Wl$(,)-u$(,)lpad_$(call lpad_n,$(p),1)_data) \
+             $(if $(filter-out 0,$(call lpad_n,$(p),6)),-Wl$(,)-u$(,)lpad_$(call lpad_n,$(p),1)_str))
 define lpad_rule
 $(call lpad_o,$(1)): common/atari/codepad.S Makefile | $(OBJDIR)
 	$(CC) -m68000 -DPAD_NAME=lpad_$(word 1,$(subst :, ,$(1))) -DPAD_TEXT=$(word 2,$(subst :, ,$(1))) \
 	    -DPAD_RO=$(or $(word 4,$(subst :, ,$(1))),0) -DPAD_DATA=$(or $(word 5,$(subst :, ,$(1))),0) \
-	    -DPAD_BSS=$(or $(word 3,$(subst :, ,$(1))),0) -c $$< -o $$@
+	    -DPAD_BSS=$(or $(word 3,$(subst :, ,$(1))),0) -DPAD_STR=$(or $(word 6,$(subst :, ,$(1))),0) -c $$< -o $$@
 endef
 $(foreach p,$(LPAD),$(eval $(call lpad_rule,$(p))))
 
@@ -213,16 +223,17 @@ TJPGD   := third_party/tjpgd/tjpgd.c third_party/tjpgd/tjpgd.h third_party/tjpgd
 $(OBJDIR)/tjpgd.o: $(TJPGD) | $(OBJDIR)
 	$(CC) $(subst -Os,-O2,$(CFLAGS)) -fwrapv -w -c -o $@ $<
 
-# the stack: 24 KB, not crt0's 48 (EFTP's too). The accessory's load is
+# the stack: 19 KB, not crt0's 48 (2.14: 24; 2.15 took 5 KB for PNG photos; the
+# PNG path's frames, -fstack-usage, add some 1.6 KB to the 13.2 measured). The accessory's load is
 # what a program started beside it on a 1 MB ST doesn't have: 2.13's
 # 1.5 KB more left EFTP (359,200 bytes) without room to start; 24 KB
-# gives a program 8 KB more than 32 (tests/hatari/acc_room.py). The
+# gave a program 8 KB more than 32, 20 another 4 (tests/hatari/acc_room.py). The
 # deepest measured, from the BSS's zeros, was 13.2 KB (Sync Contact
 # Photos on ST-1: acc_files.py), 8.7 the accessory's refresh
 # (quiet_sync.py), 6.2 the dialogs, the editor and the speed rig's
 # actions, 1.7 the Falcon's TLS (falcon_tls.py)
 $(OBJDIR)/crt0.o: common/atari/crt0.S Makefile | $(OBJDIR)
-	$(CC) -m68000 -DSTACK_SIZE=24576 -c -o $@ $<
+	$(CC) -m68000 -DSTACK_SIZE=19456 -c -o $@ $<
 $(OBJDIR)/sting_s.o: common/atari/sting.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
 $(OBJDIR)/nf.o: common/atari/nf.S | $(OBJDIR)
@@ -265,7 +276,7 @@ HOSTCC     ?= cc
 HOSTCFLAGS := -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
               -Wno-format-truncation -Isrc -Icommon/src -Ithird_party/tjpgd -fsanitize=address,undefined
 # the build machine's builds link tls.c, which answers tls_ovl_* too (7.4)
-HOSTSRC    := $(foreach m,$(patsubst ovl,tls,$(CORE)),$(firstword $(wildcard src/$(m).c common/src/$(m).c))) tests/host/plat_posix.c tests/host/version_host.c
+HOSTSRC    := $(foreach m,$(patsubst ovl,tls,$(CORE) $(CORE_END)),$(firstword $(wildcard src/$(m).c common/src/$(m).c))) tests/host/plat_posix.c tests/host/version_host.c
 HOSTLIB    := $(OBJDIR)/libbearssl-host.a $(OBJDIR)/host-tjpgd.o
 
 $(OBJDIR)/host-tjpgd.o: $(TJPGD) | $(OBJDIR)
@@ -295,7 +306,7 @@ $(OBJDIR)/unit: tests/unit.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
 
 # without the sanitizers: it refuses big mallocs itself (--wrap)
 $(OBJDIR)/lowmem: tests/lowmem.c $(HOSTSRC) $(HDRS) $(OBJDIR)/libbearssl-host.a $(OBJDIR)/plain-tjpgd.o | $(OBJDIR)
-	$(HOSTCC) $(filter-out -fsanitize=%,$(HOSTCFLAGS)) -I$(BSSL)/inc -Wl,--wrap=malloc,--wrap=realloc \
+	$(HOSTCC) $(filter-out -fsanitize=%,$(HOSTCFLAGS)) -I$(BSSL)/inc -Wl,--wrap=malloc,--wrap=realloc,--wrap=calloc \
 		-o $@ tests/lowmem.c $(HOSTSRC) $(OBJDIR)/libbearssl-host.a $(OBJDIR)/plain-tjpgd.o
 
 $(OBJDIR)/mkroots: common/tools/mkroots.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJDIR)
@@ -454,7 +465,7 @@ CFT     := common/tests/coldfire
 CCSRC   := src/vcard.c src/abook.c src/photo.c src/jpegdc.c common/src/png.c common/src/inflate.c third_party/tjpgd/tjpgd.c common/src/util.c \
            common/src/charset.c common/atari/libc.c $(CFT)/gemdos.c tests/coldfire/cfrun.c
 CCFLAGS  = -Os -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
-           -fno-tree-loop-distribute-patterns -w -DCAL_TOS -DCFRUN -nostdinc -isystem $(GCCINC) \
+           -fno-tree-loop-distribute-patterns -w -DCAL_TOS -DCFRUN -DPNG_SLIM -nostdinc -isystem $(GCCINC) \
            -Iatari/include -Icommon/atari/include -Isrc -Icommon/src -Ithird_party/tjpgd -Itests \
            -I$(CFT) -Itests/coldfire -ffunction-sections -fdata-sections
 CFD     := $(OBJDIR)/corecf

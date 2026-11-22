@@ -79,6 +79,12 @@ with tempfile.TemporaryDirectory() as d:
     quarters_im(256, 256).save(src)
     subprocess.run(["convert", src, "-interlace", "PNG", dst], check=True)
     vec["png_interlaced"] = open(dst, "rb").read()
+    # Adam7 is put together whole first: 1000 x 1000 is 4 MB, more than a
+    # 1 MB ST has (lowmem.c: it says memory, not damaged)
+    big = os.path.join(d, "b.png")
+    quarters_im(1000, 1000).save(src)
+    subprocess.run(["convert", src, "-interlace", "PNG", big], check=True)
+    vec["png_adam7_big"] = open(big, "rb").read()
 out = os.path.join(os.path.dirname(__file__), "photo_vec.h")
 with open(out, "w") as f:
     f.write("/* SPDX-License-Identifier: GPL-2.0-or-later\n * Copyright (C) 2026 AERA | Erez Yaary */\n")

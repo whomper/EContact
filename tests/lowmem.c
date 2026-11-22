@@ -14,6 +14,8 @@
 #include "vcard.h"
 #include "abook.h"
 #include "plat.h"
+#include "photo.h"
+#include "photo_vec.h"
 
 static long fail_above;
 void *__real_malloc(size_t n);
@@ -21,6 +23,11 @@ void *__real_realloc(void *p, size_t n);
 void *__wrap_malloc(size_t n)
 {
 	return fail_above && n > (size_t)fail_above ? 0 : __real_malloc(n);
+}
+void *__real_calloc(size_t a, size_t b);
+void *__wrap_calloc(size_t a, size_t b)
+{
+	return fail_above && a * b > (size_t)fail_above ? 0 : __real_calloc(a, b);
 }
 void *__wrap_realloc(void *p, size_t n)
 {
@@ -44,6 +51,16 @@ int main(void)
 	CONTACT *c;
 	const char *mem[1] = { "abc-123" };
 	long i;
+	{
+		/* an interlaced PNG is put together whole first (common's png.c):
+		   one too big for the memory says so, it isn't called damaged */
+		static PHOTOIMG im;
+		fail_above = 1L << 20;
+		check(!photo_decode_jpeg(png_adam7_big, sizeof(png_adam7_big), 0, &im), "a big Adam7 PNG not made");
+		check(photo_why == PW_MEMORY, "... for lack of memory");
+		fail_above = 0;
+		check(photo_decode_jpeg(png_adam7_big, sizeof(png_adam7_big), 0, &im), "... and made with the memory");
+	}
 	sb_init(&old);
 	sb_adds(&old, "BEGIN:VCARD\r\nVERSION:3.0\r\nN:Carter;Maya;;;\r\nFN:Maya Carter\r\n"
 		      "EMAIL;TYPE=WORK:maya@example.com\r\nPHOTO;ENCODING=b;TYPE=JPEG:");
