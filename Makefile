@@ -37,7 +37,7 @@ CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
 CFLAGS  += -ffunction-sections -fdata-sections
 # common's png.c made small (the same pictures, every format: the hub,
 # c36aba7): 2.8 KB more for a program beside the accessory on a 1 MB ST
-CFLAGS  += -DPNG_SLIM
+CFLAGS  += -DPNG_SLIM -DPNG_STEPS
 # `make EXTRA_CFLAGS=-DAES_PROFILE`: stretches between event calls over 50 ms
 # to the emulator's console (common/atari/gem.c)
 CFLAGS  += $(EXTRA_CFLAGS)
@@ -130,8 +130,8 @@ $(BIN)/econtact.prg: $(BIN)/econtact.acc
 # with speed.py
 
 , := ,
-LPAD    := ovl:254 http:104:100:196 photo:12 libc:180 pic_ovl:158 draw:106:254 accmem:208 av:242 text:226:252 pic:28 \
-           png:214:136:16:232:194
+LPAD    := ovl:254 http:104:100:196 photo:200 libc:180 pic_ovl:158 draw:106:254 accmem:208 av:242 text:226:252 pic:28 \
+           png:122:136:16:232:194
 ifeq ($(PADS),no)
 LPAD    :=
 endif
@@ -273,7 +273,7 @@ $(OBJDIR)/version.o: $(OBJDIR)/version.c
 
 # ---- host build: the same contacts core, for tests and card-cli ----
 HOSTCC     ?= cc
-HOSTCFLAGS := -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
+HOSTCFLAGS := -DPNG_STEPS -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
               -Wno-format-truncation -Isrc -Icommon/src -Ithird_party/tjpgd -fsanitize=address,undefined
 # the build machine's builds link tls.c, which answers tls_ovl_* too (7.4)
 HOSTSRC    := $(foreach m,$(patsubst ovl,tls,$(CORE) $(CORE_END)),$(firstword $(wildcard src/$(m).c common/src/$(m).c))) tests/host/plat_posix.c tests/host/version_host.c
@@ -465,7 +465,7 @@ CFT     := common/tests/coldfire
 CCSRC   := src/vcard.c src/abook.c src/photo.c src/jpegdc.c common/src/png.c common/src/inflate.c third_party/tjpgd/tjpgd.c common/src/util.c \
            common/src/charset.c common/atari/libc.c $(CFT)/gemdos.c tests/coldfire/cfrun.c
 CCFLAGS  = -Os -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
-           -fno-tree-loop-distribute-patterns -w -DCAL_TOS -DCFRUN -DPNG_SLIM -nostdinc -isystem $(GCCINC) \
+           -fno-tree-loop-distribute-patterns -w -DCAL_TOS -DCFRUN -DPNG_SLIM -DPNG_STEPS -nostdinc -isystem $(GCCINC) \
            -Iatari/include -Icommon/atari/include -Isrc -Icommon/src -Ithird_party/tjpgd -Itests \
            -I$(CFT) -Itests/coldfire -ffunction-sections -fdata-sections
 CFD     := $(OBJDIR)/corecf

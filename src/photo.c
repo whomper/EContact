@@ -591,8 +591,8 @@ static int decode_dc(const unsigned char *jpg, long len, const PHOTOREF *ref, DE
 typedef struct {
 	DEC *d;
 	long x0, y0, k, n, next, got;
-	short polls;
 } PNGU;
+
 
 static int png_row(void *u, long y, const unsigned char *rgba)
 {
@@ -600,11 +600,6 @@ static int png_row(void *u, long y, const unsigned char *rgba)
 	DEC *d = p->d;
 	const unsigned char *q;
 	long i, ry;
-	if (++p->polls >= 16) {
-		p->polls = 0;
-		if (!decode_poll())
-			return 0;		/* stopped */
-	}
 	if (y != p->next)
 		return 1;
 	if (p->got >= p->n)
@@ -652,7 +647,24 @@ static int decode_png(const unsigned char *png, long len, const PHOTOREF *ref, D
 		return 0;
 	}
 	dec_how = u.k > 1 ? ", PNG, sampled" : ", PNG";
-	rc = png_decode(png, len, 16L << 20, png_row, &u);
+	{
+		/* a job, a few rows a turn (common's PNG_STEPS): between steps the
+		   window answers (decode_poll); a row of a 400-wide PNG is some
+		   45 ms of an 8 MHz ST's, so one row a step there, eight on a
+		   68030 (ab_read_bytes says which, ui/main.c) */
+		PNG_JOB *job = 0;
+		rc = png_begin(&job, png, len, 16L << 20, 0);
+		while (rc == PNG_OK || rc == PNG_MORE) {
+			rc = png_step(job, ab_read_bytes > 16384 ? 8 : 1, png_row, 0, &u);	/* (its 32 KB: a 68030) */
+			if (rc != PNG_MORE)
+				break;
+			if (!decode_poll()) {
+				rc = PNG_STOPPED;
+				break;
+			}
+		}
+		png_end(job);
+	}
 	if (rc == PNG_STOPPED && conn_stop) {
 		why(PW_NO_ANSWER, "stopped");
 		return 0;
