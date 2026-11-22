@@ -108,8 +108,31 @@ $(BIN)/econtact.acc: $(OBJDIR)/contact.elf common/tools/elf2tos.py | $(BIN)
 $(BIN)/econtact.prg: $(BIN)/econtact.acc
 	cp $< $@
 
-$(OBJDIR)/contact.elf: $(OBJS) common/atari/link.ld
-	$(CC) $(LDFLAGS) $(EVWRAP) -Wl,-Map,$@.map -o $@ $(OBJS) -lgcc
+# Placement (the guidelines' Speed; common/atari/codepad.S, as EWeb keeps its
+# places): room after the objects that grew since 2.11, so every function and
+# buffer of the others is where 2.11 had it modulo 256, as a Falcon's caches
+# see it. 2.12's shared code (pic.c's soft rows, libc, ovl, accmem, av) and
+# photos (draw.c) moved them 2.4 KB: a row pressed on Falcon-4:16 50 ms
+# against 40, a letter typed in the search 45 against 35 (six pairs each);
+# with the room, 45 and 35. name:code[:bss] bytes, worked out with
+# common/tools/profpad.py --ship (2.11's ELF) over this link's objects:
+# change them when one of these objects' code or BSS changes, measured
+# with speed.py
+
+, := ,
+LPAD    := ovl:254 libc:180 pic_ovl:158 draw:106:254 accmem:208 av:242 pic:28
+lpad_o   = $(OBJDIR)/lpad_$(word 1,$(subst :, ,$(1))).o
+LINKOBJS := $(foreach o,$(OBJS),$(o) $(foreach p,$(LPAD),$(if $(filter $(basename $(notdir $(o))),$(word 1,$(subst :, ,$(p)))),$(call lpad_o,$(p)))))
+LPADU   := $(foreach p,$(LPAD),-Wl,-u,lpad_$(word 1,$(subst :, ,$(p))) $(if $(word 3,$(subst :, ,$(p))),-Wl$(,)-u$(,)lpad_$(word 1,$(subst :, ,$(p)))_bss))
+define lpad_rule
+$(call lpad_o,$(1)): common/atari/codepad.S | $(OBJDIR)
+	$(CC) -m68000 -DPAD_NAME=lpad_$(word 1,$(subst :, ,$(1))) -DPAD_TEXT=$(word 2,$(subst :, ,$(1))) \
+	    -DPAD_RO=0 -DPAD_DATA=0 -DPAD_BSS=$(or $(word 3,$(subst :, ,$(1))),0) -c $$< -o $$@
+endef
+$(foreach p,$(LPAD),$(eval $(call lpad_rule,$(p))))
+
+$(OBJDIR)/contact.elf: $(LINKOBJS) common/atari/link.ld
+	$(CC) $(LDFLAGS) $(EVWRAP) $(LPADU) -Wl,-Map,$@.map -o $@ $(LINKOBJS) -lgcc
 
 # `make prof`: the speed rig's build (AES_PROFILE=20 in the files that
 # time; the rest the shipped objects) at the shipped build's places
@@ -117,7 +140,7 @@ $(OBJDIR)/contact.elf: $(OBJS) common/atari/link.ld
 # $(OBJDIR)/prof/bin for speed.py --bin and quiet_start.py
 PROFDIR   := $(OBJDIR)/prof
 PROF_TIMED := main win card field abook photo gem
-PROF_OBJS := $(foreach o,$(OBJS),$(if $(filter $(basename $(notdir $(o))),$(PROF_TIMED)),$(PROFDIR)/obj/$(notdir $(o)),$(o)))
+PROF_OBJS := $(foreach o,$(LINKOBJS),$(if $(filter $(basename $(notdir $(o))),$(PROF_TIMED)),$(PROFDIR)/obj/$(notdir $(o)),$(o)))
 prof: $(PROFDIR)/bin/econtact.acc
 $(PROFDIR)/bin/econtact.acc: $(PROFDIR)/contact.elf common/tools/elf2tos.py
 	@mkdir -p $(dir $@)
@@ -127,7 +150,7 @@ $(PROFDIR)/contact.elf: $(OBJDIR)/contact.elf $(addprefix $(PROFDIR)/obj/,$(adds
                         common/tools/profpad.py common/atari/codepad.S
 	python3 common/tools/profpad.py --ship $(OBJDIR)/contact.elf --out $@ --cpu=-m68000 --dir $(PROFDIR)/pads \
 	    $(foreach t,$(PROF_TIMED),--exclude $(OBJDIR)/$(t).o --exclude $(PROFDIR)/obj/$(t).o) \
-	    -- $(CC) $(LDFLAGS) $(EVWRAP) $(PROF_OBJS) -lgcc
+	    -- $(CC) $(LDFLAGS) $(EVWRAP) $(LPADU) $(PROF_OBJS) -lgcc
 $(addprefix $(PROFDIR)/obj/,$(addsuffix .o,$(PROF_TIMED))): FORCE
 	$(MAKE) --no-print-directory OBJDIR=$(PROFDIR)/obj EXTRA_CFLAGS=-DAES_PROFILE=20 $@
 
