@@ -884,8 +884,8 @@ static void photo_palette(void)
 		return;
 	asked_at = pf_ms();
 	for (i = 0; i < n; i++) {
-		if (ncolors >= 16) {
-			vq_color(vdi_h, i, rgb);
+		if (n > 2) {
+			vq_color(vdi_h, i, rgb);	/* (ST medium's four too: pic.c's few pens) */
 		} else {
 			rgb[0] = rgb[1] = rgb[2] = i ? 0 : 1000;	/* white, black */
 		}
@@ -958,6 +958,35 @@ static PIC_DITHER *dt;			/* pic.c's rows under way (colours) */
 static unsigned short rowpx[PH_MAXW];	/* a row of the picture at its shown width */
 static unsigned char rowa[PH_MAXW];	/* and where it shows: 255 in the ellipse */
 static short ge[2][PH_MAXW + 2];	/* black and white's one channel */
+/* black and white: each photo's brightness stretched from its 2nd to its
+   98th hundredth over the whole range, then a gamma of 1.3 (Erez, 21 Nov
+   2026: the faces were a grey checkerboard; the stretch made them
+   readable in his choice of three), a table made once a photo */
+static unsigned char glut[256];
+static const unsigned char gamma13[256] = { 0,0,0,1,1,2,2,2,3,3,4,4,5,5,6,6,7,8,8,9,9,10,11,11,12,12,13,14,14,15,16,16,17,18,19,19,20,21,21,22,23,24,24,25,26,27,28,28,29,30,31,31,32,33,34,35,36,36,37,38,39,40,41,41,42,43,44,45,46,47,47,48,49,50,51,52,53,54,55,56,57,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,76,77,78,79,80,81,82,83,84,85,86,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,112,113,114,115,116,117,118,119,120,121,122,124,125,126,127,128,129,130,131,132,133,135,136,137,138,139,140,141,143,144,145,146,147,148,149,151,152,153,154,155,156,157,159,160,161,162,163,164,166,167,168,169,170,172,173,174,175,176,178,179,180,181,182,184,185,186,187,188,190,191,192,193,194,196,197,198,199,201,202,203,204,206,207,208,209,210,212,213,214,215,217,218,219,220,222,223,224,226,227,228,229,231,232,233,234,236,237,238,240,241,242,243,245,246,247,249,250,251,252,254,255 };
+
+static void grey_stretch(const unsigned short *px)
+{
+	unsigned short hist[256], step;
+	short lo = 0, hi = 255, i, n = 0, cut = PHOTO_N * PHOTO_N / 4 / 50;	/* 2 % */
+	const unsigned short *p, *end = px + PHOTO_N * PHOTO_N;
+	/* (every fourth pixel: the 2 % are the same, the 4,096 were 20 ms
+	   of an 8 MHz ST's; then one division, not one an entry) */
+	memset(hist, 0, sizeof(hist));
+	for (p = px; p < end; p += 4)
+		hist[(((*p >> 8) & 0xF8) + (((*p >> 3) & 0xFC) << 1) + ((*p << 3) & 0xF8)) >> 2]++;
+	for (lo = 0; lo < 255 && (n += hist[lo]) <= cut; lo++)
+		;
+	for (n = 0, hi = 255; hi > 0 && (n += hist[hi]) <= cut; hi--)
+		;
+	if (hi - lo < 16) {	/* a flat picture: as it is */
+		lo = 0;
+		hi = 255;
+	}
+	step = (unsigned short)((255L << 8) / (hi - lo));
+	for (i = 0; i < 256; i++)
+		glut[i] = gamma13[i <= lo ? 0 : i >= hi ? 255 : (unsigned short)((unsigned short)(i - lo) * step) >> 8];
+}
 static short half[PH_MAXH];	/* the ellipse's half width on each row */
 static unsigned char row[PH_MAXW];	/* the source column of each x */
 
@@ -1000,6 +1029,8 @@ static int dither(const unsigned short *px, int serial, short rx, short ry, int 
 					return 0;
 		}
 		memset(ge, 0, sizeof(ge));
+		if (grey)
+			grey_stretch(px);
 		if (dt) {
 			pic_dither_close(dt);
 			dt = 0;
@@ -1034,6 +1065,10 @@ static int dither(const unsigned short *px, int serial, short rx, short ry, int 
 		dz_w = W;
 		dz_h = H;
 		dz_npal = ph_npal;
+		/* black and white: the rows from the next turn, after the
+		   stretch's table (with the first rows 110 ms of an 8 MHz ST's) */
+		if (grey && more)
+			return 0;
 	}
 	for (y = dz_y; y < H; y++) {
 		if (more && y > dz_y && !more()) {
@@ -1051,7 +1086,7 @@ static int dither(const unsigned short *px, int serial, short rx, short ry, int 
 			memset(g1, 0, sizeof(ge[0]));
 			for (x = 0; x < W; x++) {
 				unsigned short p = src[row[x]];
-				short v = (short)((((p >> 8) & 0xF8) + (((p >> 3) & 0xFC) << 1) + ((p << 3) & 0xF8)) >> 2), e;
+				short v = glut[(((p >> 8) & 0xF8) + (((p >> 3) & 0xFC) << 1) + ((p << 3) & 0xF8)) >> 2], e;
 				unsigned char pen;
 				v = v + (g0[x + 1] >> 4);
 				v = v < 0 ? 0 : v > 255 ? 255 : v;
