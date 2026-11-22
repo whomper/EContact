@@ -69,6 +69,9 @@ enum { PW_OK, PW_PNG, PW_HEIC, PW_GIF, PW_WEBP, PW_OTHER, PW_JPEG_KIND, PW_DAMAG
 extern int photo_why;
 extern char photo_why_detail[100];	/* "HTTP 401", the host...: for the log */
 const char *photo_why_text(int why);
+/* 1: Sync contact photos leaves PNGs to be made when shown (a 68000 with
+   under 1.5 MB free at start, ui/main.c) */
+extern int photo_png_later;
 int  photo_kind(const unsigned char *d, long n);	/* PW_OK for a JPEG */
 
 /* the folder the pictures are kept in (store_init sets it: CACHE; the

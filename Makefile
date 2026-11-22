@@ -130,8 +130,8 @@ $(BIN)/econtact.prg: $(BIN)/econtact.acc
 # with speed.py
 
 , := ,
-LPAD    := ovl:254 http:104:100:196 photo:152:252 libc:180 pic_ovl:158 draw:106:254 accmem:208 av:242 text:226:252 pic:28 \
-           png:122:132:16:232:166
+LPAD    := ovl:254 http:104:100:196 photo:54:246 libc:180:0:252 pic_ovl:158 main:190 draw:106:254 accmem:208 \
+           av:242 text:226:252 pic:28 png:122:136:16:232:166
 ifeq ($(PADS),no)
 LPAD    :=
 endif
@@ -223,7 +223,7 @@ TJPGD   := third_party/tjpgd/tjpgd.c third_party/tjpgd/tjpgd.h third_party/tjpgd
 $(OBJDIR)/tjpgd.o: $(TJPGD) | $(OBJDIR)
 	$(CC) $(subst -Os,-O2,$(CFLAGS)) -fwrapv -w -c -o $@ $<
 
-# the stack: 18.75 KB (19,200 bytes), not crt0's 48 (2.14: 24; 2.15 took 5 KB for PNG photos; the
+# the stack: 18.25 KB (18,688 bytes), not crt0's 48 (2.14: 24; 2.15 took 5 KB for PNG photos; the
 # PNG path's frames, -fstack-usage, add some 1.6 KB to the 13.2 measured). The accessory's load is
 # what a program started beside it on a 1 MB ST doesn't have: 2.13's
 # 1.5 KB more left EFTP (359,200 bytes) without room to start; 24 KB
@@ -233,7 +233,7 @@ $(OBJDIR)/tjpgd.o: $(TJPGD) | $(OBJDIR)
 # (quiet_sync.py), 6.2 the dialogs, the editor and the speed rig's
 # actions, 1.7 the Falcon's TLS (falcon_tls.py)
 $(OBJDIR)/crt0.o: common/atari/crt0.S Makefile | $(OBJDIR)
-	$(CC) -m68000 -DSTACK_SIZE=19200 -c -o $@ $<
+	$(CC) -m68000 -DSTACK_SIZE=18688 -c -o $@ $<
 $(OBJDIR)/sting_s.o: common/atari/sting.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
 $(OBJDIR)/nf.o: common/atari/nf.S | $(OBJDIR)

@@ -61,6 +61,7 @@ static unsigned long fnv(const char *s, long n, unsigned long h)
    spaces and line ends are skipped, so folded lines need no unfolding.
    A table, not comparisons: a photo is tens of thousands of letters */
 static int decode_poll(void);
+static char sync_running;	/* Sync contact photos runs */
 
 static long b64_in_place(char *s, long n)
 {
@@ -1150,6 +1151,15 @@ static int get(const CONTACT *c, PHOTOIMG *out, int may_fetch, int *how, int *ca
 		nf_debug(m);
 	}
 #endif
+	/* a 68000 with little memory (photo_png_later): Sync contact photos
+	   passes a PNG over, not counted as failed, and it is made when its
+	   card is shown (its inflate window and rows broke a 1 MB program's
+	   heap into pieces the next photos' blocks didn't fit) */
+	if (sync_running && photo_png_later &&
+	    (ref.kind == PR_DATA ? photo_kind(ref.data, ref.len) == PW_PNG : ref.fmt == PF_PNG)) {
+		free(ref.data);
+		return PH_NONE;
+	}
 	if (ref.kind == PR_DATA) {
 		unsigned long t = pf_ms();
 		if (photo_decode_jpeg(ref.data, ref.len, &ref, out)) {
@@ -1308,7 +1318,19 @@ static int cmp_targets(const void *a, const void *b)
 
 int photo_sync_why[PW_N];
 
+int photo_png_later;
+static int sync_photos(PHOTO_CB cb, void *ud, int *failed);
+
 int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
+{
+	int r;
+	sync_running = 1;
+	r = sync_photos(cb, ud, failed);
+	sync_running = 0;
+	return r;
+}
+
+static int sync_photos(PHOTO_CB cb, void *ud, int *failed)
 {
 	PTARGET *t;
 	PHOTOIMG *img;
