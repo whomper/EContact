@@ -446,12 +446,16 @@ static void test_photos(void)
 	/* PNGs (common's png.c): RGB, sampled, Adam7, a palette, alpha over white */
 	CHECK(photo_decode_jpeg(png_quarters, sizeof(png_quarters), 0, &im));
 	CHECK(quarters_ok(&im));
+	ab_read_bytes = 32768;		/* a 68030: 400 x 300 made */
 	CHECK(photo_decode_jpeg(png_wide, sizeof(png_wide), 0, &im));
 	CHECK(quarters_ok(&im));
+	ab_read_bytes = 16384;		/* a 68000: up to about 300 x 300 (90,000 pixels) */
+	CHECK(!photo_decode_jpeg(png_wide, sizeof(png_wide), 0, &im));
+	CHECK_EQ(photo_why, PW_PNG_BIG);
 	ab_read_bytes = 32768;		/* a 68030: every PNG */
 	CHECK(photo_decode_jpeg(png_big, sizeof(png_big), 0, &im));
 	CHECK(quarters_ok(&im));
-	ab_read_bytes = 16384;		/* a 68000: up to about 550 x 550 */
+	ab_read_bytes = 16384;		/* a 68000: up to about 300 x 300 */
 	CHECK(!photo_decode_jpeg(png_big, sizeof(png_big), 0, &im));
 	CHECK_EQ(photo_why, PW_PNG_BIG);
 	CHECK(photo_decode_jpeg(png_interlaced, sizeof(png_interlaced), 0, &im));
@@ -461,7 +465,9 @@ static void test_photos(void)
 	CHECK(photo_decode_jpeg(png_alpha, sizeof(png_alpha), 0, &im));
 	CHECK(near(&im, 8, 8, 230, 30, 30));
 	CHECK(near(&im, 55, 8, 255, 255, 255));	/* (x 55, y 8: the transparent quarter) */
+	ab_read_bytes = 32768;
 	CHECK(photo_decode_jpeg(png_wide, 300, 0, &im) || photo_why == PW_DAMAGED);	/* cut short */
+	ab_read_bytes = 16384;
 	CHECK(!photo_decode_jpeg((const unsigned char *)"not a picture", 13, 0, &im));
 	CHECK_EQ(photo_why, PW_OTHER);
 	{

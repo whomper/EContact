@@ -240,3 +240,11 @@ void pf_debug(const char *s)
 	nf_debug(s);
 	nf_debug("\n");
 }
+
+/* the memory free now, in bytes (GEMDOS's largest block): photo.c's
+   Sync contact photos passes PNGs over on a 68000 below 1.5 MB. Last in
+   the file: nothing before it moved (the places the speed rig keeps) */
+long pf_free(void)
+{
+	return (long)Malloc(-1L);
+}

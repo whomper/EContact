@@ -637,11 +637,11 @@ static int decode_png(const unsigned char *png, long len, const PHOTOREF *ref, D
 		why(PW_DAMAGED, "");
 		return 0;
 	}
-	/* on a 68000 (ab_read_bytes' 16 KB) a PNG up to about 550 x 550 only:
-	   every byte of it is unpacked, some 45 ms a 400-wide row on an 8 MHz
-	   ST, so 30 s or so; a bigger one keeps the initials there, a Falcon
-	   or TT makes it (decided 22 Nov 2026) */
-	if (ab_read_bytes <= 16384 && w * h > 300000L) {
+	/* on a 68000 (ab_read_bytes' 16 KB) a PNG up to about 300 x 300 only:
+	   every byte of it is unpacked, some 12 s of an 8 MHz ST's while the
+	   window only redraws and takes Esc; a bigger one keeps the initials
+	   there, a Falcon or TT makes it (decided 22 Nov 2026) */
+	if (ab_read_bytes <= 16384 && w * h > 90000L) {
 		why(PW_PNG_BIG, "");
 		return 0;
 	}
@@ -1324,6 +1324,8 @@ static int sync_photos(PHOTO_CB cb, void *ud, int *failed);
 int photo_sync_all(PHOTO_CB cb, void *ud, int *failed)
 {
 	int r;
+	/* a 68000 with under 1.5 MB free (ab_read_bytes: its 16 KB) */
+	photo_png_later = ab_read_bytes <= 16384 && pf_free() < 1536L * 1024;
 	sync_running = 1;
 	r = sync_photos(cb, ud, failed);
 	sync_running = 0;

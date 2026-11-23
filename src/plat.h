@@ -84,6 +84,7 @@ typedef struct {
 } PFTIME;
 
 void pf_now(PFTIME *t);		/* local wall clock */
+long pf_free(void);		/* bytes free now (the largest block) */
 unsigned long pf_ms(void);	/* monotonic milliseconds (5 ms steps on TOS) */
 void pf_debug(const char *s);	/* emulator console / stderr */
 /* raw unpredictable bytes (timer jitter on the Atari, /dev/urandom on

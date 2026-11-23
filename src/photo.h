@@ -70,7 +70,7 @@ extern int photo_why;
 extern char photo_why_detail[100];	/* "HTTP 401", the host...: for the log */
 const char *photo_why_text(int why);
 /* 1: Sync contact photos leaves PNGs to be made when shown (a 68000 with
-   under 1.5 MB free at start, ui/main.c) */
+   under 1.5 MB free when it starts: photo_sync_all sets it) */
 extern int photo_png_later;
 int  photo_kind(const unsigned char *d, long n);	/* PW_OK for a JPEG */
 

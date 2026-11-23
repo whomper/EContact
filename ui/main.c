@@ -1385,8 +1385,6 @@ static void job_memory(long free)
 		 : free >= 1536L * 1024 ? 32L * 1024 : 24L * 1024;
 	ab_read_bytes = get_cookie(0x5F435055L) >= 30 ? 32768L : 16384L;	/* _CPU */
 	ab_job_bytes = job;
-	/* a 68000 with under 1.5 MB free (the program: what is free now) */
-	photo_png_later = ab_read_bytes <= 16384L && (free ? free : (long)Malloc(-1L)) < 1536L * 1024;
 	/* a 1 MB ST: little each, so a sync's answers still fit */
 	ab_out_max = job >= 32L * 1024 ? job / 2 : 8L * 1024;
 	pack_buf_max = job >= 32L * 1024 ? job : ab_out_max;	/* 8 KB a picture */
