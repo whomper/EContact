@@ -27,4 +27,16 @@ void pic_ovl_unload(void);
 /* chunky8's copies for key made beforehand, a step a call (pix kept until
    done), so that its draw only copies: 1 ready, -1 call again, 0 not */
 int pic_ovl_chunky8_prepare(const unsigned char *pix, int w, int h, long key, short vdi);		/* its memory back (an accessory's store_release) */
+/* PIC.OVL 1.4: a picture's own colours in pens 192-255 (the guidelines
+   5.2, decided 22 Nov 2026; src/quant.h, ui/picpens.h). quant: up to want
+   colours of n 5-6-5 pixels (skip: a value left out, -1 none), their
+   count, 0 without PIC.OVL 1.4. pens_take: those n (1..64) into pens 192
+   on, 1 done; the caller checks the screen has 8 planes and its window is
+   on top. pens_give: back as they were, on losing the top, close, quit,
+   AC_CLOSE and in crash_cleanup (pic_ovl_unload calls it too); pens_held:
+   1 while held. A picture is drawn again after each take and give */
+int pic_ovl_quant(const unsigned short *px, long n, long skip, int want, short rgb[][3]);
+int pic_ovl_pens_take(short vdi, int n, const short rgb[][3]);
+void pic_ovl_pens_give(void);
+int pic_ovl_pens_held(void);
 #endif
