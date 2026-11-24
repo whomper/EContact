@@ -16,7 +16,7 @@
 typedef struct { short x, y, w, h; } GRECT;
 
 /* screen and font */
-extern short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
+extern short vdi_h, scr_vdi, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 extern short gl_wchar, gl_hchar;
 extern short ap_id;
 extern short is_acc;		/* started as a desk accessory */
@@ -52,6 +52,11 @@ void vline(short x, short y1, short y2);
 void line_col(short x1, short y1, short x2, short y2, short color);
 long wrap_text(const char *s, long n, short width, long *breaks, long max);
 short line_rtl(const char *s, long n);
+int draw_pens_give(void);	/* a photo's own colours out of pens 192-254: 1 when they were in */
+void draw_pens_again(void);	/* the window on top again: the photo takes them when drawn */
+extern short pens_want;		/* draw.c: a photo shown without them, the window not on top */
+int win_on_top(void);		/* the window on top (wind_get WF_TOP) */
+void win_pens_check(void);	/* pens given back once the window isn't on top */
 void draw_near_save(void);	/* the photos' nearest-pen table to cache\\near.dat, if it grew */
 int  rect_hit(const GRECT *r, short x, short y);
 int  rect_and(GRECT *a, const GRECT *b);	/* a = a & b; 0 if empty */

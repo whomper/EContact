@@ -860,7 +860,9 @@ static PIC_PAL ph_pal;		/* pic.c's: the screen's pens, the nearest of each colou
    closes), so an ST carries none of it */
 static int near_path(char *path)
 {
-	return photo_near_path(path, 220);
+	/* (none while a photo's own colours are in the pens: its table is
+	   for that photo alone) */
+	return !pic_ovl_pens_held() && photo_near_path(path, 220);
 }
 
 void draw_near_save(void)
@@ -869,6 +871,8 @@ void draw_near_save(void)
 	if (near_path(path))
 		pic_ovl_near_save(&ph_pal, path, ph_palsum);
 }
+
+static unsigned long asked_at;
 
 static void photo_palette(void)
 {
@@ -879,13 +883,12 @@ static void photo_palette(void)
 	   were most of each of a photo's dither slices in 256 colours (the
 	   photo shown after 4.9 s under NVDI on a 4 MB Falcon); a palette
 	   another program changes is seen within the second */
-	static unsigned long asked_at;
 	if (ph_npal == n && pf_ms() - asked_at < 1000UL)
 		return;
 	asked_at = pf_ms();
 	for (i = 0; i < n; i++) {
 		if (n > 2) {
-			vq_color(vdi_h, i, rgb);	/* (ST medium's four too: pic.c's few pens) */
+			vq_color(scr_vdi, i, rgb);	/* (ST medium's four too: pic.c's few pens; the screen's, not a bitmap's) */
 		} else {
 			rgb[0] = rgb[1] = rgb[2] = i ? 0 : 1000;	/* white, black */
 		}
@@ -949,7 +952,8 @@ static void ph_copy(unsigned short *bits, short wpl, const GRECT *vis, short cx,
    machine (an 8 MHz ST: 390 ms for 65 by 65 in ST high), or all at
    once; the rows are the same either way. */
 static unsigned char *pens;
-static short pw, ph, pserial = -1, pnpal;
+static short pw, ph, pserial = -1, pnpal, pown, own_serial = -1;
+short pens_want;	/* a photo drawn without its colours, the window not on top */
 static unsigned char used[256];
 /* with many pens (256 colours), each pen's pixels in a list, so
    drawing a pen goes through its own pixels and not the whole
@@ -996,6 +1000,25 @@ static void grey_stretch(const unsigned short *px)
 static short half[PH_MAXH];	/* the ellipse's half width on each row */
 static unsigned char row[PH_MAXW];	/* the source column of each x */
 
+/* the pens back as they were (the window no longer on top, closed,
+   quit): 1 when they were held, the photo then dithered again for them */
+int draw_pens_give(void)
+{
+	if (!pic_ovl_pens_held())
+		return 0;
+	pic_ovl_pens_give();
+	draw_pens_again();
+	asked_at = 0;
+	return 1;
+}
+
+/* the window on top again: the photo takes its colours when drawn */
+void draw_pens_again(void)
+{
+	own_serial = -1;
+	pserial = -1;
+}
+
 static int dither(const unsigned short *px, int serial, short rx, short ry, int (*more)(void))
 {
 	short W, H, x, y, k;
@@ -1019,6 +1042,27 @@ static int dither(const unsigned short *px, int serial, short rx, short ry, int 
 	}
 	if (serial == pserial && W == pw && H == ph && pnpal == ph_npal)
 		return 1;
+	/* in 256 colours with the window on top, the photo's own 63 colours
+	   in pens 192-254 (the guidelines 5.2, decided 22 Nov 2026: PIC.OVL
+	   1.4's quant and pens; 255 marks what isn't drawn), the palette
+	   read again with them */
+	if (planes == 8 && serial != own_serial && !(pens_want = !win_on_top())) {
+		/* (in black and white's rows, unused in colour: no stack or
+		   memory of its own; 0 until PIC.OVL is loaded, below, then
+		   the next turn's) */
+		short (*own)[3] = (short (*)[3])ge;
+		int k = pic_ovl_quant(px, (long)PHOTO_N * PHOTO_N, -1, 63, own);
+		if (k > 0) {
+			if (!pic_ovl_pens_held())
+				draw_near_save();	/* (the screen's table, before it goes) */
+			if (pic_ovl_pens_take(scr_vdi, k, (const short (*)[3])own)) {
+				own_serial = (short)serial;
+				asked_at = 0;
+				photo_palette();
+				dz_y = -1;	/* (begun again with them) */
+			}
+		}
+	}
 	grey = ph_npal == 2;	/* black and white: one channel */
 	if (dz_y < 0 || serial != dz_serial || W != dz_w || H != dz_h || ph_npal != dz_npal) {
 		/* begun: shifts and adds only, a 68000 multiplies and divides
@@ -1141,6 +1185,7 @@ made:
 	pw = W;
 	ph = H;
 	pnpal = ph_npal;
+	pown = (short)pic_ovl_pens_held();
 	lists = 0;
 	if (ph_npal > 16 && (long)W * H > acap) {
 		free(at);
@@ -1309,7 +1354,7 @@ void draw_photo(const unsigned short *px, int serial, short cx, short cy, short 
 	/* in 256 colours PIC.OVL's chunky8: the photo in two copies, a mask
 	   and the picture (a copy a pen was 385 ms under NVDI on a 4 MB
 	   Falcon, 70 so); without PIC.OVL a copy a pen, below */
-	if (planes == 8 && pic_ovl_chunky8(pens, W, H, ((long)pserial << 9) | pnpal, vdi_h, vis.x - (cx - rx),
+	if (planes == 8 && pic_ovl_chunky8(pens, W, H, ((long)pserial << 9) | pnpal | (pown << 8), vdi_h, vis.x - (cx - rx),
 					   vis.y - (cy - ry), vis.w, vis.h, vis.x, vis.y))
 		return;
 	if (pimg_ready()) {

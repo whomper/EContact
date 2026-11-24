@@ -347,6 +347,13 @@ $(OBJDIR)/alertacc.acc: tests/atari/alertacc.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.o 
 		$(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
 	python3 common/tools/elf2tos.py $(OBJDIR)/alertacc.elf $@
 
+# a stand-in for another program's accessory with a window, for tests/hatari/photo_pens.py
+$(OBJDIR)/winacc.acc: tests/atari/winacc.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o
+	$(CC) $(CFLAGS) -c -o $(OBJDIR)/winacc.o $<
+	$(CC) $(LDFLAGS) -o $(OBJDIR)/winacc.elf $(OBJDIR)/crt0.o $(OBJDIR)/winacc.o \
+		$(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
+	python3 common/tools/elf2tos.py $(OBJDIR)/winacc.elf $@
+
 # a stand-in for EMail asking about people, for tests/hatari/people_ask.py
 ASKOBJ := $(addprefix $(OBJDIR)/,crt0.o gem.o libc.o tos.o nf.o av.o av_people.o people_ask.o)
 $(OBJDIR)/ASKER.PRG: tests/atari/asker.c $(ASKOBJ)
@@ -396,7 +403,7 @@ test: $(OBJDIR)/unit $(OBJDIR)/lowmem $(addprefix $(OBJDIR)/replay_,$(FUZZERS)) 
 	@# no word or long at an odd stack offset: an address error on a 68000
 	@# (the guidelines, The machines; common's accmem, 27 Oct 2026)
 	python3 common/tools/oddaccess.py $(OBJDIR)/contact.elf \
-	  $(wildcard $(OBJDIR)/fakeguide.elf $(OBJDIR)/alertacc.elf $(OBJDIR)/asker.elf $(OBJDIR)/vcbench.elf)
+	  $(wildcard $(OBJDIR)/fakeguide.elf $(OBJDIR)/alertacc.elf $(OBJDIR)/winacc.elf $(OBJDIR)/asker.elf $(OBJDIR)/vcbench.elf)
 	@for f in $(FUZZERS); do \
 	  $(OBJDIR)/replay_$$f tests/fuzz/seeds/$$f $$(ls -d tests/fuzz/found/$$f 2>/dev/null) || exit 1; \
 	done

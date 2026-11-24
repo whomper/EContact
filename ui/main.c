@@ -52,7 +52,7 @@
 #include "panebar.h"
 #include "notify.h"
 
-short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
+short vdi_h, scr_vdi, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 short gl_wchar, gl_hchar, ap_id, is_acc, ncolors, quit_now;
 extern short _is_acc;		/* crt0.S */
 
@@ -2102,6 +2102,7 @@ static void crash_quit(const char *what)
 {
 	char a[200];
 	graf_mouse(ARROW, 0);
+	pic_ovl_pens_give();	/* the photo's colours out of the pens */
 	snprintf(a, sizeof(a), "[3][EContact has crashed|(%s).|What happened is in|CRASH.LOG, next to ECONTACT.PRG.][ Quit ]", what);
 	form_alert(1, a);
 	if (win_h > 0) {
@@ -2127,6 +2128,7 @@ static int vwk_open(void)
 		vdi_h = 0;
 		return 0;
 	}
+	scr_vdi = vdi_h;	/* (vdi_h is the off-screen bitmap's while the window is drawn there) */
 	scr_w = work_out[0] + 1;
 	scr_h = work_out[1] + 1;
 	ncolors = work_out[13];
@@ -2323,6 +2325,8 @@ int app_main(void)
 			which &= ~(MU_KEYBD | MU_BUTTON);
 		if (is_acc)
 			bg_tick();
+		if (which & MU_TIMER)
+			win_pens_check();
 		if (prg_loading) {
 			if ((which & MU_MESAG) && load_hold_msg(msg)) {
 				if (msg[0] == MN_SELECTED && has_menu)
@@ -2363,6 +2367,7 @@ int app_main(void)
 				break;
 			case AC_CLOSE:
 				twin_reset();		/* another program in front */
+				draw_pens_give();	/* (its own palette) */
 				if (picking)
 					pick_finish(0, 0);	/* the window goes with it */
 				if (win_h <= 0 && data_ready && (quiet_syncing() || books_loading()))

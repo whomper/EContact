@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include "ui.h"
 #include "../src/plat.h"
+#include "pic_ovl.h"
 #include "bidi.h"
 #include "iconify.h"
 #include "av.h"
@@ -1408,10 +1409,43 @@ void win_tip_repaint(const GRECT *r)
 		win_redraw(&a);
 }
 
+/* a photo's own colours in pens 192-254 (draw.c, the guidelines 5.2):
+   only while the window is on top in 256 colours, given back as soon as
+   it isn't, and the photo drawn again with what the pens hold then */
+int win_on_top(void)
+{
+	short t = -1, b, c, d;
+	return win_h > 0 && wind_get(0, WF_TOP, &t, &b, &c, &d) && t == win_h;
+}
+
+static void pens_redraw(void)
+{
+	GRECT av;
+	card_avatar_area(&av);
+	if (av.h && !win_iconified)
+		win_redraw(&av);
+}
+
+/* (an AES without WM_UNTOPPED or WM_ONTOP, TOS 4's: looked at once a
+   second while they are held, or a photo waits for them) */
+void win_pens_check(void)
+{
+	static unsigned long at;
+	if (!(pens_want || pic_ovl_pens_held()) || pf_ms() - at < 1000UL)
+		return;
+	at = pf_ms();
+	if (win_on_top() ? pens_want : draw_pens_give()) {
+		pens_want = 0;
+		draw_pens_again();
+		pens_redraw();
+	}
+}
+
 void win_close(void)
 {
 	if (win_h <= 0)
 		return;
+	draw_pens_give();
 	draw_near_save();	/* (at the program's quit and the accessory's close: one write) */
 	if (!win_iconified)	/* the place was kept when it was iconified */
 		remember_place();
@@ -1443,6 +1477,16 @@ void win_message(short *msg)
 		break;
 	case WM_TOPPED:
 		wind_set(win_h, WF_TOP, 0, 0, 0, 0);
+		/* fall through */
+	case WM_ONTOP:
+		if (planes == 8) {
+			draw_pens_again();
+			pens_redraw();
+		}
+		break;
+	case 30:	/* WM_UNTOPPED (AES 4) */
+		if (draw_pens_give())
+			pens_redraw();
 		break;
 	case WM_CLOSED:
 		if (!is_acc)
