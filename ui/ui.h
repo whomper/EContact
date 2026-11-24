@@ -52,6 +52,7 @@ void vline(short x, short y1, short y2);
 void line_col(short x1, short y1, short x2, short y2, short color);
 long wrap_text(const char *s, long n, short width, long *breaks, long max);
 short line_rtl(const char *s, long n);
+void draw_quant_end(void);	/* the photo's colours' job ended (before pic_ovl_unload) */
 int draw_pens_give(void);	/* a photo's own colours out of pens 192-254: 1 when they were in */
 void draw_pens_again(void);	/* the window on top again: the photo takes them when drawn */
 extern short pens_want;		/* draw.c: a photo shown without them, the window not on top */
@@ -200,6 +201,7 @@ void card_slid(short pos);
 /* the chosen contact's photo is read a moment after the choice (arrow
    keys going down the list don't wait for each one) */
 int  card_photo_pending(void);	/* one is waiting */
+void card_photo_again(void);	/* its pens made again, a slice a turn */
 int  card_photo_dithering(void);	/* one got, its pens made a slice a turn */
 void card_avatar_area(GRECT *r);	/* the round picture, as last drawn */
 void card_photo_tick(void);	/* from the event loop: reads it when it's time */

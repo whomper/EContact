@@ -1000,6 +1000,18 @@ static void grey_stretch(const unsigned short *px)
 static short half[PH_MAXH];	/* the ellipse's half width on each row */
 static unsigned char row[PH_MAXW];	/* the source column of each x */
 
+/* the quant job under way (before PIC.OVL goes, and when another photo
+   comes) */
+static void *qjob;
+static short qserial;
+
+void draw_quant_end(void)
+{
+	if (qjob)
+		pic_ovl_quant_end(qjob);
+	qjob = 0;
+}
+
 /* the pens back as they were (the window no longer on top, closed,
    quit): 1 when they were held, the photo then dithered again for them */
 int draw_pens_give(void)
@@ -1029,7 +1041,14 @@ static int dither(const unsigned short *px, int serial, short rx, short ry, int 
 		ry = PH_MAXH / 2;
 	W = 2 * rx + 1;
 	H = 2 * ry + 1;
-	photo_palette();
+	{
+		/* a palette read again (the photo's own colours taken or given
+		   back: 255 vq_color and cache\near.dat) in a turn of its own */
+		long was = ph_palsum;
+		photo_palette();
+		if (more && ph_palsum != was)
+			return 0;
+	}
 	if ((long)W * H + 4 > pcap) {
 		free(pens);
 		pcap = (long)W * H + 4;
@@ -1047,19 +1066,33 @@ static int dither(const unsigned short *px, int serial, short rx, short ry, int 
 	   1.4's quant and pens; 255 marks what isn't drawn), the palette
 	   read again with them */
 	if (planes == 8 && serial != own_serial && !(pens_want = !win_on_top())) {
-		/* (in black and white's rows, unused in colour: no stack or
-		   memory of its own; 0 until PIC.OVL is loaded, below, then
-		   the next turn's) */
+		/* PIC.OVL 1.5's quant as a job, about 25 ms a turn on a stock
+		   Falcon (whole, 0.4 s), at once when no turns are given (more
+		   0); the colours in black and white's rows, unused in colour:
+		   no stack or memory of their own. No job until PIC.OVL is
+		   loaded, below (then the next turn's), nor with an older one:
+		   the screen's pens */
 		short (*own)[3] = (short (*)[3])ge;
-		int k = pic_ovl_quant(px, (long)PHOTO_N * PHOTO_N, -1, 63, own);
+		int k = 0;
+		if (qjob && qserial != serial)
+			draw_quant_end();
+		if (!qjob && (qjob = pic_ovl_quant_begin(px, (long)PHOTO_N * PHOTO_N, -1, 63)) != 0)
+			qserial = (short)serial;
+		while (qjob && (k = pic_ovl_quant_step(qjob, 5000L, own)) < 0)
+			if (more)
+				return 0;
+		if (qjob)
+			draw_quant_end();
 		if (k > 0) {
 			if (!pic_ovl_pens_held())
 				draw_near_save();	/* (the screen's table, before it goes) */
 			if (pic_ovl_pens_take(scr_vdi, k, (const short (*)[3])own)) {
 				own_serial = (short)serial;
 				asked_at = 0;
-				photo_palette();
 				dz_y = -1;	/* (begun again with them) */
+				if (more)
+					return 0;	/* (the palette read the next turn, above) */
+				photo_palette();
 			}
 		}
 	}

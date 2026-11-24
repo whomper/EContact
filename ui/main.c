@@ -1854,6 +1854,7 @@ static void files_check(void)
 		conn_log("EContact", "--", m2, (long)(sizeof(m2) - 1));
 	http_close_all();
 	store_release();		/* and the load, part done */
+	draw_quant_end();
 	pic_ovl_unload();
 	list_invalidate();
 	settings_ready = 0;

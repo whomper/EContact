@@ -1418,13 +1418,6 @@ int win_on_top(void)
 	return win_h > 0 && wind_get(0, WF_TOP, &t, &b, &c, &d) && t == win_h;
 }
 
-static void pens_redraw(void)
-{
-	GRECT av;
-	card_avatar_area(&av);
-	if (av.h && !win_iconified)
-		win_redraw(&av);
-}
 
 /* (an AES without WM_UNTOPPED or WM_ONTOP, TOS 4's: looked at once a
    second while they are held, or a photo waits for them) */
@@ -1437,7 +1430,7 @@ void win_pens_check(void)
 	if (win_on_top() ? pens_want : draw_pens_give()) {
 		pens_want = 0;
 		draw_pens_again();
-		pens_redraw();
+		card_photo_again();
 	}
 }
 
@@ -1481,12 +1474,12 @@ void win_message(short *msg)
 	case WM_ONTOP:
 		if (planes == 8) {
 			draw_pens_again();
-			pens_redraw();
+			card_photo_again();
 		}
 		break;
 	case 30:	/* WM_UNTOPPED (AES 4) */
 		if (draw_pens_give())
-			pens_redraw();
+			card_photo_again();
 		break;
 	case WM_CLOSED:
 		if (!is_acc)

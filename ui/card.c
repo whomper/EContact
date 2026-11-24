@@ -126,6 +126,16 @@ static void photo_slice(void)
 	}
 }
 
+/* the photo's pens made again in the next turns (win.c: the photo's own
+   colours taken or given back), the old picture shown meanwhile */
+void card_photo_again(void)
+{
+	if (cur_ok) {
+		cur_ready = 0;
+		cur_stage = 0;
+	}
+}
+
 void card_photo_recheck(void)
 {
 	/* a refresh may have brought new photos, or new pictures behind links */
