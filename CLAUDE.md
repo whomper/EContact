@@ -320,9 +320,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (win.c rows_cpu: the card's copy 40 -> 25 ms on ST:mono); elsewhere the
   VDI's copy and common's scr_rows (the CPU only for a box 384 pixels
   wide or more: by its masked groups the arrow's line was 215 ms on an
-  ST against 145). The stack is 32 KB (the Makefile's crt0.o: the
-  deepest measured 13.2 KB, Sync Contact Photos), not crt0's 48: 8 KB
-  more heap on a 1 MB ST. On TOS's own screen the card's round picture (draw.c disc) has
+  ST against 145). The stack is 16,640 bytes (the Makefile's crt0.o: the
+  deepest measured 13,408, Sync Contact Photos, 1.24 times, accepted 24 Nov
+  2026; deeper than 13,520 and it goes up first), not crt0's 48 KB: the room
+  a program has beside the accessory on a 1 MB ST (tests/hatari/acc_room.py,
+  392,000 bytes at least). On TOS's own screen the card's round picture (draw.c disc) has
   its middle row filled by the VDI and the others by the CPU with the
   plane bits read back, its rows' half widths worked out once a size
   (the 68000's 32-bit routines were 55 of its 60 ms); in black and white
