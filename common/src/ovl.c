@@ -234,7 +234,7 @@ static long flush_super(void)
 			/* FireTOS says _CPU 60, but a ColdFire has neither cpusha
 			   nor a CACR to read: its own push of each line, as the
 			   ColdFire build above (cpushl %bc,(%a0) as words). TLSFB.OVL
-			   is loaded so (Erez, 15 Nov 2026) */
+			   is loaded so (decided 15 Nov 2026) */
 			unsigned long set, way;
 			__asm__ volatile(".short 0x4e71" ::: "memory");	/* nop: the store buffer drained */
 			for (set = 0; set < 512; set++)

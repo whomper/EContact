@@ -311,7 +311,7 @@ short alert(short def, const char *fmt, ...)
 		out[o++] = btn[k];
 	out[o] = 0;
 	/* the AES's own where it runs several programs at once (MiNT, MagiC:
-	   its look, in its window; Erez, 25 Oct 2026); else ours, where Esc
+	   its look, in its window; decided 25 Oct 2026); else ours, where Esc
 	   and Undo pick the last button, or form_alert when ours can't */
 	if (dlg_windowed())
 		return form_alert(def, out);

@@ -17,4 +17,16 @@
    box's mean */
 int quant_565(const unsigned short *px, long n, long skip, int want, short rgb[][3]);
 
+/* The same as a job, for a caller whose turn must stay short: begin keeps
+   px until the end (NULL: no memory, no pixels or want < 1); each step
+   does about budget pixel visits (a 64 x 64 picture to 63 colours is some
+   90,000 in all; one cut is done whole, three visits a pixel of its box)
+   and gives -1 while there is more, else the count, its colours in rgb
+   (which must stay the same array from step to step); end lets it go,
+   done or not */
+typedef struct QUANT_JOB QUANT_JOB;
+QUANT_JOB *quant_begin(const unsigned short *px, long n, long skip, int want);
+int quant_step(QUANT_JOB *j, long budget, short rgb[][3]);
+void quant_end(QUANT_JOB *j);
+
 #endif

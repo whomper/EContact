@@ -173,6 +173,24 @@ int pic_ovl_quant(const unsigned short *px, long n, long skip, int want, short r
 	return ov && HAS(quant) ? ov->quant(px, n, skip, want, rgb) : 0;
 }
 
+/* 1.5: the same as a job. With PIC.OVL 1.4, begin gives NULL: the
+   program calls pic_ovl_quant then, or keeps the screen's palette */
+void *pic_ovl_quant_begin(const unsigned short *px, long n, long skip, int want)
+{
+	return ov && HAS(quant_end) ? ov->quant_begin(px, n, skip, want) : NULL;
+}
+
+int pic_ovl_quant_step(void *job, long budget, short rgb[][3])
+{
+	return ov && job && HAS(quant_end) ? ov->quant_step(job, budget, rgb) : 0;
+}
+
+void pic_ovl_quant_end(void *job)
+{
+	if (ov && job && HAS(quant_end))
+		ov->quant_end(job);
+}
+
 int pic_ovl_pens_take(short vdi, int n, const short rgb[][3])
 {
 	if (!ov || !HAS(pens_take) || !ov->pens_take(vdi, n, rgb))

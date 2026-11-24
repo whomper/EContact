@@ -70,14 +70,14 @@ const char *tls_ovl_version(void)
    packages) takes tlsfb.ovl in its folder, TLS.OVL's ColdFire build. The
    programs are 68000 code that FireTOS runs; TLS.OVL's 68030 code can't
    run there (a tester ran EMail with EWeb's TLSFB.OVL renamed, and it
-   worked: Erez, 15 Nov 2026, "yes to TLSFB.OVL") */
+   worked; TLSFB.OVL decided 15 Nov 2026) */
 static void ovl_path(char *path, int n)
 {
 	char *s;
 	str_copy(path, tls_ovl_path, n);
 #ifdef __mcoldfire__
-	/* a FireBee build (its own package, Erez 22 Nov 2026: "rename all other FB files into their standard
-	   filename"): the package's tls.ovl is the ColdFire one, under its standard name */
+	/* a FireBee build (its own package, decided 22 Nov 2026: every FireBee
+	   file under its standard name): the package's tls.ovl is the ColdFire one, under its standard name */
 	return;
 #endif
 	if (!get_cookie(0x5F43465FL))		/* '_CF_' */

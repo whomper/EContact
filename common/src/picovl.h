@@ -126,6 +126,13 @@ typedef struct {
 	int (*quant)(const unsigned short *px, long n, long skip, int want, short rgb[][3]);
 	int (*pens_take)(short vdi, int n, const short rgb[][3]);
 	void (*pens_give)(short vdi);
+	/* 1.5 on: quant as a job, for a program whose turn must stay short
+	   (src/quant.h's quant_begin, quant_step, quant_end): begin keeps px
+	   until the end; each step about budget pixel visits (some 20 68030
+	   instructions a visit), -1 while there is more, else the count */
+	void *(*quant_begin)(const unsigned short *px, long n, long skip, int want);
+	int (*quant_step)(void *job, long budget, short rgb[][3]);
+	void (*quant_end)(void *job);
 } PIC_OVL;
 
 #endif

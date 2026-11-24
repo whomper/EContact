@@ -153,7 +153,7 @@ def main():
                          "Falcon with a 68040 at 32 MHz, its FPU, 14 MB + 64 MB TT RAM, VGA, the 68040's kernel, "
                          "_CPU 60 (see CT60 above)")
     ap.add_argument("--nvdi", action="store_true",
-                    help="Erez's NVDI (~/.aera/nvdi/x, or AERA_NVDI) in AUTO before MiNT, NVDI.INF, ASSIGN.SYS, GEMSYS "
+                    help="the NVDI copy (~/.aera/nvdi/x, or AERA_NVDI) in AUTO before MiNT, NVDI.INF, ASSIGN.SYS, GEMSYS "
                          "and BTFONTS in the root; never kept: WORK's hd, out and disk image are deleted at the end")
     ap.add_argument("--mem-prot", action="store_true",
                     help="MEM_PROT=YES in mint.ini and Hatari's --mmu on: FreeMiNT's memory protection, which a program "
@@ -490,7 +490,7 @@ def run(a):
             except Exception as e:
                 print("could not read the ext2 disk back: %s" % e)
         if a.nvdi:
-            # (Erez's NVDI never kept: the work drive and its image deleted,
+            # (the NVDI copy never kept: the work drive and its image deleted,
             # NVDI's files taken out of what was read back)
             shutil.rmtree(hd, ignore_errors=True)
             if os.path.exists(img):
