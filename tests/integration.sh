@@ -251,23 +251,28 @@ PY
   R=$($CLI "$D" photo "Pat Photo")
   expect "a changed photo is decoded again" "ok decoded" "$R"
   expect "the new one" "TL=blue TR=blue BL=blue BR=blue" "$R"
-  # a progressive JPEG (TJpgDec won't), and a PNG (not shown, and said why)
+  # a progressive JPEG (TJpgDec won't), a PNG (2.15: common's png.c) and
+  # a GIF (not shown, and said why)
   python3 -c "
 from PIL import Image; import sys
-im = Image.open(sys.argv[1]); im.save(sys.argv[2], 'JPEG', quality=85, progressive=True); im.save(sys.argv[3], 'PNG')" \
-    "$W/q.jpg" "$W/qp.jpg" "$W/q.png"
+im = Image.open(sys.argv[1]); im.save(sys.argv[2], 'JPEG', quality=85, progressive=True); im.save(sys.argv[3], 'PNG')
+im.save(sys.argv[4], 'GIF')" \
+    "$W/q.jpg" "$W/qp.jpg" "$W/q.png" "$W/q.gif"
   putcard prog.vcf PROG-1 Progressive "PHOTO;ENCODING=b;TYPE=JPEG:$(b64 "$W/qp.jpg")"
   putcard png.vcf PNG-1 Png "PHOTO;ENCODING=b;TYPE=PNG:$(b64 "$W/q.png")"
+  putcard gif.vcf GIF-1 Gif "PHOTO;ENCODING=b;TYPE=GIF:$(b64 "$W/q.gif")"
   $CLI "$D" sync
   R=$($CLI "$D" photo "Pat Progressive")
   expect "a progressive JPEG decoded" "ok decoded TL=red TR=green BL=blue BR=yellow" "$R"
   R=$($CLI "$D" photo "Pat Png")
-  expect "a PNG: not, and why" "failed decoded (a PNG picture)" "$R"
-  R=$($CLI "$D" photo "Pat Png")
-  expect "remembered" "failed cache (a PNG picture)" "$R"
-  # a failure from an older decoder is tried again
-  $CLI "$D" photo-dec "Pat Png" 1
-  R=$($CLI "$D" photo "Pat Png")
+  expect "a PNG decoded" "ok decoded TL=red TR=green BL=blue BR=yellow" "$R"
+  R=$($CLI "$D" photo "Pat Gif")
+  expect "a GIF: not, and why" "failed decoded (a GIF picture)" "$R"
+  R=$($CLI "$D" photo "Pat Gif")
+  expect "remembered" "failed cache (a GIF picture)" "$R"
+  # a failure from an older decoder is tried again (a PNG's before 2.15)
+  $CLI "$D" photo-dec "Pat Gif" 1
+  R=$($CLI "$D" photo "Pat Gif")
   expect "an older decoder's failure tried again" "failed decoded" "$R"
   # as iCloud keeps a photo in the card: a long crop parameter, data:,
   # and the fold falling in the middle of "data:image/jpeg"
@@ -289,6 +294,7 @@ PY
   expect "iCloud's way, folded in \"data:\"" "ok decoded TL=red TR=green BL=blue BR=yellow" "$R"
   "${CURL[@]}" -X DELETE "$BASE/alice/friends/prog.vcf" >/dev/null
   "${CURL[@]}" -X DELETE "$BASE/alice/friends/png.vcf" >/dev/null
+  "${CURL[@]}" -X DELETE "$BASE/alice/friends/gif.vcf" >/dev/null
   $CLI "$D" sync
   $CLI "$D" prune >/dev/null
   # the photo taken off the card
