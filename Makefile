@@ -124,14 +124,16 @@ $(BIN)/econtact.prg: $(BIN)/econtact.acc
 # with the room, 45 and 35. 2.13's cpucheck.c and cpualert.c, last, moved the
 # read-only data, the data and the BSS. 2.15: placed again against 2.14 (its
 # PNG code, inflate and png, linked last; http.c, photo.c and common's text.c
-# grown). name:code[:bss[:ro[:data[:strings]]]] bytes, worked out with
+# grown). 2.16: against 2.15 (common's popup.c, pic_ovl.c and tls_ovl.c;
+# the photos' own pens in draw.c, win.c and main.c).
+# name:code[:bss[:ro[:data[:strings]]]] bytes, worked out with
 # common/tools/profpad.py --ship (the last release's ELF) over this link's objects:
 # change them when one of these objects' code or BSS changes, measured
 # with speed.py
 
 , := ,
-LPAD    := ovl:254 http:104:100:196 photo:12:246 libc:180:0:252 plat_tos:238 pic_ovl:158 draw:106:254 \
-           accmem:208 av:242 text:226:252 pic:28 png:122:136:16:232:166
+LPAD    := ovl:254 http:104:100:196 photo:12:246 libc:180:0:252 plat_tos:238 pic_ovl:168 main:226 draw:106:254 \
+           popup:184:246 dsp_ovl:0:0:248 sidebar:0:0:0:252 accmem:208 av:242 text:226:252 pic:28 png:122:0:16:232:160
 ifeq ($(PADS),no)
 LPAD    :=
 endif
