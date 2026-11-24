@@ -3,22 +3,22 @@
 EContact is one of the AERA Atari apps (ECal, EContact, EMail, EFTP, EHypView, ClaudeST). They are meant to
 look and behave as one family.
 
-## Maintenance mode (Erez, 1 Nov 2026)
+## Maintenance mode (decided 1 Nov 2026)
 
-**Back since 2.11** (20 Nov 2026): the three rows Erez lifted it for on 19 Nov ("Work on 1, 2 and 3") are met,
-with his accepts of 20 Nov (AERA-Atari standards/PERF-REVISIT.md): the books read 100 ms on the ST and 95 on a stock
+**Back since 2.11** (20 Nov 2026): the three rows the mode was lifted for on 19 Nov are met,
+with the accepts of 20 Nov (AERA-Atari standards/PERF-REVISIT.md): the books read 100 ms on the ST and 95 on a stock
 Falcon; the ST's Clr/Home 60, arrow 90 and Backspace 65, and its "let go" 90 (2.10: 80), accepted; text through
-common's text_fx and text_n; the whole window drawn again after ^S or sizing in one piece, up to 390 ms on his Falcon
+common's text_fx and text_n; the whole window drawn again after ^S or sizing in one piece, up to 390 ms on the reference Falcon
 (in bands it was 30 % slower), accepted.
 
-EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari, ATARI-APP-GUIDELINES.md, section 8). Until Erez ends it:
+EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari, ATARI-APP-GUIDELINES.md, section 8). Until the owner ends it:
 - No new features and no speed rounds of its own.
-- **Every family rule holds for EContact as for the focus apps** (Erez, 17 Nov 2026: "all applications must adhere to
-  family rules and be notified. We will review whether they need to issue a release." and "Applications on maintenance
-  does not mean they contain faults"; AERA-Atari 8ddb463). The hub notifies EContact of each new or changed rule and
+- **Every family rule holds for EContact as for the focus apps** (decided 17 Nov 2026: every app
+  follows the family's rules and is told of them, whether each needs a release is reviewed, and maintenance doesn't
+  mean an app has faults; AERA-Atari 8ddb463). The hub notifies EContact of each new or changed rule and
   each shared fix: EContact adopts it, with the shared code it needs (`tools/sync-common.sh`), and its row in section
   8's table is ticked. Section 8's ✗, ~ and ? in EContact's column are work for it. Whether a change needs a release
-  of its own is put to Erez through the hub; a fault fix always gets one.
+  of its own is put to the owner through the hub; a fault fix always gets one.
 - A release otherwise only for:
   - a security or data-loss fault;
   - a crash or breakage;
@@ -27,19 +27,19 @@ EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari
 
   Its notes say why.
 - Work on `main` that isn't released stays unreleased.
-- The UI alignment (Erez lifted the mode for it on 10 Nov 2026) is released: 2.0 and 2.1 (11 Nov 2026); the mode is back
-  since then. What is left of docs/UI-BACKLOG.md (Settings' other three choices as radio buttons, waiting on Erez's
+- The UI alignment (the mode lifted for it on 10 Nov 2026) is released: 2.0 and 2.1 (11 Nov 2026); the mode is back
+  since then. What is left of docs/UI-BACKLOG.md (Settings' other three choices as radio buttons, waiting on the owner's
   words) rides a release made anyway.
-- Testing takes Erez's configuration (Erez, 10 Nov 2026; AERA-Atari 148df17, standards/TEST-MATRIX.md): `Falcon-4:256` with `AERA_WITH_NVDI=1` (machines.ERZ_MACHINE, erz_env()) replaces the main Falcon run of gui, quiet_start, card_scroll and speed.py (Falcon-4:16 and Falcon:16); the other Falcon runs of the same functions go. The hub's set per candidate: a paired speed run on his configuration, ST-1:mono, one TT + MiNT + XaAES run. A speed row slower than the last release goes to Erez (through the hub) before anyone profiles or fixes it (Erez, 11 Nov 2026).
-- A 1 MB ST's first boot holds 350 contacts (2.7: quiet_start ST-1 on Erez's TOS 1.04, 167 KB at the most of 170;
+- Testing takes the reference configuration (decided 10 Nov 2026; AERA-Atari 148df17, standards/TEST-MATRIX.md): `Falcon-4:256` with `AERA_WITH_NVDI=1` (machines.ERZ_MACHINE, erz_env()) replaces the main Falcon run of gui, quiet_start, card_scroll and speed.py (Falcon-4:16 and Falcon:16); the other Falcon runs of the same functions go. The hub's set per candidate: a paired speed run on the reference configuration, ST-1:mono, one TT + MiNT + XaAES run. A speed row slower than the last release goes to the owner (through the hub) before anyone profiles or fixes it (decided 11 Nov 2026).
+- A 1 MB ST's first boot holds 350 contacts (2.7: quiet_start ST-1 on real TOS 1.04, 167 KB at the most of 170;
   2.8, with the shared code of 17 Nov 2026 and inf_t at 3 KB: see its commit; 2.3 to 2.6 held 349 and didn't write CONTACTS.TXT, unseen while the rig ran on EmuTOS, whose heap is
   5 KB bigger). Code or BSS added costs that margin (the heap is half of what is free: a KB of program, half a KB of
   heap): measure quiet_start ST-1 on TOS 1.04 with any change. ui/editor.c keeps what follows it where 2.6 had it,
   modulo 256 (its gaps; AERA-Atari 098183d): change them with its code or BSS. The Makefile's LPAD (2.12) does the same after the
   objects that grew since 2.11 (common's codepad.S): everything else is at 2.11's places modulo 256; work its sizes out
   again with common/tools/profpad.py --ship against the last release's ELF when one of them changes.
-- Nothing runs in the background; the session waits for Erez or the hub.
-- Only Erez's explicit word ends this mode. The hub passes it on quoting him.
+- Nothing runs in the background; the session waits for the owner or the hub.
+- Only the owner's explicit word ends this mode. The hub passes it on.
 
 ## For every AERA app
 
@@ -56,7 +56,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 
   When a change touches one of these, do it the guideline's way, even if the old code here did it
   differently.
-- **Speed is set by the stock machines** (Erez, 26 Oct 2026; the guidelines' "Speed"): an 8 MHz ST
+- **Speed is set by the stock machines** (decided 26 Oct 2026; the guidelines' "Speed"): an 8 MHz ST
   and a stock Falcon (`ST`, `ST-1`, `Falcon-4`), not the DFB1. Design and code for them: draw only
   what changed, keep the 68000's slow operations out of inner loops, do work once. A change to
   drawing, a loop over the data or the start gives its `AESGAP` stretches on `ST` and `Falcon-4`,
@@ -74,25 +74,24 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   A normal build must leave every tracked file unchanged and shows the version in `VERSION` as it is
   (there is no `-dev` label). Don't commit built programs, help files or certificates (`binary/`,
   `dist/`). Never reuse a number.
-- **Only formal releases leave the build machine.** Erez gets vX.Y releases made by the Release workflow from `main`, nothing else: no test builds, no CI artifacts, no builds from a branch. Work lands on `main`; to try a fix on real hardware, release it. If a release doesn't work, roll back with a release: revert on `main`, release the next number, and say in the bad release's notes that it is withdrawn and which one to use.
-- **Releases go out without asking Erez** (his decision, 23 Oct 2026; guidelines 1.2), through **the
-  regression gate** (Erez, 17 Nov 2026: "we need to be extra careful with regression issues as there are users of
-  our software. This means testing across all configurations" and "make sure we don't loose performance";
-  AERA-Atari a22574e, standards/TEST-MATRIX.md's gate table). Every code candidate, in order:
+- **Only formal releases leave the build machine.** The owner gets vX.Y releases made by the Release workflow from `main`, nothing else: no test builds, no CI artifacts, no builds from a branch. Work lands on `main`; to try a fix on real hardware, release it. If a release doesn't work, roll back with a release: revert on `main`, release the next number, and say in the bad release's notes that it is withdrawn and which one to use.
+- **Releases go out without asking the owner** (decided 23 Oct 2026; guidelines 1.2), through **the
+  regression gate** (decided 17 Nov 2026: extra care with regressions, as people use
+  the software: testing across every configuration, and no speed lost; AERA-Atari a22574e, standards/TEST-MATRIX.md's gate table). Every code candidate, in order:
   1. this repo's checks;
-  2. its rigs on every row of the gate table EContact runs on, on Erez's TOS images and NVDI (EmuTOS is no
+  2. its rigs on every row of the gate table EContact runs on, on real TOS images and NVDI (EmuTOS is no
      evidence for a release), each row named by describe(), a row it can't run named with why;
-  3. the paired speed run against the last release on Erez's configuration, `Falcon-4:16` and `ST:mono`, the
+  3. the paired speed run against the last release on the reference configuration, `Falcon-4:16` and `ST:mono`, the
      timed build at the shipped layout (`make prof`, common/tools/profpad.py): no row slower beyond a tick (5 ms)
-     on any; fix it first, and only Erez accepts one;
+     on any; fix it first, and only the owner accepts one;
   4. the candidate commit and the results to the hub, which runs the family check and answers go or the faults;
   5. only then the release.
 
   A fault a user reports becomes a case in the rigs, in the release that fixes it.
 
-  Then give Erez the link in one line, with anything he has to do, and send the hub the link. Roll
-  back a bad release the same way. Decisions that are his still go to him first.
-- **Who decides what** (Erez, 31 Oct 2026; the guidelines' "Who decides what"). Erez's part, put
+  Then give the owner the link in one line, with anything he has to do, and send the hub the link. Roll
+  back a bad release the same way. Decisions that are the owner's still go to the owner first.
+- **Who decides what** (decided 31 Oct 2026; the guidelines' "Who decides what"). The owner's part, put
   to him before the work as a decision with a short context:
   - new programs and ideas, their core capabilities, and how they work with the other programs;
   - the user experience: the look, the layout, the way through a task, the words, the icons, the
@@ -106,7 +105,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 
   How it is made is the team's, without asking: code, structure, shared code, tests, measurements,
   fixes, docs and releases inside an approved phase.
-- **No test here runs another AERA program or accessory** (Erez, 8 Nov 2026; the guidelines 1.2):
+- **No test here runs another AERA program or accessory** (decided 8 Nov 2026; the guidelines 1.2):
   `make test`, `make itest`, the rigs and the speed rig run EContact alone (its own ACC and PRG
   together is still EContact alone). What it does with another program is tested against a stand-in
   this repo owns that plays the other's side (ASKER.PRG for EMail, fakeguide for ST-Guide,
@@ -122,11 +121,14 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 - **Never commit:**
   - real addresses from the owner's network: use `192.168.1.x`, `PI_IP`, `ATARI_IP`
   - passwords, session keys, `.KEY` / `.INF` files from a test run
+  - anything the owner provides: his files, logs, screenshots, share links or file IDs, his machines'
+    measurements, and no quote of his words (`standards/GITHUB-IDENTITY.md`, Commits: a reported fault
+    becomes a case made from scratch; a decision is written as "decided <date>" and what it is)
   - photos that still carry EXIF/GPS data
-- **README:** a front page of about 600 words (the guidelines 1.4, Erez, 9 Nov 2026), the rest in docs/ (SETUP.md, DETAILS.md, DEVELOPMENT.md); keep the section order from the template (Highlights, Getting started, How it reaches the
+- **README:** a front page of about 600 words (the guidelines 1.4, decided 9 Nov 2026), the rest in docs/ (SETUP.md, DETAILS.md, DEVELOPMENT.md); keep the section order from the template (Highlights, Getting started, How it reaches the
   servers, Building, Source, Tests, Licence, family footer). Use British English.
 
-## Talking with Erez
+## Talking with the owner
 
 - No progress or in-between messages: write to him only when he has to
   decide something, with a short context and the decision.
@@ -136,18 +138,18 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 
 ## EContact
 
-- **A release** is two zips and nothing loose (the guidelines 7.4; Erez, 22 Nov 2026):
+- **A release** is two zips and nothing loose (the guidelines 7.4; decided 22 Nov 2026):
   `econtact-x.y.zip` (ST, TT, Falcon: `econtact.acc`, `.prg`, `tls.ovl`, `pic.ovl`, `econtact.hyp` and `.ref`,
   `cacert.pem`, `roots.dat`, `icons/`) and `econtact-x.y-firebee.zip`, the same names: `make firebee`'s
   ColdFire `econtact.acc` and `.prg` (common's mkfirebee.py, no LPAD), common's `tlsfb.ovl` as `tls.ovl`, no
   `pic.ovl` (pic_ovl.c never loads it on a FireBee). release.yml uploads the FireBee zip first and the
   standard one last and checks the API lists them so (every EUpdate up to 2.14 unpacks each zip, the last
-  winning). Each package's alert on the other's machine is ui/cpualert.c (Erez's words; common's
+  winning). Each package's alert on the other's machine is ui/cpualert.c (its words decided 22 Nov 2026; common's
   cpucheck.c is `main`, ui/main.c's is `app_main`): `tests/hatari/cpu_alert_test.py WORK`. `make core-cf`
   runs tests/corecheck.c (vcard.c as vcdump says it, the search, the photos) as ColdFire code under
   `qemu-m68k -cpu cfv4e` and as 68000 code under `-cpu m68000`: the same output, byte for byte. The
   icons are committed in `icons/` (`make icons`).
-- **File names in lowercase** (the guidelines 6.6, Erez, 2 Nov 2026): every file and folder
+- **File names in lowercase** (the guidelines 6.6, decided 2 Nov 2026): every file and folder
   EContact names itself is written in lowercase in the code (econtact.inf, the key, the log,
   cache\booknnnn.dat/.idx, photos.pak, contacts.txt, econtact.fnt, tls.ovl, cacert.pem, roots.dat,
   seed.dat, sigs.dat, econtact.hyp, C:\econtact), and `make dist` names every file of a release and
@@ -170,7 +172,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   The accessory hands PEOPLE on to a running ECONTACT.PRG (people_pass).
   `make itest` checks the answers through card-cli ask.
 - CONTACTS.TXT in the folder is for EMail and ECal when EContact isn't
-  loaded, an option of theirs (the guidelines 4.1; Erez, 21 Oct 2026; no
+  loaded, an option of theirs (the guidelines 4.1; decided 21 Oct 2026; no
   setting here): abook.c people_file_step writes it in 1.40's format (P
   and G lines, "; made from" a stamp) in steps, run by bg_step (the
   accessory) and the event loop (the program, the window open). It is
@@ -222,7 +224,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   profiler's counts (hatari_profile -p reads them); -DWIN_DIRECT draws straight on the screen, to
   measure the off-screen buffer against it.
 - NatFeats (the emulator's console: AESGAP, the rigs' lines) only where ECONTACT.INF says NATFEATS=1 (the
-  guidelines 6.5; Erez, 15 Nov 2026), read in find_workdir before anything is said there and kept when the INF is
+  guidelines 6.5; decided 15 Nov 2026), read in find_workdir before anything is said there and kept when the INF is
   written again (opt.natfeats); a real machine never runs the probe. rig.py writes it into the INF of every boot
   (natfeats()), the test programs in tests/atari define their own nf_on = 1, and
   `tests/hatari/natfeats_off.py WORK [MACHINE]` is the boot without it (the gate's row 12).
@@ -230,12 +232,12 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (`ST`, `ST-1`, `TT`, `Falcon`, a screen after a colon: common/tools/machines.py,
   the guidelines, The machines) and get Hatari's arguments, the TOS and the
   network from it (tests/hatari/rig.py), never their own options. The
-  accessory isn't run on a 4 MB machine (`ST`, `Falcon-4`: Erez, 4 Nov
+  accessory isn't run on a 4 MB machine (`ST`, `Falcon-4`: decided 4 Nov
   2026, AERA-Atari 21ba998; they stay the program's): the rigs that load
   it default to `ST-1:mono` or the Falcon, and speed.py times it on the
   Falcon or TT only.
   `tests/hatari/docs_shots.py WORK` takes the screenshots in docs/ (on
-  Falcon:256, every app picture in 256 colours: Erez, 28 Oct 2026; and
+  Falcon:256, every app picture in 256 colours: decided 28 Oct 2026; and
   st-mono.png on ST:mono); email-complete.png and ecal-invitees.png
   need the real EMail and ECal and are the hub's (its family run). The
   rigs' stand-ins (fakeguide for ST-Guide, ASKER.PRG for EMail,
@@ -330,7 +332,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   screen, and its slider set, each in a turn of its own (win.c
   slider_due). Common's fast paths (the guidelines' Speed: in every app,
   none slower where it can't run fast; speed.py on ST:mono, Falcon-4:16,
-  --nvdi and FONT=5419,14 --nvdi, Courier 14 as Erez runs it): text_plain
+  --nvdi and FONT=5419,14 --nvdi, Courier 14, a GDOS font in a larger size): text_plain
   only where text_plain_state() >= 0 (else the VDI's loop as before),
   scr_xor where it is 1, scr_fill for pens 0 and 1 where scr_cpu_wins()
   (draw.c fill_pat, else its own vr_recfl), scr_rows for the list's
@@ -400,7 +402,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   form_dial and the screen held. `tests/hatari/xaaes_dialogs.py WORK`
   checks it under FreeMiNT and XaAES.
 - Several contacts are chosen at once as in EFTP's and EMail's lists
-  (Erez, 28 Oct 2026): Shift+click one more or fewer, Control+click a
+  (decided 28 Oct 2026): Shift+click one more or fewer, Control+click a
   range from the one chosen (sel_uid, where a range starts), ^A (Select
   all) everyone shown. They carry MK_SEL in their mark (the pick's ticks
   are MK_TICK: CONTACT's layout and VC_PACK_ID stay), counted in
@@ -415,7 +417,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   group card is written once with them all (abook.c group_add_uids,
   group_remove_uids: one PUT, not one a contact). `make itest` and
   `tests/hatari/multi_select.py WORK [MACHINE]` check it.
-- A click (the guidelines 5.8, Erez, 1 Nov 2026): selected on the press,
+- A click (the guidelines 5.8, decided 1 Nov 2026): selected on the press,
   done on the release. The program's loop asks the AES for one click
   (main.c; the accessory too: its double click on a contact checked on
   TOS 1.04, presses held 80 and 120 ms) and times the double click
@@ -472,7 +474,18 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   ready; a redraw meanwhile finishes it at once. A change there must
   leave the photos as they were,
   pixel for pixel (compare screenshots of the old and new builds on
-  ST:mono, ST:med and Falcon:16). src/jpegdc.c reads two
+  ST:mono, ST:med and Falcon:16). In 256 colours, with the window on top,
+  the photo shown takes its own 63 colours in pens 192-254 (the guidelines
+  5.2, decided 22 Nov 2026: PIC.OVL 1.4's quant and pens, draw.c dither),
+  on the screen's workstation (scr_vdi: vdi_h is the off-screen bitmap's
+  while the window is drawn there, and NVDI keeps a bitmap's colours
+  apart); they go back on WM_UNTOPPED, the window's close, the quit,
+  AC_CLOSE and crash_quit, and, TOS 4's AES sending no WM_UNTOPPED or
+  WM_ONTOP, win_pens_check looks at WF_TOP once a second while they are
+  held or a photo waits for them. cache\near.dat stays the screen
+  palette's. `tests/hatari/photo_pens.py WORK` checks it on the reference
+  configuration with build/winacc.acc, a stand-in accessory with a
+  window. src/jpegdc.c reads two
   bytes through a volatile pointer for the same reason (rd16): check the
   sample formats in Hatari on an ST after touching it.
 - The search (contact_matches, src/abook.c) makes the text ready once
@@ -507,7 +520,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   only ever added after the old index, then a new index and the header in
   one open, so a reset leaves the old index whole; the index is held in
   memory, so whether a contact has its picture costs no file. 1.49's
-  CACHE\PHOTOS isn't read (Erez: the cache is deleted and made again).
+  CACHE\PHOTOS isn't read (decided: the cache is deleted and made again).
 - The photo cache's rules (photo.h) are tested by `make itest`: a change to
   them needs the tests to say so.
 - Syncing fetches cards without their photos (abook.c, CardDAV partial
@@ -521,7 +534,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   after_change() and finds the chosen one again by UID.
 - While a sync runs (pf_keep, src/pfkeep.c) the files it opens again and
   again stay open: every Fopen takes an entry in TOS's small internal
-  pool, and Erez's Falcon ran out of it ("OUT OF INTERNAL MEMORY") during
+  pool, and a Falcon ran out of it (TOS's "OUT OF INTERNAL MEMORY") during
   a long Sync contact photos. TOS writes a file's length only when it is
   closed, so code must ask for sizes and dates, remove and rename through
   pf_* (they close a kept file first), never through GEMDOS directly.
@@ -547,10 +560,10 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   round would overfill it (book_fetch_job_room). With under 1.5 MB free
   at boot (a 1 MB ST; a 4 MB Falcon with NVDI and ECal on a first boot)
   the accessory doesn't sync photos (ab_job_bytes 24 KB: cmd_sync_photos
-  says so, with the memory free; Erez: the memory is the contacts'). Sizes and dates come from one look (pf_info);
+  says so, with the memory free; decided 19 Oct 2026: the memory is the contacts'). Sizes and dates come from one look (pf_info);
   ECONTACT.INF is read once at boot (inf_read); reads are ab_read_bytes
   (16 KB on a 68000, 32 KB on a 68030). The log is written a line at once
-  (common's conn_log, Erez 15 Nov 2026: conn_log_hold holds nothing). `tests/hatari/acc_files.py`
+  (common's conn_log, decided 15 Nov 2026: conn_log_hold holds nothing). `tests/hatari/acc_files.py`
   fails above each job's budget of opens.
 - The accessory's memory is what it measured (mem_note): common's
   heap_peak since boot, at least what it holds plus room for a job and a
@@ -563,7 +576,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 - The accessory loads GDOS fonts only before its first event call
   (font_boot; the guidelines, 2.2): their memory is the program in
   front's after that. Under NVDI (its cookie) always, so its Font... is
-  the program's and a font chosen is used at once (Erez: the accessory on
+  the program's and a font chosen is used at once (decided: the accessory on
   par with the program); under FONTGDOS or SpeedoGDOS only when FONT=
   names one. Without them its Font... lists the fonts ECONTACT.FNT knows
   (read at each opening, with their ids), and one chosen is used from

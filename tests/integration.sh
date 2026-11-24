@@ -74,9 +74,9 @@ R=$($CLI "$D" list)
 expect "the iPhone's contact" "Dana Levi | dana@example.org | +972 50 111 2222" "$R"
 
 echo "add, change, keep what we don't edit"
-$CLI "$D" add "חברים" Erez Yaary erez@example.com "+972 52 333 4444"
+$CLI "$D" add "חברים" Ezra Yanai ezra@example.com "+972 52 555 0144"
 R=$($CLI "$D" list)
-expect "added" "Erez Yaary | erez@example.com | +972 52 333 4444" "$R"
+expect "added" "Ezra Yanai | ezra@example.com | +972 52 555 0144" "$R"
 $CLI "$D" set "Dana Levi" title "Engineer"
 $CLI "$D" set "Dana Levi" email "dana@home.example"
 R=$("${CURL[@]}" "$BASE/alice/friends/dana.vcf")
@@ -95,32 +95,32 @@ expect "Sam synced" "Sam Cohen | sam@example.net" "$R"
 echo "groups: a group card, and a category"
 $CLI "$D" group-new "חברים" Family
 $CLI "$D" group-add Family "Dana Levi"
-$CLI "$D" group-add Family "Erez Yaary"
+$CLI "$D" group-add Family "Ezra Yanai"
 R=$($CLI "$D" groups)
-expect "the group card" "Family (card, 2): Dana Levi, Erez Yaary" "$R"
+expect "the group card" "Family (card, 2): Dana Levi, Ezra Yanai" "$R"
 expect "the category" "Atari Club (category, 1): Sam Cohen" "$R"
-$CLI "$D" group-add "Atari Club" "Erez Yaary"
+$CLI "$D" group-add "Atari Club" "Ezra Yanai"
 R=$($CLI "$D" groups)
-expect "joined the category" "Atari Club (category, 2): Sam Cohen, Erez Yaary" "$R"
+expect "joined the category" "Atari Club (category, 2): Sam Cohen, Ezra Yanai" "$R"
 $CLI "$D" group-remove Family "Dana Levi"
 R=$($CLI "$D" groups)
-expect "left the group" "Family (card, 1): Erez Yaary" "$R"
+expect "left the group" "Family (card, 1): Ezra Yanai" "$R"
 echo "several at once (the list's several chosen)"
-$CLI "$D" group-add-many Family "Dana Levi" "Sam Cohen" "Erez Yaary"
+$CLI "$D" group-add-many Family "Dana Levi" "Sam Cohen" "Ezra Yanai"
 R=$($CLI "$D" groups)
 expect "three in the group card, written once" "Family (card, 3): " "$R"
 expect "with Sam" "Sam Cohen" "$(grep '^Family' <<<"$R")"
 $CLI "$D" group-add-many "Atari Club" "Dana Levi" "Sam Cohen"
 R=$($CLI "$D" groups)
 expect "three in the category" "Atari Club (category, 3): " "$R"
-$CLI "$D" group-remove-many "Atari Club" "Dana Levi" "Erez Yaary"
+$CLI "$D" group-remove-many "Atari Club" "Dana Levi" "Ezra Yanai"
 $CLI "$D" group-remove-many Family "Dana Levi" "Sam Cohen"
 R=$($CLI "$D" groups)
 expect "two out of the category" "Atari Club (category, 1): Sam Cohen" "$R"
-expect "two out of the group card" "Family (card, 1): Erez Yaary" "$R"
-$CLI "$D" group-add-many "Atari Club" "Erez Yaary"
+expect "two out of the group card" "Family (card, 1): Ezra Yanai" "$R"
+$CLI "$D" group-add-many "Atari Club" "Ezra Yanai"
 R=$($CLI "$D" groups)
-expect "and one back" "Atari Club (category, 2): Sam Cohen, Erez Yaary" "$R"
+expect "and one back" "Atari Club (category, 2): Sam Cohen, Ezra Yanai" "$R"
 echo "PEOPLE: EMail and ECal asking (ui/answer.c)"
 R=$($CLI "$D" ask "names:EMAIL dana@example.org NOBODY@x.org DANA@HOME.EXAMPLE")
 expect "names: to the asker" "to 7: names:" "$R"
@@ -130,7 +130,7 @@ if grep -qx $'NOBODY@x.org\t' <<<"$R"; then ok "an unknown one, empty"; else bad
 R=$($CLI "$D" ask "pick:EMAIL dan" @group Family)
 expect "pick: the search for the window" 'pick for EMAIL, searching "dan"' "$R"
 expect "pick: answered" "to 7: pick:" "$R"
-expect "a group: its members with an address" $'erez@example.com\tErez Yaary' "$R"
+expect "a group: its members with an address" $'ezra@example.com\tEzra Yanai' "$R"
 R=$($CLI "$D" ask "names:EMAIL sam@example.net" @poll @poll)
 N=$(grep -c "changed:" <<<"$R" || true)
 if [ "$N" = 1 ]; then ok "changed: once, when the names are first there"; else bad "changed: $N times"; fi
@@ -170,8 +170,8 @@ PY
 }
 R=$(pf_check "$($CLI "$D" list)" 2>&1) && ok "every address, with its name ($R)" || bad "CONTACTS.TXT: $R"
 T=$(tr -d '\r' < "$PF")
-expect "a group card's line" $'G\tFamily\tErez Yaary <erez@example.com>' "$T"
-expect "a category's line" $'G\tAtari Club\tSam Cohen <sam@example.net>, Erez Yaary <erez@example.com>' "$T"
+expect "a group card's line" $'G\tFamily\tEzra Yanai <ezra@example.com>' "$T"
+expect "a category's line" $'G\tAtari Club\tSam Cohen <sam@example.net>, Ezra Yanai <ezra@example.com>' "$T"
 expect "an address's label" $'P\tDana Levi\tdana@example.org\t' "$T"
 T=$(stat -c %y "$PF")
 sleep 1
@@ -198,15 +198,15 @@ R=$(cat "$W/out.vcf")
 expect "exported" "FN:Jürgen Müller" "$R"
 
 echo "delete"
-$CLI "$D" delete "Erez Yaary"
+$CLI "$D" delete "Ezra Yanai"
 R=$($CLI "$D" list)
-absent "deleted here" "Erez Yaary" "$R"
+absent "deleted here" "Ezra Yanai" "$R"
 R=$("${CURL[@]}" -X PROPFIND -H "Depth: 1" "$BASE/alice/friends/")
 R2=$($CLI "$D" groups)
 expect "and out of its group" "Family (card, 0)" "$R2"
 $CLI "$D" sync force
 R=$($CLI "$D" list)
-absent "and on the server" "Erez Yaary" "$R"
+absent "and on the server" "Ezra Yanai" "$R"
 expect "the others still there" "Dana Levi" "$R"
 
 echo "photos: decoded once, kept, and made again when they change"

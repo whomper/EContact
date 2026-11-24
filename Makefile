@@ -210,7 +210,7 @@ $(OBJDIR)/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
 # AERA-Atari 8f542df), 556 bytes a 1 MB ST's contacts need
 $(OBJDIR)/dialog.o: CFLAGS += -DDLG_NO_LATER
 # common's pictures (pic.c): its palette and dither draw the photos (ui/draw.c;
-# Erez, 8 Nov 2026), no PNG or GIF decoder (the link keeps only what is called)
+# decided 8 Nov 2026), no PNG or GIF decoder (the link keeps only what is called)
 # nor its rows for pictures without alpha (PIC_NO_FAST_ROWS, AERA-Atari 18edfb7): every row
 # EContact dithers has the ellipse as its alpha, and their 1.9 KB were a 1 MB ST's contacts
 $(OBJDIR)/pic.o: common/src/pic.c $(HDRS) | $(OBJDIR)
@@ -413,7 +413,7 @@ test: $(OBJDIR)/unit $(OBJDIR)/lowmem $(addprefix $(OBJDIR)/replay_,$(FUZZERS)) 
 HYPCHECK = test ! -f $(BIN)/econtact.hyp || grep -q "ECONTACT.HYP $$(cat VERSION)" $(BIN)/econtact.hyp || \
 	  { echo "$(BIN)/econtact.hyp isn't version $$(cat VERSION): make help"; exit 1; }
 
-# the FireBee package (the guidelines, 7.4; Erez, 22 Nov 2026: two
+# the FireBee package (the guidelines, 7.4; decided 22 Nov 2026: two
 # packages, the same names inside): the same sources as ColdFire code, by
 # common's mkfirebee.py from the rules above (cpucheck.c becomes
 # cpucheck_cf.S, -lgcc ll64.c, no LPAD: the 68030's caches aren't the
@@ -426,8 +426,8 @@ $(FBBIN)/econtact.acc: $(OBJDIR)/contact.elf common/tools/mkfirebee.py
 $(FBBIN)/econtact.prg: $(FBBIN)/econtact.acc
 	cp $< $@
 
-# a release: two packages and nothing else (the guidelines, 7.4; Erez,
-# 22 Nov 2026: "two ZIP files, one for each platform"),
+# a release: two packages and nothing else (the guidelines, 7.4; decided
+# 22 Nov 2026: a zip for each platform),
 # dist/econtact-x.y.zip for the ST, TT and Falcon and
 # dist/econtact-x.y-firebee.zip for the FireBee, the same names in both
 # (the icons in icons/): the FireBee's ECONTACT.PRG and .ACC (make

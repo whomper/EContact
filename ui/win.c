@@ -338,7 +338,7 @@ static void draw_all(GRECT *clip)
 /* ---- drawing off the screen (ECal's win.c) ----
  * The window is many small fills, lines and texts; drawn straight onto
  * the screen, a slow machine shows them appearing one by one, and every
- * step of scrolling the list blanked it and drew it again (Erez's video,
+ * step of scrolling the list blanked it and drew it again (seen
  * 22 Oct 2026). So the window is drawn into a screen-sized buffer and
  * copied to the screen at once. Two ways to draw there:
  *  - an off-screen bitmap (EdDI v_opnbm: NVDI 3 and later, fVDI...): a
@@ -452,7 +452,7 @@ static int lands_in(unsigned char *b, short h, int setscreen)
    free, what was free at boot for the accessory (0: the program). The
    accessory takes the buffer only when it is a sixteenth of that at
    most: on a 1 MB ST in ST high 32 KB, the memory being the contacts'
-   (Erez) */
+   (decided 19 Oct 2026) */
 void win_buffer_init(long free)
 {
 	long size = (long)((scr_w + 15) / 16) * 2 * planes * scr_h;
@@ -1215,7 +1215,7 @@ void win_scroll(const GRECT *a, short dy)
 			   and the strip copied straight after, in this one update:
 			   drawn after the move, the strip showed the old rows twice
 			   while it was made (ECal and EHypView in 256 colours under
-			   NVDI, Erez's video, 13 Nov 2026) */
+			   NVDI, seen 13 Nov 2026) */
 			clip_on((GRECT *)a);
 			move_rows(pxy, 1);	/* the buffer as the screen */
 			clip_off();
@@ -1784,7 +1784,7 @@ static int search_clip(int what)
 }
 
 /* typing goes into the search field, as on the Mac. Esc empties it, as
-   a one-line field of a window (the guidelines, 3.5; Erez, 27 Oct 2026),
+   a one-line field of a window (the guidelines, 3.5; decided 27 Oct 2026),
    and does nothing else: it never closes the window */
 static int search_key(short kstate, short key)
 {

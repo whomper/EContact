@@ -34,7 +34,7 @@ static LROW *rows;
 static int nrows, maxrows, top;
 static short rh;		/* pixels per row */
 
-/* several chosen (Erez, 28 Oct 2026): MK_SEL in their marks, counted;
+/* several chosen (decided 28 Oct 2026): MK_SEL in their marks, counted;
    0 while one alone is (sel_uid). The marks go with the CONTACTs when
    the list is read again (people_serial), and the list made again (the
    group or the search changed) forgets them */
@@ -335,7 +335,7 @@ static short visible_rows(void)
 static void clamp_top(void);
 static int list_scroll_to(int t);
 
-/* The list's own scroll bar, at the right of its column (Erez, 20 Oct
+/* The list's own scroll bar, at the right of its column (decided 20 Oct
    2026: the window's slider, at the far right by the card, moved the
    list in the middle): the family's pane bar (common/ui/panebar.c, the
    guidelines 5.1), AES objects in the AES's own look, as wide as its
@@ -721,7 +721,7 @@ char **list_chosen_uids(int *n, short **book, int *skipped)
 	return u;
 }
 
-/* "Erez" plain and "Yaary" bold: the part the list is sorted by in bold */
+/* "Ezra" plain and "Yanai" bold: the part the list is sorted by in bold */
 static void draw_name(const CONTACT *c, short x, short y, short cols, short flags)
 {
 	char plain[100], bold[100], all[200];
@@ -1324,7 +1324,7 @@ int list_key(short kstate, short key)
 	case 0x52:						/* Insert: the context menu (MENUS 3.2, D17) */
 		if (!picking && sel_contact()) {
 			/* at the chosen row's top-left; scrolled out of
-			   sight, the list's (Erez, 10 Nov 2026) */
+			   sight, the list's (decided 10 Nov 2026) */
 			GRECT a;
 			int r = sel_row();
 			if (r < 0 || !row_area(r, &a)) {

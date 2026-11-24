@@ -326,7 +326,7 @@ static void pens_init(void)
 	/* first the two greys for text, kept from the calendars' colours: a
 	   real grey (red, green and blue alike) nearest each target, among
 	   the sixteen system pens, as with 16 colours: with 256 a pen above
-	   them came out green on Erez's Falcon (others' pictures set them) */
+	   them came out green where other programs' pictures had set them) */
 	{
 		static const short want[2] = { 420, 690 };	/* dark, light (0-1000) */
 		short g, ng = n < 16 ? n : 16;
@@ -839,7 +839,7 @@ void disc(short cx, short cy, short rx, short ry, short color)
 /* ---------------- photos ----------------
  * A contact's picture (PHOTO_N x PHOTO_N, RGB 5-6-5) in an ellipse:
  * dithered to the colours the screen has by the family's code (common's
- * pic.c: its palette and Floyd-Steinberg rows, Erez, 8 Nov 2026), black
+ * pic.c: its palette and Floyd-Steinberg rows, decided 8 Nov 2026), black
  * and white with fewer than 16 by its own one-channel loop (an ST's), then one transparent copy of a one-plane
  * mask per colour used: no device formats to know, and white (the card
  * behind it) is left as it is. The dithered picture is kept while the
@@ -907,8 +907,8 @@ static void photo_palette(void)
 	pic_pal_init(&ph_pal, n, (const unsigned char (*)[3])ph_rgb);
 	/* a softer dither (common's pic_pal_soft): each pixel's error passed
 	   on 3/4 with 16 pens, 1/2 with more, where the palette has no near
-	   colour for a pastel or a face's tones (Erez, 21 Nov 2026: the dots
-	   in 256 colours; the grain 39 -> 25 there, 141 -> 118 in 16, over
+	   colour for a pastel or a face's tones (decided 21 Nov 2026: fewer
+	   dots in 256 colours; the grain 39 -> 25 there, 141 -> 118 in 16, over
 	   the sample photos) */
 	pic_pal_soft(&ph_pal, n > 16 ? 8 : 12);
 	{
@@ -969,9 +969,9 @@ static unsigned short rowpx[PH_MAXW];	/* a row of the picture at its shown width
 static unsigned char rowa[PH_MAXW];	/* and where it shows: 255 in the ellipse */
 static short ge[2][PH_MAXW + 2];	/* black and white's one channel */
 /* black and white: each photo's brightness stretched from its 2nd to its
-   98th hundredth over the whole range, then a gamma of 1.3 (Erez, 21 Nov
-   2026: the faces were a grey checkerboard; the stretch made them
-   readable in his choice of three), a table made once a photo */
+   98th hundredth over the whole range, then a gamma of 1.3 (decided 21
+   Nov 2026, the stretch chosen of three: the faces were a grey
+   checkerboard), a table made once a photo */
 static unsigned char glut[256];
 static const unsigned char gamma13[256] = { 0,0,0,1,1,2,2,2,3,3,4,4,5,5,6,6,7,8,8,9,9,10,11,11,12,12,13,14,14,15,16,16,17,18,19,19,20,21,21,22,23,24,24,25,26,27,28,28,29,30,31,31,32,33,34,35,36,36,37,38,39,40,41,41,42,43,44,45,46,47,47,48,49,50,51,52,53,54,55,56,57,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,76,77,78,79,80,81,82,83,84,85,86,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,112,113,114,115,116,117,118,119,120,121,122,124,125,126,127,128,129,130,131,132,133,135,136,137,138,139,140,141,143,144,145,146,147,148,149,151,152,153,154,155,156,157,159,160,161,162,163,164,166,167,168,169,170,172,173,174,175,176,178,179,180,181,182,184,185,186,187,188,190,191,192,193,194,196,197,198,199,201,202,203,204,206,207,208,209,210,212,213,214,215,217,218,219,220,222,223,224,226,227,228,229,231,232,233,234,236,237,238,240,241,242,243,245,246,247,249,250,251,252,254,255 };
 

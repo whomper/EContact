@@ -47,7 +47,7 @@ def check(what, ok):
 
 def cards(path, n):
     random.seed(7)
-    first = "Avi Dana Erez Mike Shira Noa Yael Omer Tal Gil Ron Maya Lior Eitan Dalit Orit".split()
+    first = "Avi Dana Ezra Mike Shira Noa Yael Omer Tal Gil Ron Maya Lior Eitan Dalit Orit".split()
     last = "Cohen Levi Mizrahi Peretz Biton Friedman Katz Azulay Gold Hart Lavi Deck Galil".split()
     with open(path, "w", newline="") as f:
         for i in range(n):

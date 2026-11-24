@@ -269,7 +269,7 @@ static int warned_lost;
    since boot (common's heap_peak), and at least what it uses now with
    room for a job and a photo shown it may not have had yet; a tenth
    more for growth. MEMKB= in ECONTACT.INF, which the next start takes
-   (acc_heap): no more memory than the contacts need (Erez, 19 Oct 2026).
+   (acc_heap): no more memory than the contacts need (decided 19 Oct 2026).
    The measuring is the family's (common/ui/accmem.c, the guidelines 2.1) */
 /* TLS.OVL wanted but not had for lack of memory: the accessory's
    measure (mem_note) makes room for it at the next start */
@@ -885,7 +885,7 @@ static int photo_progress(void *ud, int done, int total, const char *name)
 }
 
 /* news that came while the window was behind another program's is a
-   notification where BGEM.NG runs (the guidelines 4.5; a tester, Erez 27
+   notification where BGEM.NG runs (the guidelines 4.5; decided 27
    Oct 2026), its Show bringing the window to the front; elsewhere, and
    with the window in front, 0: the alert, as before */
 enum { NOTE_PHOTOS = 1 };
@@ -914,7 +914,7 @@ void cmd_sync_photos(void)
 		return;
 	if (is_acc && ab_job_bytes <= 24L * 1024) {
 		/* under 1.5 MB free at boot (a 1 MB ST; a 4 MB Falcon with NVDI
-		   and another accessory): its memory is the contacts' (Erez, 19
+		   and another accessory): its memory is the contacts' (decided 19
 		   Oct 2026). A photo is still fetched as its card is opened */
 		char m[100];
 		snprintf(m, sizeof(m), "Sync contact photos: not in the accessory, %ld KB free at start",
@@ -993,7 +993,7 @@ static const MBAR_ITEM m_file[] = {
 	{ "Quit", "^Q", C_QUIT },
 	{ 0, 0, 0 }
 };
-/* the contacts' own commands, New among them (the guidelines, 3.1; Erez,
+/* the contacts' own commands, New among them (the guidelines, 3.1; decided
    27 Oct 2026): Edit, with nothing else, is left out */
 static const MBAR_ITEM m_contact[] = {
 	{ "New contact", "^N", C_NEW },
@@ -1278,7 +1278,7 @@ static void find_workdir(void)
 		inf_read(inf_file);	/* once: FOLDER=, START=, FONT_ID=, HEAPKB= */
 		{
 			/* NatFeats only where a test rig asks (the guidelines 6.5;
-			   Erez, 15 Nov 2026): never probed on a real machine. The
+			   decided 15 Nov 2026): never probed on a real machine. The
 			   program takes it from its settings (load_store), read
 			   before its first event call */
 			char nf[4];
@@ -1380,7 +1380,7 @@ static int locate_folder(void)
 static void job_memory(long free)
 {
 	/* more memory, fewer opens: 8 MB free (a TT, an accelerated Falcon's
-	   TT RAM) as much as the program; Erez: more where there is more */
+	   TT RAM) as much as the program: more where there is more */
 	long job = !free || free >= 8192L * 1024 ? 256L * 1024 : free >= 3072L * 1024 ? 64L * 1024
 		 : free >= 1536L * 1024 ? 32L * 1024 : 24L * 1024;
 	ab_read_bytes = get_cookie(0x5F435055L) >= 30 ? 32768L : 16384L;	/* _CPU */
@@ -1390,7 +1390,7 @@ static void job_memory(long free)
 	pack_buf_max = job >= 32L * 1024 ? job : ab_out_max;	/* 8 KB a picture */
 	carddav_budget = job / 2 > 24L * 1024 ? job / 2 : 24L * 1024;
 	/* the job's log held in 16 KB, on a 1 MB ST in the 4 KB it has: common's
-	   conn_log_hold no longer takes it (every line written at once, Erez,
+	   conn_log_hold no longer takes it (every line written at once, decided
 	   15 Nov 2026), the size kept for the call */
 	conn_log_hold_bytes = job >= 32L * 1024 ? 16384L : 0;
 	/* and its everyday buffer, taken from the heap at the first line

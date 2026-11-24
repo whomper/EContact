@@ -28,7 +28,7 @@ NAMES = ["N", "FN", "UID", "NICKNAME", "ORG", "TITLE", "NOTE", "CATEGORIES", "BD
          "VERSION", "X-APPLE-OMIT-YEAR", "item", "begin", "end", "fn", "tel", "Email", "nOte"]
 TYPES = ["home", "work", "cell", "CELL", "voice", "pref", "fax", "iphone", "IPHONE", "main", "pager", "other",
          "school", "internet", "x-mobileme", "INTERNET", "\"home,work\"", "mobile", "jpeg", "JPEG"]
-VALS = ["Erez", "Yaary", "a@b.example", "+972 54-555-0101", "tel:+1 555", ";;1 Herzl St;Tel Aviv;;6100000;Israel",
+VALS = ["Ezra", "Yanai", "a@b.example", "+972 54-555-0101", "tel:+1 555", ";;1 Herzl St;Tel Aviv;;6100000;Israel",
         "\u05d0\u05e8\u05d6", "Caf\u00e9 M\u00fcller", "x\\,y\\;z\\nq\\\\", "COMPANY", "group", "org",
         "urn:uuid:ABC-123", "1970-01-21", "--05-17", "19800517", "1604-03-02", "_$!<Mobile>!$_", "_$!<HomeFAX>!$_",
         "My Label", "", " ", "http://example.com/x", "?", "1A2B3C4D", "=C3=A9t=C3=A9", "Family,Work",

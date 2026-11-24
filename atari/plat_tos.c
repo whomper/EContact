@@ -180,8 +180,8 @@ void pf_now(PFTIME *t)
 	t->sec = (tm & 31) * 2;
 }
 
-/* by the 200 Hz timer, corrected where something runs it faster (312 Hz
-   on Erez's Falcon: every time 1.56 times too long, every timeout short) */
+/* by the 200 Hz timer, corrected where something runs it faster (an
+   accelerated Falcon's can: every time too long, every timeout short) */
 unsigned long pf_ms(void)
 {
 	return tos_ms();

@@ -6,8 +6,8 @@
  *
  * Every Fopen takes an entry in TOS's small internal pool, and a long
  * Sync contact photos opened the address book's cache and the log
- * hundreds of times; on Erez's Falcon the pool ran out ("OUT OF INTERNAL
- * MEMORY"). While pf_keep is on, a file opened for reading or appending
+ * hundreds of times, enough to run a Falcon's pool out (TOS's "OUT OF
+ * INTERNAL MEMORY"). While pf_keep is on, a file opened for reading or appending
  * stays open when it is closed, and the next open of it gets the same
  * handle (at the start for reading, at the end for appending).
  *
@@ -61,7 +61,7 @@ static int same(const char *a, const char *b)
 extern char conn_logfile[200];
 
 /* the opens a job's budget counts (the guidelines 6.5): the log's aren't,
-   since it is written a line at once (Erez, 15 Nov 2026) and the budgets
+   since it is written a line at once (decided 15 Nov 2026) and the budgets
    are counted as with Write a log off */
 static int os_open_counted(const char *path, int mode)
 {
@@ -198,8 +198,8 @@ void pf_close(int h)
 
 /* No transfer bigger than PF_PIECE: a hard disk driver moves one to or
    from TT/Fast RAM through a bounce buffer in ST RAM (the _FRB cookie's,
-   often 64 KB), and on Erez's Falcon (DFB1) a 256 KB write of
-   PHOTOS.PAK from ECONTACT.PRG crashed TOS in low ST RAM (1.50). The
+   often 64 KB), and a 256 KB write of PHOTOS.PAK from ECONTACT.PRG in
+   TT RAM crashed TOS in low ST RAM (1.50). The
    file is still opened once; only the GEMDOS calls are more */
 #define PF_PIECE (32L * 1024)
 

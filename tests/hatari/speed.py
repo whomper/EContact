@@ -24,7 +24,7 @@ second is timed), then in its window
 - Delete: its alert, Return (Cancel): uncovered;
 - Return: the editor opened, Undo: uncovered;
 and the accessory opened from the Desk menu, its books read at boot: not
-on ST and Falcon-4, where the accessory isn't run (4 MB: Erez, 4 Nov
+on ST and Falcon-4, where the accessory isn't run (4 MB: decided 4 Nov
 2026; AERA-Atari 21ba998), but on Falcon, TT or ST-1.
 After some of them the screen is set against the whole window drawn
 again (Shift+^S twice: the sidebar hidden and shown): what was drawn in
@@ -62,7 +62,7 @@ T_READ = 100		# a longer job in slices: a key answered within 100 ms
 def cards(path, n):
     """n made-up people, as an iPhone writes them (quiet_start.py's)"""
     random.seed(7)
-    first = "Avi Dana Erez Mike Shira Noa Yael Omer Tal Gil Ron Maya Lior Eitan Dalit Orit".split()
+    first = "Avi Dana Ezra Mike Shira Noa Yael Omer Tal Gil Ron Maya Lior Eitan Dalit Orit".split()
     last = "Cohen Levi Mizrahi Peretz Biton Friedman Katz Azulay Gold Hart Lavi Deck Galil".split()
     with open(path, "w", newline="") as f:
         for i in range(n):
@@ -91,7 +91,8 @@ def seed(folder, work):
     t = re.sub(rb"\nFOLDER=[^\r\n]*", rb"\nFOLDER=C:\\ECONTACT", t)
     t = re.sub(rb"\nSTART=[^\r\n]*", rb"\nSTART=5", t)
     # FONT=ID,PT: the window's text in that font (a GDOS font under NVDI,
-    # Courier 14 as Erez runs it: ECONTACT.FNT says its id; EMail's idea)
+    # Courier 14, a GDOS font in a larger size: ECONTACT.FNT says its id;
+    # EMail's idea)
     font = os.environ.get("FONT")
     if font:
         fid, fpt = font.split(",")
@@ -433,7 +434,7 @@ def machine_run(work, machine, bin_dir, only):
             os.rename(os.path.join(d, "hatari.log"), os.path.join(d, "hatari-prg%d.log" % n))
             con.at = 0
         os.remove(os.path.join(folder, "econtact.prg"))
-    # the accessory isn't run on a 4 MB machine (Erez, 4 Nov 2026; AERA-Atari
+    # the accessory isn't run on a 4 MB machine (decided 4 Nov 2026; AERA-Atari
     # 21ba998): ST and Falcon-4 time the program only
     if only in (None, "acc") and machine.split(":")[0] in ("ST", "Falcon-4"):
         print("  (the accessory: not on a 4 MB machine; Falcon or TT times it: --only acc)")

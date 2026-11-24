@@ -86,8 +86,7 @@ into, and halts with "OUT OF INTERNAL MEMORY" when it runs out; FOLDRxxx makes t
 
 **With STinG, set the Delay in `STING.CPX` to suit the machine:** 10 on a
 Falcon or TT, 25 to 50 on an ST, as STinG's manual says. STinG looks at the network card that
-often, so it sets the speed of every STinG program: on Erez's Falcon with a NetUSBee, Delay 10
-took EFTP's downloads from 40 to 75 KB/s. On a NetUSBee, keep STinG's TCP receive window at 5840
+often, so it sets the speed of every STinG program. On a NetUSBee, keep STinG's TCP receive window at 5840
 (MSS 1460): the card holds about four full packets.
 
 ### App passwords (iCloud, Fastmail)

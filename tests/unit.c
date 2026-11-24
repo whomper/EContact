@@ -35,12 +35,12 @@ static const char icloud_card[] =
 	"BEGIN:VCARD\r\n"
 	"VERSION:3.0\r\n"
 	"PRODID:-//Apple Inc.//iPhone OS 17.0//EN\r\n"
-	"N:Yaary;Erez;;Dr.;\r\n"
-	"FN:Dr. Erez Yaary\r\n"
+	"N:Yanai;Ezra;;Dr.;\r\n"
+	"FN:Dr. Ezra Yanai\r\n"
 	"ORG:Atari Club;Hardware\r\n"
 	"TITLE:Chief Tinkerer\r\n"
-	"EMAIL;type=INTERNET;type=HOME;type=pref:erez@example.com\r\n"
-	"item1.EMAIL;type=INTERNET:erez@club.example.org\r\n"
+	"EMAIL;type=INTERNET;type=HOME;type=pref:ezra@example.com\r\n"
+	"item1.EMAIL;type=INTERNET:ezra@club.example.org\r\n"
 	"item1.X-ABLabel:club\r\n"
 	"TEL;type=CELL;type=VOICE;type=pref:+972 50 123 4567\r\n"
 	"TEL;type=IPHONE;type=CELL;type=VOICE:+972 52 765 4321\r\n"
@@ -48,7 +48,7 @@ static const char icloud_card[] =
 	"item2.X-ABLabel:_$!<HomeFAX>!$_\r\n"
 	"item3.ADR;type=HOME;type=pref:;;1 Herzl St\\nApt 4;Tel Aviv;;6100000;Israel\r\n"
 	"item3.X-ABADR:il\r\n"
-	"item4.URL;type=pref:https://example.com/erez\r\n"
+	"item4.URL;type=pref:https://example.com/ezra\r\n"
 	"item4.X-ABLabel:_$!<HomePage>!$_\r\n"
 	"item5.X-ABRELATEDNAMES:Dana\r\n"
 	"item5.X-ABLabel:_$!<Spouse>!$_\r\n"
@@ -56,7 +56,7 @@ static const char icloud_card[] =
 	"NOTE:Met at the Atari meet\\, 1989.\\nLikes Falcons.\r\n"
 	"PHOTO;ENCODING=b;TYPE=JPEG:/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgK\r\n"
 	" DBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJ\r\n"
-	"X-SOCIALPROFILE;type=twitter:x-apple:erezyaary\r\n"
+	"X-SOCIALPROFILE;type=twitter:x-apple:ezrayanai\r\n"
 	"UID:7B5D2E1A-0C3F-4A8B-9E21-55AA77CC1234\r\n"
 	"END:VCARD\r\n";
 
@@ -67,17 +67,17 @@ static void test_parse_icloud(void)
 	CHECK(c != 0);
 	if (!c)
 		return;
-	CHECK_STR(c->family, "Yaary");
-	CHECK_STR(c->given, "Erez");
+	CHECK_STR(c->family, "Yanai");
+	CHECK_STR(c->given, "Ezra");
 	CHECK_STR(c->prefix, "Dr.");
-	CHECK_STR(c->fn, "Dr. Erez Yaary");
+	CHECK_STR(c->fn, "Dr. Ezra Yanai");
 	CHECK_STR(c->org, "Atari Club");
 	CHECK_STR(c->dept, "Hardware");
 	CHECK_STR(c->title, "Chief Tinkerer");
 	CHECK_STR(c->uid, "7B5D2E1A-0C3F-4A8B-9E21-55AA77CC1234");
 	CHECK_EQ(c->nemail, 2);
 	CHECK_STR(c->email[0].label, "home");
-	CHECK_STR(c->email[0].value, "erez@example.com");
+	CHECK_STR(c->email[0].value, "ezra@example.com");
 	CHECK_STR(c->email[1].label, "club");
 	CHECK_EQ(c->ntel, 3);
 	CHECK_STR(c->tel[0].label, "mobile");
@@ -94,12 +94,12 @@ static void test_parse_icloud(void)
 	CHECK(c->photo);
 	CHECK(!c->group && !c->company);
 	vcard_display_name(c, 0, s, sizeof(s));
-	CHECK_STR(s, "Erez Yaary");
+	CHECK_STR(s, "Ezra Yanai");
 	vcard_display_name(c, 1, s, sizeof(s));
-	CHECK_STR(s, "Yaary, Erez");
+	CHECK_STR(s, "Yanai, Ezra");
 	vcard_initials(c, s);
 	CHECK_STR(s, "EY");
-	CHECK_STR(c->sortkey, "YAARY\001EREZ");
+	CHECK_STR(c->sortkey, "YANAI\001EZRA");
 	vcard_bday_format(c->bday, s, sizeof(s));
 	CHECK_STR(s, "17 May 1975");
 	free(c);
@@ -131,17 +131,17 @@ static void test_roundtrip(void)
 	CHECK(strstr(out.s, "item5.X-ABRELATEDNAMES:Dana\r\n") != 0);	/* kept */
 	CHECK(strstr(out.s, "item5.X-ABLabel:_$!<Spouse>!$_\r\n") != 0);
 	CHECK(strstr(out.s, "PHOTO;ENCODING=b;TYPE=JPEG:/9j/4AAQ") != 0);
-	CHECK(strstr(out.s, "X-SOCIALPROFILE;type=twitter:x-apple:erezyaary\r\n") != 0);
+	CHECK(strstr(out.s, "X-SOCIALPROFILE;type=twitter:x-apple:ezrayanai\r\n") != 0);
 	CHECK(strstr(out.s, "UID:7B5D2E1A-0C3F-4A8B-9E21-55AA77CC1234\r\n") != 0);
 	CHECK(strstr(out.s, "NOTE:Met at the Atari meet\\, 1989.\\nLikes Falcons.\r\n") != 0);
 	CHECK(strstr(out.s, "BDAY;VALUE=date:1975-05-17\r\n") != 0);
 	CHECK(strstr(out.s, "ORG:Atari Club;Hardware\r\n") != 0);
-	CHECK(strstr(out.s, "N:Yaary;Erez;;Dr.;\r\n") != 0);
-	CHECK(strstr(out.s, "FN:Dr. Erez Yaary\r\n") != 0);
+	CHECK(strstr(out.s, "N:Yanai;Ezra;;Dr.;\r\n") != 0);
+	CHECK(strstr(out.s, "FN:Dr. Ezra Yanai\r\n") != 0);
 	CHECK(strstr(out.s, "item2.X-ABLabel:_$!<HomeFAX>!$_") == 0);	/* home fax is a TYPE now */
 	CHECK(strstr(out.s, "TEL;TYPE=HOME;TYPE=FAX:03-555 1234") != 0);
 	/* the homepage is Apple's labelled item, numbered after the kept item5 */
-	CHECK(strstr(out.s, "item6.URL:https://example.com/erez\r\n") != 0);
+	CHECK(strstr(out.s, "item6.URL:https://example.com/ezra\r\n") != 0);
 	CHECK(strstr(out.s, "item6.X-ABLabel:_$!<HomePage>!$_\r\n") != 0);
 	/* no line longer than 75 bytes */
 	{
@@ -922,7 +922,7 @@ static int old_matches(const CONTACT *c, const char *t)
    them, in other cases, with spaces, digits and dashes */
 static void test_matches(void)
 {
-	static const char *const words[] = { "Ada", "Erez", "Cohen", "ACME", "Lovelace", "van", "de",
+	static const char *const words[] = { "Ada", "Ezra", "Cohen", "ACME", "Lovelace", "van", "de",
 		"Mike", "o'Neil", "Smith-Jones", "\xE9", "St", "Tel Aviv", "Herzl", "1", "x" };
 	static const char *const extra[] = { "a", "A", "e", "co", "CO", "n c", "a c", "ada coh", "054",
 		"+972", "54-555", "555 01", "no", "No Name", "nam", "group", "Group", "ou", " ", "z",
