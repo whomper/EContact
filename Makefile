@@ -125,15 +125,16 @@ $(BIN)/econtact.prg: $(BIN)/econtact.acc
 # read-only data, the data and the BSS. 2.15: placed again against 2.14 (its
 # PNG code, inflate and png, linked last; http.c, photo.c and common's text.c
 # grown). 2.16: against 2.15 (common's popup.c, pic_ovl.c and tls_ovl.c;
-# the photos' own pens in draw.c, win.c and main.c).
+# the photos' own pens in card.c, draw.c, win.c and main.c).
 # name:code[:bss[:ro[:data[:strings]]]] bytes, worked out with
 # common/tools/profpad.py --ship (the last release's ELF) over this link's objects:
 # change them when one of these objects' code or BSS changes, measured
 # with speed.py
 
 , := ,
-LPAD    := ovl:254 http:104:100:196 photo:12:246 libc:180:0:252 plat_tos:238 pic_ovl:168 main:226 draw:106:254 \
-           popup:184:246 dsp_ovl:0:0:248 sidebar:0:0:0:252 accmem:208 av:242 text:226:252 pic:28 png:122:0:16:232:160
+LPAD    := ovl:254 http:104:100:196 photo:12:246 libc:180:0:252 plat_tos:238 pic_ovl:98 main:220 draw:106:254 \
+           popup:54:240 dsp_ovl:0:0:248 sidebar:0:0:0:252 card:234 accmem:208 av:242 text:226:252 pic:28 \
+           png:122:0:16:232:160
 ifeq ($(PADS),no)
 LPAD    :=
 endif
@@ -225,8 +226,11 @@ TJPGD   := third_party/tjpgd/tjpgd.c third_party/tjpgd/tjpgd.h third_party/tjpgd
 $(OBJDIR)/tjpgd.o: $(TJPGD) | $(OBJDIR)
 	$(CC) $(subst -Os,-O2,$(CFLAGS)) -fwrapv -w -c -o $@ $<
 
-# the stack: 18.25 KB (18,688 bytes), not crt0's 48 (2.14: 24; 2.15 took 5 KB for PNG photos; the
-# PNG path's frames, -fstack-usage, add some 1.6 KB to the 13.2 measured). The accessory's load is
+# the stack: 16.25 KB (16,640 bytes), not crt0's 48 (2.14: 24; 2.15: 18,688 for PNG photos;
+# 2.16: 2 KB less for the photos' own pens, 1.24 times the deepest measured, the margin
+# accepted 24 Nov 2026: Sync Contact Photos 13,408 bytes with JPEGs, 13,404 with PNGs on a
+# Falcon:16's accessory, the stack probe from the BSS's zeros; deeper than 13,520 and it
+# goes up first). The accessory's load is
 # what a program started beside it on a 1 MB ST doesn't have: 2.13's
 # 1.5 KB more left EFTP (359,200 bytes) without room to start; 24 KB
 # gave a program 8 KB more than 32, 20 another 4 (tests/hatari/acc_room.py). The
@@ -235,7 +239,7 @@ $(OBJDIR)/tjpgd.o: $(TJPGD) | $(OBJDIR)
 # (quiet_sync.py), 6.2 the dialogs, the editor and the speed rig's
 # actions, 1.7 the Falcon's TLS (falcon_tls.py)
 $(OBJDIR)/crt0.o: common/atari/crt0.S Makefile | $(OBJDIR)
-	$(CC) -m68000 -DSTACK_SIZE=18688 -c -o $@ $<
+	$(CC) -m68000 -DSTACK_SIZE=16640 -c -o $@ $<
 $(OBJDIR)/sting_s.o: common/atari/sting.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
 $(OBJDIR)/nf.o: common/atari/nf.S | $(OBJDIR)
