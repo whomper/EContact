@@ -114,7 +114,7 @@ int tls_ovl_load(char *err, int errlen)
 	loading = 0;
 	if (!image) {
 		if (pf_size(path) < 0)
-			str_copy(err, path[0] && strstr(path, "tlsfb") ?
+			str_copy(err, path[0] && (strstr(path, "tlsfb") || strstr(path, "TLSFB")) ?
 				 "TLSFB.OVL is missing: copy it from the program's release, beside CACERT.PEM" :
 				 "TLS.OVL is missing: copy it from the program's release, "
 				 "beside CACERT.PEM", errlen);

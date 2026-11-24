@@ -71,7 +71,10 @@ and its output (NatFeats, MiNT's boot messages) in WORK/hatari.log.
             ~/.aera/myaes/config/68020/myaes), is put in C:\\GEMSYS\\MYAES without the names FAT's 8.3
             can't hold (skin pictures, a keyboard folder); MiNT's GEM= starts its kernel, its shell is
             what XAAES.CNF's run line would start, --setenv lines become its exports; MyAES opens the
-            screen itself in its own mode (640 x 480, 256 colours), so OPNWK.PRG is left out Its 68020 kernel needs an FPU: --machine ct60. It is a test
+            screen itself in its own mode (640 x 480, 256 colours), so OPNWK.PRG is left out. Its 68020 kernel needs an FPU: --machine ct60.
+            form_alert runs in MyAES's own process (desk/alert.prg, "app_system ALERT"): a fault there kills ALERT,
+            not the program, whose call returns. The 68020 build (11,900 bytes) draws a [3] alert with no stop icon:
+            not a fault. The FireBee's ColdFire alert.prg (159,168 bytes) is another program, not run here. It is a test
             stand-in, never committed and never in a release. --cnf is XaAES's and is refused with it
 
 Prints the screenshots' names at the end; exits 1 when a step failed.
