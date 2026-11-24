@@ -476,7 +476,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   pixel for pixel (compare screenshots of the old and new builds on
   ST:mono, ST:med and Falcon:16). In 256 colours, with the window on top,
   the photo shown takes its own 63 colours in pens 192-254 (the guidelines
-  5.2, decided 22 Nov 2026: PIC.OVL 1.4's quant and pens, draw.c dither),
+  5.2, decided 22 Nov 2026: PIC.OVL 1.5's quant as a job, some 25 ms a
+  turn, and its pens, draw.c dither; the take, the palette read again and
+  the dither each a turn of their own, a take or give making the photo
+  again a slice a turn, card_photo_again: 140 ms at the most on a stock
+  Falcon, as 2.15's photo),
   on the screen's workstation (scr_vdi: vdi_h is the off-screen bitmap's
   while the window is drawn there, and NVDI keeps a bitmap's colours
   apart); they go back on WM_UNTOPPED, the window's close, the quit,
