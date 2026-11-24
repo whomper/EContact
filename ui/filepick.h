@@ -3,7 +3,7 @@
 /*
  * filepick.h - the family's file dialog: several files (and folders)
  * chosen at once, which TOS's file selector can't give. From EPlay's File >
- * Open... (Add files; Erez, 4 Nov 2026). A dialog of the AES's own objects
+ * Open... (Add files; decided 4 Nov 2026). A dialog of the AES's own objects
  * (3D where the AES has it, in a window on MiNT and MagiC), Selectric's
  * width and ways: the drive in one pop-up at the folder line's start, the
  * last folders, the type, the sort, a name mask, each file's size and
@@ -41,7 +41,7 @@ typedef struct {
 	int ntypes;		/* DL_TYPES at most */
 } FP_SPEC;
 
-/* The app's setting "Use the system file selector" (Erez, 9 Nov 2026; off by default: this dialog is the default):
+/* The app's setting "Use the system file selector" (decided 9 Nov 2026; off by default: this dialog is the default):
    when set (a global, not a field of FP_SPEC, which the apps keep const), filepick_run() doesn't open this dialog but
    the AES's own file selector through fsel_exinput, titled with spec->title where the AES is 1.4 or newer. It gives
    ONE file at a time on plain TOS (and on MiNT's and MagiC's, which are the same call): take() is called once, with

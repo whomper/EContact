@@ -2,7 +2,7 @@
  * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * filepick.c - the family's file dialog, several files at once
- * (filepick.h; EPlay's Add files, Erez, 4 Nov 2026). The tree is the AES's
+ * (filepick.h; EPlay's Add files, decided 4 Nov 2026). The tree is the AES's
  * own objects, given the AES's 3D look by dlg_3d (dlg_open); the list in
  * its white well is drawn here, as the Font dialog draws its lists
  * (fontsel.c), through dlg_more and dlg_cut so that it is right in a
@@ -536,7 +536,7 @@ static void folder_shown(void)
 	draw_obj(O_DRIVE);
 	draw_obj(O_PATH);
 	draw_obj(O_INFO);
-	draw_list();			/* (whole, no event call between: Erez, 4 Nov 2026) */
+	draw_list();			/* (whole, no event call between: decided 4 Nov 2026) */
 	pic_end();
 }
 
@@ -890,7 +890,7 @@ static void mask_changed(void)
 
 short filepick_system;
 
-/* "Use the system file selector" (Erez, 9 Nov 2026): the AES's own, through fsel_exinput (titled where the AES is 1.4
+/* "Use the system file selector" (decided 9 Nov 2026): the AES's own, through fsel_exinput (titled where the AES is 1.4
    or newer: gem.c), on the folder dir and its files whatever their type (the AES's mask is one, and the app's types
    are several). One file, which plain TOS gives and nothing more; it goes to add() once, the folder it was
    chosen in is left in dir with its '\\' and put first in recent[], as the dialog does. idle() isn't called while

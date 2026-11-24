@@ -226,11 +226,29 @@ static void pens_give(short vdi)
 		picpens_give(vdi);
 }
 
+/* ---- 1.5: quant as a job (src/quant.h) ---- */
+
+static void *q_begin(const unsigned short *px, long n, long skip, int want)
+{
+	return quant_begin(px, n, skip, want);
+}
+
+static int q_step(void *job, long budget, short rgb[][3])
+{
+	return quant_step(job, budget, rgb);
+}
+
+static void q_end(void *job)
+{
+	quant_end(job);
+}
+
 __attribute__((section(".picovl"), used))
 const PIC_OVL picovl = {
 	PICOVL_MAGIC, PICOVL_MAJOR, sizeof(PIC_OVL), PICOVL_VERSION,
 	init, pic_dither_dsp_prepare, dither, pic_dither_state, near_load, near_save, dither_cells, chunky8,
-	prepare_step, chunky8_prepare, soft, quant_565, pens_take, pens_give
+	prepare_step, chunky8_prepare, soft, quant_565, pens_take, pens_give,
+	q_begin, q_step, q_end
 };
 
 /* ---- the program's, through PIC_HOST ---- */
