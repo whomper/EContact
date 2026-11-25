@@ -60,13 +60,13 @@ static void load(void)
 	   has no DSP and not all of the 68030's set; the 68000 path draws the
 	   same pictures there, as on an ST. EContact, 15 Nov 2026) */
 	if (get_cookie(0x5F435055L) < 20 || get_cookie(0x5F43465FL) ||
-	    !(image = ovl_load(path, &taken, err, sizeof(err))))
+	    !(image = ovl_load_aligned(path, &taken, err, sizeof(err))))
 		return;
 	ovl_flush();			/* its code was written as data */
 	o = image;
 	if (o->magic != PICOVL_MAGIC || o->major != PICOVL_MAJOR ||
 	    o->size < (short)offsetof(PIC_OVL, prepare_step) || !o->init(&host)) {
-		free(image);
+		ovl_free(image);
 		image = 0;
 		return;
 	}
@@ -149,7 +149,7 @@ void pic_ovl_unload(void)
 		ov->chunky8_prepare(0, 0, 0, 0, 0);	/* (the copies' memory) */
 	}
 	ov = 0;
-	free(image);
+	ovl_free(image);
 	image = 0;
 	state = 0;
 }
