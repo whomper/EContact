@@ -443,6 +443,9 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   under it showed only at the release (EHypView, not seen by AESGAP);
   `tests/hatari/press_hold.py WORK [MACHINE]` checks a row, a sidebar
   row and Edit by their pixels while held still.
+- Saving (Export to .vcf, main.c cmd_export) keeps the AES's file selector: the guidelines 5.12's exception for
+  EContact (decided 25 Nov 2026), as common's filepick_save costs 20,620 bytes (filepick.o, dirlist.o, fsel.o), which
+  the 1 MB ST's room beside the accessory (acc_room) and the first boot's 350 contacts don't have.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - The Hebrew keyboard is common's hebkey.c (hebrew_kbd, set_hebrew_kbd,
