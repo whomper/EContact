@@ -110,7 +110,7 @@ int tls_ovl_load(char *err, int errlen)
 	t0 = pf_ms();
 	loading = 1;
 	ovl_path(path, sizeof(path));
-	image = ovl_load(path, &taken, err, errlen);
+	image = ovl_load_aligned(path, &taken, err, errlen);
 	loading = 0;
 	if (!image) {
 		if (pf_size(path) < 0)
@@ -123,7 +123,7 @@ int tls_ovl_load(char *err, int errlen)
 	ovl_flush();		/* its code was written as data */
 	o = image;
 	if (o->magic != TLSOVL_MAGIC || o->size < (short)sizeof(TLS_OVL)) {
-		free(image);
+		ovl_free(image);
 		image = 0;
 		str_copy(err, "TLS.OVL is damaged: copy it again from the release", errlen);
 		return 0;
@@ -131,7 +131,7 @@ int tls_ovl_load(char *err, int errlen)
 	if (o->major != TLSOVL_MAJOR || !o->init(&host)) {
 		snprintf(err, errlen, "TLS.OVL %.7s doesn't suit this program: take the one from its release",
 			 o->version);
-		free(image);
+		ovl_free(image);
 		image = 0;
 		return 0;
 	}
@@ -151,7 +151,7 @@ void tls_ovl_unload(void)
 	ov->free_anchors();
 	ov->forget_sessions();
 	ov = 0;
-	free(image);
+	ovl_free(image);
 	image = 0;
 }
 
