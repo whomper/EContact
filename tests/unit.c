@@ -1016,6 +1016,34 @@ static void test_matches(void)
 	CHECK(found > total / 5 && found < total);
 }
 
+/* sb_printf never cuts a line (common bfc4656): EContact's lines of 512 bytes and
+   more are the request line and the Authorization of a long address (http.c),
+   and a multiget's href (carddav.c), each a server's or the user's data */
+static void test_long_lines(void)
+{
+	char path[600], esc[600];
+	SBUF b;
+	int k;
+	path[0] = '/';
+	for (k = 1; k < 520; k++)
+		path[k] = (char)('a' + k % 26);
+	path[k] = 0;
+	sb_init(&b);
+	CHECK(sb_printf(&b, "%s %s HTTP/1.1\r\n", "REPORT", path));
+	CHECK_EQ(b.len, 7 + 520 + 11);
+	CHECK(b.len > 11 && !strcmp(b.s + b.len - 11, " HTTP/1.1\r\n"));
+	CHECK(sb_printf(&b, "Authorization: Digest uri=\"%s\", response=\"%s\"\r\n", path, "0123"));
+	CHECK(!strcmp(b.s + b.len - 17, "response=\"0123\"\r\n"));
+	sb_free(&b);
+	memset(esc, 'h', 580);
+	esc[580] = 0;
+	sb_init(&b);
+	CHECK(sb_printf(&b, "<d:href>%s</d:href>", esc));
+	CHECK_EQ(b.len, 8 + 580 + 9);
+	CHECK(!strcmp(b.s + b.len - 9, "</d:href>"));
+	sb_free(&b);
+}
+
 int main(void)
 {
 	test_parse_icloud();
@@ -1033,6 +1061,7 @@ int main(void)
 	test_park();
 	test_pieces();
 	test_matches();
+	test_long_lines();
 	printf("%d checks, %d failed\n", checks, fails);
 	return fails != 0;
 }

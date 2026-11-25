@@ -132,9 +132,9 @@ $(BIN)/econtact.prg: $(BIN)/econtact.acc
 # with speed.py
 
 , := ,
-LPAD    := ovl:152 http:104:100:196 photo:12:246 libc:180:0:252 plat_tos:238 pic_ovl:98 main:220 draw:106:254 \
-           popup:54:240 dsp_ovl:0:0:248 sidebar:0:0:0:252 card:234 accmem:208 av:242 text:226:252 pic:28 \
-           png:122:0:16:232:160
+LPAD    := ovl:90 http:104:100:196 photo:12:246 libc:180:0:252 plat_tos:238 pic_ovl:98 main:220 draw:106:254 \
+           popup:54:240 dsp_ovl:0:0:248 sidebar:0:0:0:252 card:234 accmem:208 av:176 text:226:252 pic:28 \
+           png:122:0:16:228:151
 ifeq ($(PADS),no)
 LPAD    :=
 endif
