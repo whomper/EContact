@@ -82,6 +82,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   breakage that stops users working) goes out on its own at once, with only that fix, its notes saying why.
   A fault a user reports is fixed with its rig case and rides the next release unless it is one of those; the
   hub's shared fixes ride it too unless the hub names one as the exception.
+- **Nothing known is left in a queue behind a release** (decided 26 Nov 2026; guidelines 1.2, AERA-Atari bf0b8d5,
+  c8429a7): before a candidate goes to the gate, every known fault and pending item of EContact's that can be done
+  within a few days is folded into it. The candidate's message to the hub lists what was left out and why, and the
+  hub checks that list before its go. A reported fault that is waiting goes into the release then being prepared,
+  not the one after. In maintenance this decides what a release carries, not whether there is one.
 - **Releases go out without asking the owner** (decided 23 Oct 2026; guidelines 1.2) when a body of work
   on `main` is ready, through **the
   regression gate** (decided 17 Nov 2026: extra care with regressions, as people use
