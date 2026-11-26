@@ -5,7 +5,7 @@
  * tests/hatari/xaaes_dialogs.py: an accessory ("  Alert test" in the
  * Desk menu, Clients under XaAES) that puts up an alert when it is
  * chosen, so another client's alert comes over EContact's dialog. The
- * guidelines 1.2 (Erez, 8 Nov 2026): no other AERA program in EContact's
+ * guidelines 1.2 (decided 8 Nov 2026): no other AERA program in EContact's
  * own tests; this one plays ECal's part, its first alert.
  */
 #include "gem.h"

@@ -137,7 +137,7 @@ def main():
         sys.exit(0)
 
     if boot:
-        # the program chooses the font, as Erez did, and quits
+        # the program chooses the font, as a user would, and quits
         shutil.copy(os.path.join(ROOT, "binary", "econtact.prg"), os.path.join(folder, "econtact.prg"))
         r = start("C:\\ECONTACT\\econtact.prg")
         try:

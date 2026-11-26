@@ -21,7 +21,7 @@
 void dlg_about(void)
 {
 	/* three status lines in the family's words (the guidelines 1.3;
-	   Erez, 27 Oct 2026): the connection, the contacts, the memory */
+	   decided 27 Oct 2026): the connection, the contacts, the memory */
 	static char conn[64], held[64], mem[64];
 	char host[64];
 	int i, n = 0;

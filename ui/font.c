@@ -11,7 +11,7 @@
  *
  * The system and bitmap fonts keep their Hebrew letters in the Atari
  * character set (TOS, EmuTOS) or the ISO-8859-8 or DOS places, as Israeli
- * system fonts and many GDOS fonts have them (drawn as stored: Erez, 12 Nov 2026). A
+ * system fonts and many GDOS fonts have them (drawn as stored: decided 12 Nov 2026). A
  * vector font (Speedo, TrueType, Type 1) is asked through NVDI for its
  * Hebrew letters by Unicode; when it has none, they are drawn in the
  * system font in the same cells.
@@ -20,7 +20,7 @@
  * first event call (font_boot; the guidelines, 2.2): later, FONTGDOS and
  * SpeedoGDOS would give their memory to the program in front, which
  * frees it when it ends. Under NVDI it always loads them, so its Font...
- * is the program's (Erez, 19 Oct); under the others only when
+ * is the program's (decided 19 Oct); under the others only when
  * ECONTACT.INF names one (FONT=name,points; the old FONT_ID= read once), their memory being an ST's for
  * good. Without them its Font... lists the fonts ECONTACT.FNT knows, and
  * one chosen there is used from the next start.

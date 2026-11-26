@@ -7,7 +7,7 @@ sample contacts (tests/hatari/sample.vcf, made-up people):
     tests/hatari/docs_shots.py WORK [--memory] [--falcon M] [--st M] [--update]
 
 On the family's machines (common/tools/machines.py): the Falcon at 640x480
-in 256 colours, where the photos look their best (Erez, 28 Oct 2026: every
+in 256 colours, where the photos look their best (decided 28 Oct 2026: every
 app picture in 256 colours; --falcon names another) and the ST in mono
 (--st: st-mono.png, there to show it).
 
@@ -16,7 +16,7 @@ with 1,000 contacts, more than fit, and the alert that says so.
 
 EContact working with EMail and ECal (docs/email-complete.png,
 docs/ecal-invitees.png) is not taken here: no other AERA program runs in
-EContact's tests (the guidelines 1.2, Erez, 8 Nov 2026). Those pictures
+EContact's tests (the guidelines 1.2, decided 8 Nov 2026). Those pictures
 are the hub's, taken in its family run with the real programs.
 They land in WORK/*/shots; --update copies them into docs/.
 """

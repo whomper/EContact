@@ -20,7 +20,7 @@ screen, then:
 - the up arrow then the down arrow leave the list as it was: the rows
   moved on the screen (win_scroll) and those that came in drawn match;
 - the track held under the slider goes on a page at a time until the
-  slider reaches the pointer (it did one page only: Erez, 22 Oct 2026);
+  slider reaches the pointer (it did one page only: decided 22 Oct 2026);
 - the down arrow held scrolls on, a row at a time;
 - the slider dragged to the bottom shows the last contact, and back to
   the top the first;

@@ -228,7 +228,7 @@ int dlg_account(int a)
  * As in ECal and EMail: a list of sections on the left (the chosen one
  * in a black bar) and that section's settings on the right. */
 
-/* up to four choices: radio buttons, in Erez's short words (D24; 12 Nov
+/* up to four choices: radio buttons, in the short words decided (D24; 12 Nov
    2026) */
 static const char *const refresh_items[] = { "Never", "15 min", "Hourly", "Daily" };
 static const short refresh_min[] = { 0, 15, 60, 1440 };

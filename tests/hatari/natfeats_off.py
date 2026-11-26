@@ -9,7 +9,7 @@ log, kept open a second after a line (the guidelines 6.5, 17 Nov 2026),
 is on the disk whole after the quit, to its last step.
 
     tests/hatari/natfeats_off.py WORK [MACHINE]    (Falcon-4:256 by default;
-                                                  AERA_WITH_NVDI=1 for Erez's)
+                                                  AERA_WITH_NVDI=1 for the reference configuration)
 """
 import os
 import re

@@ -198,7 +198,7 @@ def main():
             r.shot("2-menu")
             r.click(PHOTOS[0], PHOTOS_ST if st else PHOTOS[1])
             # a 1 MB machine: the accessory's memory is the contacts', it
-            # says so at once (Erez, 19 Oct 2026)
+            # says so at once (decided 19 Oct 2026)
             photod = wait_for(DECLINED, 1, 120) if small else wait_for("files opened", 2, 1500)
             time.sleep(3)
             r.shot("3-photos")
@@ -220,7 +220,7 @@ def main():
     # a fixed count, and a round of writes each 16 photos or so (the
     # photos when the job's memory is full, the cards and the parsed cache
     # when theirs is, the log each 16 KB); the accessory on a 4 MB ST has
-    # 64 KB a job (job_memory; Erez, 19 Oct: its memory kept small), about
+    # 64 KB a job (job_memory; decided 19 Oct: its memory kept small), about
     # one round each 2 photos (103 opens for 192)
     mid = st and not small and not prg
     budget = (16, 14 + (made // 2 if mid else made // 16))

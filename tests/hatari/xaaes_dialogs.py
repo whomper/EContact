@@ -7,12 +7,12 @@ window of the AES's):
 
     tests/hatari/xaaes_dialogs.py WORK [--machine ct60] [--nvdi]
 (run.py's options after WORK: the regression gate's rows, a 68060 and
-Erez's NVDI; TEST-MATRIX.md, 17 Nov 2026)
+the real NVDI; TEST-MATRIX.md, 17 Nov 2026)
 
 ECONTACT.PRG (binary/) with the sample book, in common/tests/xaaes (make
 base there first), and build/alertacc.acc beside it (`make build/alertacc.acc`:
 another program's accessory, played by a stand-in of EContact's own; the
-guidelines 1.2, Erez, 8 Nov 2026: no other AERA program in its tests):
+guidelines 1.2, decided 8 Nov 2026: no other AERA program in its tests):
 
 - Settings opens in a window: the screen changes where it is;
 - moved by its title bar, the window behind is drawn whole where the

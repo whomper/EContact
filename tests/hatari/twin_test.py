@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
 """ECONTACT.PRG with ECONTACT.ACC installed, in Hatari on plain TOS
-(EmuTOS or Erez's TOS 1.04 and 4.04; the AERA guidelines, 2.3 and 3.1):
+(EmuTOS or the real TOS 1.04 and 4.04; the AERA guidelines, 2.3 and 3.1):
   - the accessory reads the books in the background as the Atari starts
     (START=2), and ECONTACT.PRG starts with the desktop (Hatari's --auto:
     no desktop icon is clicked, whose places differ from TOS to TOS): it

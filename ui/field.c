@@ -627,7 +627,7 @@ static int eye_hit(const FIELD *f, short mx, short my)
 }
 
 /* an exit button is the AES's G_BUTTON, drawn by the AES in its look,
-   flat or 3D, never by hand (the guidelines 5.6; Erez, 27 Oct 2026);
+   flat or 3D, never by hand (the guidelines 5.6; decided 27 Oct 2026);
    pressed: SELECTED. objc_draw takes the clip that is set */
 /* the tick box, the family's bitmap (common's dlgbuild.c, EMail's art):
    16 pixels square, every other row on an 8-pixel font, in pen 1 on the
@@ -1264,7 +1264,7 @@ static int edit_key(DLG *d, FIELD *f, short kstate, short key)
 }
 
 /* a pop-up button's menu: over the button, the choice it shows ticked
-   (the guidelines 5.7; Erez, 27 Oct 2026). Its items start with two
+   (the guidelines 5.7; decided 27 Oct 2026). Its items start with two
    spaces, the first of which the tick takes (popup.c) */
 #define POP_MAX 64
 static short field_popup(const GRECT *r, const FIELD *f)
@@ -1538,7 +1538,7 @@ short dlg_run(DLG *d)
 					result = -1;
 			} else if (tf && dlg_esc(e.kreturn)) {
 				/* Esc in a text field empties it, as GEM's form_do
-				   does (3.5; Erez, 27 Oct 2026); a text of several
+				   does (3.5; decided 27 Oct 2026); a text of several
 				   lines never */
 				if (f->type != FT_MULTI && f->buf[0]) {
 					f->buf[0] = 0;
@@ -2017,7 +2017,7 @@ void prog_open(const char *title)
 	pg_f[PG_CANCEL].type = FT_BUTTON;
 	pg_f[PG_CANCEL].flags = FF_CANCEL;
 	pg_f[PG_CANCEL].x = w - 12;	/* two columns in, as the other dialogs' buttons: at w - 10
-					   its frame stood on the box's (Erez, 8 Nov 2026) */
+					   its frame stood on the box's (decided 8 Nov 2026) */
 	pg_f[PG_CANCEL].y = 4;
 	pg_f[PG_CANCEL].w = 10;
 	pg_f[PG_CANCEL].label = "Stop";	/* a job that can be run again: Stop (D31) */

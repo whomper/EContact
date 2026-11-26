@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""Several contacts chosen at once (Erez, 28 Oct 2026), in Hatari with
+"""Several contacts chosen at once (decided 28 Oct 2026), in Hatari with
 ECONTACT.PRG and the sample contacts:
 
     tests/hatari/multi_select.py WORK [MACHINE]

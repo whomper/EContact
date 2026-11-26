@@ -7,7 +7,7 @@ Adapted from Claude ST's recording rig (whomper/atari_claude).
 The machine is one of the family's (common/tools/machines.py, the
 guidelines, The machines): "ST", "ST-1", "TT" or "Falcon", with a screen
 after a colon ("ST:mono", "Falcon:256"); machines.py gives Hatari's
-arguments, the TOS (EmuTOS 1.4, or Erez's own in ~/.aera/tos) and, with
+arguments, the TOS (EmuTOS 1.4, or the real TOS images in ~/.aera/tos) and, with
 network=True, FAKESTNG and its serial bridge.
 """
 import os
@@ -40,7 +40,7 @@ def natfeats(hd):
     """NATFEATS=1 in the ECONTACT.INF a rig boots with, in the root and in
     the folder: the program uses the emulator's console (AESGAP, the
     rigs' lines) only where its INF says so, never on a real machine (the
-    guidelines 6.5; Erez, 15 Nov 2026). EContact keeps the line when it
+    guidelines 6.5; decided 15 Nov 2026). EContact keeps the line when it
     writes the INF again."""
     for d in (hd, ci_path(hd, "econtact")):
         inf = ci_path(d, "econtact.inf")

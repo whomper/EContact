@@ -360,7 +360,7 @@ void store_save_settings(void)
 	char enc[200], dec[sizeof(accts[0].pass)];
 	long olen = 0;
 	/* the INF as it is: written again only when it would change (6.1,
-	   Erez 12 Nov 2026), a password kept as it was encrypted when it is
+	   decided 12 Nov 2026), a password kept as it was encrypted when it is
 	   the same (its nonce would make every save differ) */
 	char *old = pf_load(inf_path, &olen);
 	sb_init(&b);
@@ -4088,7 +4088,7 @@ static void names_stamp(void)
 
 /* ---- CONTACTS.TXT: the people for EMail and ECal when EContact isn't
    loaded (the guidelines 4.1: an option the reader turns on in its
-   Settings; Erez, 21 Oct 2026). In EContact's folder, 1.40's format:
+   Settings; decided 21 Oct 2026). In EContact's folder, 1.40's format:
    notes ("; "), among them "; made from" and the stamp of what it was made
    from, then "P<TAB>name<TAB>email<TAB>label" for each address and
    "G<TAB>group<TAB>Name <email>, ..." for each group with addresses; Atari
