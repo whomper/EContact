@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""The room a program has beside ECONTACT.ACC on a 1 MB ST (the gate's row:
-a 1 MB ST runs another program beside the accessory). ST-1 boots with
+"""The room a program has beside ECONTACT.ACC (the gate's row: a program
+runs beside the accessory), on ST-2 since the accessories need 2 MB (the
+guidelines 2.1, decided 26 Nov 2026; ST-1's case is acc_small.py). It boots with
 econtact.acc in the root and starts build/memprobe.prg (tests/atari/
 memprobe.c) as a user would, once the AES has run the accessories to their
 first event call (build/memlaunch.prg, tests/atari/memlaunch.c, starts it
@@ -13,11 +14,11 @@ ECONTACT.INF with FOLDER= alone and the folder's cache empty: accmem's
 first share of what is free, as the family check boots it), a boot with
 no INF at all, and the same boot without the accessory, for the record;
 --hd starts from another drive C: (quiet_start.py's), --memkb adds a
-boot with that MEMKB=. Two boots with HEAPKB=64 and HEAPKB=300 say what
-the accessory's heap costs the program (on TOS 1.04: nothing, measured 26 Nov
-2026: the heap is taken while the AES loads the accessories, out of memory
-the program's block never had; the resident image, code, data and BSS, is
-what the program in front loses).
+boot with that MEMKB=, and two with HEAPKB=64 and HEAPKB=300. On each boot
+with an INF the accessory says where its heap is (NatFeats), and that must
+lie outside the program's block: on TOS 1.04 and 4.04 a heap Malloc'd at
+boot was given to the program started next (26 Nov 2026; common's fix to
+come), and the program's room didn't move with the heap's size.
 
     tests/hatari/acc_room.py WORK [MACHINE] [--bin DIR] [--memkb N]
 """
@@ -68,9 +69,12 @@ def probe(work, machine, acc, memkb, template=None, folder=False, heapkb=0):
     try:
         for _ in range(90):
             time.sleep(1)
-            m = re.search(r"MEMPROBE tpa=(\d+) free=(\d+)", open(os.path.join(work, "hatari.log"), errors="replace").read())
+            log = open(os.path.join(work, "hatari.log"), errors="replace").read()
+            m = re.search(r"MEMPROBE tpa=(\d+) free=(\d+) total=\d+ low=([0-9a-f]+) high=([0-9a-f]+)", log)
             if m:
-                return int(m.group(1)), int(m.group(2))
+                h = re.search(r"ECONTACT heap at ([0-9a-f]+)", log)
+                return (int(m.group(1)), int(m.group(2)), int(m.group(3), 16), int(m.group(4), 16),
+                        int(h.group(1), 16) if h else None)
     finally:
         r.stop()
     return None
@@ -89,7 +93,7 @@ def main():
     cases = [("none", None, 0, False, 0), ("acc-no-inf", acc, 0, False, 0), ("acc-first-boot", acc, 0, True, 0)]
     if a.memkb:
         cases.append(("acc-memkb", acc, a.memkb, False, 0))
-    cases += [("acc-heap64", acc, 0, False, 64), ("acc-heap300", acc, 0, False, 300)]
+    cases += [("acc-heap64", acc, 0, True, 64), ("acc-heap300", acc, 0, True, 300)]
     rooms = {}
     for name, f, memkb, folder, heapkb in cases:
         got = probe(os.path.join(a.work, name), a.machine, f, memkb, a.hd, folder, heapkb)
@@ -97,12 +101,22 @@ def main():
             print("  FAIL %s: memprobe said nothing" % name)
             fails += 1
             continue
-        tpa, free = got
+        tpa, free, low, high, heap = got
         rooms[name] = tpa
         ok = f is None or tpa >= BUDGET
         print("  %s %s: a program gets %d bytes (%d free after its Mshrink)%s" %
               ("ok  " if ok else "FAIL", name, tpa, free, "" if f is None else ", budget %d" % BUDGET))
         fails += not ok
+        if f is not None and heap is None:
+            print("  info %s: the accessory said nothing of its heap (no ECONTACT.INF, so no NATFEATS=1)" % name)
+        elif f is not None:
+            # the accessory's heap must stay its own: never inside the block TOS
+            # gives the program started after it (on TOS 1.04 and 4.04 it was,
+            # 26 Nov 2026: a non-fast-load program's start cleared it)
+            ok = not (low <= heap < high)
+            print("  %s %s: the accessory's heap (%08x) outside the program's block %08x-%08x" %
+                  ("ok  " if ok else "FAIL", name, heap, low, high))
+            fails += not ok
     if "acc-no-inf" in rooms:
         moved = [n for n in ("acc-heap64", "acc-heap300") if n in rooms and rooms[n] != rooms["acc-no-inf"]]
         print("  info the heap (HEAPKB=64, 300) %s" % ("moves the program's room: " + ", ".join(

@@ -4,7 +4,7 @@
  * memprobe.c - the room TOS gives a program started after the boot
  * (tests/hatari/acc_room.py): its basepage's p_hitpa - p_lowtpa, the
  * whole block TOS handed it, and Malloc(-1) after crt0's Mshrink, to the
- * emulator's console as "MEMPROBE tpa=N free=N total=N" (total: every
+ * emulator's console as "MEMPROBE tpa=N free=N total=N low=X high=X" (total: every
  * free block, each taken in turn and given back). A program as big as
  * another AERA program needs this much and more to start beside
  * ECONTACT.ACC on a 1 MB ST (the stand-in for EFTP's own memprobe.prg;

@@ -1423,6 +1423,15 @@ static void acc_heap(void)
 	if (acc_heap_take((cpu >= 30 ? 1536L * 1024 : 2048L * 1024) + ovl,
 			  4096L * 1024 + ovl, heapkb, memkb))
 		job_memory(acc_heap_avail);
+	if (nf_on && acc_heap_bytes) {
+		/* the rigs (NATFEATS=1): where the heap is, for acc_room.py's look
+		   at whether the program in front was given it */
+		char m[64];
+		void *q = malloc(16);
+		snprintf(m, sizeof(m), "ECONTACT heap at %08lx, %ld bytes", (unsigned long)q, acc_heap_bytes);
+		nf_debug(m);
+		free(q);
+	}
 }
 
 static int settings_ready;
