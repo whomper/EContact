@@ -494,7 +494,9 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   own, one channel (the three-channel loop took an ST 720 ms a photo,
   this one 390). A photo got is dithered a few rows a turn (draw.c
   photo_dither, card.c photo_slice), the initials shown until it is
-  ready; a redraw meanwhile finishes it at once. A change there must
+  ready; a redraw meanwhile finishes it at once. While a photo is got (card.c, photo_get: fetched,
+  decoded) a click or a key stops it as Esc does (photo_idle, pf_idle's) and the event loop takes it at
+  once (card_held_event); the photo is asked for again (`tests/hatari/photo_click.py`). A change there must
   leave the photos as they were,
   pixel for pixel (compare screenshots of the old and new builds on
   ST:mono, ST:med and Falcon:16). In 256 colours, with the window on top,

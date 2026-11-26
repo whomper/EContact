@@ -26,6 +26,8 @@
 #include "../src/photo.h"
 #include "../src/plat.h"
 #include "../src/conn.h"
+#include "busy.h"
+#include "av.h"
 
 /* the photo shown, whose it is, and the last one tried */
 static PHOTOIMG cur;
@@ -146,6 +148,44 @@ void card_photo_recheck(void)
 		ask_for(sel_contact());
 }
 
+/* while a photo is made (fetched, decoded: on an ST some seconds for a
+   PNG), a click or a key stops it, as Esc does, and is handled at once
+   (card_held_event, the event loop); the photo is tried again a moment
+   later (owed since 22 Nov 2026: the click waited for the photo). Esc and
+   Undo stop it as before, the initials staying */
+static short held, held_which, interrupted;
+static AEVENT held_ev;
+
+static void photo_idle(void)
+{
+	short msg[8], which, scan;
+	AEVENT ev;
+	which = evnt_multi_(MU_KEYBD | MU_BUTTON | MU_TIMER | (busy_message ? MU_MESAG : 0), 0x101, 3, 0, 5, msg, &ev);
+	if ((which & MU_MESAG) && !av_modal_message(msg))
+		busy_message(msg);
+	if (held || !(which & (MU_KEYBD | MU_BUTTON)))
+		return;
+	scan = (short)((ev.kreturn >> 8) & 0xff);
+	if ((which & MU_KEYBD) && (scan == 0x01 || scan == 0x61)) {	/* Esc, Undo */
+		conn_stop = 1;
+		return;
+	}
+	held_ev = ev;
+	held_which = (which & MU_BUTTON) ? MU_BUTTON : MU_KEYBD;
+	held = 1;
+	interrupted = 1;
+	conn_stop = 1;
+}
+
+int card_held_event(AEVENT *ev)
+{
+	if (!held)
+		return 0;
+	held = 0;
+	*ev = held_ev;
+	return held_which;
+}
+
 void card_photo_tick(void)
 {
 	CONTACT *c;
@@ -177,7 +217,12 @@ void card_photo_tick(void)
 		   its photo is decoded, then written (one open a file) */
 		int job = img && c->photo_key == VC_KEY_UNKNOWN && !opt.offline && ab_job_bytes > 24L * 1024 &&
 			  book_fetch_job(c->book);	/* (a 1 MB ST: written first, for the decoder's room) */
-		r = img ? photo_get(c, img, !opt.offline, &how) : PH_FAILED;
+		{
+			void (*was)(void) = pf_idle;
+			pf_idle = photo_idle;
+			r = img ? photo_get(c, img, !opt.offline, &how) : PH_FAILED;
+			pf_idle = was;
+		}
 #ifdef AES_PROFILE
 		{
 			char m[64];
@@ -209,6 +254,20 @@ void card_photo_tick(void)
 		if (c) {
 			tried_key = c->photo_key;
 			tried_book = c->book;
+		}
+	}
+	if (interrupted) {
+		/* a click or a key stopped it: handled first, the photo got
+		   again in a moment (nothing was kept of it: photo.c) */
+		interrupted = 0;
+		conn_stop = 0;
+		tried_uid[0] = 0;
+		tried_book = -1;
+		if (r != PH_OK) {
+			want = 1;
+			want_at = pf_ms();
+			free(img);
+			return;
 		}
 	}
 	if (r == PH_FAILED) {

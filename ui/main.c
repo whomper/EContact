@@ -2317,7 +2317,9 @@ int app_main(void)
 			}
 		}
 		/* a key typed while busy comes first, as if typed now */
-		if (win_h > 0 && busy_key(&ev))
+		if (win_h > 0 && (which = (short)card_held_event(&ev)) != 0)
+			;		/* a click or key that stopped a photo, now */
+		else if (win_h > 0 && busy_key(&ev))
 			which = MU_KEYBD;
 		else if (win_h > 0 && !prg_loading && nload_keys) {
 			/* one typed while the books were read */

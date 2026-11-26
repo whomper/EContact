@@ -201,6 +201,7 @@ void card_slid(short pos);
 /* the chosen contact's photo is read a moment after the choice (arrow
    keys going down the list don't wait for each one) */
 int  card_photo_pending(void);	/* one is waiting */
+int card_held_event(AEVENT *ev);	/* a click or key that stopped a photo: MU_BUTTON, MU_KEYBD or 0 */
 void card_photo_again(void);	/* its pens made again, a slice a turn */
 int  card_photo_dithering(void);	/* one got, its pens made a slice a turn */
 void card_avatar_area(GRECT *r);	/* the round picture, as last drawn */
