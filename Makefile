@@ -346,6 +346,13 @@ $(OBJDIR)/memprobe.prg: tests/atari/memprobe.c $(OBJDIR)/crt0.o $(OBJDIR)/libc.o
 		$(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
 	python3 common/tools/elf2tos.py $(OBJDIR)/memprobe.elf $@
 
+# acc_room.py's launcher: the probe started once the AES has run the accessories
+$(OBJDIR)/memlaunch.prg: tests/atari/memlaunch.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o
+	$(CC) $(CFLAGS) -c -o $(OBJDIR)/memlaunch.o $<
+	$(CC) $(LDFLAGS) -o $(OBJDIR)/memlaunch.elf $(OBJDIR)/crt0.o $(OBJDIR)/memlaunch.o \
+		$(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
+	python3 common/tools/elf2tos.py $(OBJDIR)/memlaunch.elf $@
+
 # a stand-in for another program's accessory (its alert), for tests/hatari/xaaes_dialogs.py
 $(OBJDIR)/alertacc.acc: tests/atari/alertacc.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o
 	$(CC) $(CFLAGS) -c -o $(OBJDIR)/alertacc.o $<

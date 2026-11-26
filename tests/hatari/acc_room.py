@@ -4,14 +4,20 @@
 """The room a program has beside ECONTACT.ACC on a 1 MB ST (the gate's row:
 a 1 MB ST runs another program beside the accessory). ST-1 boots with
 econtact.acc in the root and starts build/memprobe.prg (tests/atari/
-memprobe.c) once the desktop is up: its p_hitpa - p_lowtpa, the block TOS
+memprobe.c) as a user would, once the AES has run the accessories to their
+first event call (build/memlaunch.prg, tests/atari/memlaunch.c, starts it
+after 5 s of evnt_timer): its p_hitpa - p_lowtpa, the block TOS
 gives a program, must be BUDGET bytes or more (392,000: EFTP started beside
 2.12's 388,080 and not beside 2.13's 386,544; 4 KB more than 2.12). Its first boot (no MEMKB= yet,
 ECONTACT.INF with FOLDER= alone and the folder's cache empty: accmem's
 first share of what is free, as the family check boots it), a boot with
 no INF at all, and the same boot without the accessory, for the record;
 --hd starts from another drive C: (quiet_start.py's), --memkb adds a
-boot with that MEMKB=.
+boot with that MEMKB=. Two boots with HEAPKB=64 and HEAPKB=300 say what
+the accessory's heap costs the program (on TOS 1.04: nothing, measured 26 Nov
+2026: the heap is taken while the AES loads the accessories, out of memory
+the program's block never had; the resident image, code, data and BSS, is
+what the program in front loses).
 
     tests/hatari/acc_room.py WORK [MACHINE] [--bin DIR] [--memkb N]
 """
@@ -32,7 +38,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 BUDGET = 392000
 
 
-def probe(work, machine, acc, memkb, template=None, folder=False):
+def probe(work, machine, acc, memkb, template=None, folder=False, heapkb=0):
     shutil.rmtree(work, ignore_errors=True)
     hd = os.path.join(work, "hd")
     if template:
@@ -48,15 +54,17 @@ def probe(work, machine, acc, memkb, template=None, folder=False):
         os.makedirs(os.path.join(hd, "econtact", "cache"))
         with open(os.path.join(hd, "econtact.inf"), "wb") as f:
             f.write(b"[OPTIONS]\r\nFOLDER=C:\\ECONTACT\r\n\r\n")
-    shutil.copy(os.path.join(ROOT, "build", "memprobe.prg"), os.path.join(hd, "memprobe.prg"))
+    for f in ("memprobe.prg", "memlaunch.prg"):
+        shutil.copy(os.path.join(ROOT, "build", f), os.path.join(hd, f))
     if acc:
         shutil.copy(acc, os.path.join(hd, "econtact.acc"))
-    r = Rig(work, machine, auto="C:\\MEMPROBE.PRG")
-    if memkb:
-        # (after Rig's natfeats(), which writes ECONTACT.INF: MEMKB= added to it)
-        inf = machines.ci_path(hd, "econtact.inf")
-        with open(inf, "a") as f:
-            f.write("MEMKB=%d\r\n\r\n" % memkb)
+    r = Rig(work, machine, auto="C:\\MEMLAUNCH.PRG")
+    for key, val in (("MEMKB", memkb), ("HEAPKB", heapkb)):
+        if val:
+            # (after Rig's natfeats(), which writes ECONTACT.INF: the key added to it)
+            inf = machines.ci_path(hd, "econtact.inf")
+            with open(inf, "a") as f:
+                f.write("%s=%d\r\n\r\n" % (key, val))
     try:
         for _ in range(90):
             time.sleep(1)
@@ -78,20 +86,27 @@ def main():
     a = ap.parse_args()
     acc = machines.ci_path(a.bin, "econtact.acc")
     fails = 0
-    cases = [("none", None, 0, False), ("acc-no-inf", acc, 0, False), ("acc-first-boot", acc, 0, True)]
+    cases = [("none", None, 0, False, 0), ("acc-no-inf", acc, 0, False, 0), ("acc-first-boot", acc, 0, True, 0)]
     if a.memkb:
-        cases.append(("acc-memkb", acc, a.memkb, False))
-    for name, f, memkb, folder in cases:
-        got = probe(os.path.join(a.work, name), a.machine, f, memkb, a.hd, folder)
+        cases.append(("acc-memkb", acc, a.memkb, False, 0))
+    cases += [("acc-heap64", acc, 0, False, 64), ("acc-heap300", acc, 0, False, 300)]
+    rooms = {}
+    for name, f, memkb, folder, heapkb in cases:
+        got = probe(os.path.join(a.work, name), a.machine, f, memkb, a.hd, folder, heapkb)
         if not got:
             print("  FAIL %s: memprobe said nothing" % name)
             fails += 1
             continue
         tpa, free = got
+        rooms[name] = tpa
         ok = f is None or tpa >= BUDGET
         print("  %s %s: a program gets %d bytes (%d free after its Mshrink)%s" %
               ("ok  " if ok else "FAIL", name, tpa, free, "" if f is None else ", budget %d" % BUDGET))
         fails += not ok
+    if "acc-no-inf" in rooms:
+        moved = [n for n in ("acc-heap64", "acc-heap300") if n in rooms and rooms[n] != rooms["acc-no-inf"]]
+        print("  info the heap (HEAPKB=64, 300) %s" % ("moves the program's room: " + ", ".join(
+            "%s %d" % (n, rooms[n]) for n in moved) if moved else "doesn't move the program's room"))
     print("acc_room: all passed" if not fails else "acc_room: %d failed" % fails)
     sys.exit(1 if fails else 0)
 
