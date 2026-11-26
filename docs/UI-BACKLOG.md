@@ -7,9 +7,8 @@
 standard stores it); Refresh all and Once at start as radio buttons with the short words, Never / 15 min / Hourly /
 Daily and No / 2 min / 5 min / 15 min (decided 12 Nov 2026; 2.9).
 
-**Left:** the Font dialog built with `-DDLG_CLICK` (decided 12 Nov 2026, with quiet_start ST-1 measured): 740 bytes
-of code and BSS, which the room beside the accessory on a 1 MB ST (acc_room, 56 bytes over its 392,000 at 2.17)
-doesn't have; it goes in with a release that frees the room.
+**Done for 2.18:** the Font dialog built with `-DDLG_CLICK` (decided 12 Nov 2026): 724 bytes of code, which the
+accessory's room now has, as it needs 2 MB (the guidelines 2.1, decided 26 Nov 2026).
 
 From AERA-Atari a261597 (`standards/ui/DECISIONS-2026-11-09.md`, MENUS.md, CONTROLS.md, WINDOWS.md,
 DEVIATIONS.md), as the hub listed it for EContact on 9 Nov 2026. EContact is in maintenance mode: nothing
