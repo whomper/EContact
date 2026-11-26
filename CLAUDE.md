@@ -36,11 +36,14 @@ EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari
   of ST RAM by phystop): ui/main.c small_machine(), right after menu_register, takes no heap and reads, loads or
   syncs nothing; its Desk entry gives acc_small_alert. The accessory's rigs run on `ST-2` (2 MB, TOS 1.04);
   `tests/hatari/acc_small.py WORK` is ST-1's case (the alert; free memory the same before and after its start
-  and its alert). The 350 contacts below were the accessory's first boot on a 1 MB ST: now the program's.
-- A 1 MB ST's first boot holds 350 contacts (2.7: quiet_start ST-1 on real TOS 1.04, 167 KB at the most of 170;
-  2.8, with the shared code of 17 Nov 2026 and inf_t at 3 KB: see its commit; 2.3 to 2.6 held 349 and didn't write CONTACTS.TXT, unseen while the rig ran on EmuTOS, whose heap is
-  5 KB bigger). Code or BSS added costs that margin (the heap is half of what is free: a KB of program, half a KB of
-  heap): measure quiet_start ST-1 on TOS 1.04 with any change. ui/editor.c keeps what follows it where 2.6 had it,
+  and its alert). Every block the accessory takes is its own on plain TOS (common's acc_core and acc_free,
+  9fd1335: one taken while a program was current was that program's, freed at its end): EContact's own too
+  (win.c's buffer, draw.c's ST RAM block, plat_tos.c's bounce buffer); acc_room.py fails where the heap lies
+  inside the next program's block.
+- The accessory's first boot on ST-2 (quiet_start ST-2, 600 contacts) and the room beside it (acc_room.py on
+  ST-2, 1,024,000 bytes at least; 2.18: 1,030,540) are the memory limits now; code or BSS added costs that
+  room byte for byte. (The 350 contacts of a 1 MB ST's first boot were the accessory's, 2.7 to 2.17.)
+  ui/editor.c keeps what follows it where 2.6 had it,
   modulo 256 (its gaps; AERA-Atari 098183d): change them with its code or BSS. The Makefile's LPAD (2.12) does the same after the
   objects that grew since 2.11 (common's codepad.S): everything else is at 2.11's places modulo 256; work its sizes out
   again with common/tools/profpad.py --ship against the last release's ELF when one of them changes.
@@ -252,7 +255,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   network from it (tests/hatari/rig.py), never their own options. The
   accessory isn't run on a 4 MB machine (`ST`, `Falcon-4`: decided 4 Nov
   2026, AERA-Atari 21ba998; they stay the program's): the rigs that load
-  it default to `ST-1:mono` or the Falcon, and speed.py times it on the
+  it default to `ST-2:mono` (the accessories need 2 MB) or the Falcon, and speed.py times it on the
   Falcon or TT only.
   `tests/hatari/docs_shots.py WORK` takes the screenshots in docs/ (on
   Falcon:256, every app picture in 256 colours: decided 28 Oct 2026; and
@@ -341,8 +344,8 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   ST against 145). The stack is 16,640 bytes (the Makefile's crt0.o: the
   deepest measured 13,408, Sync Contact Photos, 1.24 times, accepted 24 Nov
   2026; deeper than 13,520 and it goes up first), not crt0's 48 KB: the room
-  a program has beside the accessory on a 1 MB ST (tests/hatari/acc_room.py,
-  392,000 bytes at least). On TOS's own screen the card's round picture (draw.c disc) has
+  a program has beside the accessory on ST-2 (tests/hatari/acc_room.py,
+  1,024,000 bytes at least). On TOS's own screen the card's round picture (draw.c disc) has
   its middle row filled by the VDI and the others by the CPU with the
   plane bits read back, its rows' half widths worked out once a size
   (the 68000's 32-bit routines were 55 of its 60 ms); in black and white
@@ -463,7 +466,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   row and Edit by their pixels while held still.
 - Saving (Export to .vcf, main.c cmd_export) keeps the AES's file selector: the guidelines 5.12's exception for
   EContact (decided 25 Nov 2026), as common's filepick_save costs 20,620 bytes (filepick.o, dirlist.o, fsel.o), which
-  the 1 MB ST's room beside the accessory (acc_room) and the first boot's 350 contacts don't have.
+  the 1 MB ST's room beside the accessory (acc_room) and the first boot's 350 contacts didn't have.
 - Text in the program is Atari text (Hebrew at 0xC2-0xDC, logical order);
   vCards on the wire are UTF-8.
 - The Hebrew keyboard is common's hebkey.c (hebrew_kbd, set_hebrew_kbd,
