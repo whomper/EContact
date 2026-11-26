@@ -175,8 +175,8 @@ name, a company, one or two emails, two phones, some with an address, birthday o
 - STinG takes 100 KB or more of its own: with it, a 1 MB ST holds about 400 contacts. A 512 KB ST
   can't run EContact (`ECONTACT.ACC` alone is about 505 KB: 288 KB of program, 166 KB of buffers and
   its 48 KB stack; on an ST `TLS.OVL` stays on the disk).
-- **With EMail on a 1 MB ST, use `ECONTACT.PRG`, not the accessory.** The accessory and its memory
-  take about 650 KB of the 1 MB for as long as the Atari runs, which leaves too little for EMail to
-  start beside it. With the accessory, EMail needs 2 MB.
-- **On a 1 MB ST, `ECONTACT.ACC` or ECal's accessory, not both:** together (some 920 KB as they
-  load) they leave TOS no memory and the ST stops at boot. Run the other as a program.
+- **No accessory on a 1 MB machine** (the family's rule since 2.18, decided 26 Nov 2026): TOS keeps an
+  accessory loaded for as long as the Atari runs, and `ECONTACT.ACC`'s 536 KB left a program beside it
+  383 KB, too little for EMail, ClaudeST or EPDF. Under 2 MB of ST RAM it takes no memory and reads
+  nothing; its Desk entry says to take `ECONTACT.ACC` off the boot drive. Run `ECONTACT.PRG` there: the
+  figures for a 1 MB ST above are the program's.

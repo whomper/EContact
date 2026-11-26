@@ -2172,6 +2172,26 @@ void prof_turn_end(void)
 #define prof_drawn() ((void)0)
 #endif
 
+/* no family accessory on a machine with under 2 MB of ST RAM (the
+   guidelines 2.1, decided 26 Nov 2026): no heap, no books, fonts or
+   TLS.OVL, no quiet sync, nothing read or written; the Desk entry says so.
+   What it costs the program in front is its resident image, which only
+   taking ECONTACT.ACC off the boot drive gives back (acc_room.py: on TOS
+   1.04 the heap costs that program nothing) */
+static void small_machine(void)
+{
+	short msg[8], d;
+	AEVENT ev;
+	phys_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
+	cw = gl_wchar;
+	ch = gl_hchar;
+	for (;;) {
+		evnt_multi_(MU_MESAG, 0, 0, 0, 0, msg, &ev);
+		if (msg[0] == AC_OPEN && (msg[4] == menu_id || msg[4] == -1))
+			acc_small_alert("EContact", "ECONTACT.ACC");
+	}
+}
+
 /* (common's atari/cpucheck.c is main: it says, where the other package
    belongs, which one to install, and calls this; ui/cpualert.c) */
 int app_main(void)
@@ -2199,6 +2219,10 @@ int app_main(void)
 	}
 	if (is_acc)
 		menu_id = menu_register(ap_id, "  EContact");
+	if (is_acc && acc_small_machine()) {
+		small_machine();	/* (never returns: an accessory never ends) */
+		return 0;
+	}
 	notify_init("ECONTACT");	/* before the first event call (4.5) */
 	tip_init(win_tip_repaint);	/* the toolbar's tips (D18) */
 	notify_ask();			/* notify_send waits for BGEM.NG's yes */

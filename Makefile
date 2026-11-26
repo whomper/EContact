@@ -353,6 +353,12 @@ $(OBJDIR)/memlaunch.prg: tests/atari/memlaunch.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.
 		$(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
 	python3 common/tools/elf2tos.py $(OBJDIR)/memlaunch.elf $@
 
+$(OBJDIR)/memopen.prg: tests/atari/memlaunch.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o
+	$(CC) $(CFLAGS) -DOPEN_ACC -c -o $(OBJDIR)/memopen.o $<
+	$(CC) $(LDFLAGS) -o $(OBJDIR)/memopen.elf $(OBJDIR)/crt0.o $(OBJDIR)/memopen.o \
+		$(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o -lgcc
+	python3 common/tools/elf2tos.py $(OBJDIR)/memopen.elf $@
+
 # a stand-in for another program's accessory (its alert), for tests/hatari/xaaes_dialogs.py
 $(OBJDIR)/alertacc.acc: tests/atari/alertacc.c $(OBJDIR)/crt0.o $(OBJDIR)/gem.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o $(OBJDIR)/nf.o
 	$(CC) $(CFLAGS) -c -o $(OBJDIR)/alertacc.o $<

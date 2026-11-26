@@ -32,6 +32,11 @@ EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari
   since then. What is left of docs/UI-BACKLOG.md (Settings' other three choices as radio buttons, waiting on the owner's
   words) rides a release made anyway.
 - Testing takes the reference configuration (decided 10 Nov 2026; AERA-Atari 148df17, standards/TEST-MATRIX.md): `Falcon-4:256` with `AERA_WITH_NVDI=1` (machines.ERZ_MACHINE, erz_env()) replaces the main Falcon run of gui, quiet_start, card_scroll and speed.py (Falcon-4:16 and Falcon:16); the other Falcon runs of the same functions go. The hub's set per candidate: a paired speed run on the reference configuration, ST-1:mono, one TT + MiNT + XaAES run. A speed row slower than the last release goes to the owner (through the hub) before anyone profiles or fixes it (decided 11 Nov 2026).
+- **No accessory on a 1 MB machine** (the guidelines 2.1, decided 26 Nov 2026; common's acc_small_machine, under 2 MB
+  of ST RAM by phystop): ui/main.c small_machine(), right after menu_register, takes no heap and reads, loads or
+  syncs nothing; its Desk entry gives acc_small_alert. The accessory's rigs run on `ST-2` (2 MB, TOS 1.04);
+  `tests/hatari/acc_small.py WORK` is ST-1's case (the alert; free memory the same before and after its start
+  and its alert). The 350 contacts below were the accessory's first boot on a 1 MB ST: now the program's.
 - A 1 MB ST's first boot holds 350 contacts (2.7: quiet_start ST-1 on real TOS 1.04, 167 KB at the most of 170;
   2.8, with the shared code of 17 Nov 2026 and inf_t at 3 KB: see its commit; 2.3 to 2.6 held 349 and didn't write CONTACTS.TXT, unseen while the rig ran on EmuTOS, whose heap is
   5 KB bigger). Code or BSS added costs that margin (the heap is half of what is free: a KB of program, half a KB of

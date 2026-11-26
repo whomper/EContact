@@ -79,7 +79,7 @@ def probe(work, machine, acc, memkb, template=None, folder=False, heapkb=0):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("work")
-    ap.add_argument("machine", nargs="?", default="ST-1:mono")
+    ap.add_argument("machine", nargs="?", default="ST-2:mono")
     ap.add_argument("--bin", default=os.path.join(ROOT, "binary"))
     ap.add_argument("--hd", help="a drive C: to start from (quiet_start.py's, its 350 contacts and ECONTACT.INF)")
     ap.add_argument("--memkb", type=int, default=0, help="MEMKB= for the second case (0: first boot only)")

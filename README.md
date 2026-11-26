@@ -34,14 +34,16 @@ ST, STE, TT or Falcon, or `econtact-x.y-firebee.zip` for a FireBee. Both hold th
 | `econtact.hyp`, `econtact.ref` | the guide, for the Help key |
 | `icons/` | the desktop icon |
 
-1. Copy `econtact.acc` to the root of your boot drive.
+1. Copy `econtact.acc` to the root of your boot drive (2 MB or more; on a 1 MB ST start `econtact.prg`
+   from the desktop instead).
 2. Put the other files in a folder of your choice; the first time it opens, EContact asks where it is.
 3. On an ST or STE, set up the AERA Gateway (below).
 4. Reboot, choose **EContact** in the Desk menu and add your account, with an
    [app password](docs/GUIDE.md#app-passwords-icloud-fastmail) for iCloud or Fastmail.
 
 **Needs:** TOS 1.04 to 4.x, EmuTOS, MagiC or MiNT; ST high or medium, TT or Falcon resolution; 1 MB of
-RAM or more; STinG or MiNTnet.
+RAM for the program, 2 MB for the accessory (on a 1 MB machine its Desk entry only says to take it off the boot
+drive); STinG or MiNTnet.
 
 The whole setup (the Gateway's commands, updating, FOLDRxxx and STinG's settings) is in
 [docs/SETUP.md](docs/SETUP.md); using it is in the [user guide](docs/GUIDE.md); how it works (photos,
