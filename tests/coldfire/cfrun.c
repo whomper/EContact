@@ -182,6 +182,20 @@ void out_hex(unsigned long v)
 	out(b);
 }
 
+/* common's libc.c acc_core (an accessory's memory, 9fd1335) names these: the
+   ColdFire link has no tos.o; weak, so the ST's link takes tos.o's. corecheck
+   is no accessory and has no cookie jar */
+__attribute__((weak)) long get_cookie(long id)
+{
+	(void)id;
+	return 0;
+}
+
+__attribute__((weak)) long tos_supexec(void *f)
+{
+	return ((long (*)(void))f)();
+}
+
 void heap_add(void *p, size_t bytes);
 
 /* the list's path: corecheck's argument, from the environment's first
