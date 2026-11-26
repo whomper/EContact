@@ -1,3 +1,0 @@
-# FreeMiNT 1.17.0 for Hatari tests: no network, no modules; start XaAES
-setenv TMPDIR u:\c\
-GEM=u:\c\mint\1-17-0\xaaes\xaloader.prg
