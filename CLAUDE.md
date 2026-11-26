@@ -18,7 +18,8 @@ EContact is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari
   mean an app has faults; AERA-Atari 8ddb463). The hub notifies EContact of each new or changed rule and
   each shared fix: EContact adopts it, with the shared code it needs (`tools/sync-common.sh`), and its row in section
   8's table is ticked. Section 8's ✗, ~ and ? in EContact's column are work for it. Whether a change needs a release
-  of its own is put to the owner through the hub; a fault fix always gets one.
+  of its own is put to the owner through the hub; a fault fix rides the next release, unless it is a
+  data-loss, security or crash fault (decided 26 Nov 2026), which goes out at once.
 - A release otherwise only for:
   - a security or data-loss fault;
   - a crash or breakage;
@@ -75,7 +76,14 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   (there is no `-dev` label). Don't commit built programs, help files or certificates (`binary/`,
   `dist/`). Never reuse a number.
 - **Only formal releases leave the build machine.** The owner gets vX.Y releases made by the Release workflow from `main`, nothing else: no test builds, no CI artifacts, no builds from a branch. Work lands on `main`; to try a fix on real hardware, release it. If a release doesn't work, roll back with a release: revert on `main`, release the next number, and say in the bad release's notes that it is withdrawn and which one to use.
-- **Releases go out without asking the owner** (decided 23 Oct 2026; guidelines 1.2), through **the
+- **Fewer releases, each carrying more** (decided 26 Nov 2026; guidelines 1.2): no release for every single
+  fix or feature. Changes gather on `main` and go out together when a body of work is complete, as one
+  candidate through the gate and the hub's family check. Only a data-loss, security or crash fault (or a
+  breakage that stops users working) goes out on its own at once, with only that fix, its notes saying why.
+  A fault a user reports is fixed with its rig case and rides the next release unless it is one of those; the
+  hub's shared fixes ride it too unless the hub names one as the exception.
+- **Releases go out without asking the owner** (decided 23 Oct 2026; guidelines 1.2) when a body of work
+  on `main` is ready, through **the
   regression gate** (decided 17 Nov 2026: extra care with regressions, as people use
   the software: testing across every configuration, and no speed lost; AERA-Atari a22574e, standards/TEST-MATRIX.md's gate table). Every code candidate, in order:
   1. this repo's checks;
