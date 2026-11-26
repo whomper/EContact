@@ -41,7 +41,7 @@ void os_bounce_init(void)
 	void *p;
 	if (bounce || tt <= 0 || big_direct())
 		return;			/* no TT RAM (TOS 1.x: -32), or the driver bounces */
-	p = Mxalloc(BOUNCE, 0);
+	p = acc_core(BOUNCE, 0);	/* the accessory's own on plain TOS */
 	if ((long)p > 0)
 		bounce = p;
 }

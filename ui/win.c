@@ -6,6 +6,7 @@
  * over it, the chosen person's card on the right; Refresh and the menu
  * at the top right, the status in the info line.
  */
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include "ui.h"
@@ -467,9 +468,11 @@ void win_buffer_init(long free)
 		drawing = "straight on the screen (no memory for a buffer)";
 		return;
 	}
-	p = Mxalloc(size + 256, 0);			/* ST RAM, where the blitter reaches */
+	/* ST RAM, where the blitter reaches; an accessory's own on plain TOS
+	   (common's acc_core: else the program in front owns it) */
+	p = acc_core(size + 256, 0);
 	if ((long)p == -32 || (long)p == 0)		/* no Mxalloc: plain Malloc is ST RAM */
-		p = (unsigned char *)trap1_wl(0x48, size + 256);
+		p = acc_core(size + 256, -1);
 	if ((long)p <= 0)
 		return;
 	b = (unsigned char *)(((unsigned long)p + 255) & ~255UL);
@@ -497,7 +500,7 @@ void win_buffer_init(long free)
 		drawing = "off the screen, through the logical screen";
 		return;
 	}
-	trap1_wl(0x49, (long)p);			/* Mfree */
+	acc_free(p);
 }
 
 /* the program's end: the bitmap's workstation closed (the buffer goes

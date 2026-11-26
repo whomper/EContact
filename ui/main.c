@@ -1427,10 +1427,8 @@ static void acc_heap(void)
 		/* the rigs (NATFEATS=1): where the heap is, for acc_room.py's look
 		   at whether the program in front was given it */
 		char m[64];
-		void *q = malloc(16);
-		snprintf(m, sizeof(m), "ECONTACT heap at %08lx, %ld bytes", (unsigned long)q, acc_heap_bytes);
+		snprintf(m, sizeof(m), "ECONTACT heap at %08lx, %ld bytes", (unsigned long)acc_heap_at, acc_heap_bytes);
 		nf_debug(m);
-		free(q);
 	}
 }
 

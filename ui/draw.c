@@ -116,7 +116,7 @@ static unsigned short *st_buf;
 
 void st_ram_init(void)
 {
-	void *p = Mxalloc(sizeof(st_fallback), 0);
+	void *p = acc_core(sizeof(st_fallback), 0);	/* the accessory's own on plain TOS */
 	st_buf = (long)p > 0 ? p : st_fallback;
 }
 
