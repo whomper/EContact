@@ -79,7 +79,9 @@ def main():
     nph = int(args[3]) if len(args) > 3 else n // 2
     step = max(1, n // nph) if nph else 0
     st = machine.startswith("ST")
-    small = machine.startswith("ST-1") and not prg	# 1 MB: no Sync contact photos in the accessory
+    # under 1.5 MB free at boot (ST-1, ST-2: 2 MB less TOS and the accessory): no Sync contact
+    # photos in the accessory, its alert says so (decided 19 Oct 2026)
+    small = machine.startswith(("ST-1", "ST-2")) and not prg
     d = os.path.join(work, machine.replace(":", "-") + ("-prg" if prg else ""))
     shutil.rmtree(d, ignore_errors=True)
     hd = os.path.join(d, "hd")
@@ -231,7 +233,7 @@ def main():
               int(opened[1]) <= budget[1])
     check("refreshed with the window open", synced)
     if small:
-        check("Sync contact photos declined on a 1 MB machine", photod and len(opened) == 1)
+        check("Sync contact photos declined with under 1.5 MB free at boot", photod and len(opened) == 1)
     else:
         check("Sync contact photos ran", photod)
     shutil.copy(os.path.join(hd, "econtact.inf"), os.path.join(folder, "econtact.inf"))	# for card-cli
