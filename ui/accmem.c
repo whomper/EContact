@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include "tos.h"
 #include "accmem.h"
+#include "alert.h"
 
 long acc_heap_bytes, acc_heap_avail;
 short acc_heap_tt;
@@ -142,4 +143,25 @@ int acc_mem_line(char *buf, int size, long next_kb)
 	return snprintf(buf, (size_t)size, "memory: %ld KB in use, %ld KB at the most, of %ld KB%s%s; next start %ld KB",
 			heap_use / 1024, heap_peak / 1024, acc_heap_bytes / 1024, acc_heap_tt ? " (TT RAM)" : "",
 			early, next_kb);
+}
+
+/* under 2 MB of ST RAM (a 1 MB ST, a 520): the family's accessories don't
+   run there (decided 26 Nov 2026). TOS loads every accessory at boot and
+   it stays loaded, so on TOS 1.04 its image alone left 383 KB for the
+   program in front (EContact 2.17), less than ClaudeST, EMail or EPDF
+   needs to open its menu bar. The accessory can't unload itself: it takes
+   no heap and says so from its Desk entry */
+static long phystop_read(void)
+{
+	return *(volatile long *)0x42EL;
+}
+
+int acc_small_machine(void)
+{
+	return Supexec(phystop_read) < 2L * 1024 * 1024;
+}
+
+void acc_small_alert(const char *name, const char *file)
+{
+	alert(1, "[1][%s needs|an Atari with 2 MB or more.|Remove %s|from the boot drive.][ OK ]", name, file);
 }
