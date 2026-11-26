@@ -21,13 +21,9 @@ long Supexec(long (*f)(void))
 	(void)f;
 	return phystop;
 }
-#include <stdarg.h>
-short alert(short def, const char *fmt, ...)
+short form_alert(short def, const char *str)
 {
-	va_list ap;
-	va_start(ap, fmt);
-	vsnprintf(alerted, sizeof alerted, fmt, ap);
-	va_end(ap);
+	snprintf(alerted, sizeof alerted, "%s", str);
 	return def;
 }
 
@@ -209,7 +205,11 @@ int main(void)
 	check(!acc_small_machine(), "2 MB is not");
 	phystop = 4096 * KB;
 	check(!acc_small_machine(), "a 4 MB Falcon is not");
-	acc_small_alert("ECal", "ECAL.ACC");
+	{
+		long before = st_free;
+		acc_small_alert("ECal", "ECAL.ACC");
+		check(st_free == before, "the alert takes no memory (the AES's own)");
+	}
 	check(!strcmp(alerted, "[1][ECal needs|an Atari with 2 MB or more.|Remove ECAL.ACC|from the boot drive.][ OK ]"),
 	      "the alert names the program and its file");
 	printf("%d checks, %d failed\n", checks, failed);
