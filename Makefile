@@ -125,16 +125,19 @@ $(BIN)/econtact.prg: $(BIN)/econtact.acc
 # read-only data, the data and the BSS. 2.15: placed again against 2.14 (its
 # PNG code, inflate and png, linked last; http.c, photo.c and common's text.c
 # grown). 2.16: against 2.15 (common's ovl.c, popup.c, pic_ovl.c and tls_ovl.c;
-# the photos' own pens in card.c, draw.c, win.c and main.c).
+# the photos' own pens in card.c, draw.c, win.c and main.c). 2.18: against 2.17
+# (common's acc_core in libc.c, accmem.c, aboutbox.c, av.c, bigbuf.c, offdraw.c,
+# crash.c and gem.c; dialog.c with DLG_CLICK; main.c, card.c, draw.c, win.c,
+# plat_tos.c): all 1,401 symbols at 2.17's places modulo 256.
 # name:code[:bss[:ro[:data[:strings]]]] bytes, worked out with
 # common/tools/profpad.py --ship (the last release's ELF) over this link's objects:
 # change them when one of these objects' code or BSS changes, measured
 # with speed.py
 
 , := ,
-LPAD    := ovl:90 http:104:100:196 photo:12:246 libc:180:0:252 plat_tos:238 pic_ovl:98 main:220 draw:106:254 \
-           popup:54:240 dsp_ovl:0:0:248 sidebar:0:0:0:252 card:234 accmem:208 av:176 text:226:252 pic:28 \
-           png:122:0:16:228:151
+LPAD    := nf:18:0:122 crash:252 ovl:90 http:104:100:196 photo:12:246 libc:216:244:252:252 plat_tos:244 gem:212 \
+           main:62 draw:114:254 popup:54:240 dsp_ovl:0:0:248 sidebar:0:0:0:252 card:128:236 accmem:96:252 av:182 \
+           aboutbox:30 dd:0:240 offdraw:250:248 click:0:0:246 pic:28 png:0:0:16:228:24
 ifeq ($(PADS),no)
 LPAD    :=
 endif
