@@ -27,7 +27,8 @@
  *                              (decided 26 Nov 2026, guidelines 2.1); the
  *                              accessory takes no heap and its Desk entry
  *                              shows acc_small_alert's words
- *   acc_small_alert(name, file)   that alert: "[1][NAME needs|an Atari with
+ *   acc_small_alert(name, file)   that alert, the AES's own (form_alert:
+ *                              no memory taken): "[1][NAME needs|an Atari with
  *                              2 MB or more.|Remove FILE|from the boot drive.][ OK ]"
  *
  * The share when nothing is known (the first start, or a new machine):
